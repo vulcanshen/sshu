@@ -80,7 +80,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
  ───────────────────────────────────────────────────
  panel operation
  [/] Search                   everything under here
- [N]ew directory                  in this directory
+ [A]dd             a file, or name/ for a directory
  [T]ransfer all marks             to the other side
  [X] Delete all marks      erase them, on this host
  [C]lear marks          forget them, change nothing
@@ -323,7 +323,7 @@ panel `[5]` 把整個鍵盤交給遠端(`Esc`、`Tab`、`q` 都是遠端的)。�
 | **message** | Connect / Delete / Quit 確認、Toast | 短、確認 / auto-dismiss |
 | **viewport** | `?` help、`[H]istory`、**`[v]iew`** | 可捲、沒有游標 |
 | **form** | Add / Edit host | 多欄位、逐欄位 focus、一次提交 |
-| **input** | Rename、New directory | **一行**文字、一個問題、Enter 送出 |
+| **input** | Rename、**Add** | **一行**文字、一個問題、Enter 送出;Add 的 Enter 動詞跟著輸入變 |
 | **pty** | **tab [3] 的 panel `[5]`**、tab [2] 的 **`[e]dit`** | 外部程式在 sshu 內 render,鍵盤整個交出去 |
 
 **`input` 不是單欄位的 form**:form 是「填 N 個欄位、一次提交」,input 是「回答一個
@@ -467,7 +467,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` 四 panel、`remote.FS` 一介面兩實作、marks | `ui/sftptab.go` `remote/fs.go` |
 | `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限 | `remote/search.go` `ui/sftpsearch.go` |
 | `[2]` 傳輸:先 plan、進度、逐條 cancel、半檔清除 | `remote/copy.go` `ui/transfer.go` |
-| `[2]` rename / delete / new directory(遞迴刪除不跟隨 symlink) | `ui/sftpkeys.go` `remote/fs.go RemoveAll` |
+| `[2]` rename / delete / **add**(結尾 `/` 建目錄,否則建空檔;遞迴刪除不跟隨 symlink) | `ui/sftpkeys.go` `remote/fs.go RemoveAll` |
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |

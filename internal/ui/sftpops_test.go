@@ -170,40 +170,89 @@ func TestDeleteAndClearReadDifferently(t *testing.T) {
 	}
 }
 
-// New directory makes one in the directory being browsed, and leaves the cursor
-// on it — making a directory is almost always the first half of putting
-// something in it.
-func TestNewDirectoryLandsTheCursorOnIt(t *testing.T) {
+// One box makes both kinds, and the trailing slash is the whole of the
+// difference — the same way a shell has written directories forever.
+//
+// Either way the cursor lands on what was just made: making something is almost
+// always the first half of doing something with it.
+func TestAddMakesAFileOrADirectory(t *testing.T) {
+	for _, tc := range []struct {
+		typed string
+		name  string
+		isDir bool
+	}{
+		{"releases/", "releases", true},
+		{"notes.md", "notes.md", false},
+	} {
+		m := sftpFixture(t, 100, 26)
+		m.sftp.focus = panelLeftFiles
+		cwd := m.sftp.sides[sideLeft].cwd
+
+		m = pressA(m, "A")
+		if !m.input.isActive() {
+			t.Fatal("A should ask for a name")
+		}
+		if m.input.value != "" {
+			t.Errorf("the box should start empty, got %q", m.input.value)
+		}
+		m = typeText(m, tc.typed)
+		m = pressA(m, "enter")
+
+		info, err := os.Stat(filepath.Join(cwd, tc.name))
+		if err != nil {
+			t.Fatalf("%q made nothing: %v", tc.typed, err)
+		}
+		if info.IsDir() != tc.isDir {
+			t.Errorf("%q made isDir=%v, want %v", tc.typed, info.IsDir(), tc.isDir)
+		}
+		if !tc.isDir && info.Size() != 0 {
+			t.Errorf("%q made a file of %d bytes, want an empty one", tc.typed, info.Size())
+		}
+		e, ok := m.sftp.cur().cursorEntry()
+		if !ok || e.Name != tc.name {
+			t.Errorf("%q left the cursor on %q", tc.typed, e.Name)
+		}
+	}
+}
+
+// The rule lives in one character at the end of the line, so the box says which
+// side of it you are on WHILE you type. A label that only described the rule
+// would leave you finding out by pressing Enter.
+func TestAddSaysWhichKindItWillMake(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	cwd := m.sftp.sides[sideLeft].cwd
+	m = pressA(m, "A")
 
-	m = pressA(m, "N")
-	if !m.input.isActive() {
-		t.Fatal("N should ask for a name")
+	// Empty: the box has not been told anything yet, so it promises nothing.
+	if got := ansi.Strip(m.input.view()); strings.Contains(got, "create file") ||
+		strings.Contains(got, "create directory") {
+		t.Errorf("an empty box already claims a kind:\n%s", got)
 	}
-	if m.input.value != "" {
-		t.Errorf("the box should start empty, got %q", m.input.value)
+	// And it names the two answers where the typing happens.
+	if got := ansi.Strip(m.input.view()); !strings.Contains(got, "name/ for a directory") {
+		t.Errorf("the empty box does not say how to ask for a directory:\n%s", got)
 	}
-	m = typeText(m, "releases")
-	m = pressA(m, "enter")
 
-	info, err := os.Stat(filepath.Join(cwd, "releases"))
-	if err != nil || !info.IsDir() {
-		t.Fatalf("the directory was not created: %v", err)
+	file := ansi.Strip(typeText(m, "logs").input.view())
+	if !strings.Contains(file, "create file") {
+		t.Errorf("a plain name does not promise a file:\n%s", file)
 	}
-	e, ok := m.sftp.cur().cursorEntry()
-	if !ok || e.Name != "releases" {
-		t.Errorf("the cursor is on %q, want the new directory", e.Name)
+	dir := ansi.Strip(typeText(m, "logs/").input.view())
+	if !strings.Contains(dir, "create directory") {
+		t.Errorf("a trailing slash does not promise a directory:\n%s", dir)
 	}
 }
 
 // The same three refusals as a rename, because they are the same three ways to
-// mean something other than what you typed.
-func TestNewDirectoryRefusesBadNames(t *testing.T) {
+// mean something other than what you typed. Only the LAST slash is the type
+// marker; one anywhere else still makes it a path.
+func TestAddRefusesBadNames(t *testing.T) {
 	for _, tc := range []struct{ name, typed string }{
 		{"an existing name", "assets"},
+		{"an existing file", "main.go"},
 		{"a path", "a/b"},
+		{"a path ending in a slash", "a/b/"},
+		{"a slash on its own", "/"},
 		{"nothing at all", "   "},
 	} {
 		m := sftpFixture(t, 100, 26)
@@ -213,10 +262,17 @@ func TestNewDirectoryRefusesBadNames(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// An existing FILE is the dangerous one: Create truncates, so a refusal
+		// that only counted entries would call an emptied file a success.
+		existing, _ := os.ReadFile(filepath.Join(cwd, "main.go"))
 
-		m = pressA(m, "N")
+		m = pressA(m, "A")
 		m = typeText(m, tc.typed)
 		m = pressA(m, "enter")
+
+		if now, _ := os.ReadFile(filepath.Join(cwd, "main.go")); string(now) != string(existing) {
+			t.Errorf("%s: an existing file was emptied", tc.name)
+		}
 
 		after, err := os.ReadDir(cwd)
 		if err != nil {
@@ -232,7 +288,7 @@ func TestNewDirectoryRefusesBadNames(t *testing.T) {
 		// Counting entries is not enough on its own: MkdirAll over an existing
 		// directory is a no-op, so dropping the check would leave the count
 		// unchanged and still claim success. The refusal is the thing.
-		if tc.typed != "   " && (!m.toast.isActive() || m.toast.kind != toastError) {
+		if strings.TrimSpace(tc.typed) != "" && (!m.toast.isActive() || m.toast.kind != toastError) {
 			t.Errorf("%s: should have said no, toast=%q kind=%d",
 				tc.name, m.toast.msg, m.toast.kind)
 		}
@@ -247,7 +303,7 @@ func TestInputHintNamesItsAction(t *testing.T) {
 	// The RENDERING, not the field — the field is only worth anything if it
 	// reaches the hint line the user actually reads.
 	for _, tc := range []struct{ key, want, other string }{
-		{"N", "create", "rename"},
+		{"A", "create", "rename"},
 		{"r", "rename", "create"},
 	} {
 		got := ansi.Strip(pressA(m, tc.key).input.view())

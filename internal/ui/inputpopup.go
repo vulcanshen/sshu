@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -13,7 +15,7 @@ type inputAction int
 const (
 	inputNone inputAction = iota
 	inputRename
-	inputNewDir
+	inputAdd
 )
 
 // inputPopup is one line of text with a question above it — the message class's
@@ -34,6 +36,11 @@ type inputPopup struct {
 	// does not interpret it; it hands it back so the caller does not have to
 	// remember what was under the cursor two keystrokes ago.
 	subject string
+	// placeholder is shown in the empty box and vanishes at the first keystroke.
+	// Add needs it: that box asks one question with two answers, and the whole
+	// difference between them is one character at the end. A rule that small has
+	// to be said where the typing happens, not only in the menu that opened it.
+	placeholder string
 
 	layer   int
 	screenW int
@@ -55,6 +62,25 @@ func (m *inputPopup) ask(p inputPopup, layer int) tea.Cmd {
 	p.screenW, p.screenH = m.screenW, m.screenH
 	*m = p
 	return m.anim.open()
+}
+
+// acceptVerb is what Enter will actually do.
+//
+// For Add that is not fixed: the trailing slash decides, so the verb changes as
+// it is typed. Watching "create file" turn into "create directory" the moment
+// you press / is the disclosure — a static label could only describe the rule,
+// this one confirms which side of it you are on.
+func (m inputPopup) acceptVerb() string {
+	if m.action != inputAdd {
+		return m.accept
+	}
+	switch v := strings.TrimSpace(m.value); {
+	case v == "":
+		return m.accept
+	case strings.HasSuffix(v, "/"):
+		return "create directory"
+	}
+	return "create file"
 }
 
 // update edits the line. It reports the committed value, or "" — Esc is not
@@ -80,7 +106,9 @@ func (m *inputPopup) update(msg tea.KeyMsg) (committed string, done bool) {
 }
 
 func (m inputPopup) view() string {
-	innerW := popupInnerW(m.screenW, max(44, dispW(m.value)+8))
+	// The prompt sizes the box too. It is content — a path that has to be
+	// readable to answer the question — not a caption.
+	innerW := popupInnerW(m.screenW, max(44, dispW(m.value)+8, dispW(m.prompt)+3))
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	edit := lipgloss.NewStyle().Foreground(editColor)
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(editColor)
@@ -90,13 +118,18 @@ func (m inputPopup) view() string {
 	value := truncate(m.value, innerW-3)
 	line := " " + edit.Render(value) + cur.Render(" ") +
 		spaces(max(0, innerW-2-dispW(value)))
+	if m.value == "" && m.placeholder != "" {
+		ph := truncate(m.placeholder, innerW-3)
+		line = " " + cur.Render(" ") + dim.Render(ph) +
+			spaces(max(0, innerW-2-dispW(ph)))
+	}
 
 	rows := []string{
 		dim.Render(padRight(" "+m.prompt, innerW)),
 		spaces(innerW),
 		line,
 	}
-	hint := hintLegend([][2]string{{"Enter", m.accept}, {"Esc", "cancel"}})
+	hint := hintLegend([][2]string{{"Enter", m.acceptVerb()}, {"Esc", "cancel"}})
 	return drawPopupBox(popupLayerColor(m.layer), " "+m.glyph+" "+m.title+" ",
 		hint, animRows(m.anim, rows), innerW)
 }

@@ -759,7 +759,7 @@ panel-2 menu 同一個形狀:
  ───────────────────────────────────────────────────
  panel operation
  [/] Search                   everything under here
- [N]ew directory                  in this directory
+ [A]dd             a file, or name/ for a directory
  [T]ransfer all marks             to the other side
  [X] Delete all marks      erase them, on this host
  [C]lear marks          forget them, change nothing
@@ -768,7 +768,7 @@ panel-2 menu 同一個形狀:
 ```
 
 **大小寫本身就說明範圍**:**小寫作用在游標那一列,大寫作用在整個 panel。**
-`[m]ark` / `[r]ename` / `[t]ransfer` / `[x]` 對著一列;`[N]` / `[T]` / `[X]` /
+`[m]ark` / `[r]ename` / `[t]ransfer` / `[x]` 對著一列;`[A]` / `[T]` / `[X]` /
 `[C]` / `[S]` / `[P]` 對著這一側。tab [2] 是唯一需要這個區分的地方 —— 它是唯一
 兩種範圍並存、而且同一個動詞出現兩次的 tab(`[t]ransfer` / `[T]ransfer all
 marks`、`[x]` / `[X]`),讀的人必須不看 hint 欄就分得出來。
@@ -1304,10 +1304,11 @@ sshu 自己問,但問**便宜的那一題**。每秒重列一次是真的有成�
 **改名會帶著 mark 走**:mark 是一條路徑,改完名不動 mark 的話,那個 mark 就指著
 一個已經不存在的東西。
 
-**`[N]ew directory` 建在「正在瀏覽的那個目錄」裡**,是 panel 動作不是 item 動作
-—— 游標在哪跟它建在哪無關。建完游標會**停在新目錄上**:建目錄幾乎都是「把東西放
-進去」的前半段,在長清單裡再找一次它是沒人要求的後半段。三種拒絕跟改名一樣(空
-的、含 `/`、名字已存在),因為那是同樣三種「說出跟你想的不一樣的東西」的方式。
+**`[A]dd` 建在「正在瀏覽的那個目錄」裡**,是 panel 動作不是 item 動作 —— 游標在哪
+跟它建在哪無關。建完游標會**停在新的那一項上**:新增幾乎都是「拿它做點什麼」的前
+半段,在長清單裡再找一次它是沒人要求的後半段。三種拒絕跟改名一樣(空的、含 `/`、
+名字已存在),因為那是同樣三種「說出跟你想的不一樣的東西」的方式。檔案或目錄由結
+尾那條斜線決定,理由見 §7.3.5。
 
 **`[x]` 刪游標這一項,`[X]` 刪這一側全部 marks** —— 跟 `[t]ransfer` /
 `[T]ransfer all marks` 同一個大小寫分法。兩者都先問,而且問句都說**哪一個 / 幾個,
@@ -1451,6 +1452,49 @@ sshu 到處都是的那個緊急出口 —— 讓它在這一個 PTY 裡意思�
 **一次只准一個。** 兩個編輯器用沒人能推理的順序寫回去不是功能。box 開著的時候鍵盤
 在它手上,`e` 根本到不了動作表;而它**正在關**的那段動畫裡鍵盤已經還回來了
 (`popupAnimator.owns`),`sftpEdit` 裡那句拒絕就是為那個窗口存在的。
+
+### 7.3.5 `[A]dd` —— 一個框做兩件事,結尾那條斜線說是哪一件
+
+原本是 `[N]ew directory`。有了 `[e]dit` 之後,「開一個新檔然後編它」變成一個會反覆
+做的動作,而當時要做到它得先去別的地方開檔再回來。
+
+**一個框、兩種答案,差別是結尾那一個字元:**
+
+```
+logs      ->  檔案
+logs/     ->  目錄
+```
+
+這不是新發明的慣例:shell 一直是這樣寫目錄的,這個 app 自己的列表也是這樣畫的。
+另一個選項是兩個鍵、兩列 menu,去講同一件事。
+
+**它是大寫,而且那不是筆誤。** §7.3.2 的規則是小寫對游標那一項、大寫對整個 panel,
+而「在當前目錄裡新增」跟游標沒有關係 —— 游標停在哪裡都做同一件事。tab `[1]` 的
+`[A]dd` 也已經是這個字,所以整個 app 裡「做一個新的」就是同一個鍵。
+
+#### 一個藏在單一字元裡的規則,得說兩次
+
+`/` 這種規則的風險是它是隱形的。所以它在兩個地方現身,而且分工不同:
+
+1. **menu 的 hint 欄**:`[A]dd  ·  a file, or name/ for a directory` —— 這是你**學到**
+   它的地方(§4.4:hint 就是這個 surface 能做什麼的常設揭露)。
+2. **空框裡的 placeholder**:`name, or name/ for a directory` —— 直接長在你要打字的
+   那一行上,打第一個字就消失。
+
+而 **Enter 的動詞會跟著你打的字改**:空的時候是 `create`,打了 `logs` 變成
+`create file`,補上 `/` 變成 `create directory`。這一條才是真正的保險:前兩個只能
+*描述*規則,這一個是在你按下去之前**確認你在規則的哪一邊**。沒有它,你只能按下去
+才知道剛才做出了什麼。
+
+#### 三個拒絕,跟 rename 同一組
+
+空的、名字裡有 `/`、名字已經被佔用。**只有最後那一個斜線是型別標記** —— 出現在別的
+位置就是一條路徑,而路徑打進一個「名字」欄位,幾乎都是打錯而不是意圖:`a/b/` 要成立
+就得默默建出兩層目錄,而「你是不是想這樣」的正確答案不是沉默。
+
+「已經存在」這一條在有了檔案之後變得更重要:`Create` 會截斷。少了那個檢查,對一個
+已存在的名字按 Add 不是被拒絕,而是把那個檔案清空 —— 所以測試比對的是**內容有沒有
+被清掉**,不是目錄裡的項目數(數量在那個情況下根本不會變)。
 
 ### 7.4 tab [2] 的一次傳輸
 
@@ -1777,7 +1821,7 @@ X 回到 ~1.0。
 | `v` 讀檔:文字(上色 + 行號)/ hex / 目錄一層,上限 64 KiB | `ui/viewer.go` `remote/peek.go` |
 | `e` 在 `$EDITOR` 裡編輯:遠端抓下來再寫回、本機就地改 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `x` 刪游標這一項 / `X` 刪全部 marks(都先問、遞迴、**不跟隨 symlink**) | `remote/fs.go RemoveAll` |
-| `N` 在當前目錄建目錄,游標停在新目錄上 | `ui/sftpkeys.go doNewDir` |
+| `A` 在當前目錄建檔或建目錄(結尾 `/` 決定),游標停在新的那一項上 | `ui/sftpkeys.go doAdd` |
 | Space menu 分 item / panel 兩區,單一區時保持扁平 | `ui/sftpkeys.go sftpMenuItems` |
 | `t` / `T` 是兩個動作(游標這項 / 全部 marks),靠大小寫分 | `ui/sftpkeys.go` `ui/popup.go hotkeyIndex` |
 | Space menu 的標題是 focus 的那個 panel,與邊框膠囊同源 | `ui/app.go menuTitle` |
@@ -1829,6 +1873,9 @@ X 回到 ~1.0。
 | **遠端檔案裡的 ESC 到不了終端機** | `TestViewStripsControlSequences` |
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
+| `A` 兩種都做得出來,游標停在新的那一項 | `TestAddMakesAFileOrADirectory` |
+| **框在你打字時就說會做出哪一種** | `TestAddSaysWhichKindItWillMake` |
+| 路徑 / 空的 / 已存在都拒絕,而且不會清空既有檔案 | `TestAddRefusesBadNames` |
 | `e` 真的跑起編輯器,而且它寫的東西回得去 | `TestEditRunsTheEditorAndSavesWhatItChanged` |
 | 本機的檔就地編輯(inode 不動,hard link 還在) | `TestALocalFileIsEditedWhereItLives` |
 | **沒改就不寫回**(比內容,不比 mtime) | `TestAnEditThatChangedNothingIsNotWrittenBack` |
@@ -1920,7 +1967,7 @@ picker、input)—— 那裡的空白是字元(§4.2.1)。
 | 全部 | **`R`** | **Rename**(游標這一項,就地改名;含 `/` 會被拒絕) |
 | 全部 | **`x`** vs **`X`** | **Delete**(游標這一項)/ **Delete all marks**;都先問 |
 | 全部 | **`C`** | Clear marks —— 只忘記,不刪檔 |
-| `[4]` `[6]` | **`N`** | **New directory**(建在當前目錄) |
+| `[4]` `[6]` | **`A`** | **Add**(建在當前目錄;結尾 `/` 就是目錄) |
 | 全部 | **`t` vs `T`** | 傳游標這一項 / 傳這一側所有 marks(都送到對面的當前目錄) |
 | 沒有 host 的那一側 | 只有 `S` | 其他字母都不作用,menu 也只列這一項 |
 | `[4]` `[6]` | `Enter` · `Esc` | 進目錄 / **先退搜尋、再退上一層** |
