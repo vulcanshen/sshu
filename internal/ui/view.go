@@ -46,6 +46,9 @@ func (m AppModel) View() string {
 	if m.viewer.isActive() {
 		out = overlay.Composite(m.viewer.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.editorUI.isActive() {
+		out = overlay.Composite(m.editorUI.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.help.isActive() {
 		out = overlay.Composite(m.help.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}

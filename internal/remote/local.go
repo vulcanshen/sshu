@@ -77,6 +77,12 @@ func (localFS) Rename(from, to string) error {
 	return os.Rename(filepath.FromSlash(from), filepath.FromSlash(to))
 }
 
+// os.Rename already replaces, so here the two are the same call. The interface
+// splits them because the far end does not.
+func (localFS) Replace(from, to string) error {
+	return os.Rename(filepath.FromSlash(from), filepath.FromSlash(to))
+}
+
 func (localFS) Close() error { return nil }
 
 func (localFS) Open(p string) (io.ReadCloser, error) {

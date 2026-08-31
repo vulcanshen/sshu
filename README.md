@@ -122,6 +122,7 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | `m` | Mark / unmark it (on a marks panel, `m` unmarks) |
 | `r` | Rename it, in place |
 | `v` | **View it** — text with syntax highlighting and line numbers, a binary as hex, a directory as its listing |
+| `e` | **Edit it** in `$EDITOR` — fetched, edited, written back |
 | `t` | Transfer it to the other side's current directory |
 | `x` | Delete it (asks first) |
 | `/` | **Search the whole subtree** — results are ordinary rows, so `m` / `t` / `x` work on them |
@@ -155,6 +156,7 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 - **Two-sided sftp** — local ↔ remote ↔ remote through one `FS` interface. Marks are per side; a mark is an absolute path, so it follows a rename and is dropped when the file is deleted.
 - **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**: a result is an ordinary row, so marking and transferring it needs nothing new.
 - **Read before you fetch** — `v` shows the item under the cursor: text syntax-highlighted with line numbers (chroma, catppuccin-mocha — the same as filu), a binary as an xxd-style hex dump, a directory as one level of its listing. It reads at most 64 KiB, because on a remote side every byte of that crosses the network. Escape sequences in the file are stripped: those bytes come off someone else's machine and would otherwise repaint your terminal.
+- **Edit in your own editor** — `e` opens the item under the cursor in `$VISUAL` / `$EDITOR` (`vi` only as a floor, never a dependency), running inside the embedded terminal so the frame stays up. A remote file is fetched, edited and written back; a local one is edited where it lives, so its inode — and every hard link to it — survives. Nothing is written back unless the content actually changed, the write lands atomically so a dropped link cannot leave a truncated config behind, and a file that somebody else changed while you had it open is never overwritten without asking.
 - **A real transfer engine** — the whole plan is computed before anything is written, so the progress bar's denominator is right from the first frame and overwrites are asked about once, up front. Per-job cancel; a cancelled or failed file is removed rather than left looking complete.
 - **Directories that stay current, cheaply** — SFTP has no change notification, so sshu stats the directory and compares its mtime, and re-lists only when that moves. One small round trip every couple of seconds instead of a full listing, and only while the tab is on screen.
 - **Nothing dies silently** — a session that ends badly raises a toast naming the host and the reason; a clean `exit` says nothing, because that is what you asked for.

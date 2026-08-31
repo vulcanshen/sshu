@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -187,6 +188,25 @@ func (f *sftpFS) Lstat(p string) (Entry, error) {
 }
 
 func (f *sftpFS) Rename(from, to string) error { return f.client.Rename(from, to) }
+
+// posixRenameExt is OpenSSH's atomic rename-over-the-top. The base protocol's
+// rename REFUSES an existing destination, so without it there is no way to
+// replace a file in one step.
+const posixRenameExt = "posix-rename@openssh.com"
+
+// Replace prefers the extension and only falls back when the server says it does
+// not have it — never on an ordinary failure. The fallback removes the
+// destination first, and a permission error mistaken for a missing extension
+// would make that removal the thing that destroys the file.
+func (f *sftpFS) Replace(from, to string) error {
+	if _, ok := f.client.HasExtension(posixRenameExt); ok {
+		return f.client.PosixRename(from, to)
+	}
+	if err := f.client.Remove(to); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return f.client.Rename(from, to)
+}
 
 func (f *sftpFS) Close() error {
 	if f.client != nil {

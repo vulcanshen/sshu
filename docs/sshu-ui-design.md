@@ -753,6 +753,7 @@ panel-2 menu 同一個形狀:
  [m]ark                                      toggle
  [r]ename                           this item, here
  [v]iew                        read this item, here
+ [e]dit                   open this item in $EDITOR
  [t]ransfer            this item, to the other side
  [x] Delete                 this item, on this host
  ───────────────────────────────────────────────────
@@ -1373,6 +1374,84 @@ lexer 不是免費的。畫面不該等其中任何一個。
 
 **它是 viewport,不是清單**:沒有游標、不能選,`j`/`k`/`u`/`d` 捲動而且不繞(§4.2)。
 
+### 7.3.4 `[e]dit` —— 沒有 `sftp edit`,那支舞就是 sshu 自己跳
+
+kbu 的 edit 是 `kubectl edit` 跑在 embedded PTY 裡:抓下來、開編輯器、送回去,
+整套 dance 是 kubectl 做的,kbu 只負責設 `KUBE_EDITOR` 跟把它放進 PTY。SFTP 沒有
+這個代打,所以這裡是 sshu 自己的責任:
+
+```
+remote   抓成暫存檔  ->  $EDITOR  ->  內容變了嗎  ->  寫回去
+local    $EDITOR,對著真的那個檔
+```
+
+**local 那條不是最佳化。** 就地編輯保住 inode —— hard link、擁有者、xattr 都還在。
+複製出去再 rename 回來會把這三個都弄斷,而且是為了防一個根本沒參與的網路。
+
+**沒有大小上限,而且那是想清楚的結果。** edit 要的不變量是「絕不寫回一份讀不完整
+的內容」,那是靠「整份讀完、否則失敗」買到的,不是靠拒絕大檔。它串流,所以大小的
+代價是時間和磁碟、不是記憶體,而時間可以取消。拿「拒絕」去解一個「等待」的問題,
+代價會是你真的想編那個 8 MB 的 log 時被自己的工具擋在門外。
+
+#### 寫回去:先落在隔壁,再整個蓋過去
+
+`remote.WriteBack` 先寫同目錄的 `.sshu-tmp` 兄弟檔,再一步蓋過目標。斷線斷在寫到
+一半,原檔仍然完整 —— 而不是一份被截斷的設定檔,那種檔案下一個讀它的程式看不出來
+是半份。
+
+兩個例外,兩個都是刻意的:
+
+| | 做法 | 為什麼 |
+|---|---|---|
+| symlink | 寫穿過去 | rename 蓋上去會把連結換成普通檔案,你編的那個 dotfile 悄悄不再指向它原本的 repo |
+| 目錄不收新檔(你的檔、別人的目錄) | 原地寫 | 另一個選項是根本存不了 |
+
+SFTP 上的「蓋過去」用 OpenSSH 的 `posix-rename@openssh.com`(`FS.Replace`),因為
+基本協定的 rename 遇到目標存在會拒絕。**只有在伺服器明說沒有這個 extension 時才
+退回 remove-then-rename** —— 把一個權限錯誤誤判成「沒有 extension」,那個 remove
+就會變成毀掉檔案的那一步。
+
+#### 三個「先問」
+
+**「你改過嗎」用內容雜湊,不用 mtime。** 編輯器 `:w` 不管有沒有改都會重寫檔案,
+mtime 回答的是另一個問題。打開看一看然後 `:q`,不該產生一次寫入。
+
+**編輯期間別人改了那個檔 → 問。** 下載時記 size + mtime,寫回前再 stat 一次。這是
+這個功能唯一絕對不能有的結果:默默蓋掉別人的工作。而且不管你怎麼答,**本機那份副
+本都留著,並且告訴你它在哪** —— 拒絕覆寫不該是弄丟你剛打的字的那一步。
+
+**看起來不是文字 → 問,不是拒絕。** 判準是「沒有 NUL 且是合法 UTF-8」,而一個
+Latin-1 的設定檔過不了它、卻完全可以編輯。硬擋等於拿一個猜測去否決一個人對自己檔
+案的判斷。反正只有內容真的變了才會寫回去,開起來 `:q` 什麼都不會發生。
+
+#### 哪一個編輯器,以及怎麼把檔名交給它
+
+順序是 `$VISUAL` → `$EDITOR` → `vi`。**`vi` 是地板不是依賴** —— POSIX 保證它在,
+那是它被點名的唯一理由;三個都沒有就直說要設哪個變數,那句話就是整個修法。
+
+`$EDITOR` 是 **shell 語法、不是程式名**:`code -w`、`vim -u NONE`、含空白的路徑都
+得能動,所以交給 `sh -c`(git 跑編輯器也是這樣)。但**檔名是位置參數,絕不插進那
+段 script** —— 那個名字是從別人的機器上來的,一個叫 `; rm -rf ~` 的檔案必須以引數
+的身分抵達,不能變成第二道指令。
+
+**不告訴編輯器外面是哪台終端機。** `TERM_PROGRAM` / `KITTY_*` / `ITERM_*` /
+`COLORTERM` / `TERM` 全部剝掉,`TERM` 釘成 `xterm-256color`。編輯器跑在 vt10x
+裡,而 vt10x 不回答 DA1 那類查詢;nvim 讀到那些變數會判定這是一台高階終端機、送出
+查詢、等一個不會來的回覆,離開時卡住。sshu 沒辦法讓 emulator 回答,那就不要再自稱
+是那台會被問的終端機。(這條直接抄 kbu,它跑 `kubectl edit` 用的是同一份剝除清單。)
+
+#### 它在跑的時候,鍵盤整個是它的
+
+跟 panel `[5]` 一樣:Esc 是 vim 的 Esc、`q` 是一個字母、Space 是一個空白。留下兩個
+鍵 —— `Alt+Esc` 放棄這次編輯(tab [3] 那邊它是「把鍵盤拿回來」,這裡沒有別的 panel
+可以拿回去,所以拿回來就是離開,box 底下的 hint 就這樣寫),`Ctrl+C` 仍然是它在
+sshu 到處都是的那個緊急出口 —— 讓它在這一個 PTY 裡意思不一樣,緊急出口就不再是緊
+急出口了。
+
+**一次只准一個。** 兩個編輯器用沒人能推理的順序寫回去不是功能。box 開著的時候鍵盤
+在它手上,`e` 根本到不了動作表;而它**正在關**的那段動畫裡鍵盤已經還回來了
+(`popupAnimator.owns`),`sftpEdit` 裡那句拒絕就是為那個窗口存在的。
+
 ### 7.4 tab [2] 的一次傳輸
 
 **先算完整個 plan,再問。** `remote.Plan` 遞迴展開要建立的每一項(目錄也是一
@@ -1696,6 +1775,7 @@ X 回到 ~1.0。
 | `m` 標記(再按取消)/ `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
 | `r` 就地改名(預填舊名、拒絕覆寫、mark 跟著走) | `ui/sftpkeys.go` `ui/inputpopup.go` |
 | `v` 讀檔:文字(上色 + 行號)/ hex / 目錄一層,上限 64 KiB | `ui/viewer.go` `remote/peek.go` |
+| `e` 在 `$EDITOR` 裡編輯:遠端抓下來再寫回、本機就地改 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `x` 刪游標這一項 / `X` 刪全部 marks(都先問、遞迴、**不跟隨 symlink**) | `remote/fs.go RemoveAll` |
 | `N` 在當前目錄建目錄,游標停在新目錄上 | `ui/sftpkeys.go doNewDir` |
 | Space menu 分 item / panel 兩區,單一區時保持扁平 | `ui/sftpkeys.go sftpMenuItems` |
@@ -1749,6 +1829,14 @@ X 回到 ~1.0。
 | **遠端檔案裡的 ESC 到不了終端機** | `TestViewStripsControlSequences` |
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
+| `e` 真的跑起編輯器,而且它寫的東西回得去 | `TestEditRunsTheEditorAndSavesWhatItChanged` |
+| 本機的檔就地編輯(inode 不動,hard link 還在) | `TestALocalFileIsEditedWhereItLives` |
+| **沒改就不寫回**(比內容,不比 mtime) | `TestAnEditThatChangedNothingIsNotWrittenBack` |
+| **被別人改過的檔不會被默默蓋掉** | `TestAFileThatChangedUnderneathIsNotOverwritten` |
+| 寫到一半失敗,原檔完好 / symlink 不被換掉 | `TestWriteBackLeavesTheOriginalWhenTheWriteFails` / `TestWriteBackWritesThroughASymlink` |
+| **檔名是引數,不是 shell script 的一部分** | `TestTheFilenameIsAnArgumentNotAScript` |
+| 編輯器問不到外層終端機的身分 | `TestTheEditorIsNotToldWhichTerminalThisIs` |
+| 不是文字先問、不是檔案直接擋、一次只准一個 | `TestEditAsksBeforeOpeningSomethingThatIsNotText` / `TestEditRefusesWhatIsNotAFile` / `TestOnlyOneEditorAtATime` |
 | 覆寫會先問 | `TestSFTPOverwriteAsksFirst` |
 | 目錄複製進自己會被擋 | `TestSFTPRefusesSelfCopy` |
 | 傳輸可以取消 | `TestTransferCanBeCancelled` |
@@ -1837,7 +1925,7 @@ picker、input)—— 那裡的空白是字元(§4.2.1)。
 | 沒有 host 的那一側 | 只有 `S` | 其他字母都不作用,menu 也只列這一項 |
 | `[4]` `[6]` | `Enter` · `Esc` | 進目錄 / **先退搜尋、再退上一層** |
 | `[4]` `[6]` | `m` · `/` | 標記(可再按取消)/ **搜尋整棵子樹** |
-| `[4]` `[6]` `[5]` `[7]` | `r` · `v` | Rename / **View**(游標這一項) |
+| `[4]` `[6]` `[5]` `[7]` | `r` · `v` · `e` | Rename / View / **Edit**(游標這一項) |
 | 搜尋中 | 打字 · `Backspace` · `Esc` | 改 query / 空 query 再按就退出 / 退出 |
 | `[5]` `[7]` | `j`/`k` · `m` | 移動 / 取消這一個標記(**同一個 `m`**) |
 

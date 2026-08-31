@@ -74,6 +74,7 @@ var sftpActions = []sftpAction{
 	{key: "m", label: "Unmark", hint: "drop from marks", onMarks: true, run: AppModel.sftpUnmark},
 	{key: "r", label: "Rename", hint: "this item, here", onFiles: true, onMarks: true, run: AppModel.sftpRename},
 	{key: "v", label: "View", hint: "read this item, here", onFiles: true, onMarks: true, run: AppModel.sftpView},
+	{key: "e", label: "Edit", hint: "open this item in $EDITOR", onFiles: true, onMarks: true, run: AppModel.sftpEdit},
 	{key: "t", label: "Transfer", hint: "this item, to the other side", onFiles: true, onMarks: true, run: AppModel.sftpSendCursor},
 	{key: "x", label: "Delete", hint: "this item, on this host", onFiles: true, onMarks: true, run: AppModel.sftpDeleteCursor},
 
@@ -413,6 +414,43 @@ func (m AppModel) sftpView() (tea.Model, tea.Cmd) {
 
 	open := m.viewer.open(m.layer(), path.Base(p))
 	return m, tea.Batch(open, loadView(m.viewer.gen, s.fs, p, isDir))
+}
+
+// sftpEdit opens the item under the cursor in $EDITOR.
+//
+// Stat, not Lstat: a symlink to a config file is a config file, and opening it
+// is what any editor would do. The write-back is the half that has to know the
+// difference, and it takes the question up again there.
+func (m AppModel) sftpEdit() (tea.Model, tea.Cmd) {
+	s := m.sftp.cur()
+	p, ok := m.sftpCursorPath()
+	if !ok || s.fs == nil {
+		return m, m.toast.show("Nothing under the cursor", toastError)
+	}
+	// One editor at a time. Two of them writing back in an order nobody can
+	// predict is not a feature. (kbu makes the same refusal, for the same
+	// reason.)
+	if m.editorUI.isActive() {
+		return m, m.toast.show("An editor is already open", toastError)
+	}
+	e, err := s.fs.Stat(p)
+	if err != nil {
+		return m, m.toast.show("Cannot read "+path.Base(p), toastError)
+	}
+	if e.IsDir {
+		return m, m.toast.show("Cannot edit a directory", toastError)
+	}
+	// A device, socket or fifo has no contents to read and put back; read-modify
+	// -write on one means something else entirely.
+	if !e.Mode.IsRegular() {
+		return m, m.toast.show("Not a regular file", toastError)
+	}
+	return m.startEdit(editJob{
+		fsys:  s.fs,
+		path:  p,
+		mode:  e.Mode.Perm(),
+		stamp: remote.Stamp{Size: e.Size, ModTime: e.ModTime},
+	}, e.Size)
 }
 
 // sftpNewDir makes a directory in the one being browsed. It is a panel action,
