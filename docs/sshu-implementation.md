@@ -71,14 +71,14 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 **兩個 region**(tab [1]/[2]/[3] 皆然,鏡射 kbu 的 panel-2 menu):
 
 ```
- item . deploy.sh          ← 標題是那一列的名字
+ item operation
  Enter                       Enter . open directory
  [m]ark                                      toggle
  [r]ename                           this item, here
  [t]ransfer            this item, to the other side
  [x] Delete                 this item, on this host
  ───────────────────────────────────────────────────
- panel
+ panel operation
  [/] Search                   everything under here
  [N]ew directory                  in this directory
  [T]ransfer all marks             to the other side
@@ -88,7 +88,8 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
  [P]rogress                   transfers, and cancel
 ```
 
-- **item region 的標題是那一列的名字** —— `[x]` 要讀在它會刪掉的那個東西旁邊
+- **兩個 region 的標題是 `item operation` / `panel operation`**,三個 tab 共用
+  同兩個字串 —— 措辭不一樣的 menu 會讀成另一**種**選單
 - **只有一個 region 就保持扁平**:標題壓在單一群組上是雜訊
 - **沒有目標就沒有那一區**:空目錄沒有 item 動作、沒選 host 的那一側只剩
   `[S]elect host`,而且**字母跟著一起消失**(hotkey 與 menu 走同一個
@@ -114,6 +115,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 | **green `#a6e3a1`** | 正在進行 / 成功:`[5]` 顯示中的 session、sftp marks、history 的 `exited 0` | 不當裝飾 |
 | **red / peach** | warning / error | **不拿去標 auth method** |
 | **glyph** | 型別訊號(auth 方式、檔案 vs 目錄、mark) | 不拿去表達狀態 |
+| **`[4]` 的前景 / 背景** | 前景 = 正在 `[5]` 顯示;背景 = 游標 | 兩條獨立通道,不互相代替 |
 | **大小寫**(tab [2]) | 作用範圍:小寫 = 游標那一列、大寫 = 整個 panel | 其他 tab 不用它表達範圍 |
 
 **auth method 用 glyph 不用顏色**(鑰匙 / 鎖),因為紅與桃色留給警告。

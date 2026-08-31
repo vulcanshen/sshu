@@ -33,14 +33,13 @@ const (
 	// Derived, not a separate constant to forget: the split is worth keeping while
 	// the PTY still has enough columns to be a terminal. Narrowing the left column
 	// therefore also lets the split survive on narrower terminals.
-	sshNarrowW    = sshLeftW + 28
-	sshListGlyphW = 2 // fixed marker column: the glyph plus its trailing space
+	sshNarrowW   = sshLeftW + 28
+	sshListLeadW = 1 // one cell of breathing room before the name
 	// Both lists put an identifying detail at the right edge of the name line and
 	// let the name wrap against it. Neither is ever truncated: a port you cannot
 	// read does not identify a session, and a time you cannot read does not date
 	// one. ":65535" and "15:04:05" are the widest each gets.
-	sshPortW = 6
-	sshTimeW = 8
+	sshPortW = 5 // "65535"; the port is never truncated
 )
 
 // sshTick polls the PTYs: it both reaps finished sessions and refreshes the
@@ -336,7 +335,7 @@ func (m sshModel) panelTitle(p sshPanel) string {
 
 func (m sshModel) sessionsPanel(w, h int) string {
 	innerW, innerH := w-2, h-2
-	rows := fitLines(m.listBody(m.sessions, m.curSess, m.topSess, innerW, innerH, false), innerW, innerH)
+	rows := fitLines(m.listBody(m.sessions, m.curSess, m.topSess, innerW, innerH), innerW, innerH)
 	return panelChrome(innerW, rows, m.panelTitle(panelSessions), m.focus == panelSessions)
 }
 
@@ -368,130 +367,81 @@ func (m sshModel) ptyEmpty(innerW, innerH int) []string {
 	return append(out, line)
 }
 
-// listBody lays out one of the two lists. Each entry is a block: the wrapped
-// name, plus (history only) a dim line saying how it ended — history exists to
-// answer that, so dropping it would leave a list of bare names.
-func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int, withReason bool) []string {
+// listBody lays out [4]. Each entry is a block, because a long address wraps.
+func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		dim := lipgloss.NewStyle().Foreground(dimColor)
-		empty := "none"
-		if withReason {
-			empty = "nothing ended yet"
-		}
-		return []string{dim.Render(padRight(" "+empty, innerW))}
+		return []string{dim.Render(padRight(" none", innerW))}
 	}
 
 	out := make([]string, 0, max(0, innerH))
 	for i := top; i < len(items) && len(out) < innerH; i++ {
-		out = append(out, m.listItem(items[i], i == cursor, innerW, withReason)...)
+		out = append(out, m.listItem(items[i], i == cursor, innerW)...)
 	}
 	return out
 }
 
-// listItem lays out one row of [4] or [6].
+// listItem lays out one row of [4]:
 //
-//	[4]  <glyph><space><name…><port>
-//	[6]  <space><space><name…><time>
-//	     <space><space><reason>
+//	<space><user>@<host>…<port>
 //
-// Both put an identifying detail at the right edge of the name line, which is
-// where the empty space was. [6] shows the time it ENDED — that is the event the
-// entry records — and no date: history lives in memory and dies with the
-// process, so a date could only ever say today.
+// The row says what the connection IS rather than what it is called: two saved
+// hosts can share a machine and a name is a label somebody chose, but
+// `deploy@10.0.3.14` is the thing ssh actually did. The port sits at the right
+// edge of the name line, which is where the empty space was, and never truncates.
 //
-// Colour, in [4]:
+// Colour is TWO independent channels:
 //
-//	cursor + on screen  ->  green BACKGROUND, uncoloured text  (inverse)
-//	cursor              ->  handColor background, uncoloured text
-//	on screen           ->  green foreground on glyph and name
-//	otherwise           ->  plain text
+//	foreground  ->  green when this is the session [5] is showing
+//	background  ->  the cursor bar
 //
-// A row can only carry one background. Rather than let the cursor bar hide the
-// fact that this is the session on screen, the two signals combine there: the
-// bar takes the colour the foreground would have had.
+// Because they are different channels there is no contention and no special
+// case — which is what removed both the old inverse (a green BACKGROUND when the
+// cursor landed on the on-screen row) and the terminal glyph that used to carry
+// the same signal a second time.
 //
-// In [6] the colour belongs to the REASON only — "exited 0" is green, a failure
-// is red — and the name stays plain. How a session ended is a property of the
-// ending, not of the host, so painting the whole row would overstate it.
-func (m sshModel) listItem(s *session, isCursor bool, innerW int, withReason bool) []string {
-	onScreen := !withReason && s.id == m.current
-
+// Where the two do meet, the bar wins and that one row's green is not visible.
+// That is the trade, and it is a cheap one: the cursor is on the row, and [5]'s
+// own title beside it is naming that session.
+func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 	nameFG := textColor
-	if onScreen {
+	if s.id == m.current {
 		nameFG = liveColor
-	}
-	reasonFG := warnColor
-	if s.ok {
-		reasonFG = liveColor
 	}
 
 	body := lipgloss.NewStyle().Foreground(nameFG)
-	reason := lipgloss.NewStyle().Foreground(reasonFG)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	if isCursor {
-		// The cursor is always a filled bar. It inverts only for the on-screen
-		// session, where the bar would otherwise erase that signal outright; a
-		// history row loses its reason colour under the bar, which is fine —
-		// the text still says what happened.
-		bg := handColor
-		if onScreen {
-			bg = liveColor
-		}
-		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(bg)
-		body, reason, dim = bar, bar, bar
+		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
+		body, dim = bar, bar
 	}
 
-	// The marker column is a fixed slot: the glyph appears and disappears without
-	// shifting the name sideways (filu's pick-mark rule).
-	marker, gutter := "  ", "  "
 	// tailCell is the gap AND the slot together — one number, so the gap cannot be
 	// counted twice (subtracted from the name and again inside the slot), which is
 	// exactly how this row once came out a cell short.
-	tailW := sshPortW
-	if withReason {
-		tailW = sshTimeW
-	}
 	tailCell := 0
-	if innerW >= sshListGlyphW+tailW+2 {
-		tailCell = tailW + 1
-	}
-	if onScreen {
-		marker = glyphOnScreen + " "
+	if innerW >= sshListLeadW+sshPortW+2 {
+		tailCell = sshPortW + 1
 	}
 
-	// The ordinal rides along with the name instead of owning a slot: it is the
-	// only thing separating two sessions to the same host, and the port cannot
-	// do that job.
-	label := s.host.Name
+	// The ordinal rides along with the address instead of owning a slot: it is
+	// the only thing separating two sessions to the same host, and neither the
+	// address nor the port can do that job.
+	label := s.host.User + "@" + s.host.Host
 	if tag := s.ordinalTag(); tag != "" {
 		label += " " + tag
 	}
-	nameW := max(1, innerW-sshListGlyphW-tailCell)
+	nameW := max(1, innerW-sshListLeadW-tailCell)
 	lines := wrapText(label, nameW)
 
-	tailText := ""
-	if tailCell > 0 {
-		tailText = ":" + strconv.Itoa(s.host.Port)
-		if withReason {
-			tailText = s.ended.Format("15:04:05")
-		}
-	}
-
-	out := make([]string, 0, len(lines)+1)
+	lead := strings.Repeat(" ", sshListLeadW)
+	out := make([]string, 0, len(lines))
 	for i, l := range lines {
-		lead := marker
-		if i > 0 {
-			lead = gutter
-		}
 		tail := strings.Repeat(" ", tailCell)
 		if tailCell > 0 && i == len(lines)-1 {
-			tail = padLeft(tailText, tailCell)
+			tail = padLeft(strconv.Itoa(s.host.Port), tailCell)
 		}
 		out = append(out, body.Render(lead+padRight(l, nameW))+dim.Render(tail))
-	}
-
-	if withReason && s.reason != "" {
-		out = append(out, reason.Render(padRight(gutter+s.reason, innerW)))
 	}
 	return out
 }

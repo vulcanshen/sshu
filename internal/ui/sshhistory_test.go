@@ -154,11 +154,47 @@ func TestHistoryIsAPanelActionInTheMenu(t *testing.T) {
 			region = it.label
 		}
 		if it.key == "H" {
-			if region != "panel" {
-				t.Errorf("History is in the %q region, want panel", region)
+			if region != menuPanelRegion {
+				t.Errorf("History is in the %q region, want %q", region, menuPanelRegion)
 			}
 			return
 		}
 	}
 	t.Error("the menu does not offer History")
+}
+
+// History answers "how did this end", and the answer is carried by the REASON
+// text alone — "exited 0" in green, a failure in red. The name stays plain: how
+// a session ended is a property of the ending, not of the host.
+//
+// This rule outlived the panel it was written for; it moved here with the rows.
+func TestHistoryColoursTheReasonNotTheRow(t *testing.T) {
+	withColour(t)
+	m := sshApp(t, sample())
+	m.historyUI.setSize(100, 28)
+	m.historyUI.anim.phase = animOpen
+
+	green, red := ansiOf(t, liveColor), ansiOf(t, warnColor)
+	for _, tc := range []struct {
+		name       string
+		s          *session
+		want, gone string
+	}{
+		{"clean", endedSession("alpha", "exited 0", true), green, red},
+		{"failed", endedSession("beta", "disconnected", false), red, green},
+	} {
+		row := m.historyUI.view([]*session{tc.s})
+		if !strings.Contains(row, tc.want) {
+			t.Errorf("%s: the reason should carry its outcome colour", tc.name)
+		}
+		if strings.Contains(row, tc.gone) {
+			t.Errorf("%s: the reason carries the wrong colour", tc.name)
+		}
+		// The name keeps the plain text colour. If the outcome colour had been
+		// painted over the whole row instead, that span would not be there.
+		if !strings.Contains(row, ansiOf(t, textColor)) {
+			t.Errorf("%s: the name should be plain text, not the outcome colour",
+				tc.name)
+		}
+	}
 }

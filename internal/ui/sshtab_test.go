@@ -3,11 +3,13 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
@@ -506,62 +508,6 @@ func TestEndedSessionLeavesThePanel(t *testing.T) {
 	}
 }
 
-// [6] answers "how did this end", and the answer is carried by the REASON text
-// alone — "exited 0" in green, a failure in red. The name stays plain: how a
-// session ended is a property of the ending, not of the host.
-func TestHistoryColoursTheReasonNotTheRow(t *testing.T) {
-	withColour(t)
-	m := sshApp(t, sample())
-	m.ssh.setSize(100, 28)
-
-	clean := &session{id: 1, host: sample()[0], state: sessEnded, reason: "exited 0", ok: true}
-	broken := &session{id: 2, host: sample()[1], state: sessEnded, reason: "disconnected"}
-	m.ssh.history = []*session{clean, broken}
-
-	green, red := ansiOf(t, liveColor), ansiOf(t, warnColor)
-
-	for _, tc := range []struct {
-		name       string
-		s          *session
-		want, gone string
-	}{
-		{"clean", clean, green, red},
-		{"failed", broken, red, green},
-	} {
-		lines := m.ssh.listItem(tc.s, false, 24, true)
-		nameLines := strings.Join(lines[:len(lines)-1], "\n")
-		reasonLine := lines[len(lines)-1]
-
-		if !strings.Contains(reasonLine, tc.want) {
-			t.Errorf("%s: the reason should carry its outcome colour\n%q", tc.name, reasonLine)
-		}
-		if strings.Contains(reasonLine, tc.gone) {
-			t.Errorf("%s: the reason carries the wrong colour", tc.name)
-		}
-		// The correction: the name must NOT be painted.
-		for _, c := range []string{green, red} {
-			if strings.Contains(nameLines, c) {
-				t.Errorf("%s: only the reason should be coloured, not the name\n%q", tc.name, nameLines)
-			}
-		}
-	}
-
-}
-
-// The on-screen marker belongs to [4] only — [6] has no live sessions, so a
-// "this one is showing" glyph there would be meaningless.
-func TestHistoryHasNoOnScreenMarker(t *testing.T) {
-	m := sshApp(t, sample())
-	past := &session{id: 7, host: sample()[0], state: sessEnded, reason: "exited 0", ok: true}
-	m.ssh.history = []*session{past}
-	m.ssh.current = 7 // even if the id somehow matched, [6] must not mark it
-
-	got := strings.Join(m.ssh.listItem(past, false, 24, true), "\n")
-	if strings.Contains(got, glyphOnScreen) {
-		t.Error("history rows must not carry the on-screen marker")
-	}
-}
-
 // Focusing the PTY folds the lists away and gives it the whole tab; leaving
 // brings them back. The remote is resized both ways, or it paints to the wrong
 // geometry.
@@ -605,39 +551,54 @@ func TestSessionRowColourCases(t *testing.T) {
 	green, hand := ansiOf(t, liveColor), ansiOf(t, handColor)
 	greenBG, handBG := ansiBgOf(t, liveColor), ansiBgOf(t, handColor)
 
-	// B: the on-screen session is green in the foreground.
-	row := strings.Join(m.ssh.listItem(shown, false, 24, false), "\n")
+	// Foreground says on-screen.
+	row := strings.Join(m.ssh.listItem(shown, false, 24), "\n")
 	if !strings.Contains(row, green) {
 		t.Error("the on-screen session should be green")
 	}
-	if !strings.Contains(row, glyphOnScreen) {
-		t.Error("the on-screen session should carry the terminal glyph")
+	if strings.Contains(row, greenBG) {
+		t.Error("green belongs in the foreground, not behind the row")
 	}
 
-	// A: an ordinary cursor row is a plain bar.
-	row = strings.Join(m.ssh.listItem(other, true, 24, false), "\n")
+	// Background says cursor — the same bar on every row, including that one.
+	row = strings.Join(m.ssh.listItem(other, true, 24), "\n")
 	if !strings.Contains(row, handBG) {
 		t.Error("the cursor should be a filled bar")
 	}
+	row = strings.Join(m.ssh.listItem(shown, true, 24), "\n")
+	if !strings.Contains(row, handBG) {
+		t.Error("the cursor over the on-screen session is the same bar")
+	}
 	if strings.Contains(row, greenBG) {
-		t.Error("an ordinary cursor row must not be green")
-	}
-
-	// C: cursor ON the on-screen session inverts — green background instead.
-	row = strings.Join(m.ssh.listItem(shown, true, 24, false), "\n")
-	if !strings.Contains(row, greenBG) {
-		t.Error("the cursor over the on-screen session should invert to a green bar")
-	}
-	if strings.Contains(row, handBG) {
-		t.Error("the inverted row must not also paint the ordinary cursor colour")
+		t.Error("there is no inverse case any more — green never becomes a background")
 	}
 
 	// And an ordinary row is neither.
-	row = strings.Join(m.ssh.listItem(other, false, 24, false), "\n")
+	row = strings.Join(m.ssh.listItem(other, false, 24), "\n")
 	for name, seq := range map[string]string{"green": green, "cursor": hand} {
 		if strings.Contains(row, seq) {
 			t.Errorf("an ordinary row should carry no %s", name)
 		}
+	}
+}
+
+// The row says what the connection IS, not what it is called.
+func TestSessionRowShowsUserAtHost(t *testing.T) {
+	m := sshApp(t, sample())
+	m.ssh.setSize(100, 28)
+	h := sample()[0]
+	s := &session{id: 1, host: h, state: sessLive}
+	m.ssh.sessions = []*session{s}
+
+	row := ansi.Strip(strings.Join(m.ssh.listItem(s, false, 40), "\n"))
+	if want := h.User + "@" + h.Host; !strings.Contains(row, want) {
+		t.Errorf("row is %q, want it to carry %q", row, want)
+	}
+	if strings.Contains(row, h.Name) {
+		t.Errorf("the row should not fall back to the saved name: %q", row)
+	}
+	if !strings.Contains(row, strconv.Itoa(h.Port)) {
+		t.Errorf("the port is missing: %q", row)
 	}
 }
 
@@ -647,19 +608,20 @@ func TestSessionRowAlwaysShowsThePort(t *testing.T) {
 	m := sshApp(t, sample())
 	m.ssh.setSize(100, 28)
 
-	long := store.Host{Name: "db-replica-tokyo-ap-northeast-1-standby", Host: "h", Port: 2222,
-		User: "u", Auth: store.AuthPassword}
+	// The ADDRESS is what wraps now, so that is what has to be long.
+	long := store.Host{Name: "db", Host: "db-replica-tokyo.ap-northeast-1.internal",
+		Port: 2222, User: "postgres", Auth: store.AuthPassword}
 	s := &session{id: 1, host: long, state: sessLive}
 	m.ssh.sessions = []*session{s}
 
 	for _, innerW := range []int{24, 20, 16, 12} {
-		lines := m.ssh.listItem(s, false, innerW, false)
+		lines := m.ssh.listItem(s, false, innerW)
 		joined := strings.Join(lines, "\n")
-		if !strings.Contains(joined, ":2222") {
+		if !strings.Contains(joined, "2222") {
 			t.Errorf("innerW=%d: the port was truncated away\n%s", innerW, joined)
 		}
 		if len(lines) < 2 {
-			t.Errorf("innerW=%d: a 38-char name should have wrapped", innerW)
+			t.Errorf("innerW=%d: a 49-char address should have wrapped", innerW)
 		}
 		for i, l := range lines {
 			if dispW(l) != innerW {
@@ -819,43 +781,6 @@ func TestDumpSSH(t *testing.T) {
 
 // A history row carries the time it ended, on the name line where the space was
 // going unused. Time only: history dies with the process, so a date could only
-// ever say today.
-func TestHistoryRowShowsEndTime(t *testing.T) {
-	m := sshApp(t, sample())
-	m.ssh.setSize(100, 28)
-
-	ended := time.Date(2026, 8, 31, 14, 2, 11, 0, time.Local)
-	past := &session{id: 1, host: sample()[0], state: sessEnded,
-		reason: "exited 0", ok: true, ended: ended}
-	m.ssh.history = []*session{past}
-
-	lines := m.ssh.listItem(past, false, 24, true)
-	joined := strings.Join(lines, "\n")
-	if !strings.Contains(joined, "14:02:11") {
-		t.Errorf("the end time should be on the row\n%s", joined)
-	}
-	if strings.Contains(joined, "2026") || strings.Contains(joined, "08-31") {
-		t.Errorf("no date belongs here\n%s", joined)
-	}
-	// It rides the name line, not the reason line.
-	if !strings.Contains(lines[0], "14:02:11") {
-		t.Errorf("the time should sit at the end of the name line\n%q", lines[0])
-	}
-	if strings.Contains(lines[len(lines)-1], "14:02:11") {
-		t.Error("the reason line should not repeat the time")
-	}
-
-	// And it is never squeezed out, however long the name.
-	long := *past
-	long.host.Name = "db-replica-tokyo-ap-northeast-1-standby-2"
-	for _, innerW := range []int{24, 20, 16, 12} {
-		got := strings.Join(m.ssh.listItem(&long, false, innerW, true), "\n")
-		if !strings.Contains(got, "14:02:11") {
-			t.Errorf("innerW=%d: the time was truncated away\n%s", innerW, got)
-		}
-	}
-}
-
 // Duplicate opens a second session to the host already under the cursor — the
 // point is not having to go back to [1] for it.
 func TestDuplicateOpensASecondSessionToTheSameHost(t *testing.T) {

@@ -137,9 +137,9 @@ func (m AppModel) sftpKey(k string) (tea.Model, tea.Cmd) {
 // sftpMenuItems is tab [2]'s §A.1 contents, in two labelled regions: what
 // happens to the row under the cursor, and what happens to this side.
 //
-// The item header names the row, so "Delete" is read next to the thing it would
-// delete rather than being read as "delete something around here". The popup's
-// own title already names the panel, so the panel header is just the word.
+// WHICH row is not repeated in the header — the cursor is on it, the popup's own
+// title names the panel, and the labels are the family's ("item operation" /
+// "panel operation", from kbu). Naming the row here was tried and dropped.
 //
 // A menu with only ONE region stays flat: a header over a single group is noise,
 // and the no-host menu is one row that needs no explaining (kbu's rule).
@@ -159,20 +159,11 @@ func (m AppModel) sftpMenuItems() []menuItem {
 		return append(item, panel...)
 	}
 
-	out := []menuItem{{label: m.sftpItemLabel(), header: true}}
+	out := []menuItem{{label: menuItemRegion, header: true}}
 	out = append(out, item...)
-	out = append(out, menuItem{separator: true}, menuItem{label: "panel", header: true})
+	out = append(out, menuItem{separator: true},
+		menuItem{label: menuPanelRegion, header: true})
 	return append(out, panel...)
-}
-
-// sftpItemLabel names what the item region acts on. Both sides of this tab look
-// alike and a mark three directories away is not visible from here, so the menu
-// says which row it is about.
-func (m AppModel) sftpItemLabel() string {
-	if p, ok := m.sftpCursorPath(); ok {
-		return "item . " + path.Base(p)
-	}
-	return "item"
 }
 
 // ------------------------------------------------------------------ actions

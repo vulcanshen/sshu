@@ -3,7 +3,6 @@ package ui
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -34,8 +33,8 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 	m = pressA(m, "j") // deploy.sh
 
 	items := m.sftpMenuItems()
-	if items[0].label != "item . deploy.sh" || !items[0].header {
-		t.Fatalf("the item region should name the row, got %q", items[0].label)
+	if items[0].label != menuItemRegion || !items[0].header {
+		t.Fatalf("the first row should be the item region, got %q", items[0].label)
 	}
 
 	// A separator between the groups, and the panel label after it.
@@ -48,20 +47,21 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 	if sep < 0 {
 		t.Fatal("the two regions should be divided by a rule")
 	}
-	if items[sep+1].label != "panel" || !items[sep+1].header {
+	if items[sep+1].label != menuPanelRegion || !items[sep+1].header {
 		t.Errorf("after the rule comes the panel label, got %q", items[sep+1].label)
 	}
 
 	got := regions(items)
 	for _, k := range []string{"enter", "m", "r", "t", "x"} {
-		if !hasKey(got["item . deploy.sh"], k) {
+		if !hasKey(got[menuItemRegion], k) {
 			t.Errorf("%q should be an item action, region has %v",
-				k, got["item . deploy.sh"])
+				k, got[menuItemRegion])
 		}
 	}
 	for _, k := range []string{"/", "N", "T", "X", "C", keySelectHost, "P"} {
-		if !hasKey(got["panel"], k) {
-			t.Errorf("%q should be a panel action, region has %v", k, got["panel"])
+		if !hasKey(got[menuPanelRegion], k) {
+			t.Errorf("%q should be a panel action, region has %v",
+				k, got[menuPanelRegion])
 		}
 	}
 }
@@ -163,25 +163,38 @@ func TestDeletingAMarkedRowDropsItsMark(t *testing.T) {
 	}
 }
 
-// The item header is the only thing naming WHICH row, so it has to follow the
-// cursor rather than being written once.
-func TestItemRegionFollowsTheCursor(t *testing.T) {
-	m := sftpFixture(t, 100, 26)
-	m.sftp.focus = panelLeftFiles
+// All three tabs word their regions the same way. A menu whose headers differ
+// from another's reads as a different KIND of menu rather than as the same one.
+func TestEveryTabWordsItsRegionsTheSameWay(t *testing.T) {
+	seen := map[string]bool{}
+	collect := func(items []menuItem) {
+		for _, it := range items {
+			if it.header {
+				seen[it.label] = true
+			}
+		}
+	}
 
-	var seen []string
-	for i := 0; i < 3; i++ {
-		seen = append(seen, m.sftpMenuItems()[0].label)
-		m = pressA(m, "j")
+	collect(appWith(sample(), nil).menuItems())
+
+	s := sftpFixture(t, 100, 26)
+	s.sftp.focus = panelLeftFiles
+	collect(s.sftpMenuItems())
+
+	h := openOne(t)
+	next, _ := h.Update(keyMsg("alt+esc"))
+	h = settle(next.(AppModel))
+	if h.ssh.focus != panelSessions {
+		t.Fatalf("setup: alt+esc should leave the pty, focus=%d", h.ssh.focus)
 	}
-	for i := 1; i < len(seen); i++ {
-		if seen[i] == seen[i-1] {
-			t.Fatalf("the item header did not follow the cursor: %v", seen)
+	collect(h.sshMenuItems())
+
+	for label := range seen {
+		if label != menuItemRegion && label != menuPanelRegion {
+			t.Errorf("a menu region is worded %q, want one of the two constants", label)
 		}
 	}
-	for _, s := range seen {
-		if !strings.HasPrefix(s, "item . ") {
-			t.Errorf("odd item label %q", s)
-		}
+	if !seen[menuItemRegion] || !seen[menuPanelRegion] {
+		t.Errorf("expected both regions across the three tabs, saw %v", seen)
 	}
 }

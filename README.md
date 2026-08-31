@@ -142,6 +142,8 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | `H` | History — sessions that have ended, and why |
 | **`Alt+Esc`** | **Take the keyboard back from the remote** |
 
+Rows read `<user>@<host>` with the port at the right edge — what the connection is, not what it is called — and the one `[5]` is showing is green.
+
 `Alt+Esc` is sshu's own key and exists for exactly one situation: `[5]` hands every keystroke to the remote, so something has to be able to take it back. Everywhere else, plain `Esc` is enough.
 
 ## Features

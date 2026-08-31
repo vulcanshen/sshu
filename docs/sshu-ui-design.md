@@ -427,7 +427,6 @@ blue**,而不是把這裡改回去 —— 那只會退回「看不出被選中�
 |---|---|---|
 | Auth 欄(privatekey) | 金鑰 | `nf-fa-key` `U+F084` |
 | Auth 欄(password) | 密碼鎖 | `nf-fa-lock` `U+F023` |
-| [4] session 正顯示於 [5] | 終端機 | `nf-oct-terminal` `U+F489` |
 | Space menu title | 選單 | `nf-fa-bars` `U+F0C9` |
 | help title | 說明 | `nf-fa-question-circle` `U+F059` |
 | confirm title | 警示 | `nf-fa-warning` `U+F071` |
@@ -729,14 +728,14 @@ yes/no。做成單欄位的 form 會讓 `Tab` 這個「切欄位」的鍵在只�
 panel-2 menu 同一個形狀:
 
 ```
- item . deploy.sh
+ item operation
  Enter                       Enter . open directory
  [m]ark                                      toggle
  [r]ename                           this item, here
  [t]ransfer            this item, to the other side
  [x] Delete                 this item, on this host
  ───────────────────────────────────────────────────
- panel
+ panel operation
  [/] Search                   everything under here
  [N]ew directory                  in this directory
  [T]ransfer all marks             to the other side
@@ -760,9 +759,13 @@ bracket,§4.4)。
 在檔案清單按 `m` 是切換這一列的 mark,在 marks 清單那一列**依定義就是被 mark 的**,
 所以同一個切換只能是拿掉。一個鍵一個意思(「把這個 un/mark 掉」),例外消失。
 
-**item region 的標題是那一列的名字**,不是「item operation」四個字。兩邊長得一模
-一樣、而三層底下的搜尋結果只顯示相對路徑 —— `[x]` 要讀在它會刪掉的那個東西旁邊,
-不能讀成「刪掉這附近的某個東西」。標題跟著游標走。
+**兩個 region 的標題是 `item operation` / `panel operation`**,三個 tab 共用同兩
+個字串(`menuItemRegion` / `menuPanelRegion`)。標題措辭不一樣的 menu 會讀成另一
+**種**選單,而不是同一種。
+
+> **試過並否決**:讓 item 標題寫出那一列的名字(`item . deploy.sh`)。想法是讓
+> `[x]` 讀在它會刪掉的東西旁邊。實際上它不直觀 —— 而且那個資訊並沒有消失:游標
+> 就在那一列上、那一列還是反白的,popup 的標題也已經寫著是哪個 panel。
 
 **只有一個 region 的時候整份保持扁平**(kbu 的規則):標題壓在單一群組上面是雜訊。
 空目錄沒有 item region(下面那條),沒有 host 時只剩一列,兩種情況都不加標題。
@@ -1033,12 +1036,18 @@ grid 留給沒有東西會 render 它的資料,是白佔記憶體。
 #### `[4]` 的列格式
 
 ```
-<glyph><space><name...><port>
+<space><user>@<host>...<port>
 ```
 
-**port 永遠完整顯示**,名字撞到它就折行。理由:同一台 host 可以開多個 session,
-而截掉一半的 port 是一個你無法據以辨認的欄位。所以 port 佔右邊固定 7 格
-(1 格間距 + `:65535`),名字在剩下的空間裡折。
+**列說的是這條連線「是什麼」,不是它「叫什麼」。** 兩台存起來的 host 可以指向同一
+台機器,而名字是人自己取的標籤;`deploy@10.0.3.14` 才是 ssh 實際做的那件事。
+
+**port 永遠完整顯示**,位址撞到它就折行。理由:同一台 host 可以開多個 session,
+而截掉一半的 port 是一個你無法據以辨認的欄位。所以 port 佔右邊固定 6 格
+(1 格間距 + `65535`),位址在剩下的空間裡折。
+
+ordinal(`#1` / `#2`)跟著位址走、不佔獨立版位:它是**唯一**能分開「同一台 host
+的兩條 session」的東西,位址和 port 都做不到。
 
 `#N` **跟著名字走、不另外佔版位** —— 它是唯一能分辨「同 host 的兩個 session」
 的東西(port 分不出來,兩個 session 的 port 一樣),所以它必須跟名字一起折行,
@@ -1047,37 +1056,45 @@ grid 留給沒有東西會 render 它的資料,是白佔記憶體。
 > **代價**:左欄 26 欄扣掉 glyph 版位與 port 版位,名字只剩 **15 格**,長名字
 > 會折成三列。要換的話把 `sshLeftW` 調到 30 就有 19 格。
 
-#### `[4]` 用 glyph、history 用顏色 —— 兩個不同的問題
+#### `[4]` 的一列:`<user>@<host>` + port
+
+**列說的是這條連線「是什麼」,不是它「叫什麼」。** 兩台存起來的 host 可以指向同一
+台機器,而名字是人自己取的標籤;`deploy@10.0.3.14` 才是 ssh 實際做的那件事。port
+在名字列的右端 —— 那裡本來就是空的 —— 而且**永不截斷**,位址不夠就先折。
+
+ordinal(`#1` / `#2`)跟著位址走、不佔獨立版位:它是**唯一**能分開「同一台 host
+的兩條 session」的東西,位址和 port 都做不到。
+
+#### 顏色是兩條獨立的通道
+
+| 通道 | 說什麼 |
+|---|---|
+| **前景** | 綠 = 這條就是 `[5]` 正在顯示的 |
+| **背景** | 游標 bar |
+
+因為是不同通道,兩者不爭用,**沒有特例**。這同時拿掉了兩樣東西:原本「游標壓在
+正在顯示那一列時整列反白成綠底」的 inverse,以及那個**重複表達同一件事**的終端機
+glyph —— 顏色自己就說得完,那個 glyph 是第二次說。
+
+兩者真的相遇時(游標就壓在那一列),**bar 贏,那一列的綠看不到**。這是可以接受的
+代價:游標就在上面,而旁邊 `[5]` 的標題正寫著那條 session 的名字。history 的列一直
+是同樣的處理方式。
+
+> **改過一次**:原本 inverse 是為了「一列只能有一個背景」而設計的妥協。把
+> on-screen 換成純前景之後,那個前提就不存在了 —— 兩個訊號本來就不必搶同一個通道。
+
+#### history 用顏色 —— 另一個問題
 
 `[4]` 回答「**哪一個正顯示在 `[5]`**」,history 回答「**每一個是怎麼結束的**」。
 兩個問題各佔一個通道:
 
 | Panel | 訊號 | 內容 |
 |---|---|---|
-| `[4]` | **glyph**(`nf-oct-terminal`,藍色,固定版位) | 這個 session 正顯示於 `[5]` |
+| `[4]` | **前景色** | 綠 = 這個 session 正顯示於 `[5]`(原本另有一個 glyph 說同一件事,已移除) |
 | history | **顏色,只上在 reason 那一段字** | 綠 = `exited 0`;紅 = 其他(`disconnected` / 非零 / 起不來) |
 
 history 的顏色**只染 reason、不染名字、更不染整列背景** —— 「怎麼結束的」是那次
 結束的屬性,不是那台 host 的屬性,整列上色會把話講得太滿。
-
-#### `[6]` 的列格式
-
-```
-<space><space><name...><time>
-<space><space><reason>
-```
-
-**時間貼在 name 那一列的右緣**,跟 `[4]` 的 port 同一個機制(同一段程式碼、
-同一條「絕不截斷」規則)—— 那裡本來就是空的。
-
-**只有時間、沒有日期**:history 活在記憶體裡、隨程序結束而消失,日期永遠只會
-是今天,寫出來是零資訊。時間顯示的是**結束的時刻**(`ended`),因為那正是這筆
-紀錄在記的那個事件。
-
-> **代價**:`[6]` 內寬 24 扣掉 gutter 與 8 格時間,名字只剩 **13 格**,長名字會
-> 折成三列。另一個擺法是把時間放到 reason 那一列的右緣(`exited 0    14:02:11`),
-> 名字就能拿到 22 格、reason 那條半空的列也被填滿 —— 但那就不是「接在 name
-> 後面」了。
 
 #### `[6]` 是視圖,不是清單
 
@@ -1603,7 +1620,9 @@ X 回到 ~1.0。
 | `[C]lose` 會先問,取消不殺 | `TestCloseEndsTheSession` |
 | focus `[5]` 佔滿全 tab、離開時還原並重新 resize 遠端 | `TestFocusedPtyTakesTheWholeTab` |
 | 遠端印 emoji 也撞不破邊框(真 pty) | `TestWideRemoteOutputCannotBreakTheFrame` |
-| 列著色四種情況(含游標壓在正在顯示的列上) | `TestSessionRowColourCases` |
+| 前景說 on-screen、背景說游標,沒有 inverse | `TestSessionRowColourCases` |
+| 列顯示 `<user>@<host>`,不是存起來的名字 | `TestSessionRowShowsUserAtHost` |
+| 三個 tab 的 region 標題用同兩個字串 | `TestEveryTabWordsItsRegionsTheSameWay` |
 | port 在任何寬度都不被截掉,名字折行讓位 | `TestSessionRowAlwaysShowsThePort` |
 | `q` 走完整路徑會問(pty 內的 `q` 屬於遠端)、取消不殺 session | `TestQuitFromSessionsAsksAndThenStops` |
 
