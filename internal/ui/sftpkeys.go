@@ -13,8 +13,12 @@ import (
 // sftpConnectedMsg carries the result of a dial. Connecting is done off the
 // update loop because a dial can take its 15-second timeout to fail, and a
 // frozen UI is indistinguishable from a crashed one.
+//
+// gen is the dial's generation: an answer from a dial the user has already
+// moved on from is dropped rather than landing on top of the newer one.
 type sftpConnectedMsg struct {
 	sd  side
+	gen int
 	fs  remote.FS
 	err error
 }
@@ -230,26 +234,35 @@ func (m AppModel) hostPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if i < 0 {
 		return m, tea.Batch(m.hostPicker.close(), m.toast.show("No such host: "+name, toastError))
 	}
-	h := m.hosts.hosts[i]
-	m.sftp.sides[sd].host, m.sftp.sides[sd].err = h.Name, "connecting…"
-	return m, tea.Batch(m.closeStack(), m.hostPicker.close(), dialCmd(sd, h))
+	dial := m.sftp.startDial(sd, m.hosts.hosts[i])
+	return m, tea.Batch(m.closeStack(), m.hostPicker.close(), dial)
 }
 
 // dialCmd connects off the update loop.
-func dialCmd(sd side, h store.Host) tea.Cmd {
+func dialCmd(sd side, h store.Host, gen int) tea.Cmd {
 	return func() tea.Msg {
 		// An unknown host is refused rather than waved through. Accepting a key
 		// needs a dialog mid-dial, which this path cannot raise yet — so it says
 		// how to accept it deliberately instead of pretending it does not matter.
 		fsys, err := remote.Dial(h, nil)
-		return sftpConnectedMsg{sd: sd, fs: fsys, err: err}
+		return sftpConnectedMsg{sd: sd, gen: gen, fs: fsys, err: err}
 	}
 }
 
 func (m AppModel) sftpConnected(msg sftpConnectedMsg) (tea.Model, tea.Cmd) {
 	s := &m.sftp.sides[msg.sd]
+	if msg.gen != s.dialGen {
+		// The user picked another host while this one was still dialling. Close
+		// what arrived — nobody asked for it any more — and say nothing.
+		if msg.fs != nil {
+			msg.fs.Close()
+		}
+		return m, nil
+	}
+	s.dialing = ""
+
 	if msg.err != nil {
-		s.fs, s.err = nil, msg.err.Error()
+		s.fs, s.host, s.err = nil, "", msg.err.Error()
 		return m, m.toast.show(msg.err.Error(), toastError)
 	}
 	s.connect(msg.fs)

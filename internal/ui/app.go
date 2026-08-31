@@ -145,6 +145,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sftpConnectedMsg:
 		return m.sftpConnected(msg)
 
+	case dialTickMsg:
+		// Turns the connecting spinner. A dial can take fifteen seconds and the
+		// panel has to look alive for all of them.
+		return m, m.sftp.onDialTick()
+
 	case xferTickMsg:
 		return m, m.transfers.tick()
 

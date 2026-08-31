@@ -68,6 +68,8 @@ func (m sftpModel) filesPanel(sd side, w, h int) string {
 
 	var rows []string
 	switch {
+	case s.dialing != "":
+		rows = m.dialingBody(s, innerW, innerH)
 	case s.fs == nil:
 		rows = m.noHostBody(innerW, innerH)
 	case s.err != "" && len(s.entries) == 0:
