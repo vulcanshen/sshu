@@ -126,7 +126,7 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | `t` | Transfer it to the other side's current directory |
 | `x` | Delete it (asks first) |
 | `/` | **Search the whole subtree** — results are ordinary rows, so `m` / `t` / `x` work on them |
-| `N` | New directory here |
+| `A` | **Add** here — `name` makes an empty file, `name/` makes a directory |
 | `T` | Transfer every mark on this side |
 | `X` | Delete every mark on this side (asks first) |
 | `C` | Clear the marks — forgets them, changes nothing on disk |

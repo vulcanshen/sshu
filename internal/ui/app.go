@@ -362,8 +362,8 @@ func (m AppModel) inputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.input.action {
 	case inputRename:
 		return m.doRename(m.input.subject, value)
-	case inputNewDir:
-		return m.doNewDir(value)
+	case inputAdd:
+		return m.doAdd(value)
 	}
 	return m, tea.Batch(m.closeStack(), m.input.close())
 }

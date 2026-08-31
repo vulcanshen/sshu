@@ -80,7 +80,7 @@ var sftpActions = []sftpAction{
 
 	// panel — this side as a whole
 	{key: "/", label: "Search", hint: "everything under here", onFiles: true, panelOp: true, run: AppModel.sftpStartFilter},
-	{key: "N", label: "New directory", hint: "in this directory", onFiles: true, panelOp: true, run: AppModel.sftpNewDir},
+	{key: "A", label: "Add", hint: "a file, or name/ for a directory", onFiles: true, panelOp: true, run: AppModel.sftpAdd},
 	{key: "T", label: "Transfer all marks", hint: "to the other side", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSendMarks},
 	{key: "X", label: "Delete all marks", hint: "erase them, on this host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpDeleteMarks},
 	{key: "C", label: "Clear marks", hint: "forget them, change nothing", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpResetMarks},
@@ -453,49 +453,65 @@ func (m AppModel) sftpEdit() (tea.Model, tea.Cmd) {
 	}, e.Size)
 }
 
-// sftpNewDir makes a directory in the one being browsed. It is a panel action,
-// not an item one — the cursor has nothing to do with where it lands.
-func (m AppModel) sftpNewDir() (tea.Model, tea.Cmd) {
+// sftpAdd makes something in the directory being browsed. It is a panel action,
+// not an item one — the cursor has nothing to do with where it lands, which is
+// also why it is upper case (§7.3.2).
+//
+// One box makes both kinds, and the TRAILING SLASH says which. That is not a new
+// convention: it is how a shell has written directories forever, and how this
+// app's own listings draw them. Two keys for "make a file" and "make a
+// directory" would have been two hotkeys and two menu rows to say one thing.
+func (m AppModel) sftpAdd() (tea.Model, tea.Cmd) {
 	s := m.sftp.cur()
 	if s.fs == nil {
 		return m, nil
 	}
 	return m, m.input.ask(inputPopup{
-		glyph:  glyphPlus,
-		title:  "New directory",
-		prompt: "In " + fitPath(foldHomePath(s.cwd, s.home), 44),
-		accept: "create",
-		action: inputNewDir,
+		glyph:       glyphPlus,
+		title:       "Add",
+		prompt:      "In " + fitPath(foldHomePath(s.cwd, s.home), 44),
+		placeholder: "name, or name/ for a directory",
+		accept:      "create",
+		action:      inputAdd,
 	}, m.layer())
 }
 
-// doNewDir is the committed half. Same three refusals as a rename — empty, a
+// doAdd is the committed half. Same three refusals as a rename — empty, a
 // separator, or a name that is already taken — because they are the same three
 // ways to mean something other than what you typed.
-func (m AppModel) doNewDir(name string) (tea.Model, tea.Cmd) {
+//
+// Only the LAST slash is the type marker. One anywhere else makes it a path, and
+// a path typed into a name box is a mistake far more often than it is an
+// intention: `a/b/` would have to silently make two directories, and silence is
+// the wrong answer to "did you mean this".
+func (m AppModel) doAdd(name string) (tea.Model, tea.Cmd) {
 	s := m.sftp.cur()
 	name = strings.TrimSpace(name)
 	if s.fs == nil || name == "" {
 		return m, tea.Batch(m.closeStack(), m.input.close())
 	}
-	if strings.ContainsRune(name, '/') {
+	isDir := strings.HasSuffix(name, "/")
+	name = strings.TrimSuffix(name, "/")
+	if name == "" || strings.ContainsRune(name, '/') {
 		return m, tea.Batch(m.closeStack(), m.input.close(),
 			m.toast.show("A name cannot contain /", toastError))
 	}
 
 	p := remote.Join(s.cwd, name)
+	// Checked first, because Create TRUNCATES: without this, adding a name that
+	// is already there would empty the file instead of refusing.
 	if remote.Exists(s.fs, p) {
 		return m, tea.Batch(m.closeStack(), m.input.close(),
 			m.toast.show(name+" already exists", toastError))
 	}
-	if err := s.fs.MkdirAll(p); err != nil {
+	if err := addItem(s.fs, p, isDir); err != nil {
 		return m, tea.Batch(m.closeStack(), m.input.close(),
 			m.toast.show(err.Error(), toastError))
 	}
 
 	s.reload()
-	// Land the cursor on what was just made. Making a directory is almost always
-	// the first half of putting something in it, and hunting for it in a long
+	// Land the cursor on what was just made. Making something is almost always
+	// the first half of doing something with it, and hunting for it in a long
 	// listing is the second half nobody asked for.
 	for i := 0; i < s.rowCount(); i++ {
 		if e, ok := s.rowAt(i); ok && e.Name == name {
@@ -503,8 +519,25 @@ func (m AppModel) doNewDir(name string) (tea.Model, tea.Cmd) {
 			break
 		}
 	}
+	kind := "file"
+	if isDir {
+		kind = "directory"
+	}
 	return m, tea.Batch(m.closeStack(), m.input.close(),
-		m.toast.show("Created "+name, toastInfo))
+		m.toast.show("Created "+kind+" "+name, toastInfo))
+}
+
+// addItem makes the empty thing. 0644 is what `touch` gives, and the local end
+// applies the umask to it the way any other create does.
+func addItem(fsys remote.FS, p string, isDir bool) error {
+	if isDir {
+		return fsys.MkdirAll(p)
+	}
+	w, err := fsys.Create(p, 0o644)
+	if err != nil {
+		return err
+	}
+	return w.Close()
 }
 
 // doRename is the committed half. The destination is checked first: os.Rename

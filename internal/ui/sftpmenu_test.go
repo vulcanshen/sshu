@@ -58,7 +58,7 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 				k, got[menuItemRegion])
 		}
 	}
-	for _, k := range []string{"/", "N", "T", "X", "C", keySelectHost, "P"} {
+	for _, k := range []string{"/", "A", "T", "X", "C", keySelectHost, "P"} {
 		if !hasKey(got[menuPanelRegion], k) {
 			t.Errorf("%q should be a panel action, region has %v",
 				k, got[menuPanelRegion])
@@ -109,8 +109,8 @@ func TestSFTPItemActionsNeedARow(t *testing.T) {
 		t.Error("x asked to delete something that is not there")
 	}
 	// Panel actions still work — there is still a panel.
-	if after := pressA(m, "N"); !after.input.isActive() {
-		t.Error("N should still offer a new directory in an empty one")
+	if after := pressA(m, "A"); !after.input.isActive() {
+		t.Error("A should still offer to make something in an empty directory")
 	}
 }
 
