@@ -90,6 +90,14 @@ type sftpSideModel struct {
 	markTop   int
 	markedSet map[string]bool
 
+	// dialing is the host being connected to, "" when not. It is its own field
+	// rather than a message in err, because the panel has to be able to tell
+	// "there is no host" from "there is one, on its way" — those look nothing
+	// alike to a user and used to look identical (see sftpdial.go).
+	dialing   string
+	dialSince time.Time
+	dialGen   int
+
 	// The directory's own timestamp, and whether a probe for it is in flight.
 	// SFTP cannot push a change, so this is how a listing stays current without
 	// re-reading it every couple of seconds (sftpwatch.go).
@@ -106,6 +114,11 @@ type sftpModel struct {
 	// working the connection. watchGen retires a superseded loop.
 	onScreen bool
 	watchGen int
+
+	// spinAt is the connecting spinner's frame. It counts ticks rather than
+	// reading the clock, so the animation does not depend on when a frame is
+	// drawn.
+	spinAt int
 }
 
 func newSFTPModel() sftpModel {
@@ -229,6 +242,8 @@ func scrollTo(top, cur, vis int) int {
 func (s *sftpSideModel) connect(fsys remote.FS) {
 	// Stop any walk before the connection under it is closed.
 	s.clearFilter()
+	s.dialing = ""
+
 	if s.fs != nil {
 		s.fs.Close()
 	}
