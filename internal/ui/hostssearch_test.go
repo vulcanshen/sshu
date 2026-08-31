@@ -186,10 +186,22 @@ func TestHostsPanelHasNoTitle(t *testing.T) {
 	view := ansi.Strip(sized(sample(), 100, 24).View())
 	lines := strings.Split(view, "\n")
 	// The panel's top border is the first line starting with the box corner.
+	//
+	// Checking for the word is not enough — an EMPTY capsule contains no word
+	// and still puts two round caps on the border, which is exactly what this
+	// missed the first time.
 	for _, l := range lines {
 		if strings.HasPrefix(l, "╭") {
 			if strings.Contains(l, "hosts") {
 				t.Errorf("the panel still wears a title: %q", l)
+			}
+			for _, cap := range []string{capLeft, capRight} {
+				if strings.Contains(l, cap) {
+					t.Errorf("a capsule cap is still on the border: %q", l)
+				}
+			}
+			if want := "╭" + strings.Repeat("─", 98) + "╮"; l != want {
+				t.Errorf("the border is not plain:\n got %q\nwant %q", l, want)
 			}
 			return
 		}

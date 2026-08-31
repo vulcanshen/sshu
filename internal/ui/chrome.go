@@ -175,9 +175,15 @@ func panelChrome(innerW int, body []string, title string, focused bool) string {
 	bc := borderColor(focused)
 	bs := lipgloss.NewStyle().Foreground(bc)
 
-	chip, chipW := panelChip(title, focused), dispW(title)+2
-	if chipW > innerW {
-		chip, chipW = "", 0
+	// An empty title means NO capsule. Rendering panelChip("") would still draw
+	// both round caps with nothing between them — two stray glyphs sitting on
+	// the border, which is what "no title" must not look like.
+	chip, chipW := "", 0
+	if title != "" {
+		chip, chipW = panelChip(title, focused), dispW(title)+2
+		if chipW > innerW {
+			chip, chipW = "", 0
+		}
 	}
 
 	out := make([]string, 0, len(body)+2)
