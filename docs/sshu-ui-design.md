@@ -17,6 +17,16 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 ---
 
+> **與 `sshu-implementation.md` 的分工**
+>
+> | 文件 | 回答 |
+> |---|---|
+> | `sshu-implementation.md` | **現在是怎麼做的** —— 逐條對照 VTP、參數、不變量、按鍵全表(結構鏡射 filu / kbu 的同名文件) |
+> | 本檔 | **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法** |
+>
+> 兩份都跟著程式碼走。要改一個看得見的行為,兩份都要改;被否決的做法留在這裡不刪
+> —— 那份紀錄本身就是重點。
+
 ## 0. 三個 tab 的定位
 
 | tab | 職責 | 狀態 |
