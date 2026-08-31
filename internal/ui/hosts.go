@@ -202,13 +202,13 @@ func (m hostsModel) view() string {
 	body := m.tableBody(innerW, innerH)
 	switch {
 	case len(m.hosts) == 0:
-		body = m.emptyBody(innerW, innerH)
+		body = m.emptyState(innerW, innerH)
 	case m.filtering && m.rowCount() == 0:
 		// Not the first-run state: there ARE hosts, none of them match. Saying
-		// "no hosts yet" here would be a different and wrong thing to say.
+		// "no hosts yet" here would be a different and wrong thing to say — and
+		// the query row stays, because it is what you would edit next.
 		body = append([]string{m.filterRow(innerW)},
-			lipgloss.NewStyle().Foreground(dimColor).
-				Render(padRight("  no match", innerW)))
+			emptyBody(innerW, innerH-1, "No match", nil)...)
 	}
 	// No title. A panel title exists to tell panels APART, and this tab has one
 	// panel — the capsule would have said "hosts" directly under a tab capsule
@@ -260,26 +260,13 @@ func (m hostsModel) filterRow(w int) string {
 	return clipANSI(row, w)
 }
 
-// emptyBody is the first-run state. It MUST disclose both [A] and Space: a new
+// emptyState is the first-run state. It MUST disclose both [A] and Space: a new
 // user facing an empty panel with no visible way forward is where
 // discoverability dies (§1.5).
-func (m hostsModel) emptyBody(innerW, innerH int) []string {
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	key := lipgloss.NewStyle().Foreground(handColor)
-
-	titlePlain := "No hosts yet"
-	title := centerLine(innerW, titlePlain, dim.Render(titlePlain))
-	hintPlain := "Press [A] to add a host, or Space to see what you can do here"
-	hint := centerLine(innerW, hintPlain,
-		dim.Render("Press ")+key.Render("[A]")+dim.Render(" to add a host, or ")+
-			key.Render("Space")+dim.Render(" to see what you can do here"))
-
-	blank := strings.Repeat(" ", innerW)
-	out := make([]string, 0, max(0, innerH))
-	for i := 0; i < max(0, (innerH-3)/2); i++ {
-		out = append(out, blank)
-	}
-	return append(out, title, blank, hint)
+func (m hostsModel) emptyState(innerW, innerH int) []string {
+	return emptyBody(innerW, innerH, "No hosts yet",
+		emptyHint("Press [A] to add a host, or Space to see what you can do here",
+			"[A]", "Space"))
 }
 
 // centerLine centres styled within innerW, measuring plain (styled carries ANSI).

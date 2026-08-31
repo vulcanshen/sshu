@@ -345,6 +345,26 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 空 panel 無路可走,X 直接掉。測試 `TestEmptyStateDisclosesEntryPoints` 盯著
 這件事。
 
+#### 所有 panel 的空狀態是**同一個形狀**
+
+兩件事,兩行,都置中(水平與垂直):
+
+| | |
+|---|---|
+| **事實** | 這裡沒有什麼 —— `No hosts yet` / `No host` / `Empty directory` / `Nothing marked` / `No sessions` |
+| **提示** | 該按什麼(鍵用 `handColor`)。**沒有事可做就不寫** —— 空目錄是一個事實,不是一個提示 |
+
+**文字不必統一,形狀必須一致。** 原本五個 panel 各自發明:`(empty)` 與 `(none)`
+釘在左上角、一句沒有標題的置中句子、一個標題加一句。左上角那種還有另一個問題 ——
+它讀起來像「一個清單,而它的第一**筆**寫著 (empty)」,那正是空狀態最不該長成的樣子。
+
+**提示會折行。** 原本不會,而 `centerLine` 裝不下就截斷 —— 所以在 26 欄的 panel 上,
+那句告訴使用者該按什麼的話會被切掉,而那正是他最需要它的寬度。折行是**逐字**做的
+(`hintWord`),因為換行之後那個鍵還是鍵 —— 樣式必須跟著**字**走,不能套在整句上。
+
+**panel 太矮就依序讓步**:先讓空行、再從尾端讓提示行,**事實留到最後**。一個什麼都
+不說的 panel 正是這整套東西存在要防的狀態。
+
 ---
 
 ## §2. 色彩(catppuccin-mocha,沿用 u-family 錨點)
@@ -1507,7 +1527,8 @@ sshu/
 | 膠囊 tab bar + `Tab`/`1-3` 切換 | 已落地 | `ui/chrome.go` `ui/app.go` |
 | hosts **表格**(Name/User/Host/Port/Auth)+ `j`/`k` + `gg`/`G` + 捲動 | 已落地 | `ui/hosts.go` `ui/table.go` |
 | 窄寬:表格逐欄收縮(Auth → Port → User/Host) | 已落地 | `ui/table.go computeCols` |
-| 空狀態(揭露 `[A]` + `Space`) | 已落地 | `ui/hosts.go emptyBody` |
+| 空狀態(揭露 `[A]` + `Space`) | 已落地 | `ui/hosts.go emptyState` |
+| 所有 panel 的空狀態同一個形狀,提示會折行 | 已落地 | `ui/empty.go` |
 | `/` 搜尋:跨欄 fuzzy(不含 auth)、依分數排序、佔標題列 | 已落地 | `ui/hosts.go refilter` |
 | panel 無 border title(單一 panel 的 tab 不戴) | 已落地 | `ui/hosts.go view` |
 | `hosts.yaml` 讀寫(XDG、0600、atomic) | 已落地 | `store/store.go` `store/hosts.go` |
@@ -1545,6 +1566,10 @@ X 回到 ~1.0。
 | 密碼永遠不出現在畫面上 | `TestPasswordIsMasked` |
 | form 內 `Space` 打空白(§4.5) | `TestSpaceTypesInsideTheForm` |
 | CRUD 真的寫對 / 取消不寫 | `TestCreateSavesTheNewHost` 等 5 個 |
+| 窄 panel 上提示折行而不是被截斷 | `TestEmptyHintWrapsInsteadOfTruncating` |
+| 折行之後鍵還是鍵 | `TestKeysStayLitAcrossAWrap` |
+| 每個 panel 的空狀態同一個形狀(置中) | `TestEveryEmptyPanelIsTheSameShape` |
+| panel 太矮時事實留到最後 | `TestAShortPanelKeepsTheFact` |
 | 搜尋跨欄比對但**不含 auth**,排序最佳在前 | `TestHostsSearchMatchesAcrossColumns` / `TestHostsSearchIgnoresTheAuthColumn` |
 | query 佔標題列,不改變列數 | `TestHostsSearchRowReplacesTheHeader` |
 | 動作打在**畫面上那一列**,離開搜尋不換位置 | `TestHostsActionsFollowTheFilteredCursor` / `TestLeavingASearchKeepsTheRow` |
