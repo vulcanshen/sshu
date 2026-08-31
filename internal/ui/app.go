@@ -581,6 +581,14 @@ func (m AppModel) hostsApplicable() ([]string, []hostAction) {
 	return keys, acts
 }
 
+// The two region labels, in kbu's wording. They are constants because three
+// menus use them and a menu whose regions are worded differently from another's
+// reads as a different KIND of menu rather than as the same one.
+const (
+	menuItemRegion  = "item operation"
+	menuPanelRegion = "panel operation"
+)
+
 // menuTitle names the surface the Space menu belongs to — the focused PANEL,
 // not the tab. In a split tab "what can I do here" depends on which panel you
 // are standing in, so a title that only says the tab cannot tell [4] from [6].
@@ -602,7 +610,6 @@ func (m AppModel) menuItems() []menuItem {
 	case tabSFTP:
 		return m.sftpMenuItems()
 	}
-	h, _ := m.cursorHost()
 	_, acts := m.hostsApplicable()
 
 	var item, panel []menuItem
@@ -620,9 +627,10 @@ func (m AppModel) menuItems() []menuItem {
 		return append(item, panel...)
 	}
 
-	out := []menuItem{{label: "host . " + h.Name, header: true}}
+	out := []menuItem{{label: menuItemRegion, header: true}}
 	out = append(out, item...)
-	out = append(out, menuItem{separator: true}, menuItem{label: "panel", header: true})
+	out = append(out, menuItem{separator: true},
+		menuItem{label: menuPanelRegion, header: true})
 	return append(out, panel...)
 }
 

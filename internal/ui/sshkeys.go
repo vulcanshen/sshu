@@ -161,10 +161,10 @@ func (m AppModel) sshMenuItems() []menuItem {
 		return panel
 	}
 
-	s := m.cursorSession()
-	out := []menuItem{{label: "session . " + s.host.Name, header: true}}
+	out := []menuItem{{label: menuItemRegion, header: true}}
 	out = append(out, item...)
-	out = append(out, menuItem{separator: true}, menuItem{label: "panel", header: true})
+	out = append(out, menuItem{separator: true},
+		menuItem{label: menuPanelRegion, header: true})
 	for _, a := range panel {
 		out = append(out, a)
 	}

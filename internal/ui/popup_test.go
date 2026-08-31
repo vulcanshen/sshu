@@ -36,6 +36,8 @@ func keyMsg(k string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeySpace}
 	case "esc":
 		return tea.KeyMsg{Type: tea.KeyEscape}
+	case "alt+esc":
+		return tea.KeyMsg{Type: tea.KeyEscape, Alt: true}
 	case "enter":
 		return tea.KeyMsg{Type: tea.KeyEnter}
 	case "tab":
@@ -161,15 +163,15 @@ func TestEveryMenuRowRuns(t *testing.T) {
 	}
 }
 
-// The item region comes first and names the host it acts on (§6.6 cursor-first).
+// The item region comes first (§6.6 cursor-first).
 func TestMenuRegionsAreCursorFirst(t *testing.T) {
 	items := appWith(sample(), nil).menuItems()
-	if !items[0].header || !strings.Contains(items[0].label, sample()[0].Name) {
+	if !items[0].header || items[0].label != menuItemRegion {
 		t.Fatalf("first row should be the item-region header, got %+v", items[0])
 	}
 	iPanel, iConnect := -1, -1
 	for i, it := range items {
-		if it.header && it.label == "panel" {
+		if it.header && it.label == menuPanelRegion {
 			iPanel = i
 		}
 		if it.key == "enter" {

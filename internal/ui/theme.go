@@ -84,11 +84,6 @@ var (
 	glyphDir    = string(rune(0xe5ff))  // nf-custom-folder
 	glyphFile   = string(rune(0xf15b))  // nf-fa-file
 	glyphMark   = string(rune(0xf0e1e)) // nf-md-check_bold — marked for transfer
-	// glyphOnScreen marks the session panel [5] is showing. A terminal, because
-	// that is literally what the mark means: this is the one on the screen. It
-	// sits in a fixed column so appearing and disappearing never shifts the name.
-	glyphOnScreen = string(rune(0xf489)) // nf-oct-terminal
-
 	// arrowGlyphs labels the left/right keys in a hint. Plain Unicode arrows, not
 	// Nerd Font: these sit in a border line where a mis-measured glyph shears the
 	// frame, and U+2190/2192 are single-width everywhere.
