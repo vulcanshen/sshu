@@ -48,6 +48,7 @@ type AppModel struct {
 	hostPicker  spaceMenu
 	transfersUI transfersPopup
 	historyUI   historyPopup
+	viewer      viewerPopup
 	help        helpPopup
 	form        hostForm
 	picker      filePicker
@@ -67,6 +68,7 @@ func New(hosts []store.Host, save SaveFunc) AppModel {
 		sftp:        newSFTPModel(),
 		transfersUI: newTransfersPopup(),
 		historyUI:   newHistoryPopup(),
+		viewer:      newViewerPopup(),
 		hostPicker:  newHostPicker(),
 		save:        save,
 		spaceMenu:   newSpaceMenu(),
@@ -102,6 +104,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hostPicker.setSize(m.w, m.h)
 		m.transfersUI.setSize(m.w, m.h)
 		m.historyUI.setSize(m.w, m.h)
+		m.viewer.setSize(m.w, m.h)
 		m.spaceMenu.setSize(m.w, m.h)
 		m.help.setSize(m.w, m.h)
 		m.form.setSize(m.w, m.h)
@@ -119,6 +122,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.hostPicker.anim.tick(msg),
 			m.transfersUI.anim.tick(msg),
 			m.historyUI.anim.tick(msg),
+			m.viewer.anim.tick(msg),
 			m.help.anim.tick(msg),
 			m.form.anim.tick(msg),
 			m.picker.anim.tick(msg),
@@ -144,6 +148,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sftpConnectedMsg:
 		return m.sftpConnected(msg)
+
+	case viewLoadedMsg:
+		m.viewer.onLoaded(msg)
+		return m, nil
 
 	case dialTickMsg:
 		// Turns the connecting spinner. A dial can take fifteen seconds and the
@@ -280,6 +288,9 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case m.historyUI.anim.owns():
 		m.historyUI.update(msg, len(m.ssh.history))
 		return m, nil
+	case m.viewer.anim.owns():
+		m.viewer.update(msg)
+		return m, nil
 	case m.hostPicker.anim.owns():
 		return m.hostPickerKey(msg)
 	case m.picker.anim.owns():
@@ -325,6 +336,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.transfersUI.close()
 	case m.historyUI.isActive():
 		return m, m.historyUI.close()
+	case m.viewer.isActive():
+		return m, m.viewer.close()
 	case m.hostPicker.isActive():
 		return m, m.hostPicker.close()
 	case m.picker.isActive():
@@ -349,7 +362,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.confirm.close(),
 		m.input.close(), m.help.close(), m.hostPicker.close(),
-		m.transfersUI.close(), m.historyUI.close(), m.spaceMenu.close())
+		m.transfersUI.close(), m.historyUI.close(), m.viewer.close(),
+		m.spaceMenu.close())
 }
 
 // ------------------------------------------------------------- panel level
@@ -512,7 +526,7 @@ func (m AppModel) popupOpen() bool {
 	return m.form.anim.owns() || m.picker.anim.owns() || m.confirm.anim.owns() ||
 		m.input.anim.owns() || m.help.anim.owns() || m.spaceMenu.anim.owns() ||
 		m.hostPicker.anim.owns() || m.transfersUI.anim.owns() ||
-		m.historyUI.anim.owns()
+		m.historyUI.anim.owns() || m.viewer.anim.owns()
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
