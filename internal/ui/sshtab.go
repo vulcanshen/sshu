@@ -352,26 +352,15 @@ func (m sshModel) ptyPanel(w, h int) string {
 }
 
 func (m sshModel) ptyEmpty(innerW, innerH int) []string {
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	key := lipgloss.NewStyle().Foreground(handColor)
-	plain := "Select a session in [4], or open one from [1]"
-	line := centerLine(innerW, plain,
-		dim.Render("Select a session in ")+key.Render("[4]")+
-			dim.Render(", or open one from ")+key.Render("[1]"))
-
-	blank := strings.Repeat(" ", innerW)
-	out := make([]string, 0, innerH)
-	for i := 0; i < max(0, (innerH-1)/2); i++ {
-		out = append(out, blank)
-	}
-	return append(out, line)
+	return emptyBody(innerW, innerH, "No session on screen",
+		emptyHint("Select a session in [4], or open one from [1]", "[4]", "[1]"))
 }
 
 // listBody lays out [4]. Each entry is a block, because a long address wraps.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
-		dim := lipgloss.NewStyle().Foreground(dimColor)
-		return []string{dim.Render(padRight(" none", innerW))}
+		return emptyBody(innerW, innerH, "No sessions",
+			emptyHint("Connect from [1] hosts", "[1]"))
 	}
 
 	out := make([]string, 0, max(0, innerH))

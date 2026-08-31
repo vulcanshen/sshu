@@ -98,15 +98,18 @@ func (m sftpModel) filesPanel(sd side, w, h int) string {
 func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int) []string {
 	n := s.rowCount()
 	if n == 0 {
-		note := "  (empty)"
+		fact := "Empty directory"
+		var hint []hintWord
 		switch {
 		case s.filtering && s.scanning:
 			// Nothing yet is not nothing at all while the walk is still going.
-			note = "  searching…"
+			fact = "Searching…"
 		case s.filtering:
-			note = "  no match"
+			fact = "No match"
+		default:
+			hint = emptyHint("Press N to make a directory, or S to switch host", "N", "S")
 		}
-		return []string{lipgloss.NewStyle().Foreground(dimColor).Render(padRight(note, innerW))}
+		return emptyBody(innerW, innerH, fact, hint)
 	}
 	out := make([]string, 0, max(0, innerH))
 	for row := s.top; row < n && len(out) < innerH; row++ {
@@ -157,8 +160,8 @@ func (m sftpModel) marksPanel(sd side, w, h int) string {
 
 	var rows []string
 	if len(s.marks) == 0 {
-		rows = []string{lipgloss.NewStyle().Foreground(dimColor).
-			Render(padRight("  (none)", innerW))}
+		rows = emptyBody(innerW, innerH, "Nothing marked",
+			emptyHint("Press m on a file to mark it", "m"))
 	} else {
 		rows = make([]string, 0, max(0, innerH))
 		for i := s.markTop; i < len(s.marks) && len(rows) < innerH; i++ {
@@ -169,19 +172,8 @@ func (m sftpModel) marksPanel(sd side, w, h int) string {
 }
 
 func (m sftpModel) noHostBody(innerW, innerH int) []string {
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	key := lipgloss.NewStyle().Foreground(handColor)
-	plain := "Press [S] to select a host, or local"
-	line := centerLine(innerW, plain,
-		dim.Render("Press ")+key.Render("[S]")+dim.Render(" to select a host, or ")+
-			key.Render("local"))
-
-	blank := strings.Repeat(" ", innerW)
-	out := make([]string, 0, max(0, innerH))
-	for i := 0; i < max(0, (innerH-1)/2); i++ {
-		out = append(out, blank)
-	}
-	return append(out, line)
+	return emptyBody(innerW, innerH, "No host",
+		emptyHint("Press [S] to select a host, or local", "[S]", "local"))
 }
 
 // ------------------------------------------------------------------- rows

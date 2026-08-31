@@ -158,7 +158,7 @@ func TestHostsSearchWithNoMatchIsNotTheEmptyState(t *testing.T) {
 	m = typeText(m, "zzzzzz")
 
 	view := ansi.Strip(m.View())
-	if !strings.Contains(view, "no match") {
+	if !strings.Contains(view, "No match") {
 		t.Error("a search with no results should say so")
 	}
 	if strings.Contains(view, "No hosts yet") {
