@@ -40,7 +40,11 @@ type AppModel struct {
 	sftp      sftpModel
 	transfers transferModel
 	pending   pendingTransfer
-	save      SaveFunc
+	// pendingEdit is the file currently being edited, and it outlives the popup
+	// on purpose: the overwrite question is asked after the box is gone, and its
+	// answer needs the local copy that box was standing on.
+	pendingEdit editJob
+	save        SaveFunc
 
 	// Floats. At most one of form / confirm / help is up at a time, optionally
 	// over the Space menu; the toast rides on top of everything.
@@ -49,6 +53,7 @@ type AppModel struct {
 	transfersUI transfersPopup
 	historyUI   historyPopup
 	viewer      viewerPopup
+	editorUI    editorPopup
 	help        helpPopup
 	form        hostForm
 	picker      filePicker
@@ -69,6 +74,7 @@ func New(hosts []store.Host, save SaveFunc) AppModel {
 		transfersUI: newTransfersPopup(),
 		historyUI:   newHistoryPopup(),
 		viewer:      newViewerPopup(),
+		editorUI:    newEditorPopup(),
 		hostPicker:  newHostPicker(),
 		save:        save,
 		spaceMenu:   newSpaceMenu(),
@@ -105,6 +111,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.transfersUI.setSize(m.w, m.h)
 		m.historyUI.setSize(m.w, m.h)
 		m.viewer.setSize(m.w, m.h)
+		m.editorUI.setSize(m.w, m.h)
 		m.spaceMenu.setSize(m.w, m.h)
 		m.help.setSize(m.w, m.h)
 		m.form.setSize(m.w, m.h)
@@ -123,6 +130,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.transfersUI.anim.tick(msg),
 			m.historyUI.anim.tick(msg),
 			m.viewer.anim.tick(msg),
+			m.editorUI.anim.tick(msg),
 			m.help.anim.tick(msg),
 			m.form.anim.tick(msg),
 			m.picker.anim.tick(msg),
@@ -152,6 +160,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case viewLoadedMsg:
 		m.viewer.onLoaded(msg)
 		return m, nil
+
+	case editTickMsg:
+		return m.onEditTick()
+
+	case editFetchedMsg:
+		return m.onEditFetched(msg)
+
+	case editSavedMsg:
+		return m.onEditSaved(msg)
 
 	case dialTickMsg:
 		// Turns the connecting spinner. A dial can take fifteen seconds and the
@@ -194,6 +211,28 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// A running editor owns the keyboard completely, the way panel [5] does:
+	// Esc is vim's Esc, q is a letter, Space is a space. It is checked before
+	// everything else because every rule below would otherwise take a key the
+	// editor needs.
+	//
+	// Two keys are kept. Alt+Esc abandons the edit — in tab [3] it means "take
+	// the keyboard back", and here there is nowhere else to take it, so leaving
+	// is what taking it back is. Ctrl+C stays the emergency exit it is
+	// everywhere else in sshu, including inside a session's PTY; making it mean
+	// something different in this one PTY is how an emergency exit stops being
+	// one.
+	if m.editorUI.running() {
+		switch {
+		case msg.Type == tea.KeyEscape && msg.Alt:
+			return m.abandonEdit()
+		case msg.Type == tea.KeyCtrlC:
+			return m.quit()
+		}
+		m.editorUI.pty.write(msg)
+		return m, nil
+	}
+
 	// Alt+Esc is sshu's own key, not a VTP core key: it exists because panel [5]
 	// hands the keyboard to a remote program, and something has to be able to
 	// take it back. It is scoped to that one situation — everywhere else it is
@@ -291,6 +330,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case m.viewer.anim.owns():
 		m.viewer.update(msg)
 		return m, nil
+	case m.editorUI.anim.owns():
+		// Fetching or writing: the only keys are Esc and Space, and both were
+		// resolved above as "close the topmost float".
+		return m, nil
 	case m.hostPicker.anim.owns():
 		return m.hostPickerKey(msg)
 	case m.picker.anim.owns():
@@ -347,7 +390,11 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 	case m.input.isActive():
 		return m, m.input.close()
 	case m.confirm.isActive():
-		return m, m.confirm.close()
+		// Cancelling is free on every confirm but the two edit ones, which are
+		// standing on a local copy that has to be cleaned up or told about.
+		return m, tea.Batch(m.confirm.close(), m.declineEdit())
+	case m.editorUI.isActive():
+		return m, m.closeEdit(false)
 	case m.help.isActive():
 		return m, m.help.close()
 	case m.spaceMenu.isActive():
@@ -363,7 +410,7 @@ func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.confirm.close(),
 		m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.transfersUI.close(), m.historyUI.close(), m.viewer.close(),
-		m.spaceMenu.close())
+		m.editorUI.close(), m.spaceMenu.close())
 }
 
 // ------------------------------------------------------------- panel level
@@ -500,6 +547,9 @@ func (m AppModel) quit() (tea.Model, tea.Cmd) {
 	m.ssh.stopAll()
 	m.transfers.cancelAll()
 	m.sftp.closeAll()
+	// The editor's temp file is deliberately NOT removed here: leaving on the
+	// way out is exactly when an unsaved edit is worth keeping.
+	m.editorUI.stop()
 	return m, tea.Quit
 }
 
@@ -526,7 +576,7 @@ func (m AppModel) popupOpen() bool {
 	return m.form.anim.owns() || m.picker.anim.owns() || m.confirm.anim.owns() ||
 		m.input.anim.owns() || m.help.anim.owns() || m.spaceMenu.anim.owns() ||
 		m.hostPicker.anim.owns() || m.transfersUI.anim.owns() ||
-		m.historyUI.anim.owns() || m.viewer.anim.owns()
+		m.historyUI.anim.owns() || m.viewer.anim.owns() || m.editorUI.anim.owns()
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -736,6 +786,10 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.doDeleteItem(m.confirm.target)
 	case confirmDeleteMarks:
 		return m.doDeleteMarks()
+	case confirmEditBinary:
+		return m.launchEditor()
+	case confirmEditOverwrite:
+		return m.saveEditForced()
 	}
 	return m, m.closeStack()
 }

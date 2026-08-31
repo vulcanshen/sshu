@@ -12,12 +12,14 @@ const (
 	confirmNone confirmAction = iota
 	confirmConnect
 	confirmDelete
-	confirmClose       // kill a live session
-	confirmDuplicate   // open a second session to the same host
-	confirmTransfer    // start a planned transfer, overwrites and all
-	confirmQuit        // leave sshu while sessions are live
-	confirmDeleteItem  // erase the path under the cursor in tab [2]
-	confirmDeleteMarks // erase every marked path on one side of tab [2]
+	confirmClose         // kill a live session
+	confirmDuplicate     // open a second session to the same host
+	confirmTransfer      // start a planned transfer, overwrites and all
+	confirmQuit          // leave sshu while sessions are live
+	confirmDeleteItem    // erase the path under the cursor in tab [2]
+	confirmDeleteMarks   // erase every marked path on one side of tab [2]
+	confirmEditBinary    // open something that does not look like text
+	confirmEditOverwrite // write back over a file that changed underneath
 )
 
 // confirmPopup is the message class (§6.1): a short question with one yes and

@@ -55,6 +55,11 @@ type FS interface {
 	// first: os.Rename would overwrite it and SFTP's would refuse, and one
 	// operation must not depend on which end it lands on.
 	Rename(from, to string) error
+	// Replace is the other half of that split: move from ONTO to, whatever is
+	// already there. It exists because an edit's write-back has to land in one
+	// step — a file seen half-written is a file the next process to read it
+	// believes.
+	Replace(from, to string) error
 
 	Close() error
 }
