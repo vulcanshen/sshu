@@ -1,0 +1,1717 @@
+# sshu — UI 設計稿(tab [1] hosts)
+
+sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain、
+**sshu = ssh/sftp domain**)。三者**平行**、共用同一套
+[**VTP** — Vulcan's TUI Design Principle](../../thoughts/vtp.md),不是誰
+派生自誰。
+
+本文件是 **UI 設計稿**、不是 implementation record —— 描述「**要做成什麼樣**」。
+實作落地後再改寫成 `sshu-implementation.md`(對齊 `filu-implementation.md` /
+`kbu-implementation.md` 的結構)。
+
+> **設計權威順序**:`.forge/meta/IDEA.md`(sshu 專屬決定,尚未建立)>
+> **VTP**。`filu-implementation.md` 是**平行實現的參照、不是上位權威**。
+>
+> **範圍**:本稿只完整設計 **tab [1] hosts**。tab [3] ssh 與 tab [2] sftp
+> 只定位、不細設計 —— 開發順序 **1. hosts → 3. ssh → 2. sftp**。
+
+---
+
+## 0. 三個 tab 的定位
+
+| tab | 職責 | 狀態 |
+|---|---|---|
+| **[1] hosts** | 連線目標的 CRUD(表格);也是 ssh / sftp 的**發射台** | 已落地 |
+| **[2] sftp** | 兩個檔案系統之間的傳輸;內含 `[4]` `[5]` `[6]` `[7]` 四個 panel | 已落地 |
+| **[3] ssh** | 對某台 host 的互動式 session;內含 `[4]` `[5]` 兩個 panel | 已落地 |
+
+三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),彼此以頂部
+獨立膠囊按鈕切換。
+
+---
+
+## §A. VTP 對照
+
+### §A.0 score
+
+| 軸 | sshu 值 | 說明 |
+|---|---|---|
+| **X. 揭露程度** | ~1.0 | `Space` 列出當前 focus 的全部 contextual 動作;`?` 列出全部全域動作。兩個入口自身由 **footer 常駐揭露** |
+| **Y. core-key role** | **5** | `Tab` / `Enter` / `Esc` / `Space` / `?` |
+| `min(1, 5/Y)` | 1.0 | Y = 5,無 penalty |
+| **Score** | **~100%** | 第一次開就能用完 |
+
+### §A.0.Y core-key 集合(5 個,跨 surface 不變)
+
+| Core-key | sshu 語意 | 通用條款 |
+|---|---|---|
+| `Tab`(`1`/`2`/`3` 直達 alias) | 切 tab(surface 切換);popup 內切欄位 | §4.1 |
+| `Enter` | 確認 / 進入(hosts:對 cursor host 發起 ssh 連線) | §4.1 |
+| `Esc` | 取消 / 關閉最上層浮層 | §4.3 |
+| `Space` | §A.1 contextual 入口(Space menu) | §A.1 |
+| `?` | §A.2 non-contextual 入口(help popup) | §A.2 |
+
+**`q` 與 `Ctrl+C` 不各記一個 role**(對齊 filu):`q` = 離開 app,是一個
+**全域動作**(列在 footer + `?` help),不是「取消」role;取消 role 由 `Esc`
+單獨承載。`Ctrl+C` 是逃生硬退。**`q` 在任何浮層開著時不生效**(浮層擁有
+鍵盤),避免半套 alias 汙染取消 role。
+
+**letter hotkey 不佔 core-key slot**:`e` / `d` / `c` / `s`、導覽 `h j k l`
+`gg` `G` 都是入口內動作的加速捷徑。
+
+### §A.1 Contextual track — Space menu
+
+入口自身在 **footer** 揭露。hosts tab 只有一個 panel,所以 focus 恆定在
+hosts 表格上。
+
+| Region | 動作 | 觸發 |
+|---|---|---|
+| **item**(cursor 上那張卡) | Connect(ssh) | `Enter` |
+| | Sftp `(planned)` | `s` |
+| | Edit | `e` |
+| | Delete | `d` |
+| **panel** | Add | `A` |
+
+§6.6 cursor-first:item region 在前、panel region 在後。
+
+### §A.2 Non-contextual track — `?` help popup
+
+| 全域動作 | key |
+|---|---|
+| 說明 | `?` |
+| 離開 | `q` |
+| 硬退 | `Ctrl+C` |
+| 切 tab | `Tab` / `1`-`3` |
+
+sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
+
+### contextual / non-contextual 邊界(audit 用)
+
+| 動作 | contextual? | track |
+|---|---|---|
+| 對 cursor host 做 Connect / Sftp / Edit / Delete | ✓ 對 cursor 卡 | §A.1 |
+| 對 hosts panel 做 Add | ✓ 對當前 panel | §A.1 |
+| 切 tab / Help / Quit | ✗ 全域 | §A.2 |
+
+---
+
+## §B. 元素專職化
+
+| 元素 | 專職語意 | 不准兼職 |
+|---|---|---|
+| **blue `#89b4fa`**(structural) | panel border、active tab 膠囊底色、**hosts 表格選中列的 bar**(`rowSelColor`) | 不拿去做 user state |
+| **surface2 `#585b70`** | unfocus 的 panel border、inactive 膠囊前景 | — |
+| **subtext1 `#bac2de`**(`handColor`) | Space menu / file picker / session 清單的游標 bar | 不當 panel chrome、不當 form 編輯列、不當 hosts 表格游標(那是 blue) |
+| **lavender `#b4befe`**(`editColor`) | **正在編輯的 form 列**(label + value + caret 一起) | list cursor(那是 `handColor`)、popup border、panel border |
+| **crust `#11111b`** | inactive 膠囊的凹陷底色 | — |
+| **overlay0 `#6c7086`**(`dimColor`) | 次要文字、region header、停用欄位 | — |
+| **Peach / Red** | warning / error override | 不參與 popup layer scale;**不拿去標 auth method** |
+| popup border 色 | popup layer 明度(`popupLayerColor`) | 不 hardcode |
+| `[X]label` bracket | letter hotkey 揭露 | 純 label 不加 bracket |
+| `Esc` | 關閉 / 取消 | 永遠不當「確認」 |
+| Nerd Font glyph | **欄位型別訊號**(這一列是什麼欄位) | 不當熱鍵 signal、不當純裝飾 |
+
+**點名一個決定:auth method 不用顏色編碼。** 直覺會想把 `password` 染成
+peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專職
+佔用(§2.4),借用會讓使用者看到 password 卡以為「這台有問題」。改由
+**glyph 區分**(鎖 vs 鑰匙)+ 文字,兩者都是內容訊號、不動色彩層。
+
+---
+
+## §1. 空間結構
+
+### 1.1 版面 grid
+
+固定 chrome **3 行**:頂部 1 行膠囊 tab bar(獨立 content row,**不是**
+panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間全部給 panel。
+
+分隔線是後補的,而且它是**把膠囊還給 panel title 的前提**:tab 膠囊與 panel
+膠囊上下相鄰時,兩排填色形狀會讀成同一條 chrome。中間夾一條線,上面那排才明確
+是「可以按的 tab」、下面那排是「這個框叫什麼」。
+
+> **未決**:filu 在同一個位置試過一條 dim 實線、判定「太重」而改用 status bar。
+> sshu 留著它是因為 sshu 下方有膠囊要分隔、filu 沒有 —— 但這條仍待實機複核。
+
+```
+ ([1] hosts)  ([2] sftp)  ([3] ssh)                                1/5 hosts
+──────────────────────────────────────────────────────────────────────────────
+╭(hosts)─────────────────────────────────────────────────────────────────────╮
+│ Name               User           Host                  Port  Auth         │
+│ prod-web-01        deploy         10.0.3.14               22  ◆ privatekey │
+│ db-replica-tokyo…  postgres       db.internal.corp      2222  ◆ password   │
+│ bastion-eu-west-1  ec2-user       bastion.eu-west-1.…     22  ◆ privatekey │
+│ staging-api        app            staging.example.com     22  ◆ password   │
+│ jump               root           jump.corp               22  ◆ privatekey │
+│                                                                            │
+╰────────────────────────────────────────────────────────────────────────────╯
+ space menu   ? help   1-3 tabs   q quit
+```
+
+> 圖例:`( )` = powerline 圓角 cap `U+E0B6` / `U+E0B4`;`◆` = auth 的 Nerd Font
+> glyph(鑰匙 / 鎖)。上圖 terminal 寬 78、cursor 在第一列。
+
+**[1] 是表格,不是卡片牆。** 卡片一次看一張很好看,但 host 清單是**沿著欄位往
+下掃、互相比對**的東西,而且一張卡吃六列、一列只吃一列 —— host 一多就整個放不
+進畫面。改成表格後欄位不變(Name / User / Host / Port / Auth),每台一列。
+
+**tab [3] 是兩個 panel**(`[4]` sessions / `[5]` pty):
+
+```
+ ([1] hosts)  ([2] sftp)  ([3] ssh)                            3 live · 1 past
+──────────────────────────────────────────────────────────────────────────────
+╭([4] sessions)──────────╮╭([5] prod-web-01)─────────────────────────────────╮
+│  prod-web-01        #1 ││ deploy@prod-web-01:~$ uptime                     │
+│   db-replica-tokyo-ap- ││  14:02:11 up 42 days,  3:17,  2 users            │
+│   northeast-1          ││ deploy@prod-web-01:~$ █                          │
+│   prod-web-01       #2 ││                                                  │
+│                        ││                                                  │
+│                        ││                                                  │
+│                        ││                                                  │
+│                        ││                                                  │
+│                        ││                                                  │
+│                        ││                                                  │
+╰────────────────────────╯╰──────────────────────────────────────────────────╯
+ alt+esc leave pty
+```
+
+**數字只定址「當前 tab 裡看得見的 panel」**:`1`-`3` 永遠是 tab;`4`-`6` 在
+tab [3] 是 sessions / pty,`4`-`7` 在 tab [2] 是左檔案 / 左 marks /
+右檔案 / 右 marks。畫面上沒有那個編號,按下去就沒有反應 —— 規則直接從畫面讀得
+出來,不必記。
+
+**否決過的做法**:一開始做成「一條連續的全域定址空間」,在 tab [1] 按 `4` 會
+跳到 tab [3] 並 focus sessions。看起來更一致,實際上是讓一個數字做了螢幕從未
+顯示過的事。
+
+**左欄固定 26 欄**(§1.2 的同一條理由:可調分割會讓 panel 寬度跟內容綁動),
+整欄給 `[4]`。26 已經接近下限 —— 清單是 name-only,那一欄裝的是「名字 + 2 格
+marker + 4 格 ordinal 版位」,再窄下去版位開銷就會蓋過名字、常見主機名開始折行。
+
+**窄寬門檻是推導出來的**,不是另一個會忘記同步的常數:`sshNarrowW = sshLeftW + 28`
+—— 只要 `[5]` 還剩得下 28 欄、split 就值得留著。所以把左欄縮窄也順帶讓 split
+在更窄的終端機上活得下來(從 `w < 60` 降到 `w < 54`)。低於門檻時左欄整個收起、
+`[5]` 佔滿畫面 —— 清單要 `Alt+Esc` 出來才切得到。
+
+**tab [2] 是四個 panel**,左右各一半、寬度 1:1,每一半上面是檔案清單、下面是
+它自己的 marks:
+
+```
+ ([1] hosts)  ([2] sftp)  ([3] ssh)                                   2 marks
+──────────────────────────────────────────────────────────────────────────────
+╭([4] local)──────────────────────────╮╭([6] prod-web-01)────────────────────╮
+│ ~/Documents/sideproj                ││ /srv/www/releases                   │
+│ ✓  deploy.sh                   1.2 K││    2026-08-30                      -│
+│    README.md                   4.0 K││    2026-08-29                      -│
+│ ✓  assets                          -││    current                         -│
+│                                     ││                                     │
+╰─────────────────────────────────────╯╰─────────────────────────────────────╯
+╭([5] Marked files)───────────────────╮╭([7] Marked files)───────────────────╮
+│  ✓ deploy.sh                        ││  (none)                             │
+│  ✓ assets                           ││                                     │
+╰─────────────────────────────────────╯╰─────────────────────────────────────╯
+ space menu   ? help   1-7 surfaces   q quit
+```
+
+> 圖例:`✓` = 已 mark 的 Nerd Font glyph;`⌕` = 搜尋提示符(實際是
+> `nf-fa-search`);size 欄目錄顯示 `-`。上圖寬 78。
+
+**四個 panel 各自 focus,不是左右兩組。** 原本設計成「一邊的三個 panel 一起
+focus」,但要對 marks 裡的某一項做事就得先切到另一邊 —— marks 需要自己的游標。
+所以拆成 `[4]` `[5]` `[6]` `[7]`,`Tab` 依序走。
+
+**兩邊都是「某個檔案系統」,不分主從。** 一邊可以是 local、可以是遠端,兩邊同
+時遠端也可以 —— `remote.FS` 一個介面兩種實作,所以 upload / download /
+remote-to-remote 是同一條路徑帶不同的值,不是三個功能。`[S]witch host` 的第一
+項固定是 `local`,因為從這台機器上傳是最常見的事。
+
+**cwd 在 panel 內的第一行**,不是下邊框:那是內容(「我在哪」),看的頻率跟清
+單本身一樣高,塞進邊框會讀成 chrome。純文字、lavender 段落 + dim 斜線,沒有
+chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(filu 的 `crumbRow`
+同一個結論、同一個理由)。
+
+**否決**:powerline 漸層麵包屑。照 filu 的**實作文件**做了一整套(blue→crust
+漸層、WCAG 反白),然後發現 filu 的程式碼早就不是那樣了 —— 抄 UI 要讀對方的
+程式碼,文件只拿來看理由。
+
+**膠囊 tab bar**(§4.4 + §3.4):三顆**各自獨立**的圓角膠囊、彼此不相連
+(不用 filu 那種 powerline 連鎖 chain —— 那條 chain 是「同一組分頁」的語彙,
+這裡三個 tab 是三個並存 surface,分開才誠實)。
+
+- **active**:blue `#89b4fa` 底 + base `#1e1e2e` 深字 + bold,兩端圓 cap 同 blue
+- **inactive**:crust `#11111b` 底 + surface2 `#585b70` 字,兩端圓 cap 同 crust
+- 標籤格式 `[N] label` —— `[N]` 同時是型別訊號與 hotkey 揭露(對齊 filu §3.4)
+- **每個 panel 都戴圓角膠囊 border title**:`[N] label`,與 tab 膠囊同形但
+  語意不同 —— tab 膠囊是「可以按的按鈕」,panel 膠囊是「這個框叫什麼」。兩者
+  能共存的前提是中間那條分隔線(見上)。
+
+  這一項來回過兩次:先是「panel 不需要 border title,膠囊已經回答你在哪個
+  tab」→ 但膠囊說不出「這是四個 panel 的哪一個」,所以 tab [3] 先加回純文字
+  title → 最後統一成「全部 panel 都戴膠囊」並補上分隔線。
+
+**右側狀態 slot**:膠囊列右端右對齊,hosts tab 顯示 `<cursor>/<total> hosts`。
+這一列同時兼做膠囊與 panel 之間的視覺分隔。
+
+### 1.2 表格欄位與收縮順序
+
+| 欄 | 寬度 |
+|---|---|
+| **Name** | 剩餘寬的 35%(下限 8) |
+| **User** | 剩餘寬(下限 6) |
+| **Host** | 剩餘寬的 40%(下限 10) |
+| **Port** | 固定 5(`65535`),右對齊 |
+| **Auth** | 固定 12(glyph + 空格 + `privatekey`) |
+
+**放不下就整欄拿掉,不把欄位削到沒有意義**。收縮順序是
+**Auth → Port → User/Host**,`Name` 永遠留著 —— 叫不出名字的一列不算一列。
+門檻由上面的下限推導:Auth 需要 `w ≥ 51`、Port 需要 `w ≥ 37`、User/Host 那組
+需要 `w ≥ 30`,再窄就只剩 Name。
+
+**header 與資料列走同一個 `tableRowText`**,所以欄位不可能對不齊 ——
+`TestTableHeaderAndRowsAlign` 釘住這件事。
+
+### 1.3 窄寬:表格自己就是 responsive 形式
+
+卡片時代需要一個「`w < 38` 改單行清單」的 fallback 分支。表格不需要 ——
+**收縮欄位就是它的窄寬形式**,一路降到只剩 Name 都還是同一個 widget、同一套
+游標、同一套鍵。少一個分支、少一套要維護的版面。
+
+### 1.4 Statusbar / footer 行數固定
+
+膠囊列 N=1、footer N=1,**選定即鎖死**(通用 §1.3)。內容溢出就截斷,
+絕不 reflow 多吃一行。
+
+### 1.5 空狀態
+
+第一次開、`hosts.yaml` 還不存在時,panel 置中顯示:
+
+```
+╭────────────────────────────────────────────────────────────────────────────╮
+│                                                                            │
+│                                No hosts yet                                │
+│                                                                            │
+│       Press [A] to add a host, or Space to see what you can do here        │
+│                                                                            │
+╰────────────────────────────────────────────────────────────────────────────╯
+```
+
+空狀態**必須**同時揭露 `[A]` 與 `Space` —— 否則新使用者第一次開 app 面對
+空 panel 無路可走,X 直接掉。測試 `TestEmptyStateDisclosesEntryPoints` 盯著
+這件事。
+
+---
+
+## §2. 色彩(catppuccin-mocha,沿用 u-family 錨點)
+
+### 2.1 錨點
+
+| 錨點 | hex | 用途 |
+|---|---|---|
+| base | `#1e1e2e` | 亮底膠囊上的深字、cursor 上的前景 |
+| crust | `#11111b` | inactive 膠囊凹陷底 |
+| structural blue | `#89b4fa` | panel border、active 膠囊 |
+| surface2 | `#585b70` | unfocus panel border、inactive 膠囊字 |
+| `handColor` subtext1 | `#bac2de` | menu / picker / session 清單的游標 bar |
+| `editColor` lavender | `#b4befe` | 正在編輯的 form 列 |
+| `dimColor` overlay0 | `#6c7086` | 次要文字 / region header / 停用欄位 |
+| text | `#cdd6f4` | 一般欄位文字 |
+| Peach / Red | `#fab387` / `#f38ba8` | warning / error override |
+
+### 2.2 明度作 z-axis
+
+- **popup**:border 走 `popupLayerColor(layer)`(lavenphire25 → sapphire),
+  巢狀越上層越亮,不 hardcode(通用 §2.5 / §6.3)。直接沿用 filu 的實作。
+- **表格選中列**:blue bar;未選中列的欄位退到 `dimColor`。這是
+  z-axis 在 item 層的實例。
+
+### 2.2.1 兩種「當前」分色:操作 vs 編輯
+
+`handColor`(subtext1)與 `editColor`(lavender)都在講「這是你現在所在的
+位置」,但**指的是兩件事**,所以分成兩條色帶(§B):
+
+| 色 | 語意 | 出現在 |
+|---|---|---|
+| `handColor` subtext1 | 「游標停在這一列、按 `Enter` 會**對它做事**」 | Space menu / file picker / session 清單(hosts 表格用 blue,見 §2.3) |
+| `editColor` lavender | 「這一欄你**正在改**」 | host form 的 focus 列 —— label、value、caret 一起 |
+
+差別是**「作用於」vs「正在變更」**。清單游標指的是一個你可能操作的對象;
+form 的 focus 列是一個你此刻正在改寫的值。共用一個顏色會讓 user 在 form 裡
+以為「按 Enter 會對這一列做事」,但實際上 Enter 是送出整張表(§6.1 menu vs
+form 的同一條分界)。
+
+`TestFocusedFormRowIsLavender` / `TestListCursorIsNotLavender` 把這條分界釘住
+—— 顏色指派是這份設計裡唯一沒有其他機制能擋住它漂移的規則。
+
+### 2.3 cursor 的視覺形式:整列 bar
+
+表格的列只有一列高,所以 cursor 終於可以用**填色 bar** —— 跟 Space menu /
+file picker / session 清單同一種形式。(卡片時代做不到:一張卡四列高,整塊反白
+會把四行文字都推進低對比區。)
+
+| | 形式 |
+|---|---|
+| **選中列** | **blue `#89b4fa`** 背景 + base 深字 |
+| **未選中列** | Name 用 `textColor`(要能掃)、其餘欄位 `dimColor` 退階 |
+
+**為什麼是 blue 不是 `handColor`**:subtext1 `#bac2de` 跟 `textColor` `#cdd6f4`
+太近,讀不出「這列被選中」。blue 是這套色盤裡唯一夠響的。
+
+這條**跟 panel chrome 共用 structural 色帶**(§B)。可接受的理由:兩者是同一個
+概念的不同尺度 —— panel 的「你在這個 surface」與列的「你在這一列」—— 而且
+chrome 是外框、選中列在框內,不會貼在一起。
+
+**已知的不一致**:hosts 表格的游標 bar 是 blue,但 Space menu / file picker /
+session 清單的 bar 仍是 `handColor`。若之後覺得刺眼,收斂方向是把**那些也改成
+blue**,而不是把這裡改回去 —— 那只會退回「看不出被選中」的原點。
+
+`TestSelectedHostRowIsBlue` 釘住 hex 與「選中/未選中 render 出來不能一樣」。
+
+---
+
+## §3. 符號語彙
+
+### 3.1 Nerd Font 是設計、必裝
+
+同 kbu / filu(通用 §3.1),不做降級分支。source 內**不放 PUA 字面**,一律
+`string(rune(0x...))`。
+
+### 3.2 glyph 配置
+
+| 位置 | 語意 | 候選碼位 |
+|---|---|---|
+| Auth 欄(privatekey) | 金鑰 | `nf-fa-key` `U+F084` |
+| Auth 欄(password) | 密碼鎖 | `nf-fa-lock` `U+F023` |
+| [4] session 正顯示於 [5] | 終端機 | `nf-oct-terminal` `U+F489` |
+| Space menu title | 選單 | `nf-fa-bars` `U+F0C9` |
+| help title | 說明 | `nf-fa-question-circle` `U+F059` |
+| confirm title | 警示 | `nf-fa-warning` `U+F071` |
+| form title(create) | 新增 | `nf-fa-plus` `U+F067` |
+| form title(edit) | 編輯 | `nf-fa-pencil` `U+F040` |
+| 膠囊 cap | 圓角 | `U+E0B6` / `U+E0B4` |
+
+> 碼位待實作時對照 Nerd Font cheat sheet 逐一驗證後鎖定。
+
+**Auth 是唯一「glyph 隨值變」的欄** —— 鑰匙 vs 鎖同時是型別訊號(這欄是
+auth)與內容訊號(哪一種 auth)。這是 §3.3「型別 + 內容」在單一 cell 上的壓縮,
+可接受,因為文字就在旁邊補全內容訊號。
+
+**表格的其他欄沒有 glyph**:column header 已經說了那欄是什麼,卡片時代的
+per-field glyph 是在補一個表格天生就有的東西,留著只是雜訊。
+
+### 3.3 CJK icon 寬度
+
+沿用 filu 的 **CPR 偵測**(`\x1b[6n`,在 `tea.NewProgram` 之前實測 icon
+實際格寬)。表格欄寬與 pty 版位都是固定格數,icon 寬度誤判會**直接破框**,所以這一層在
+sshu 是必要而非可選。
+
+### 3.4 Surface 標籤
+
+- **tab 膠囊**:`[N] label`(型別訊號 `[N]` + 內容訊號 label)
+- **panel**:**每一個 panel 都有** `[N] label`,做成與 tab 同形的圓角膠囊、
+  嵌在上邊框。tab 列與 panel 列之間隔一條整寬分隔線,兩排膠囊才不會讀成同一
+  條 chrome(§1.1)。膠囊只說得出「你在哪個 tab」、說不出「這是四個 panel 的
+  哪一個」,所以 title 本身仍然必要(`ui/chrome.go panelChrome`)
+- **panel title 不帶 glyph**:tab [2] 的檔案 panel 曾經在 host 名前放一個
+  `nf-md-monitor`,拿掉了 —— 全 app 沒有第二個 panel title 帶 icon,一個帶了
+  就讀成特例而不是裝飾(§B)
+- **popup**:glyph + text 嵌上邊框、hint 嵌下邊框(kbu form)
+
+---
+
+## §4. 互動
+
+### 4.1 Core 5 鍵(見 §A.0.Y)
+
+語意在任何 surface 不變。
+
+### 4.2 清單導覽
+
+| 鍵 | 動作 |
+|---|---|
+| `j` / `k` | 上 / 下一列 |
+| **`u` / `d`** | **上 / 下半頁**(`Ctrl+U` / `Ctrl+D` 同義) |
+| `gg` / `G` | 第一列 / 最後一列 |
+| 方向鍵 | 與 `j`/`k` 同義 |
+| **`h` / `l`** | tab [2]:切到左半 / 右半,保持同一列 · tab [3]:`l` 進 `[5]` |
+
+**一份詞彙、一個實作**(`ui/nav.go moveCursor`)。四個清單面(hosts 表格、
+`[4]` sessions、sftp 的檔案與 marks)全部走它,所以往詞彙裡加
+一個鍵,是一次加到所有清單上,不是加四次。
+
+**半頁而不是整頁**:落點與離開的地方要有重疊,眼睛才接得回去。整頁跳完要重新
+找自己在哪。
+
+**`j`/`k` 會繞**:清單是一個環,最後一列離第一列只有一個鍵。這在**短清單**上最
+有感 —— 不繞的話,替代方案是按著 `k` 看畫面完全沒有反應。**所有有游標的面都繞**,
+panel 與 popup 一視同仁(hosts 表格、`[4]` sessions、sftp 的檔案與 marks、Space
+menu、host picker、file picker、Transfers)。
+
+**`u`/`d` 不繞**,`gg`/`G` 更不用說。半頁是「瞄準」的移動,一個會無聲傳送到清單
+另一端的瞄準比停下來更糟。
+
+**沒有游標的東西也不繞**(`moveScroll`):`[H]istory` 與 `?` help 是 viewport,
+捲到底又跳回頂端會讀成故障 —— 因為根本沒有游標可以「繞回去」。
+
+**`u`/`d` 這兩個字母是有代價的**,而且代價落在別人身上 —— 見 §4.4 的保留規則:
+`[U]nmark` 與 `[D]elete host` / `[D]uplicate` 從此**只認大寫**。
+
+**導覽字母不會被動作拿走,一條例外都沒有。** tab [2] 的刪除曾經放在 `d` 上一輪,
+代價是那個 tab 失去裸的半頁鍵、而且需要一條專屬規則來解釋自己
+(「只有有第二拼法的字母能被要走」)。搬到 `x`/`X` 之後,那條規則整條刪掉,這句話
+變回沒有註腳的一句話。
+
+> **改過一次**:原本的判斷是「不另設 half-page,捲動由 `j`/`k` + cursor 驅動」,
+> 理由正是要把 `d` 留給 Delete。清單變長(sftp 的遞迴搜尋一次可以吐出上千列)
+> 之後這個取捨反過來了:一列一列走一份搜尋結果不是可行的操作方式。
+
+**`h`/`l` 只在 tab [2] 有意義**:左半 / 右半,而且**保持同一列** —— `[5]` 去
+`[7]` 而不是 `[6]`。兩邊是鏡像,「對面的同一個 panel」是唯一「只換了看哪台機器、
+沒換在看什麼」的落點。`Tab` 是「下一個 panel」,`h`/`l` 是「我要哪一邊」;1:1
+分割時後者才是常態。
+
+**tab [3] 的 `l` 進 `[5]`**,一樣是空間上的「往右」:`[4]` 是左欄、pty 是右欄。
+
+> **這跟「`Tab` 不進 `[5]`」(§4.4.1)不衝突。** `Tab` 進去會被遠端吞掉 ——
+> 等於把帶你進去的那把鑰匙鎖在門內。`l` 不是任何地方的「出口鍵」,借給 pty 不
+> 花任何成本;出來仍然是 `Alt+Esc`。兩個鍵做不同的事,正是要有兩個鍵的原因。
+>
+> 反方向沒有 `h`:`[5]` 把整個鍵盤交給遠端,那裡的 `h` 是遠端的 `h`。
+
+在 [1],`h`/`l` **沒有綁定** —— 表格沒有欄可以左右移動(卡片網格時代它們是
+「左右移一張卡」,改成表格後那個語意消失了)。但兩個字母**仍然被保留**(§4.4)
+—— 一個在某個面是導覽的字母,不該在另一個面變成某個動作的 fallback。
+
+### 4.2.1 入口鍵會關掉自己開的東西
+
+**`Space` 關掉當前浮層,`?` 開關 help。** 一個只有單向的入口鍵是陷阱:使用者會
+伸手去按同一個鍵想出來,結果沒反應,那個面看起來就像卡住了。filu 的 space menu
+一直是 `case "esc", " "`,sshu 漏掉了。
+
+**在一個地方解決,不是每個 popup 各寫一份** —— 跟 `Esc` 同樣的理由(§4.3):
+一個角色一個地方,才不會有某一個浮層是「忘記做」的那個。實作在
+`AppModel.handleKey`,`m.textFloat()` 是唯一的例外判斷。
+
+**例外:正在被打字的浮層**(host form、file picker、Rename 輸入框)。那裡的空白
+就是空白、問號就是問號(§4.5)。
+
+`?` 還會**疊在別的浮層上開**:§A.2 承諾 help 在任何 surface 都到得了,而一個迷路
+的使用者最可能站的地方,正是他剛打開的那個 menu。層級由 `m.layer()` 決定,所以
+邊框顏色會跟著往上跳一階(§6.3),`Space` 再按一次只收掉最上面那層。
+
+`TestSpaceDismissesEveryFloat` 用一張**列出全部浮層**的表釘住這件事 —— 針對被回報
+的那一個寫測試沒有用,漏掉的一定是沒被想到的那一個。
+
+### 4.3 letter hotkey ⊆ Space menu(完整性)
+
+| key | 動作 | region |
+|---|---|---|
+| `e` | Edit | item |
+| `d` | Delete | item |
+| `s` | Sftp `(planned)` | item |
+| `A` | Add | panel |
+
+全部小寫(清單沒有 `d` = half-page-down 的衝突,因為捲動由 `j`/`k` +
+cursor 驅動,不另設 half-page)。
+
+**完整性 audit**:新增任何 contextual 動作,必須同步在 Space menu 加 entry。
+只綁 letter hotkey = VTP 破洞。
+
+### 4.4 hotkey 揭露 = bracket `[X]label` + 「亮鍵暗述」
+
+**兩個層面、一套規則**:
+
+1. **bracket `[X]label`** —— letter hotkey 專用(Space menu 的列)。core-key
+   動作(如 Connect = `Enter`)不套 bracket,改在 hint 欄顯示鍵名 —— bracket
+   專職 letter hotkey。
+
+   **bracket 顯示的就是要按的那個鍵**,一字不差(`ui/popup.go bracketHotkey`)。
+   **標記是契約、綁定跟著標記走**,不是反過來 —— 標記寫 `[A]dd`,使用者照著
+   按 shift+A 卻沒反應,那個標記就是在說謊。
+
+   **配對是完全比對,大小寫算數**(`ui/popup.go hotkeyIndex`)。畫面上那個
+   bracket 就是全部的綁定:**它寫的一定按得動,它沒寫的一定按不動。**
+
+   > **改過兩次,方向相反。** 最早是「一律大寫顯示、一律不分大小寫」,那是在修
+   > 一個真的 bug —— 表裡宣告 `c`、顯示卻印成 `[C]`,照著標記按 shift+C 什麼都
+   > 沒發生。但那個修法落在錯的地方:**讓 bracket 印出宣告的那個字母**才是治本,
+   > 之後那條寬鬆比對就只剩下一個「畫面上沒有任何東西提過」的第二綁定 ——
+   > `[C]lose` 會被裸的 `c` 觸發,而在 tab [2] 裡 `c` 會觸發 `[C]lear marks`,
+   > 正好違背「小寫是這一列」那條規則。所以它被拿掉了。
+   >
+   > 拿掉之後有兩個附帶結果:`t`/`T`、`x`/`X` 不再需要「完全比對優先」這種特例
+   > 說明(本來就只有完全比對),而導覽字母也不再需要 `hotkeyIndex` 裡的守衛 ——
+   > **沒有東西會 fold 到 `d` 上,因為沒有東西會 fold**。剩下的唯一風險是某個動作
+   > 直接宣告 `d`,那由 `TestNoActionClaimsANavigationKey` 擋。
+
+   這條只適用 bracket 標的 letter hotkey;導覽鍵**仍然分大小寫**(`G` 跳底、
+   `g` 是 `gg` chord 的前半,兩者不能混)。
+2. **亮鍵暗述** —— 凡是「鍵 + 說明」成對出現的地方(footer legend、popup 下邊
+   框 hint),**鍵用 `handColor`(亮)、說明用 `dimColor`(暗)**。學一次、走
+   全 app。實作:`ui/chrome.go keyLegend`(footer)與 `ui/popup.go hintLegend`
+   (popup hint)共用同一條規則,只有間距不同 —— 邊框那行沒有 footer 那麼多
+   餘裕,所以 hint 收緊成「pair 內 1 空格、pair 間 2 空格」。
+
+**popup hint 是 contextual 的**:它顯示的是**當前欄位**能做什麼,不是一份
+固定清單。這是 §4.5 用來換掉 `Space` 入口的那個「常駐揭露」—— 換掉了就得換
+得夠準,否則等於沒揭露。
+
+### 4.4.1 `Tab` 只在當前 tab 裡輪詢
+
+`Tab` 循環**當前 tab 看得見的 panel**,到底就繞回第一個,**不會跨到別的 tab**。
+換 tab 是 `1`/`2`/`3` 的事 —— 一個鍵一個工作。
+
+tab [1] 只有一個 panel,所以 `Tab` 在那裡不動;tab [3] 也只剩一個(`[4]`),
+`Tab` 在那裡唯一的作用是**從 pty 出來**;
+tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
+
+**`Tab` 仍然不進 tab [3] 的 `[5]`** —— 進去就被遠端吞掉,等於把帶你進去的鑰匙
+鎖在門內。要進 pty 有三條路:`[4]` 上按 `Enter`、按 `5`、或按 `l`(§4.2);出來
+一律 `Alt+Esc`。
+
+> **改過一次**:原本是「`Tab` 走的是 surface,不是 tab」—— 走完當前 tab 的
+> panel 就接著跳下一個 tab。聽起來一致,實際上同一個鍵在同一個循環裡會做**兩
+> 種尺寸的移動**:大部分時候換一個框,偶爾整個畫面換掉,而且要數到第幾下才知
+> 道是哪一種。
+
+**`Tab` 刻意不會走進 `[5]`** —— 那個 panel 把鍵盤交給遠端,`Tab` 進去就被
+吞了,等於把帶你進去的那把鑰匙鎖在門內。進 `[5]` 一律是明確動作(在 `[4]` 上
+按 `Enter`、或按 `5`),出來一律是 `Alt+Esc`。
+
+### 4.6 `Alt+Esc` —— sshu 專屬、只在 panel [5]
+
+**這條不是 VTP core key,也不計入 §A.0.Y 的 5 個 role。** 理由:panel [5] 把
+鍵盤整個交給遠端程式,五個 core key 在那裡全部失效(`Tab` `Enter` `Esc`
+`Space` `?` 都會送出去),所以需要一把「把鍵盤要回來」的鑰匙。它的作用對象是
+「sshu 對鍵盤的所有權」,不是任何 focus 裡的東西,也不是全域動作 —— 兩條 track
+都不歸它管。對齊 filu 把 `Ctrl+C`(逃生硬退)排除在 Y 之外的處理。
+
+| 情境 | `Alt+Esc` |
+|---|---|
+| focus 在 `[5]` 且 session 還活著 | 收回鍵盤、focus 回 `[4]` |
+| 其他任何地方 | 等同 `Esc`(關最上層浮層)—— 不做成死鍵 |
+
+**揭露(強制)**:focus 進 `[5]` 時 **footer 整條換成 `alt+esc leave pty`**。
+這時 `space` / `?` / 數字 / `q` 全部會送給遠端,footer 再列它們就是說謊。留下
+唯一還成立的那一條,而它剛好就是出口。
+
+**技術前提與已知誤觸**(README 要寫):
+
+- bubbletea 認得 `\x1b\x1b` → `{KeyEscape, Alt}`,但**終端機要真的送**。
+  macOS Terminal.app 需開「Use Option as Meta key」、iTerm2 需把 Option 設成
+  Esc+;kitty / Alacritty / WezTerm 預設就送。**沒設的人出不了 pty。**
+- bubbletea 靠「ESC 後緊跟另一個 byte」判斷 Alt,所以遠端跑 vim 時**快速連按
+  兩次 Esc 會被讀成 `Alt+Esc`**、意外跳出 pty。按 `Enter` 或 `5` 就回得去。
+
+### 4.5 `Space` / `?` 在文字輸入 surface 內的例外(§0 規則擴充)
+
+`Space` 是 §A.1 入口,但在 **host form 的文字欄位**內,`Space` 必須輸入
+空白字元。這不是 VTP 破洞,而是規則擴充:
+
+- **origin UX**:`Space` 入口要回答「我在這裡能做什麼」。
+- **在 form 內**,這個問題由 **border hint 常駐揭露**回答
+  (`Tab next   ←→ switch   Enter save   Esc cancel`),而且是**永久可見**
+  (比按一次入口更強的揭露)。
+- 所以 form 內不需要 `Space` 入口、X 不掉。
+
+同理,form 內 `j`/`k` **不作導覽**(它們是字元),欄位切換一律走
+`Tab` / `Shift+Tab` / `↑` `↓`。
+
+---
+
+## §5. Mouse
+
+`(planned)` —— 沿用通用 §5 mapping(左鍵 focus+select 列、雙擊 =
+`Enter`、右鍵 = `Space`、滾輪 = 捲 card row)。mouse 必為 keyboard 的
+mapping、不引入新語意。
+
+---
+
+## §6. 浮層(Popup Convention)
+
+### 6.1 taxonomy — sshu 有 **5 類**(比 filu 多一個 `form`)
+
+| 類型 | sshu 實例 | 特徵 |
+|---|---|---|
+| **menu** | Space menu、**Identity file picker** | 分 region / 清單、cursor-first、選一個執行 |
+| **message** | Connect 確認、Delete 確認、Toast | 短、確認 / auto-dismiss |
+| **viewport** | `?` help、**`[H]istory`** | 可捲、沒有游標 |
+| **form** ← **新** | Add host / Edit host | 多欄位、逐欄位 focus、一次提交 |
+| **input** ← **新** | tab [2] 的 Rename | **一行**文字、一個問題、Enter 送出 |
+| **pty** | **tab [3] 的 panel [5]**(ssh session) | 外部程式在 sshu 內 render |
+
+前四類都已落地(`ui/spacemenu.go` / `ui/confirm.go` + `ui/toast.go` /
+`ui/helppopup.go` / `ui/form.go`),共用 `drawPopupBox` 與 `popupAnimator`。
+
+sftp 的傳輸進度**不是** pty:sshu 自己說 SFTP 協定,進度是自己畫的
+(`ui/transfer.go`),沒有外部程式可以 render。
+
+**pty 在 sshu 不是浮層、是 panel [5] 本身** —— 這是與 filu 的分歧點:filu 的
+pty 是「開 `$EDITOR`,關掉就結束」的短時浮層;sshu 的 session 是長時的、而且
+同時可以有很多個,所以它是常駐 panel 的內容,不是疊在上面的東西。
+
+**為什麼 input 不算 form**:form 是「填 N 個欄位、一次提交」,input 是「回答一
+個問題」—— 跟 confirm 是同一個家族(短、一問一答),差別只在答案是文字而不是
+yes/no。做成單欄位的 form 會讓 `Tab` 這個「切欄位」的鍵在只有一欄的地方變成死鍵。
+
+**為什麼 form 要獨立成一類、不塞進 menu**:menu 的語意是「從 N 個選項挑
+一個執行」,form 的語意是「填 N 個欄位、一次提交」。混成一個浮層就是 §6.1
+禁止的「混血」—— 使用者會分不清「按 Enter 是執行這一列、還是送出整張表」。
+分家後語意乾淨:menu 的 `Enter` = 執行 cursor 那列;form 的 `Enter` = 送出
+整張表(不論 cursor 在哪一欄)。
+
+全部走共用 `drawPopupBox`(title 嵌上邊框、hint 嵌下邊框)。
+
+### 6.2 Space menu(menu)
+
+**標題是「當前 focus 的 panel」,不是 tab。** 分割的 tab 裡,「我在這裡能做
+什麼」取決於站在哪一個 panel —— 一個只寫 `[2] sftp` 的標題分不出 `[4]` 和
+`[6]`,而這兩邊接的可能是完全不同的兩台機器。標題字串與 panel 自己邊框上的膠囊
+**來自同一個函式**(`sftpModel.panelTitle` / `sshModel.panelTitle`),所以浮層
+不可能跟使用者正在看的框說法不一致。
+
+**tab [2] 的 `[4]`/`[6]` menu 分成兩個 region**,跟 tab [1] 與 kbu 的
+panel-2 menu 同一個形狀:
+
+```
+ item . deploy.sh
+ Enter                       Enter . open directory
+ [m]ark                                      toggle
+ [r]ename                           this item, here
+ [t]ransfer            this item, to the other side
+ [x] Delete                 this item, on this host
+ ───────────────────────────────────────────────────
+ panel
+ [/] Search                   everything under here
+ [N]ew directory                  in this directory
+ [T]ransfer all marks             to the other side
+ [X] Delete all marks      erase them, on this host
+ [C]lear marks          forget them, change nothing
+ [S]elect host                local or a saved host
+ [P]rogress                   transfers, and cancel
+```
+
+**大小寫本身就說明範圍**:**小寫作用在游標那一列,大寫作用在整個 panel。**
+`[m]ark` / `[r]ename` / `[t]ransfer` / `[x]` 對著一列;`[N]` / `[T]` / `[X]` /
+`[C]` / `[S]` / `[P]` 對著這一側。tab [2] 是唯一需要這個區分的地方 —— 它是唯一
+兩種範圍並存、而且同一個動詞出現兩次的 tab(`[t]ransfer` / `[T]ransfer all
+marks`、`[x]` / `[X]`),讀的人必須不看 hint 欄就分得出來。
+
+`/` 不在這條規則裡(不是字母),`Enter` 也不在(core key,鍵名放 hint 不套
+bracket,§4.4)。
+
+**`[U]nmark` 被併進 `[m]`,而不是給它一個例外。** 它是 item 動作,照規則該用小寫,
+但 `u` 是半頁上捲。與其為它開一條「這個字母例外」,不如看清楚它本來就是同一個動作:
+在檔案清單按 `m` 是切換這一列的 mark,在 marks 清單那一列**依定義就是被 mark 的**,
+所以同一個切換只能是拿掉。一個鍵一個意思(「把這個 un/mark 掉」),例外消失。
+
+**item region 的標題是那一列的名字**,不是「item operation」四個字。兩邊長得一模
+一樣、而三層底下的搜尋結果只顯示相對路徑 —— `[x]` 要讀在它會刪掉的那個東西旁邊,
+不能讀成「刪掉這附近的某個東西」。標題跟著游標走。
+
+**只有一個 region 的時候整份保持扁平**(kbu 的規則):標題壓在單一群組上面是雜訊。
+空目錄沒有 item region(下面那條),沒有 host 時只剩一列,兩種情況都不加標題。
+
+**沒有列就沒有 item 動作。** 空目錄、或空的 marks panel,`Enter`/`M`/`R`/`t`/`d`
+會整組消失 —— 連同它們的字母,因為 hotkey 與 menu 走同一個 `sftpApplicable()`。
+列出一堆按了沒反應的東西,跟沒有 host 時列出 Transfer 是同一個謊。
+
+**還沒選 host 的那一側,menu 裡只有 `[S]elect host` 一項。** 沒有 host 就沒有
+東西可以標記、傳送或清空,列出那些列只會教會使用者「這個 menu 說的不算數」。
+hotkey 與 menu 走同一個 `sftpApplicable()`,所以兩邊不可能各說各話(§4.2)。
+
+```
+        ╭─ ◆ [1] hosts ───────────────────────╮
+        │                                     │
+        │ host . prod-web-01                  │
+        │ Connect         Enter . ssh session │
+        │ [E]dit             change this host │
+        │ [D]elete     remove from hosts.yaml │
+        │ ─────────────────────────────────── │
+        │ panel                               │
+        │ [A]dd                    a new host │
+        │                                     │
+        ╰─ j/k move   Enter run   Esc close ──╯
+```
+
+- item region 標題帶 cursor host 的名字 —— 使用者一眼確認「這些動作打在誰身上」
+- `Connect` 不套 bracket(core-key 動作),鍵名放 hint 欄
+- 單一類動作時不分 region(通用 §6.6),但 hosts 有 item + panel 兩類,分
+
+**實作上這條是「由結構保證」而不是靠自律**:letter hotkey 與 menu row 都從
+同一張 `hostActions` 表展開(`ui/app.go`),所以不可能只加 hotkey 而漏掉 menu
+entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
+`TestEveryMenuRowRuns` 從兩個方向釘住。
+
+**窄寬退化**:box 塞不下 label + hint 兩欄時,**hint 先讓位**(label 是動作
+本身、hint 只是補充),`ui/spacemenu.go`。
+
+### 6.3 Host form(form)—— Add / Edit 共用
+
+```
+      ╭─ ◆ New host ──────────────────────────────────╮
+      │                                               │
+      │  Name                                         │
+      │  Host                                         │
+      │  Port          22                             │
+      │  User                                         │
+      │  Auth          ( ) password  (•) privatekey   │
+      │  IdentityFile   tab to browse ~/.ssh          │
+      │  Password      —                              │
+      │                                               │
+      │                                               │
+      │                                               │
+      ╰─ Tab browse  ↑↓ next  Enter save  Esc cancel ─╯
+```
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| Name | text | 必填、**全域唯一**(即 hosts.yaml 的 key) |
+| Host | text | 必填、IP 或 domain |
+| Port | text(只吃數字) | 預設 `22`,非數字直接不進欄位 |
+| User | text | 必填 |
+| Auth | **segmented toggle** | `password` / `privatekey`,`←` `→` 切換 |
+| **IdentityFile** | text + **`Tab` 開檔案選擇器** | Auth = privatekey 時啟用;空的時候顯示 dim placeholder `tab to browse ~/.ssh` |
+| Password | text(**遮罩 `••••`**) | Auth = password 時啟用;= privatekey 時 **dim + 跳過** |
+
+**欄位叫 `IdentityFile` 不叫 `Identity`** —— 它存的是**檔案路徑**,不是身分;
+名字跟 `hosts.yaml` 的 `identity_file` 對齊,使用者手改 yaml 時不用再猜對應。
+
+**IdentityFile 與 Password 兩列永遠都在、只是其一 dim** —— popup 高度恆定
+(不因切 auth 而跳動),而且使用者一眼看到「另一種 auth 也存在」。停用列以
+`dimColor` 繪、內容顯示 `—`。`TestFormHeightIsStableAcrossAuth` 釘住高度。
+
+**hint 隨 focus 換**:Auth 欄多一條 `←→ switch`;IdentityFile 欄的 hint 變成
+`Tab browse  ↑↓ next`;其餘欄是 `Tab next`。`TestFormHintIsPerField` 釘住
+「不能在做不到 browse 的欄位上宣傳 browse」,而且**只看 hint 那一行** ——
+placeholder 上也有 browse 這個字,整份搜會因為錯的理由通過。
+
+**`Tab` 在 IdentityFile 欄的意義不一樣**:它開檔案選擇器,就像 shell 裡對著
+路徑按 `Tab` 會補全。這是全 form 唯一一個 `Tab` 不等於「下一欄」的地方,而
+border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surface 可以擁有自己
+一把鍵的全部理由(§4.5)。
+
+> **代價明講**:那一欄**沒辦法用 `Tab` 離開**。方向鍵與 `Shift+Tab` 仍然可以,
+> hint 也列了。`TestPathFieldCanStillBeLeft` 釘住這條退路。
+
+**驗證與錯誤**:`Enter` 送出時驗必填 / name 唯一 / port 為 1-65535。不通過
+就**留在 form**、把該欄位標紅(Red override,§2.4),錯誤字顯示在最後一列
+—— 那一列**永遠存在**(沒錯時是空白),所以驗證失敗不會讓 popup 抽動。
+不另開 popup 疊上去(§6.7)。
+
+**欄位歸屬**:`store` 驗的是「整份文件合不合法」,`ui` 驗的是「哪一欄錯了」
+—— 後者 `store` 給不出來。`store.SaveTo` 寫入前仍會再驗一次,所以 store 仍是
+權威,ui 這層只負責把錯誤指到正確的欄位上。
+
+**窄寬退化**:toggle 塞不下兩個選項時只顯示當前選項(`(•) privatekey`)——
+選項被切一半會讀成另一個值。label 欄在極窄時也會讓位,寧可截斷 label 也要
+留住 value 欄 —— 截斷的 label 還讀得懂,消失的 value 不行。
+
+### 6.3.1 Identity file picker(menu)—— `Tab`
+
+私鑰路徑**用選的、不用打**。打錯的路徑要到連線那一刻才會失敗,離出錯的地方
+太遠。
+
+```
+      ╭─ ◆ Identity file  ~/.ssh ───────────────────────────╮
+      │  ed                                                 │
+      │─────────────────────────────────────────────────────│
+      │ id_ed25519                          0600     411 B  │
+      │ id_ed25519.pub                      0644      98 B  │
+      │ id_rsa                              0600    2.6 kB  │
+      ╰─ ↑↓ select  Enter pick  Esc cancel ─────────────────╯
+```
+
+- **不分模式**:打字永遠是過濾、方向鍵永遠是移動。沒有「輸入態 / 清單態」要
+  學 —— 跟 form 同一條規則(§4.5:文字輸入 surface 裡字母打字、方向鍵導覽)。
+  這是刻意跟 filu finder 的 modal 設計分道:filu 要掃整個 `$HOME`、需要
+  「Enter 交清單」當節流點;sshu 只掃 `~/.ssh`,沒有那個需求。
+- **fuzzy 比對**:子序列比對,**連續命中**與**落在分隔符後**加權,所以打
+  `ided` 會把 `id_ed25519` 排到偶然含這幾個字母的檔案前面。
+- **列出權限與大小**:`0600` / `411 B`。**權限被 group / other 讀得到的 key
+  用 Red override 標出來** —— ssh 本來就會拒絕這種 key,在「正在挑它」的當下
+  講,比連線失敗時才講有用。
+- **只掃 `~/.ssh`、不遞迴掃 `$HOME`**:掃整個家目錄會卡住 UI。`~/.ssh` 以外
+  的 key 仍可直接在欄位打路徑 —— 選擇器是捷徑、不是唯一入口。
+- **`~/.ssh` 不存在**時 picker 仍會開,但直說 `directory not found — type the
+  path instead`。**入口不能沒回應**(§A.1 衍生規則),空盒子會被讀成壞掉。
+- **上限 2000 檔**,撞到就在清單下方寫明「stopped at 2000 files」——
+  不做無聲截斷。
+- 選中即寫回欄位,**不再多一次確認**:選這個動作本身就是確認。
+- 路徑寫回時**折回 `~` 形式**(`store.FoldHome`),`hosts.yaml` 才跨機器可讀。
+  `store.ExpandTilde` 是它的反向。
+
+**為什麼是 `Tab` 不是 `Ctrl+F` / `Alt+F`**:兩個修飾鍵版本都走過。`Ctrl+F` 在
+terminal 生態裡太滿(tmux prefix、readline forward-char、pager 搜尋),踩到別人
+的鍵會讓使用者以為 app 壞了;`Alt+F` 則要求終端機把 Option 當 Meta 送出,沒設
+的人**根本按不到**(跟 `Alt+Esc` 同一個依賴)。`Tab` 兩個問題都沒有,而且
+**對著路徑按 Tab** 本來就是 shell 使用者最熟的那個動作。
+
+form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Alt+x` 會把 `x` 打進
+欄位(`TestTabBrowsesOnlyOnThePathField` 一併釘住)。
+
+**stack**:picker 疊在 form 上(layer +1),form 留在底下 —— `Esc` 取消選檔
+會回到那張還沒填完的 form,不是掉回面板(§6.4)。
+
+### 6.4 Connect 確認(message)
+
+`Enter` 對 cursor 卡按下 → 先跳確認、確認後才切到 `[3] ssh` 開 session:
+
+```
+            ╭─ ◆ Connect ─────────────────────────╮
+            │                                     │
+            │  Connect to prod-web-01?            │
+            │  deploy@10.0.3.14:22  ·  privatekey │
+            │                                     │
+            ╰─ Enter connect   Esc cancel ────────╯
+```
+
+`Esc` = 取消、留在 hosts。`Enter` = 開 session。
+
+### 6.5 Delete 確認(message)
+
+```
+            ╭─ ◆ Confirm ─────────────────╮
+            │                             │
+            │  Delete host "prod-web-01"? │
+            │  This rewrites hosts.yaml.  │
+            │                             │
+            ╰─ Enter delete   Esc cancel ─╯
+```
+
+第一行走 Red override(§2.4)—— 這是不可逆的寫入。
+
+### 6.6 `?` help(viewport)
+
+```
+      ╭─ ◆ Help ─────────────────────────╮
+      │ Core keys                        │
+      │  Tab · 1-3  switch tab           │
+      │  Enter      confirm / connect    │
+      │  Esc        close popup / cancel │
+      │  Space      what can I do here   │
+      │  ?          this help            │
+      │ Global                           │
+      │  q          quit                 │
+      │  Ctrl+C     force quit           │
+      │ Navigate                         │
+      │  h j k l    move cursor          │
+      │  gg · G     first / last host    │
+      ╰─ Esc close ──────────────────────╯
+```
+
+清單超過畫面高度時 hint 變成 ` j/k scroll   Esc close `、`j`/`k` 捲動。
+
+### 6.7 開關動畫 / border 色 / 取消鍵
+
+- 每個 popup 有自己的 `popupAnimator`(name 不重複、避免 tick 互撞,§6.2)
+- border 色 = `popupLayerColor(layer)`,不 hardcode(§6.3)
+- `Esc` 通殺任何可見浮層,含 auto-dismiss toast(§6.5)
+- popup 疊 popup 預設保留 source(§6.4)—— 例:Space menu 開 Edit form,
+  form 是 layer 2、Space menu 留在底下,`Esc` 退回 Space menu
+
+---
+
+## §7. 時間軸 UX
+
+### 7.1 Connect 確認後 → **清除 source**(§7.1 context-shift 例外)
+
+通用 §7.1 預設保留 source,但 **ssh session 是長時 target**:使用者從
+session 出來時注意力早已轉移,底下浮著的 Space menu / confirm 只會恍神。
+所以 Connect 確認 `Enter` 之後:
+
+```
+confirm popup 收掉 → Space menu(若有)收掉 → 切 tab 到 [3] → 開 session
+```
+
+同一判準也適用 sftp 傳輸:`[t]ransfer` / `[T]ransfer all marks` 一旦確定就把
+整疊浮層收掉(`closeStack`),回到 panel —— 送出就是這趟差事的結束。
+
+**而且是立刻收掉,不是等動畫跑完。** 浮層的關閉動畫是視覺,不是模態狀態:動作
+一旦 commit,鍵盤就已經回到 panel 手上。原本 `popupOpen()` 認的是「還在畫面
+上」,於是 commit 之後那 128ms 內的下一個鍵會被一個正在退場的浮層吃掉 —— 從
+Space menu 選了 Search、緊接著按 `Esc` 想退出搜尋,第一下沒有反應。
+`popupAnimator.owns()` 現在把 closing 排除在外;opening 仍然算數,因為那是
+刻意的(鍵不該落在畫到一半的表面上)。
+
+對照:**Delete 確認**是短時 confirm、**保留 source**(從 Space menu 進來的,
+刪完退回 Space menu)。
+
+### 7.1.1 session 的一生
+
+| 事件 | 發生什麼 |
+|---|---|
+| `[1]` 上 `Enter` → 確認 | 開新 session、切到 tab [3]、focus 直接進 `[5]` |
+| `[4]` 上 `Enter`(任何 session) | **不確認**,`[5]` 換到它 + resize + focus 進去 |
+| `[4]` 上 `C` | 確認 → Close,下一個 tick 移進 history |
+| `[4]` 上 `d` | 確認 → **Duplicate**:對同一台 host 再開一條,不必回 `[1]` |
+| ssh 自己結束 / 斷線 | 移進 history 帶著結束原因;**`[5]` 立刻回到空狀態**;失敗會跳 error toast |
+| `[H]istory` | **不能選取,只能捲動** —— 它是視圖,不是清單(§7.1.4) |
+| `q` 時還有活 session | 紅字確認,列出會被關掉幾條 |
+
+**移動游標不會切 `[5]`。** 切 session 要 resize + 讓遠端重畫,把它綁在游標上
+等於瀏覽清單就一直打斷遠端。所以「右邊現在是誰」由 **glyph + 綠色**回答,
+換人是明確的 `Enter`。
+
+**`Enter` 不問。** 切換不開任何連線也不關任何連線 —— 離開的那個照常跑,在另一
+列再按一次 `Enter` 就回去了。對一個沒有代價、又能自己撤銷的動作跳確認,只是擋
+在路上的一次按鍵。會問的是有副作用的那幾個:`[1]` 的連線、`C` 的中斷、
+`q` 的離開。
+
+**`[5]` 的 resize 只打給當前顯示的 session。** 背景 session 維持它啟動時的
+幾何,直到被切到前景 —— 跟 terminal multiplexer 同樣的取捨:對沒人在看的遠端
+送 SIGWINCH 只是讓它白重畫一次。
+
+**結束的 session 立刻離開 `[5]`。** 不停在最後一屏 —— 那一屏長得跟活著的
+prompt 一模一樣,停在那裡只會讓人以為還連著、對著死掉的 terminal 打字。
+`[5]` 回到「Select a session in [4]」,而且 emulator 一併釋放:一整個終端機
+grid 留給沒有東西會 render 它的資料,是白佔記憶體。
+
+**`[5]` 被 focus 時 `[4]` 收起來、`[5]` 佔滿整個 tab。** 遠端拿著鍵盤的
+時候那兩個清單本來就碰不到,留在畫面上等於拿四分之一的寬度換一個你按不到的
+東西。`Alt+Esc` 出來時它們自動回來 —— 兩個方向都會重新 resize 遠端,否則遠端
+會照著錯的幾何畫。
+
+**沒有 scrollback。** vt10x 只有「當前這一屏」。要往前翻得靠遠端的 `tmux` /
+`less`。這是嵌入式 pty 的固有限制,不假裝有完整 log。
+
+#### `[4]` 的列格式
+
+```
+<glyph><space><name...><port>
+```
+
+**port 永遠完整顯示**,名字撞到它就折行。理由:同一台 host 可以開多個 session,
+而截掉一半的 port 是一個你無法據以辨認的欄位。所以 port 佔右邊固定 7 格
+(1 格間距 + `:65535`),名字在剩下的空間裡折。
+
+`#N` **跟著名字走、不另外佔版位** —— 它是唯一能分辨「同 host 的兩個 session」
+的東西(port 分不出來,兩個 session 的 port 一樣),所以它必須跟名字一起折行,
+而不是被擠到某個固定欄位裡。
+
+> **代價**:左欄 26 欄扣掉 glyph 版位與 port 版位,名字只剩 **15 格**,長名字
+> 會折成三列。要換的話把 `sshLeftW` 調到 30 就有 19 格。
+
+#### `[4]` 用 glyph、history 用顏色 —— 兩個不同的問題
+
+`[4]` 回答「**哪一個正顯示在 `[5]`**」,history 回答「**每一個是怎麼結束的**」。
+兩個問題各佔一個通道:
+
+| Panel | 訊號 | 內容 |
+|---|---|---|
+| `[4]` | **glyph**(`nf-oct-terminal`,藍色,固定版位) | 這個 session 正顯示於 `[5]` |
+| history | **顏色,只上在 reason 那一段字** | 綠 = `exited 0`;紅 = 其他(`disconnected` / 非零 / 起不來) |
+
+history 的顏色**只染 reason、不染名字、更不染整列背景** —— 「怎麼結束的」是那次
+結束的屬性,不是那台 host 的屬性,整列上色會把話講得太滿。
+
+#### `[6]` 的列格式
+
+```
+<space><space><name...><time>
+<space><space><reason>
+```
+
+**時間貼在 name 那一列的右緣**,跟 `[4]` 的 port 同一個機制(同一段程式碼、
+同一條「絕不截斷」規則)—— 那裡本來就是空的。
+
+**只有時間、沒有日期**:history 活在記憶體裡、隨程序結束而消失,日期永遠只會
+是今天,寫出來是零資訊。時間顯示的是**結束的時刻**(`ended`),因為那正是這筆
+紀錄在記的那個事件。
+
+> **代價**:`[6]` 內寬 24 扣掉 gutter 與 8 格時間,名字只剩 **13 格**,長名字會
+> 折成三列。另一個擺法是把時間放到 reason 那一列的右緣(`exited 0    14:02:11`),
+> 名字就能拿到 22 格、reason 那條半空的列也被填滿 —— 但那就不是「接在 name
+> 後面」了。
+
+#### `[6]` 是視圖,不是清單
+
+`[6]` **沒有游標、沒有可執行的動作**,`j`/`k` 捲的是視圖而不是選取。它回答
+「發生過什麼」,不是「要對哪一筆做事」。
+
+代價說清楚:原本掛在 `[6]` 上的 **Reconnect 與 Remove 一起沒了**。重新連線改從
+`[1] hosts` 走(host 記錄本來就在那裡);history 沒有手動移除,滿 200 筆自然
+汰舊。`Space` 在 `[6]` 仍然會回應 —— 它直說這裡是視圖、並指向 `[1]`,因為
+入口不能按下去沒反應(§A.1 衍生規則)。
+
+**綠色不能同時是這兩件事**(§B)。既然 `[4]` 的訊號已經交給 glyph,綠色就完整
+讓給 `[6]` 的「乾淨結束」。`[6]` 也不會有 on-screen glyph —— 它裡面沒有活的
+session,那個標記在那裡沒有意義。
+
+#### 列的四種著色 —— 游標 bar 與列本身的顏色會合併
+
+一列只有一個背景。與其讓游標 bar 蓋掉「這是正在顯示的那一個」,兩個訊號**合併**:
+**bar 直接吃掉那列本來要用的前景色**。
+
+| 情況 | 呈現 |
+|---|---|
+| 游標 **且** 正在顯示 | **綠色背景** + 無色文字(反色) |
+| 游標 | `handColor` 背景 + 無色文字 |
+| 正在顯示 | glyph 與 name **綠色前景** |
+| 其他 | 一般文字色 |
+
+**反色只用在 `[4]`**。`[6]` 的游標就是一般的 `handColor` bar —— 壓上去時
+reason 的顏色會被蓋掉,但字還在、還讀得到,不需要為此把整列變成綠底或紅底。
+
+port 不吃這套色 —— 它在非游標列一律 `dimColor`。使用者要的是「glyph 和 name
+用綠色」,port 是次要欄位、跟卡片時代一樣退一階。
+
+`TestSessionRowColourCases` 把四種情況都釘住,特別是第四種(游標壓在正在顯示
+的列上時,不能只剩普通 bar)。
+
+### 7.1.2 session 完全不落地
+
+session 與 history **只活在記憶體裡**,關掉 sshu 就沒了。沒有 `history.yaml`。
+
+理由不只是省事:最後一屏可能含遠端印出的任何東西(token、金鑰、客戶資料),
+把它寫進磁碟等於憑空造出一個新的外洩面,而 vt10x 本來就只有一屏、稱不上
+「log」。想要真正的連線記錄,那是遠端 / `tmux` 的工作,不是 sshu 的。
+
+history 上限 **200 筆**(每筆帶一整個終端機 grid,這是記憶體上限而非整潔考量),
+超過砍最舊的並釋放它的 pty。
+
+### 7.1.3 遠端的寬字元不能撞破邊框
+
+vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成**兩格**。所以遠端 prompt
+裡有一個 🌐,那一行實際渲染出來就比 grid 說的寬,**把 `[5]` 的右邊框推出畫面**。
+
+處理:`ptyTerm.render` 每一行都先 `clipANSI` 再補齊。代價是這種行會被切掉最後
+一兩欄;不切的代價是整個框壞掉。`TestWideRemoteOutputCannotBreakTheFrame` 用真
+的 pty 印 emoji 來釘住(拿掉 clip 就會量到 92 欄的終端機出現 94 欄的行)。
+
+### 7.1.4 `[6]` history 為什麼不再是 panel
+
+它**不能被操作**(沒有游標是刻意的:重連在 `[1]`,host 在那裡)、**大部分時間是
+空的**,卻**永久佔掉左欄三分之一**。開了四五條 session 的時候,擠的是還在用的
+那個清單。
+
+真正有價值的從來不是那個 panel,而是**「哪一條斷了、為什麼」**。而那件事以前是
+**完全靜默**的:session 結束就離開 `[4]`、`[5]` 換頁,如果 `[6]` 剛好不在畫面上
+(窄寬會收掉左欄),就什麼都沒有。
+
+所以資訊留下、panel 拿掉,搬到 tab [2] 已經在用的那個形狀:
+
+| | 管道 |
+|---|---|
+| 常駐 | tab 列右側 `3 live · 1 past`(本來就有) |
+| 隨手看 | `[H]istory` popup —— 跟 `[P]rogress` 同一類 |
+| 出事當下 | **error toast**:`prod-web-01 · exited 255` |
+
+**乾淨離開不出聲**:`exited 0` 是你打 `exit` 要的結果。只有失敗才講,因為那才是
+你事後得回頭去找的東西。多條同時失敗就講數量並指向 `H`。
+
+**popup 一列裝得下三件事**(名字、原因、結束時間),因為浮層比 26 欄的左欄寬。
+`[6]` 時代時間只好擠在名字那列、原因另起一行,兩列都沒填滿 —— 那個「時間放哪一
+列」的老問題跟著 panel 一起消失了。
+
+**它仍然是 view**:沒有游標、不能選、`j`/`k` 捲動而且不繞(§4.2)。搬家沒有把它
+變成清單。
+
+### 7.2 hosts.yaml 外部變更
+
+`(planned)` 用 fsnotify 監看 `hosts.yaml`,外部編輯後即時 reload
+(沿用 filu 的做法)。v1 可先只在啟動時讀、存檔時寫。
+
+### 7.3 tab [2] 的一次搜尋
+
+`/` 搜的是**整棵子樹**,不是螢幕上這一層。
+
+```
+ ([1] hosts)  ([2] sftp)  ([3] ssh)                                   2 marks
+──────────────────────────────────────────────────────────────────────────────
+╭([4] local)──────────────────────────╮╭([6] prod-web-01)────────────────────╮
+│ ⌕ /dep_                   3 of 840 …││ /srv/www/releases                   │
+│    Documents/sideproj/app          -││    2026-08-30                      -│
+│    Documents/…/deploy.sh       1.2 K││    2026-08-29                      -│
+│    backups/deploy-old.sh       3.1 K││    current                         -│
+│                                     ││                                     │
+╰─────────────────────────────────────╯╰─────────────────────────────────────╯
+```
+
+**畫在原地,不開 popup。** 結果就是 `[4]`/`[6]` 裡的普通一列 —— `m` 標記它、
+`t` 傳它、`Enter` 進它所在的目錄,同一批鍵做同一件事,只是這一列剛好來自三層
+底下。做成 finder popup 的話,得先發明一個「reveal」步驟,再把使用者送回 panel
+去做他本來就要做的那件事。
+
+實作上,搜尋中一列的 `Name` 是**相對於 cwd 的路徑**,所以 `Join(cwd, Name)` 仍
+然是真正的絕對路徑 —— mark / transfer / enter 全都不需要知道發生過搜尋
+(`sftpSideModel.rowAt`)。
+
+**代價是游標跟結果活在同一個清單裡**,而結果是串流進來的。兩條規則從這裡長出來:
+
+- **空 query = 當前目錄**,不是「底下全部」。按了 `/` 還沒打字,清單必須跟原本
+  一模一樣;有東西要找,子樹才浮出來。
+- **到達順序就是順序,不重排。** filu 的 finder 依 fuzzy score 排,但它的游標在
+  打字期間是停著的(要 `Enter` 才進 nav mode);sshu 的游標全程活著,每來一批就
+  重排等於把使用者手底下那一列抽掉。廣度優先本身就是有意義的排序:近的先到,而
+  近的通常就是要找的那個。
+
+**廣度優先是對「等待」的承諾**,不是整齊考量。SFTP 每個目錄是一次 round trip,
+結果抵達的順序就是使用者等待的順序 —— 深度優先會把最初幾秒花在剛好排最前面的
+那棵子樹裡,從外面看跟卡住沒兩樣(`remote.Scan`)。走訪先把當前目錄的 entries
+直接當成第一批結果(它們已經在手上了),walk 從下一層開始,所以按下 `/` 到畫面
+有東西之間沒有 round trip,也不會有東西被列兩次。
+
+**上限 20000 筆**,與 `planCap` 同一個精神:超過這個數量,搜尋就不是你要的工具。
+停在上限時 query 列右端會說 `capped` —— 截斷了卻宣稱完整,比慢還糟。
+
+**query 列的提示符是搜尋 glyph,不是一個 `/`。** 開搜尋的鍵是 `/`,但把它原樣
+回顯當提示符,會讓**含斜線的 query 讀不出來** —— 搜 `/tmp` 會畫成 `//tmp`,沒有
+辦法分辨哪個斜線是自己打的。glyph 說的是同一件事,而且不可能跟輸入撞在一起。
+
+**query 列右端是 `<符合> of <已看到>`**,還在走時加 `…`。兩半都要:數字不再往上
+跳代表走完了,而不是卡住。位置不夠時**整段丟掉、不切一半** —— `12 of 840` 切成
+`12 of 8` 不是縮短,是另一個數字。
+
+**`Esc` 先退搜尋,再退目錄。** 這是 filu 的兩段式 `Esc` 多長出來的一段:搜尋是
+比目錄更內層的東西,所以它先被剝掉。第二下 `Esc` 才上一層。
+
+**離開搜尋要真的停下來。** `Esc` / 換目錄 / 換 host 都會 cancel 那個 context,
+不然「看起來閒著」的 panel 底下還在打那條連線(`searchScan.stop`)。
+
+**沒做**:遠端的內容搜尋(filu `f` 的 rg)。那要在對面跑一個 grep,是「在遠端
+執行指令」而不是「列目錄」,超出 SFTP 這條路徑該有的授權範圍。
+
+### 7.3.1 目錄怎麼保持最新 —— SFTP 沒有 watch
+
+**協定裡沒有變更通知**,所以沒有東西可以訂閱。剩下的選擇是:在對面跑
+`inotifywait`(需要對方裝了那個工具,而且那是「在遠端執行指令」,這個 tab 刻意
+不做),或者自己問。
+
+sshu 自己問,但問**便宜的那一題**。每秒重列一次是真的有成本 —— `ReadDir` 會把
+每一筆的屬性都帶回來,大目錄配慢線路就是一個大部分時間閒著的 tab 在持續佔用頻
+寬。所以每一拍(2 秒)只 **stat 那個目錄、比對 mtime**,那是一次很小的往返;
+**只有 mtime 動了才重列**。
+
+- **買到的**:新增、刪除、改名會自己出現。
+- **買不到的**:原地改寫一個檔案不會動到目錄的 mtime,所以一個持續長大的
+  log 會維持舊的 size,直到有別的事觸發重列。離開目錄再回來就是手動 refresh。
+- **時間戳要在列目錄「之前」取**(`dirMTime` 的註解):兩者之間發生的變更,這樣
+  會表現成一次多餘的刷新 —— 那是無害的方向。反過來取會把新的時間戳配上舊的清
+  單,那次變更就**永遠不會被發現**。
+
+兩半都是網路呼叫,所以跑在 goroutine 上、用訊息送回來。背景刷新永遠不該讓畫面
+等。而且**沒人在看的 tab 不會問** —— 迴圈只在 tab [2] 在畫面上時活著。
+
+**游標跟著「同一個檔案」走,不是同一列**(`applyWatch`)。這不是講究:上方多出
+一個檔案就會把游標滑到別的名字上,而使用者沒有碰過任何鍵 —— 下一個 `t` 就傳錯
+東西了。
+
+### 7.3.2 改名與刪除 —— 唯一會破壞資料的地方
+
+**`[R]ename` 就地改名**,不是搬移。輸入框**預填舊名字**:多數改名是改名字的一
+部分,從空白開始等於每次都要重打一遍。含 `/` 的名字被擋掉 —— 那是搬移,而搬移有
+一整個 tab 在做。
+
+**目的地存在就拒絕,不覆寫。** 這一條要自己做,因為兩端的行為不一樣:`os.Rename`
+會直接蓋掉,SFTP 的 `Rename` 會拒絕。**同一個動作不該因為落在哪一端而不同**,所
+以先 `Exists` 再動手,兩邊都拒絕。
+
+**改名會帶著 mark 走**:mark 是一條路徑,改完名不動 mark 的話,那個 mark 就指著
+一個已經不存在的東西。
+
+**`[N]ew directory` 建在「正在瀏覽的那個目錄」裡**,是 panel 動作不是 item 動作
+—— 游標在哪跟它建在哪無關。建完游標會**停在新目錄上**:建目錄幾乎都是「把東西放
+進去」的前半段,在長清單裡再找一次它是沒人要求的後半段。三種拒絕跟改名一樣(空
+的、含 `/`、名字已存在),因為那是同樣三種「說出跟你想的不一樣的東西」的方式。
+
+**`[x]` 刪游標這一項,`[X]` 刪這一側全部 marks** —— 跟 `[t]ransfer` /
+`[T]ransfer all marks` 同一個大小寫分法。兩者都先問,而且問句都說**哪一個 / 幾個,
+在哪一台**。刪掉的東西如果是被 mark 的,mark 會一起拿掉:指著已經不存在的路徑的
+mark,會在稍後某個看不到原因的地方失敗。
+
+**為什麼是 `x` 不是 `d`。** `d` 是半頁下捲。刪除放在 `d` 上試過一輪,兩個代價:
+tab [2] 失去裸的半頁鍵,而且更糟的是,它讓**刪除的作用範圍**與**傳輸的作用範圍**
+用了兩套不同的機制。
+
+**被否決的替代方案:讓 panel 決定範圍**(`[4]`/`[6]` 的 `D` = 這一項,
+`[5]`/`[7]` 的 `D` = 全部 marks)。它在 marks panel 上壞掉:那個 panel **有自己
+的游標**,所以它沒辦法代表「全部」而不同時失去「只刪其中一個」的能力 —— 而一個從
+子樹搜尋標記來的 mark,回到檔案清單根本看不到,沒有第二條路可以刪它。同一個
+panel 上 `[U]nmark` 是「這一個」、`[C]lear marks` 是「全部」,再讓 `D` 變成「全部」
+會跟這組既有的分法打架,而且畫面上沒有任何東西說得出差別。
+
+**`[x]` 與 `[X]` 都會破壞資料**,所以:
+
+- **先問**,而且問句要說**數量與哪一台**(`2 marked items on local.`)—— 兩邊長
+  得很像,只說「2 個檔案」不夠。
+- **遞迴刪除用 `Lstat`,不是 `Stat`**(`remote.RemoveAll`)。symlink 在 `Stat`
+  底下看起來就是一個目錄,照著走下去會把**別人只是連結過去**的目錄清空。走訪一
+  律用 lstat 語意:連結本身被 unlink,它指向的東西不動。這是這個 app 能製造出來
+  最糟的意外,所以它有自己的測試。
+- **失敗不中斷**:刪得掉的先刪掉,回報第一個錯誤。半途停下會讓清單顯示的東西和
+  實際剩下的對不起來。
+
+**`[D]elete marks` 與 `[C]lear marks` 是鄰居**,所以它們的 hint 用唯一重要的說法
+把差別講明:一個**抹掉檔案**,一個只是**忘記你挑過哪些**。原本後者叫
+`[R]eset marks` —— 跟 `Delete marks` 只差一個字,對一個不可逆的動作來說,那個距
+離不夠。(`R` 現在是 Rename。)
+
+### 7.4 tab [2] 的一次傳輸
+
+**先算完整個 plan,再問。** `remote.Plan` 遞迴展開要建立的每一項(目錄也是一
+項:空目錄要到,而且檔案不能比父目錄先寫),並回報總位元組數。覆寫的詢問因此
+問在開始之前 —— 複製到一半才發現要覆寫,那時候問已經不算問了。
+
+**進度條的分母從第一格就是對的**,正因為 plan 先跑完。job 用 atomic 回報、
+render 只讀,所以畫一格 frame 不會等在網路上(`ui/transfer.go`)。
+
+**取消會刪掉半個檔案。** 一個看起來像真貨的半截檔是這裡最糟的結果:下一個讀它
+的東西拿到截斷資料,而且沒有任何東西說它被截斷過。
+
+**進度佔膠囊列右邊那個 slot**(`󰕒 3/12 · 42%`),marks 數退位 —— 進度是會一直
+瞄的東西,marks 在 `[5]`/`[7]` 本來就看得到。`[P]rogress` 開詳細清單、可逐條
+cancel。
+
+**離開時三樣一起放掉**:ssh session、進行中的傳輸、sftp 連線。三條出口
+(`q`、quit 確認、`Ctrl+C`)走同一個 `AppModel.quit()`,所以沒有一條會漏掉其中
+一樣。而且**進行中的傳輸也會讓 `q` 先問** —— 半個檔案的損失不比一個閒置的 shell
+小,對後者示警卻對前者沉默,那條線畫得很奇怪。
+
+**`[t]ransfer` 傳游標這一項,`[T]ransfer all marks` 傳這一側全部 marks**,兩者
+都送到「對面的當前目錄」。兩邊各自選好 host、各自切好目錄,傳輸就有明確的來源與
+去處,不必再問一次目的地。
+
+`t` 與 `T` 是這個 app 裡唯一一對用大小寫分辨的動作,也是 §4.4 那條「完全相同的
+鍵優先」存在的原因。它們同時出現在四個 panel:游標在哪一個 panel 上,`t` 傳的就
+是那裡的那一項(檔案清單的一列,或 marks 清單的一列)。
+
+> **同一個字母的另一段歷史**:`[T]ransfers`(進度視窗)曾經跟 `[t]ransfer` 撞在
+> 一起、而且是**悄悄**被蓋掉的。當時的解法是改名 `[P]rogress`,現在仍然是
+> `[P]rogress` —— 因為 `T` 這個位置留給了「傳全部」,而進度視窗跟傳輸本來就不是
+> 同一件事,不該靠大小寫去分。
+
+---
+
+## §8. 資料層
+
+### 8.1 config 根目錄(XDG 優先)
+
+沿用 filu 的 `filuConfigDir` 邏輯:
+
+```
+XDG_CONFIG_HOME 有設   → $XDG_CONFIG_HOME/sshu/
+否則                   → os.UserConfigDir()/sshu/
+                          macOS: ~/Library/Application Support/sshu/
+                          Linux: ~/.config/sshu/
+```
+
+`XDG_CONFIG_HOME` **在所有平台都優先** —— 讓 macOS 使用者可以主動選
+`~/.config/sshu`。另留 `SSHU_CONFIG` 環境變數覆寫整個目錄(demo 錄製 /
+隔離測試用,同 filu 的 `FILU_CONFIG`)。
+
+| 檔 | 內容 | 誰維護 |
+|---|---|---|
+| `hosts.yaml` | host 清單 | **[1] hosts tab 的 CRUD** |
+| `config.yaml` | 調校旋鈕 | 手改 `(planned)` |
+| `state.yaml` | session 狀態(上次 tab / cursor) | app 自動 `(planned)` |
+
+### 8.2 `hosts.yaml` schema
+
+```yaml
+# sshu hosts —— 由 [1] hosts tab 管理,手改也可以。
+# 本檔權限固定 0600(內含連線密碼,見下方警告)。
+version: 1
+hosts:
+  - name: prod-web-01
+    host: 10.0.3.14
+    port: 22
+    user: deploy
+    auth: privatekey                 # privatekey | password
+    identity_file: ~/.ssh/id_ed25519
+
+  - name: db-replica
+    host: db.internal.corp
+    port: 2222
+    user: postgres
+    auth: password
+    password: "s3cr3t"               # 明碼
+```
+
+- **`name` 就是 key**,全域唯一;CRUD 以 name 定位,不另設 id(簡單優先)
+- `auth` 是**扁平字串**、不是巢狀 map;`identity_file` / `password` 是
+  依 `auth` 值二選一的兄弟欄位
+- `identity_file` 支援 `~` 展開(`store.ExpandTilde`);由 form 的 `Tab`
+  檔案選擇器寫入時會折回 `~` 形式(`store.FoldHome`),兩者互為反向
+- 寫檔用 **atomic write**(寫 temp → `rename`),避免中途斷電毀掉整份清單
+
+### 8.3 密碼儲存 —— 已決定存在 `hosts.yaml`
+
+依你的決定,`auth: password` 的密碼**明碼存在 `hosts.yaml`**。這是明確的
+取捨,設計上配套三件事把面積壓到最小:
+
+1. **檔案權限固定 `0600`**,每次寫入後重新 `chmod`(即使使用者手動改寬)
+2. **UI 永不顯示明碼** —— 表格的 Auth 欄只顯示 `password` 這個 method 名;form 內
+   一律遮罩成 `••••••••`
+3. **檔頭固定寫一行警告註解**,提醒此檔不可進版控 / 不可同步
+
+> ⚠️ **殘留風險**(已知並接受):`hosts.yaml` 一旦被雲端同步、備份、或誤
+> `git add`,密碼即外洩;0600 擋不了「檔案被整份複製走」。
+>
+**密碼怎麼送給 ssh**:走 `SSH_ASKPASS` + `SSH_ASKPASS_REQUIRE=force`
+(OpenSSH 8.4+)。ssh 會把 sshu 自己再執行一次、環境變數帶
+`SSHU_ASKPASS_HOST=<name>`,那個模式**只印出該 host 的密碼然後結束**,不啟動
+TUI。
+
+- **密碼不進子行程的環境變數** —— helper 自己重讀 `hosts.yaml`(0600),
+  所以祕密只存在那一個檔裡,不會被複製進一個活著的行程環境中。
+- **不去比對 pty 裡的 `password:` 提示然後自動打字**:提示文字會隨語系 /
+  OpenSSH 版本變,而且那等於把密碼寫進 pty 的 input。
+- helper 失敗(找不到 host、不是 password 認證、檔讀不到)就回非零,ssh 退回
+  在 pty 裡提示、使用者自己打 —— 不會卡死。
+
+> **升級路徑(`(planned)`)**:把密碼讀寫抽成一個 `secretStore` 介面,
+> v1 實作 `yamlStore`,之後可直接掛 `keychainStore`(macOS Keychain /
+> libsecret),`hosts.yaml` 改成只存 reference。介面現在就留、之後不用改
+> schema 以外的東西。
+
+---
+
+## §9. 檔案骨架(實作時)
+
+```
+sshu/
+├── cmd/sshu/main.go
+├── internal/
+│   ├── ui/
+│   │   ├── app.go          AppModel、tab 狀態、按鍵路由
+│   │   ├── view.go         compose、footer legend
+│   │   ├── theme.go        色彩錨點與 glyph 常數
+│   │   ├── chrome.go       膠囊 tab bar(自 filu 改)
+│   │   ├── hosts.go        [1] panel:網格、cursor、捲動
+│   │   ├── table.go        hosts 表格:欄寬推導、列 render
+│   │   ├── form.go         host form popup(新類)
+│   │   ├── filepicker.go   identity file picker(menu 類)
+│   │   ├── sshtab.go       [3] 三 panel 版面、session 清單、折行
+│   │   ├── sshkeys.go      [3] 的動作表與 Space menu
+│   │   ├── session.go      session model、ssh 指令、askpass 環境
+│   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
+│   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
+│   │   ├── sftpview.go     [2] 的 render:檔案列、marks 列、query 列
+│   │   ├── sftpkeys.go     [2] 的動作表、host picker、傳輸入口
+│   │   ├── sftpsearch.go   [2] 的 `/`:串流 walk、比對、取消
+│   │   ├── sftpwatch.go    目錄刷新:stat mtime、變了才重列
+│   │   ├── inputpopup.go   一行文字的問句(Rename)
+│   │   ├── nav.go          清單導覽詞彙:繞回、半頁、保留字母
+│   │   ├── crumb.go        cwd 純文字麵包屑(lavender + dim 斜線)
+│   │   ├── transfer.go     傳輸 job、進度條、Transfers popup
+│   │   ├── path.go         fitPath 漸進縮短
+│   │   ├── spacemenu.go    §A.1
+│   │   ├── helppopup.go    §A.2
+│   │   ├── confirm.go      connect / delete 確認
+│   │   ├── toast.go        回饋
+│   │   ├── popup.go        drawPopupBox + animator
+│   │   ├── width.go        display-width helper + ANSI-safe clip
+│   │   └── iconwidth.go    CPR 偵測  (planned)
+│   ├── remote/
+│   │   ├── fs.go           FS 介面(local | sftp)、排序、Join/Parent
+│   │   ├── local.go        本機實作
+│   │   ├── sftp.go         SFTP 實作、認證、known_hosts 驗證
+│   │   ├── copy.go         Plan / CopyItem / Conflicts / SameTree
+│   │   └── search.go       Scan:廣度優先子樹走訪、上限、可取消
+│   │       (fs.go 另含 RemoveAll —— 遞迴刪除,以 Lstat 走訪)
+│   └── store/
+│       ├── store.go        XDG 路徑解析
+│       └── hosts.go        hosts.yaml 讀寫 + 驗證
+├── docs/sshu-ui-design.md  ← 本檔
+├── go.mod
+└── Makefile
+```
+
+相依對齊 filu:`bubbletea` / `lipgloss` / `bubbletea-overlay` /
+`yaml.v3` / `x/ansi`(+ 之後 ssh session 需要的 `creack/pty`、
+`golang.org/x/crypto/ssh`、`pkg/sftp`)。
+
+---
+
+## §10. 開發順序與狀態
+
+**1. hosts → 3. ssh → 2. sftp**(你指定的順序)。
+
+### 第一階段:tab [1] hosts —— **完成**
+
+| 項 | 狀態 | 落在哪 |
+|---|---|---|
+| 膠囊 tab bar + `Tab`/`1-3` 切換 | 已落地 | `ui/chrome.go` `ui/app.go` |
+| hosts **表格**(Name/User/Host/Port/Auth)+ `j`/`k` + `gg`/`G` + 捲動 | 已落地 | `ui/hosts.go` `ui/table.go` |
+| 窄寬:表格逐欄收縮(Auth → Port → User/Host) | 已落地 | `ui/table.go computeCols` |
+| 空狀態(揭露 `[A]` + `Space`) | 已落地 | `ui/hosts.go emptyBody` |
+| `hosts.yaml` 讀寫(XDG、0600、atomic) | 已落地 | `store/store.go` `store/hosts.go` |
+| footer(揭露兩個入口) | 已落地 | `ui/chrome.go keyLegend` |
+| **Space menu**(item + panel region) | 已落地 | `ui/spacemenu.go` `ui/app.go hostActions` |
+| **`?` help popup**(可捲) | 已落地 | `ui/helppopup.go` |
+| **Add / Edit form popup + 驗證** | 已落地 | `ui/form.go` `ui/app.go validateForm` |
+| **Delete 確認** | 已落地 | `ui/confirm.go` |
+| **Connect 確認**(確認後 → tab [3]) | 已落地(接點待 tab [3]) | `ui/confirm.go` `ui/app.go doConnect` |
+| **Toast**(generation guard + auto-dismiss) | 已落地 | `ui/toast.go` |
+| **開關動畫**(~128ms、各自 animator) | 已落地 | `ui/popup.go popupAnimator` |
+| **popup layer 色**(巢狀深度推導) | 已落地 | `ui/popup.go popupLayerColor` |
+| **Identity file picker**(`Tab`、fuzzy、權限標示) | 已落地 | `ui/filepicker.go` |
+| **亮鍵暗述 hint**(footer 與 popup 同一規則) | 已落地 | `ui/popup.go hintLegend` |
+| **編輯列 lavender**(與清單 cursor 分色) | 已落地 | `ui/theme.go editColor` |
+
+**VTP 破洞已補**:`Space` 與 `?` 現在在任何 tab(含未實作的 [2]/[3])都會回應
+—— 沒有具體動作時 menu 仍列出「no actions here yet」,符合 §A.1 衍生規則。
+X 回到 ~1.0。
+
+**測試釘住的不變式**(`internal/ui/*_test.go`):
+
+| 不變式 | 測試 |
+|---|---|
+| 任何 popup 疊上去,每一行仍等於終端寬、行數不變 | `TestPopupPreservesFrame` |
+| 每個 contextual 動作都在 Space menu 現身(§4.2) | `TestSpaceMenuListsEveryAction` |
+| Space menu 的每一列都真的會跑 | `TestEveryMenuRowRuns` |
+| item region 在 panel region 之前(§6.6) | `TestMenuRegionsAreCursorFirst` |
+| 未實作的 tab 上 `Space` 仍有回應 | `TestSpaceRespondsOnUnbuiltTabs` |
+| `Esc` 一次只退一層、保留 source(§6.4) | `TestEscPopsOneLevel` |
+| commit 收掉整個 stack(§7.1) | `TestCommitTearsDownTheStack` |
+| popup 開著時 `q` 不生效 | `TestQuitIsInertUnderAPopup` |
+| 動畫中的 popup 不吃鍵(§6.2) | `TestPopupIgnoresKeysWhileAnimating` |
+| 切 auth 時 form 高度不變 | `TestFormHeightIsStableAcrossAuth` |
+| 密碼永遠不出現在畫面上 | `TestPasswordIsMasked` |
+| form 內 `Space` 打空白(§4.5) | `TestSpaceTypesInsideTheForm` |
+| CRUD 真的寫對 / 取消不寫 | `TestCreateSavesTheNewHost` 等 5 個 |
+| 舊 toast timer 不會關掉新 toast | `TestToastGenerationGuard` |
+| bracket 印的那個大小寫**是唯一**按得動的鍵 | `TestOnlyTheMarkedCaseFires` / `TestLowercaseDoesNotFireAnUppercaseAction` |
+| tab [2] 小寫作用在游標列、大寫作用在 panel;`m` 同時是 Mark 與 Unmark | `TestSFTPMenuHasItemAndPanelRegions` / `TestSFTPMarkToggles` |
+| 導覽鍵不受大小寫折疊影響(`G` vs `g`) | `TestNavigationKeysStayCaseSensitive` |
+| `Tab` 只在 IdentityFile 欄開 picker、hint 也只在那裡宣傳 | `TestBrowseOpensOnlyOnTheIdentityField` / `TestFormHintIsPerField` |
+| `Tab` 不會打字;方向鍵仍能離開該欄 | `TestTabBrowsesOnlyOnThePathField` / `TestPathFieldCanStillBeLeft` |
+| 選檔後直接寫回欄位、路徑折成 `~` | `TestPickFillsTheField` |
+| picker `Esc` 回到那張還沒填完的 form | `TestPickerCancelKeepsTheForm` |
+| picker 疊上去 frame 仍不變形 | `TestPickerFrameHolds` |
+| `~/.ssh` 不存在時 picker 說得出原因 | `TestPickerWithNoRootExplainsItself` |
+| fuzzy:連續命中勝過分散命中 | `TestFuzzyScore` |
+
+| 編輯列是 lavender、清單 cursor 不是(§B) | `TestFocusedFormRowIsLavender` / `TestListCursorIsNotLavender` |
+| 選中列是 blue,且與未選中 render 不同 | `TestSelectedHostRowIsBlue` |
+
+### 第二階段:tab [3] ssh —— **完成**
+
+| 項 | 落在哪 |
+|---|---|
+| 三 panel 版面 `[4]`/`[5]`/`[6]`、左欄固定 26、上下 2:1 | `ui/sshtab.go panes` |
+| `[5]` 取得 focus 時 `[4]`/`[6]` 收起、`[5]` 佔滿;`Alt+Esc` 還原 | `ui/sshtab.go panes` / `setFocus` |
+| 遠端寬字元(emoji/CJK)不會撞破邊框 | `ui/pty_unix.go render` |
+| `[4]` 列格式 `<glyph> <name…> <port>`、port 永不截斷 | `ui/sshtab.go listItem` |
+| 游標 bar 與列色合併(**僅 `[4]`** 正在顯示 → 綠底反色) | `ui/sshtab.go listItem` |
+| 窄寬收起左欄、pty 佔滿(門檻由左欄寬推導) | `ui/sshtab.go narrow` |
+| 嵌入式 pty(`creack/pty` + `vt10x`)、多 session 併行 | `ui/pty_unix.go` |
+| 按鍵轉 raw bytes(含 Alt 重新編碼、DECCKM) | `ui/pty_unix.go ptyKeyBytes` |
+| `Alt+Esc` 收回鍵盤 + footer 換成唯一出口 | `ui/app.go` / `ui/view.go footer` |
+| `Tab` 走 surface、刻意不進 `[5]` | `ui/sshtab.go cycleFocus` |
+| `4`/`5`/`6` 直達 panel | `ui/app.go panelKey` |
+| `[4]` 用終端機 glyph 標「右邊現在是誰」;`[6]` 用綠/紅標結束方式 | `ui/sshtab.go listItem` |
+| 名字折行(優先斷在分隔符)、`#N` 預留欄位 | `ui/sshtab.go wrapText` |
+| session 結束 → history + 結束原因;`[5]` 立刻回空狀態並釋放 emulator | `ui/sshtab.go reap` |
+| Close / Duplicate 確認;`[4]` 的 `Enter` 直接切換不問 | `ui/sshkeys.go` |
+| `q` 時有活 session 走紅字確認、退出殺掉子行程 | `ui/app.go` |
+| `SSH_ASKPASS` 密碼路徑(密碼不進子行程環境) | `ui/session.go` / `cmd/sshu/main.go` |
+
+**測試釘住的不變式**:
+
+| 不變式 | 測試 |
+|---|---|
+| 三 panel + pty 疊上去每行仍等於終端寬(含窄寬臨界 53/54/55) | `TestSSHTabPreservesFrame` |
+| `Alt+Esc` 收回鍵盤;**裸 `Esc` 屬於遠端** | `TestAltEscLeavesThePty` |
+| 打字真的送到遠端(用 `cat` 回音驗證) | `TestKeysReachTheRemote` |
+| pty 有 focus 時 footer 只留出口、不列會被吞掉的鍵 | `TestFooterInPtyAdvertisesTheWayOut` |
+| `Tab` 永遠不會走進 `[5]` | `TestTabNeverEntersThePty` |
+| `4`/`5`/`6` 直達 panel | `TestDigitsAddressPanels` |
+| 移動游標**不會**切換 `[5]` 顯示的 session | `TestCursorDoesNotSwitchTheSession` |
+| 游標已在當前 session 時 `Enter` 不跳確認 | `TestEnterOnCurrentSessionAttachesDirectly` |
+| 結束的 session 帶著原因進 history、focus 不留在死掉的 pty | `TestExitedSessionMovesToHistory` |
+| `#N` 只在同 host 多 session 時出現 | `TestOrdinalOnlyWhenDuplicated` |
+| `q` 只在有活 session 時才確認,且數字正確 | `TestQuitWarnsOnlyWithLiveSessions` |
+| Space menu 只列**當前 focus panel** 的動作,不外洩 | `TestSSHMenuListsFocusedPanelActions` |
+| 密碼走 askpass、**不進子行程環境** | `TestPasswordHostUsesAskpassNotTheEnvironment` |
+| ssh 參數(port / `-i` / `IdentitiesOnly` / `~` 展開) | `TestBuildSSHCmdArgs` |
+| 折行優先斷在分隔符、不掉字 | `TestWrapText` |
+| 結束的 session 立刻離開 `[5]`、emulator 被釋放 | `TestEndedSessionLeavesThePanel` |
+| `[6]` 只染 reason 那段字、名字與背景不動 | `TestHistoryColoursTheReasonNotTheRow` |
+| `[6]` 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | `TestHistoryIsAViewNotAList` |
+| `[6]` 帶結束時刻、只有時間沒有日期、任何寬度都不被截掉 | `TestHistoryRowShowsEndTime` |
+| panel title 是純文字,膠囊只留給 tab row | `TestPanelTitlesAreNotCapsules` |
+| `[6]` 不帶 on-screen glyph | `TestHistoryHasNoOnScreenMarker` |
+| tab [3] 只剩兩個 panel,`6` 不再定址任何東西 | `TestTabThreeHasTwoPanels` |
+| history 搬進 popup,仍然是沒有游標的 view | `TestHistoryIsAViewNotAList` / `TestHistoryPopupListsEndedSessions` |
+| session 失敗會出聲,乾淨離開不會 | `TestABadExitIsAnnounced` / `TestAFailedSessionRaisesAToast` |
+| `[4]` 的 `Enter` 永不跳確認(同列或他列皆然) | `TestEnterOnSessionNeverAsks` |
+| `[D]uplicate` 對同一台 host 再開一條、用 session 自己的連線資料 | `TestDuplicateOpensASecondSessionToTheSameHost` / `TestDuplicateUsesTheSessionHostNotTheHostsFile` |
+| `[C]lose` 會先問,取消不殺 | `TestCloseEndsTheSession` |
+| focus `[5]` 佔滿全 tab、離開時還原並重新 resize 遠端 | `TestFocusedPtyTakesTheWholeTab` |
+| 遠端印 emoji 也撞不破邊框(真 pty) | `TestWideRemoteOutputCannotBreakTheFrame` |
+| 列著色四種情況(含游標壓在正在顯示的列上) | `TestSessionRowColourCases` |
+| port 在任何寬度都不被截掉,名字折行讓位 | `TestSessionRowAlwaysShowsThePort` |
+| `q` 走完整路徑會問(pty 內的 `q` 屬於遠端)、取消不殺 session | `TestQuitFromSessionsAsksAndThenStops` |
+
+### 第三階段:tab [2] sftp —— **完成**
+
+| 項 | 落在哪 |
+|---|---|
+| 四 panel 版面 `[4]`-`[7]`、左右 1:1、各自 focus | `ui/sftptab.go panes` |
+| `remote.FS` 一個介面(local / sftp),upload = download = remote-to-remote | `remote/fs.go` |
+| SFTP 自己做認證與 host key 驗證(**變更的 key 直接拒絕,不問**) | `remote/sftp.go` |
+| cwd 在 panel 內第一行、純文字 lavender + dim 斜線 | `ui/crumb.go` |
+| `M` 標記 / `U` 取消標記 / `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
+| `R` 就地改名(預填舊名、拒絕覆寫、mark 跟著走) | `ui/sftpkeys.go` `ui/inputpopup.go` |
+| `x` 刪游標這一項 / `X` 刪全部 marks(都先問、遞迴、**不跟隨 symlink**) | `remote/fs.go RemoveAll` |
+| `N` 在當前目錄建目錄,游標停在新目錄上 | `ui/sftpkeys.go doNewDir` |
+| Space menu 分 item / panel 兩區,單一區時保持扁平 | `ui/sftpkeys.go sftpMenuItems` |
+| `t` / `T` 是兩個動作(游標這項 / 全部 marks),靠大小寫分 | `ui/sftpkeys.go` `ui/popup.go hotkeyIndex` |
+| Space menu 的標題是 focus 的那個 panel,與邊框膠囊同源 | `ui/app.go menuTitle` |
+| 沒有 host 的那一側只提供 `[S]elect host` | `ui/sftpkeys.go appliesTo` |
+| **`/` 遞迴搜尋整棵子樹**,串流、廣度優先、可取消、上限 20000 | `remote/search.go` `ui/sftpsearch.go` |
+| 先 plan 再問覆寫,進度條分母從第一格就正確 | `remote/copy.go` `ui/transfer.go` |
+| 取消或失敗會刪掉半個檔案 | `remote/copy.go CopyItem` |
+| 進度佔膠囊列右 slot,`[P]rogress` 可逐條 cancel | `ui/transfer.go` |
+
+| 不變量 | 釘它的測試 |
+|---|---|
+| 四個 panel 任一 focus、任一寬度都不破框 | `TestSFTPTabPreservesFrame` |
+| 搜尋中(深路徑 + 右側計數)也不破框 | `TestSearchPreservesFrame` |
+| `/` 找得到三層底下的檔案,mark 記的是真正的絕對路徑 | `TestSearchFindsFilesBelowTheDirectory` |
+| 空 query 只顯示當前目錄(即使 walk 已經跑完) | `TestSearchEmptyQueryShowsOnlyTheCurrentDirectory` |
+| 結果串流進來不會移動游標 | `TestStreamingResultsDoNotMoveTheCursor` |
+| 廣度優先:兄弟目錄的淺項先於深項 | `TestScanIsBreadthFirst` |
+| 離開搜尋會 cancel walk 的 context | `TestClearingTheFilterCancelsItsWalk` / `TestScanStopCancelsItsContext` |
+| 讀不了的目錄只跳過、不終止整趟 walk | `TestScanSkipsAnUnreadableDirectory` |
+| 上限會被回報,不是默默截斷 | `TestScanReportsItsCap` |
+| 計數放不下時整段丟掉,不切成另一個數字 | `TestNarrowSearchRowDropsTheCountRatherThanCutIt` |
+| `t` 傳游標那一項、`T` 傳所有 marks,互不代勞 | `TestTransferCursorAndTransferAllAreDifferentKeys` |
+| 每個動作都被自己的鍵選中(重複鍵 / 被吃掉的大小寫兄弟都算失敗) | `TestNoHotkeyCollisions` |
+| 沒有 host 時 menu 與 hotkey 都只剩 `S` | `TestASideWithNoHostOnlyOffersSelectHost` |
+| menu 標題 = focus 的 panel,而且真的印在畫面上 | `TestMenuTitleNamesTheFocusedPanel` |
+| 搜尋提示符是 glyph,含斜線的 query 讀得出來 | `TestSearchPromptIsAGlyphNotASlash` |
+| `Esc` 先退搜尋、第二下才上一層(hotkey 與 menu 兩條路都是) | `TestEscLeavesTheSearchBeforeTheDirectory` |
+| 正在關閉的浮層不會吃掉下一個鍵 | `TestAClosingPopupDoesNotEatTheNextKey` |
+| 目錄變更會自己出現(stat mtime,只有動了才重列) | `TestWatchPicksUpANewFile` / `TestWatchDoesNotRelistAnUnchangedDirectory` |
+| 背景刷新後游標仍在同一個檔案上 | `TestWatchKeepsTheCursorOnTheSameEntry` |
+| 沒人在看的 tab 不刷新;過期的 probe 結果會丟掉 | `TestWatchStopsWhenTheTabIsNotOnScreen` / `TestWatchDropsAStaleResult` |
+| `h`/`l` 切換左右且保持同一列 | `TestHLCrossesSides` |
+| `q` 與 `Ctrl+C` 都會關掉兩側的 sftp 連線 | `TestQuitClosesTheSftpConnections` / `TestForceQuitClosesTheSftpConnections` |
+| 進行中的傳輸會讓 `q` 先問 | `TestQuitAsksAboutARunningTransfer` |
+| 改名會帶著 mark 走,且拒絕覆寫既有名字 | `TestRenameMovesTheFileAndItsMark` / `TestRenameRefusesToClobber` |
+| 刪除先問;取消不動任何東西 | `TestDeleteMarksErasesThemAfterConfirming` |
+| `Clear marks` 只忘記、不刪檔 | `TestClearMarksLeavesTheFilesAlone` |
+| 遞迴刪除不會走進 symlink 的目標 | `TestRemoveAllDoesNotFollowASymlink` |
+| 有游標的清單與浮層都會繞;viewport 不繞 | `TestCursorsWrapEverywhere` / `TestSpaceMenuWrapsPastItsHeaders` / `TestViewportsDoNotWrap` |
+| 每一個浮層都關得掉(`Space`),但打字中的三個不受影響 | `TestSpaceDismissesEveryFloat` / `TestSpaceTypesIntoTheRenameBox` |
+| `?` 開關 help,並且疊得到別的浮層上面 | `TestQuestionMarkTogglesTheHelp` |
+| `x` 刪游標那一項、`X` 刪 marks,互不代勞,且都先問 | `TestDeleteCursorAndDeleteMarksAreDifferentKeys` |
+| 刪掉的東西如果被 mark 過,mark 一起拿掉 | `TestDeletingAMarkedRowDropsItsMark` |
+| 新目錄會拒絕空的 / 含 `/` / 已存在的名字,並停住游標 | `TestNewDirectoryRefusesBadNames` / `TestNewDirectoryLandsTheCursorOnIt` |
+| menu 兩區、標題跟著游標;單一區時扁平 | `TestSFTPMenuHasItemAndPanelRegions` / `TestItemRegionFollowsTheCursor` / `TestSFTPMenuStaysFlatWithOneRegion` |
+| 沒有列時 item 動作連同字母一起消失 | `TestSFTPItemActionsNeedARow` |
+| 導覽字母不被任何動作佔用;`d` 在每個 tab 都捲半頁 | `TestNoActionClaimsANavigationKey` / `TestDScrollsInEveryTab` |
+| 覆寫會先問 | `TestSFTPOverwriteAsksFirst` |
+| 目錄複製進自己會被擋 | `TestSFTPRefusesSelfCopy` |
+| 傳輸可以取消 | `TestTransferCanBeCancelled` |
+| 三張 action table 沒有大小寫撞號 | `TestNoHotkeyCollisions` |
+
+### 之後
+
+- **tab [1] 的 `[S]ftp`**:`(planned)` 從 hosts 表格把游標那台直接接到 tab [2]
+  當前 focus 的那一側,省掉「切 tab → `s` → 在清單裡再找一次」
+- **Mouse**:`(planned)` §5 mapping
+- **未知 host key 的互動確認**:`(planned)` 現在 `remote.Dial` 收到 `nil`
+  prompt、一律拒絕,要先用 tab [3](走真的 `ssh`)連一次寫進 `known_hosts`。
+  缺的是一個能在 dial 途中升起的對話框
+- **加密私鑰**:`(planned)` `remote.authMethods` 今天只會如實說做不到
+- **fsnotify reload**、**`state.yaml`**、**keychain secretStore**:`(planned)`
+
+---
+
+## 附錄 — hosts tab 按鍵全表
+
+### Core key(跨 surface 不變,5 個)
+
+| 鍵 | 語意 |
+|---|---|
+| `Tab` / `1`-`3` | 切 tab(popup 內:切欄位) |
+| `Enter` | 確認 / 連線 |
+| `Esc` | 關浮層 / 取消 |
+| `Space` | contextual 入口(Space menu);**在浮層上按 = 關掉它** |
+| `?` | non-contextual 入口(help popup);**再按一次關掉**,可疊在別的浮層上開 |
+
+### Contextual letter hotkey(在 Space menu 現身)
+
+**只認 bracket 印出來的那個大小寫**(`C` ≠ `c`)—— 見 §4.4。
+
+| 鍵 | 動作 |
+|---|---|
+| `e` / `E` | Edit host |
+| **`D`(只認大寫)** | Delete host —— 小寫 `d` 是半頁下捲(§4.2) |
+| `a` / `A` | Add host |
+| `s` / `S` | Sftp `(planned)` |
+
+### Popup 內(由該 popup 的下邊框 hint 常駐揭露)
+
+| Surface | 鍵 | 動作 |
+|---|---|---|
+| Space menu | `j`/`k` · `Enter` · `Esc` | 移動 / 執行 / 關閉 |
+| help | `j`/`k` · `Esc` | 捲動 / 關閉 |
+| form | `Tab`/`Shift+Tab`/`↑``↓` | 切欄位 |
+| form(Auth 欄) | `←` `→` | 切 password / privatekey |
+| form(IdentityFile 欄) | **`Tab`** | **開檔案選擇器**(`↑``↓` / `Shift+Tab` 才是換欄) |
+| form | `Enter` · `Esc` | 送出 / 取消 |
+| file picker | 打字 · `↑``↓` · `Enter` · `Esc` | 過濾 / 選擇 / 取用 / 取消 |
+| input(Rename) | 打字 · `Enter` · `Esc` | 編輯 / 送出 / 取消 |
+| confirm | `Enter` · `Esc` | 執行 / 取消 |
+
+所有有游標的浮層,`j`/`k`(或 `↑`/`↓`)都**繞**(§4.2)。
+
+所有浮層都可以用 **`Space`** 關掉,唯一例外是正在被打字的三個(form、file
+picker、input)—— 那裡的空白是字元(§4.2.1)。
+
+### 導覽(所有清單共用)
+
+| 鍵 | 動作 |
+|---|---|
+| `j` / `k` | 上 / 下一列 |
+| `u` / `d`(或 `Ctrl+U` / `Ctrl+D`) | 上 / 下半頁 |
+| `gg` / `G` | 第一列 / 最後一列 |
+| `Tab` | 當前 tab 的下一個 panel(**繞回,不跨 tab**) |
+
+這些字母被保留:動作只能用**宣告的那個大小寫**碰到它們(§4.4)。
+
+### tab [2] sftp
+
+| Surface | 鍵 | 動作 |
+|---|---|---|
+| 全部 | `4` / `5` / `6` / `7` | 左檔案 / 左 marks / 右檔案 / 右 marks |
+| 全部 | `Tab` | `[4]` → `[5]` → `[6]` → `[7]` → 繞回 `[4]`(不跨 tab) |
+| 全部 | **`h` / `l`** | **切到左半 / 右半,保持同一列**(`[5]`↔`[7]`) |
+| 全部 | `S` · `P` | Select host / Progress |
+| 全部 | **`R`** | **Rename**(游標這一項,就地改名;含 `/` 會被拒絕) |
+| 全部 | **`x`** vs **`X`** | **Delete**(游標這一項)/ **Delete all marks**;都先問 |
+| 全部 | **`C`** | Clear marks —— 只忘記,不刪檔 |
+| `[4]` `[6]` | **`N`** | **New directory**(建在當前目錄) |
+| 全部 | **`t` vs `T`** | 傳游標這一項 / 傳這一側所有 marks(都送到對面的當前目錄) |
+| 沒有 host 的那一側 | 只有 `S` | 其他字母都不作用,menu 也只列這一項 |
+| `[4]` `[6]` | `Enter` · `Esc` | 進目錄 / **先退搜尋、再退上一層** |
+| `[4]` `[6]` | `m` · `/` | 標記(可再按取消)/ **搜尋整棵子樹** |
+| `[4]` `[6]` `[5]` `[7]` | `r` | Rename(游標這一項) |
+| 搜尋中 | 打字 · `Backspace` · `Esc` | 改 query / 空 query 再按就退出 / 退出 |
+| `[5]` `[7]` | `j`/`k` · `m` | 移動 / 取消這一個標記(**同一個 `m`**) |
+
+**小寫 = 游標這一列,大寫 = 整個 panel**(§6.2)。而且 bracket 印的那個大小寫
+**就是唯一按得動的鍵**(§4.4)—— `c` 不會觸發 `[C]lear marks`。
+
+### tab [3] ssh
+
+| Surface | 鍵 | 動作 |
+|---|---|---|
+| 全部 | `4` / `5` | 直達 sessions / pty |
+| 全部 | `Tab` | **只有從 `[5]` 出來**(`[4]` 是唯一的清單 panel,不跨 tab) |
+| `[4]` | `j`/`k`/`u`/`d` · `Enter` · `C` · `D` | 移動 / 進入或切換(不確認) / Close(確認) / Duplicate(確認) |
+| `[4]` | **`H`** | **History popup** —— 已結束的 session(view,沒有游標) |
+| `[4]` `[6]` | **`l`** | **進 `[5]`**(`Tab` 不會,見 §4.4.1) |
+| `[5]` | 所有鍵 | 送給遠端 |
+| `[5]` | **`Alt+Esc`** | **收回鍵盤、focus 回 `[4]`** |
+
+### 全域
+
+| 鍵 | 動作 |
+|---|---|
+| `?` | help popup |
+| `q` | 離開(無浮層時才生效) |
+| `Ctrl+C` | 強制離開 |

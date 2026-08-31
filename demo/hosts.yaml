@@ -1,0 +1,33 @@
+# demo hosts —— 只給 `make demo` / 開發時看版面用,不是真的連線目標。
+version: 1
+hosts:
+  - name: prod-web-01
+    host: 10.0.3.14
+    port: 22
+    user: deploy
+    auth: privatekey
+    identity_file: ~/.ssh/id_ed25519
+  - name: db-replica-tokyo-ap-northeast-1
+    host: db.internal.corp
+    port: 2222
+    user: postgres
+    auth: password
+    password: "demo-only-not-a-real-secret"
+  - name: bastion-eu-west-1
+    host: bastion.eu-west-1.compute.internal
+    port: 22
+    user: ec2-user
+    auth: privatekey
+    identity_file: ~/.ssh/bastion_ed25519
+  - name: staging-api
+    host: staging.example.com
+    port: 22
+    user: app
+    auth: password
+    password: "demo-only-not-a-real-secret"
+  - name: jump
+    host: jump.corp
+    port: 22
+    user: root
+    auth: privatekey
+    identity_file: ~/.ssh/id_rsa
