@@ -1,5 +1,10 @@
 # sshu
 
+[![GitHub Release](https://img.shields.io/github/v/release/vulcanshen/sshu)](https://github.com/vulcanshen/sshu/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/vulcanshen/sshu)](https://go.dev/)
+
+**Language**: English · [繁體中文](README-zh_TW.md)
+
 **A terminal front end for ssh and sftp** — `Tab` / `Enter` / `Esc` / `Space` / `?` drive everything. Keep your hosts in one file, open as many shells as you like, and move files between any two machines side by side. No hotkey memorization, no setup, no learning curve.
 
 > _When in doubt, hit_ **`Space`**.
@@ -26,7 +31,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 
 **`[1]` hosts** — a table over `hosts.yaml`: name, user, host, port and auth method, one row each, shedding columns as the terminal narrows. `[A]dd` / `[E]dit` open a form with live validation; `Tab` on the IdentityFile field opens a fuzzy file picker that shows permissions and flags a key other people can read. `Enter` connects.
 
-**`[2]` sftp** — two independent filesystems side by side, 1:1. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen.
+**`[2]` sftp** — two independent filesystems side by side, 1:1. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
 **`[3]` ssh** — many concurrent sessions, each a real `ssh` in an embedded terminal, one shown at a time. `[5]` takes the whole tab while the remote has the keyboard; `Alt+Esc` takes it back.
 
@@ -165,16 +170,17 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 
 ## Status
 
-Working end to end: all three tabs, 190 tests, `make check` green.
+**0.1.0** — the first release. All three tabs work end to end, 236 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 
-- no release binary, Homebrew tap or install script
+- no release binary, Homebrew tap or install script — build from source for now
 - **interactive host-key confirmation for `[2]`** — today an unknown host is refused and you accept it through `[3]`
 - **encrypted private keys** for `[2]` — reported plainly, but not usable; agent support is the likely answer
 - content search on a remote (it would mean running a command on the far end, which this tab deliberately does not do)
+- an `[S]ftp` shortcut on `[1]`, to send the host under the cursor straight to the focused side of `[2]`
 - mouse support, `fsnotify` reload of `hosts.yaml`, session persistence, keychain-backed password storage
 
 ## Built with
 
-Go, [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x) for the embedded terminals, and [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh` for the file transfers. Colours are catppuccin-mocha.
+Go, [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x) for the embedded terminals, [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh` for the file transfers, and [chroma](https://github.com/alecthomas/chroma) for syntax highlighting in `v`. Colours are catppuccin-mocha.
