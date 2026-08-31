@@ -201,6 +201,12 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.Type == tea.KeyEscape {
+		// A search is the innermost thing Esc can drop, on either tab that has
+		// one.
+		if !m.popupOpen() && m.tab == tabHosts && m.hosts.filtering {
+			m.hosts.clearFilter()
+			return m, nil
+		}
 		// filu's two-stage Esc: close a float if one is up, otherwise go up a
 		// directory. Only the sftp browser has an "up" to go to.
 		if !m.popupOpen() && m.tab == tabSFTP && !m.sftp.focus.isMarks() {
@@ -252,6 +258,9 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// while a query is being typed, "m" is a letter, not Mark. Arrows, Enter and
 	// Esc fall through — the same split the picker and the form make (§4.5).
 	if m.tab == tabSFTP && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
+		return m, nil
+	}
+	if m.tab == tabHosts && !m.popupOpen() && m.hosts.filterKey(msg) {
 		return m, nil
 	}
 
@@ -504,22 +513,24 @@ func (m AppModel) popupOpen() bool {
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
 // otherwise navigation.
 func (m AppModel) hostsKey(k string) (tea.Model, tea.Cmd) {
-	keys := make([]string, len(hostActions))
-	for i, a := range hostActions {
-		keys[i] = a.key
-	}
+	keys, acts := m.hostsApplicable()
 	if i := hotkeyIndex(keys, k); i >= 0 {
-		return hostActions[i].run(m)
+		return acts[i].run(m)
 	}
 	m.hosts.handleKey(k)
 	return m, nil
 }
 
 func (m AppModel) cursorHost() (store.Host, bool) {
-	if m.tab != tabHosts || m.hosts.cursor >= len(m.hosts.hosts) {
+	if m.tab != tabHosts {
 		return store.Host{}, false
 	}
-	return m.hosts.hosts[m.hosts.cursor], true
+	return m.hosts.rowAt(m.hosts.cursor)
+}
+
+func (m AppModel) hostsStartFilter() (tea.Model, tea.Cmd) {
+	m.hosts.startFilter()
+	return m, m.closeStack()
 }
 
 // ------------------------------------------------------------- Space menu
@@ -529,23 +540,45 @@ func (m AppModel) cursorHost() (store.Host, bool) {
 // which is how §4.2 stays true by construction rather than by discipline: you
 // cannot add a hotkey without adding a menu entry, because they are one thing.
 //
-// needsHost marks the actions that apply to the cursor's card; they form the
-// item region, which the menu lists first (§6.6 cursor-first).
+// The two flags answer two different questions, which is why they are two:
+// needsHost is "is there anything to do this to", panelOp is "which region of
+// the menu does it belong in". Search needs a list but is not about the cursor's
+// host, so it is the one action that says yes to both.
 type hostAction struct {
 	key       string
 	label     string
 	hint      string
 	needsHost bool
+	panelOp   bool
 	run       func(AppModel) (tea.Model, tea.Cmd)
 }
 
 // The key string is also the bracket marking, so it is written in the case the
 // menu should show (bracketHotkey). Either case still fires it — see hotkeyIndex.
 var hostActions = []hostAction{
+	// item — the host under the cursor
 	{key: "enter", label: "Connect", hint: "Enter . ssh session", needsHost: true, run: AppModel.askConnect},
 	{key: "E", label: "Edit", hint: "change this host", needsHost: true, run: AppModel.openEdit},
 	{key: "D", label: "Delete", hint: "remove from hosts.yaml", needsHost: true, run: AppModel.askDelete},
-	{key: "A", label: "Add", hint: "a new host", run: AppModel.openCreate},
+
+	// panel — the table
+	{key: "A", label: "Add", hint: "a new host", panelOp: true, run: AppModel.openCreate},
+	{key: "/", label: "Search", hint: "name, user, host, port", needsHost: true, panelOp: true, run: AppModel.hostsStartFilter},
+}
+
+// hostsApplicable is what panel [1] can do right now. Both the hotkey and the
+// menu read it, so they cannot drift apart (§4.2).
+func (m AppModel) hostsApplicable() ([]string, []hostAction) {
+	_, hasHost := m.cursorHost()
+	var keys []string
+	var acts []hostAction
+	for _, a := range hostActions {
+		if a.needsHost && !hasHost {
+			continue
+		}
+		keys, acts = append(keys, a.key), append(acts, a)
+	}
+	return keys, acts
 }
 
 // menuTitle names the surface the Space menu belongs to — the focused PANEL,
@@ -569,27 +602,27 @@ func (m AppModel) menuItems() []menuItem {
 	case tabSFTP:
 		return m.sftpMenuItems()
 	}
-	h, hasHost := m.cursorHost()
+	h, _ := m.cursorHost()
+	_, acts := m.hostsApplicable()
 
 	var item, panel []menuItem
-	for _, a := range hostActions {
+	for _, a := range acts {
 		row := menuItem{label: a.label, key: a.key, hint: a.hint}
-		if a.needsHost {
-			if hasHost {
-				item = append(item, row)
-			}
+		if a.panelOp {
+			panel = append(panel, row)
 			continue
 		}
-		panel = append(panel, row)
+		item = append(item, row)
+	}
+	// One region stays flat — a header over a single group is noise (§6.2). An
+	// empty table is exactly that case: Add, and nothing else.
+	if len(item) == 0 || len(panel) == 0 {
+		return append(item, panel...)
 	}
 
-	var out []menuItem
-	if len(item) > 0 {
-		out = append(out, menuItem{label: "host . " + h.Name, header: true})
-		out = append(out, item...)
-		out = append(out, menuItem{separator: true})
-	}
-	out = append(out, menuItem{label: "panel", header: true})
+	out := []menuItem{{label: "host . " + h.Name, header: true}}
+	out = append(out, item...)
+	out = append(out, menuItem{separator: true}, menuItem{label: "panel", header: true})
 	return append(out, panel...)
 }
 

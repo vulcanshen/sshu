@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/vulcanshen/sshu/internal/store"
@@ -151,7 +153,8 @@ func TestEveryMenuRowRuns(t *testing.T) {
 			t.Fatal("Space did not open the menu")
 		}
 		m = pressA(m, a.key)
-		opened := m.form.isActive() || m.confirm.isActive() || m.tab != tabHosts
+		opened := m.form.isActive() || m.confirm.isActive() || m.tab != tabHosts ||
+			m.hosts.filtering
 		if !opened {
 			t.Errorf("menu row %q committed but nothing happened", a.label)
 		}
@@ -509,7 +512,8 @@ func TestDumpPopups(t *testing.T) {
 // matching stayed on as a binding nothing discloses.
 func TestOnlyTheMarkedCaseFires(t *testing.T) {
 	fired := func(m AppModel) bool {
-		return m.form.isActive() || m.confirm.isActive() || m.tab != tabHosts
+		return m.form.isActive() || m.confirm.isActive() || m.tab != tabHosts ||
+			m.hosts.filtering
 	}
 	for _, a := range hostActions {
 		if len(a.key) != 1 {
@@ -518,6 +522,9 @@ func TestOnlyTheMarkedCaseFires(t *testing.T) {
 		other := strings.ToLower(a.key)
 		if other == a.key {
 			other = strings.ToUpper(a.key)
+		}
+		if other == a.key {
+			continue // a symbol has no other case to be wrong about
 		}
 
 		if !fired(pressA(appWith(sample(), nil), a.key)) {
@@ -685,5 +692,25 @@ func TestNoHotkeyCollisions(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The Auth field is a radio group, and it says so with radio glyphs rather than
+// with ASCII parentheses.
+func TestAuthFieldUsesRadioGlyphs(t *testing.T) {
+	m := pressA(appWith(sample(), nil), "A")
+	if !m.form.isActive() {
+		t.Fatal("setup: the form should be open")
+	}
+	view := ansi.Strip(m.form.view())
+
+	if !strings.Contains(view, glyphRadioOn) {
+		t.Error("the selected option should carry the filled radio glyph")
+	}
+	if !strings.Contains(view, glyphRadioOff) {
+		t.Error("the other option should carry the hollow one")
+	}
+	if strings.Contains(view, "(\u2022)") || strings.Contains(view, "( )") {
+		t.Error("the ASCII radio buttons are still there")
 	}
 }
