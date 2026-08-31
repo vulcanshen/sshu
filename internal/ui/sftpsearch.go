@@ -114,10 +114,30 @@ func (s *sftpSideModel) startScan() tea.Cmd {
 // clearFilter drops the query and stops the walk. Leaving the search has to stop
 // the round trips too — otherwise Esc looks free while the connection is still
 // being worked.
+//
+// It also lands the cursor on the row it was on. A result from three levels down
+// is not in this directory at all, so the lookup below simply does not find it
+// and the cursor goes to the top — which is the honest answer for a row that is
+// not here. That needs no special case; it falls out of looking it up by name.
 func (s *sftpSideModel) clearFilter() {
+	want := ""
+	if e, ok := s.rowAt(s.cursor); ok {
+		want = e.Name
+	}
+
 	s.scan.stop()
 	s.scan, s.scanning, s.capped = nil, false, false
 	s.filtering, s.query, s.found, s.matches = false, "", nil, nil
+
+	s.cursor, s.top = 0, 0
+	if want != "" {
+		for i, e := range s.entries {
+			if e.Name == want {
+				s.cursor = i
+				break
+			}
+		}
+	}
 }
 
 // takeScan folds this side's arrived results into the listing. It reports

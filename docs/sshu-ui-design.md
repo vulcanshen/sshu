@@ -250,9 +250,13 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 - **active**:blue `#89b4fa` 底 + base `#1e1e2e` 深字 + bold,兩端圓 cap 同 blue
 - **inactive**:crust `#11111b` 底 + surface2 `#585b70` 字,兩端圓 cap 同 crust
 - 標籤格式 `[N] label` —— `[N]` 同時是型別訊號與 hotkey 揭露(對齊 filu §3.4)
-- **每個 panel 都戴圓角膠囊 border title**:`[N] label`,與 tab 膠囊同形但
-  語意不同 —— tab 膠囊是「可以按的按鈕」,panel 膠囊是「這個框叫什麼」。兩者
-  能共存的前提是中間那條分隔線(見上)。
+- **有兩個以上 panel 的 tab,每個 panel 都戴圓角膠囊 border title**:`[N] label`,
+  與 tab 膠囊同形但語意不同 —— tab 膠囊是「可以按的按鈕」,panel 膠囊是「這個框
+  叫什麼」。兩者能共存的前提是中間那條分隔線(見上)。
+
+  **只有一個 panel 的 tab 不戴。** title 的作用是把 panel **彼此分開**;tab [1]
+  只有一張表,而它正下方的 tab 膠囊已經寫著 `[1] hosts` —— 再掛一顆寫著 `hosts`
+  的膠囊,是在回答一個沒有人會問的問題。
 
   這一項來回過兩次:先是「panel 不需要 border title,膠囊已經回答你在哪個
   tab」→ 但膠囊說不出「這是四個 panel 的哪一個」,所以 tab [3] 先加回純文字
@@ -260,6 +264,35 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 
 **右側狀態 slot**:膠囊列右端右對齊,hosts tab 顯示 `<cursor>/<total> hosts`。
 這一列同時兼做膠囊與 panel 之間的視覺分隔。
+
+### 1.1.1 `[1]` 的 `/` 搜尋
+
+**haystack 是那一列的識別欄位串起來**:name、user、host、port ——
+**不含 auth**。`password` / `privatekey` 是整張表大部分列共用的兩個字,拿去比對只會
+把跟你打的東西無關的列拖進來。串起來而不是逐欄比對,是為了讓 query **跨欄**:
+`prod 22` 找得到 port 22 的 prod-web-01。
+
+**依分數排序,最佳的在最上面。** 對串起來的 haystack 做子序列比對是很寬鬆的 ——
+`prod` 的四個字母也散落在 `db-replica-tokyo-ap-northeast-1` 裡的某處 —— 排序就是
+讓這件事不要緊的辦法:你要的那一列在第 0 列。
+
+> **這裡排序、tab [2] 不排序,不是不一致。** tab [2] 的結果是**串流進來**的,而
+> 游標全程活著,每來一批就重排等於把使用者手底下那一列抽掉。這裡每一次按鍵清單
+> 就已經完整,而且游標本來就會回到頂端,沒有東西可以被抽掉。
+
+**query 佔掉欄位標題那一列**,不是把表格往下推:兩者回答同一個問題(「我在看
+什麼」),共用一個 slot 才不會動到列數(§1.3)。右端是 `<符合> of <總數>`。提示符
+是搜尋 glyph 不是 `/`,理由同 tab [2]。
+
+**離開搜尋要留在同一列。** 游標在過濾期間指的是 matches 的索引,直接丟掉 filter
+會把它變成完整清單裡的同一個索引 —— 你搜到了、按 Esc,然後站在別的地方。這一條在
+`[1]` 特別要緊:letter 動作在搜尋中是被當字元吃掉的(§4.5),所以
+**「搜尋 → Esc → 動作」是唯一能對搜尋結果動手的路徑**。
+
+(同一個 bug 在 tab [2] 也在,一起修了。那邊多一種情況:三層底下的結果根本不在
+當前目錄,查不到就回到頂端 —— 那是「這一列不在這裡」的誠實答案。)
+
+**沒有 host 就沒有 `/`**:空表格沒有東西可搜,menu 列與字母一起消失。
 
 ### 1.2 表格欄位與收縮順序
 
@@ -397,6 +430,16 @@ blue**,而不是把這裡改回去 —— 那只會退回「看不出被選中�
 | form title(create) | 新增 | `nf-fa-plus` `U+F067` |
 | form title(edit) | 編輯 | `nf-fa-pencil` `U+F040` |
 | 膠囊 cap | 圓角 | `U+E0B6` / `U+E0B4` |
+| Auth radio | 空 / 實 | `nf-md-radiobox_blank` `U+F043D` / `nf-md-radiobox_marked` `U+F043E` |
+
+> **codepoint 一律查字型,不憑記憶。** 補 radio glyph 時把已經在用的常數一起對過
+> 字型的 cmap,查到兩個對不上自己註解的:`glyphMark` 寫著 `nf-md-check_bold` 但
+> 指到 `md-alpha_m_box`(一個框起來的字母 M),`glyphUpload` 寫著 `nf-md-transfer`
+> 但指到 `md-upload`。兩個都已改成註解說的那個。
+>
+> 另外 `nf-md-radiobox_blank` 在字型裡是以別名 `checkbox-blank-circle-outline`
+> 登記的(MDI 本來就把兩者當同一個圖),所以下一個去查 cmap 的人會看到另一個
+> 名字 —— 那不是錯,不要「修正」它。
 
 > 碼位待實作時對照 Nerd Font cheat sheet 逐一驗證後鎖定。
 
@@ -1444,6 +1487,8 @@ sshu/
 | hosts **表格**(Name/User/Host/Port/Auth)+ `j`/`k` + `gg`/`G` + 捲動 | 已落地 | `ui/hosts.go` `ui/table.go` |
 | 窄寬:表格逐欄收縮(Auth → Port → User/Host) | 已落地 | `ui/table.go computeCols` |
 | 空狀態(揭露 `[A]` + `Space`) | 已落地 | `ui/hosts.go emptyBody` |
+| `/` 搜尋:跨欄 fuzzy(不含 auth)、依分數排序、佔標題列 | 已落地 | `ui/hosts.go refilter` |
+| panel 無 border title(單一 panel 的 tab 不戴) | 已落地 | `ui/hosts.go view` |
 | `hosts.yaml` 讀寫(XDG、0600、atomic) | 已落地 | `store/store.go` `store/hosts.go` |
 | footer(揭露兩個入口) | 已落地 | `ui/chrome.go keyLegend` |
 | **Space menu**(item + panel region) | 已落地 | `ui/spacemenu.go` `ui/app.go hostActions` |
@@ -1479,6 +1524,11 @@ X 回到 ~1.0。
 | 密碼永遠不出現在畫面上 | `TestPasswordIsMasked` |
 | form 內 `Space` 打空白(§4.5) | `TestSpaceTypesInsideTheForm` |
 | CRUD 真的寫對 / 取消不寫 | `TestCreateSavesTheNewHost` 等 5 個 |
+| 搜尋跨欄比對但**不含 auth**,排序最佳在前 | `TestHostsSearchMatchesAcrossColumns` / `TestHostsSearchIgnoresTheAuthColumn` |
+| query 佔標題列,不改變列數 | `TestHostsSearchRowReplacesTheHeader` |
+| 動作打在**畫面上那一列**,離開搜尋不換位置 | `TestHostsActionsFollowTheFilteredCursor` / `TestLeavingASearchKeepsTheRow` |
+| 空表格不提供 `/` | `TestSearchNeedsHostsToSearch` |
+| Auth 用 radio glyph、panel 不戴 title | `TestAuthFieldUsesRadioGlyphs` / `TestHostsPanelHasNoTitle` |
 | 舊 toast timer 不會關掉新 toast | `TestToastGenerationGuard` |
 | bracket 印的那個大小寫**是唯一**按得動的鍵 | `TestOnlyTheMarkedCaseFires` / `TestLowercaseDoesNotFireAnUppercaseAction` |
 | tab [2] 小寫作用在游標列、大寫作用在 panel;`m` 同時是 Mark 與 Unmark | `TestSFTPMenuHasItemAndPanelRegions` / `TestSFTPMarkToggles` |
@@ -1651,6 +1701,7 @@ X 回到 ~1.0。
 | `e` / `E` | Edit host |
 | **`D`(只認大寫)** | Delete host —— 小寫 `d` 是半頁下捲(§4.2) |
 | `a` / `A` | Add host |
+| `/` | Search(name / user / host / port,**不含 auth**) |
 | `s` / `S` | Sftp `(planned)` |
 
 ### Popup 內(由該 popup 的下邊框 hint 常駐揭露)

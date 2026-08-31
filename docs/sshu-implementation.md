@@ -136,7 +136,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[1]` hosts | 一個(表格) | 佔滿 |
+| `[1]` hosts | 一個(表格,**無 border title**) | 佔滿 |
 | `[2]` sftp | 四個 `[4]`-`[7]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
 | `[3]` ssh | 兩個 `[4]` `[5]` | 左欄固定 **26 欄**給 sessions,其餘給 pty |
 
@@ -196,6 +196,17 @@ folder 與 file 的 icon 可以差一格。所以列是**量自己的固定前�
 假設「glyph 一格」。假設過,結果是**只有目錄那幾列**把邊框推歪 —— 這種偏差看起來
 像框壞了,不像 bug。
 
+### 3.2.1 codepoint 一律查字型,不憑記憶
+
+補 Auth 的 radio glyph(`nf-md-radiobox_blank` `U+F043D` /
+`nf-md-radiobox_marked` `U+F043E`)時,順手把已經在用的常數對過字型的 cmap,查到
+兩個對不上自己註解的:`glyphMark` 寫著 `nf-md-check_bold` 但指到
+`md-alpha_m_box`(一個框起來的字母 M),`glyphUpload` 寫著 `nf-md-transfer` 但指到
+`md-upload`。兩個都已改成註解說的那個。
+
+`nf-md-radiobox_blank` 在字型裡是以別名 `checkbox-blank-circle-outline` 登記的
+(MDI 本來就把兩者當同一個圖)—— 下一個去查 cmap 的人會看到另一個名字,那不是錯。
+
 ### 3.3 遠端的寬字元撞不破邊框
 
 vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成兩格。`ptyTerm.render` 每一行
@@ -204,7 +215,9 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成兩格。`ptyTer
 ### 3.4 Surface 標籤
 
 - **tab 膠囊**:`[N] label`(型別訊號 + 內容訊號)
-- **panel**:**每一個都有** `[N] label`,同形圓角膠囊嵌在上邊框
+- **panel**:**有兩個以上 panel 的 tab**,每個 panel 都有 `[N] label`,同形圓角
+  膠囊嵌在上邊框。**只有一個 panel 的 tab 不戴**(tab [1]):title 是用來把 panel
+  彼此分開的,一張表底下再掛一顆寫著 `hosts` 的膠囊,是在回答沒有人會問的問題
 - **panel title 不帶 glyph** —— 全 app 沒有第二個帶 icon 的 title,一個帶了就讀成
   特例而不是裝飾
 - **popup**:glyph + text 嵌上邊框、hint 嵌下邊框
@@ -440,6 +453,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|
 | 膠囊 tab bar + 分隔線 + footer,`chromeRows` 鎖死 3 | `ui/chrome.go` `ui/view.go` |
 | `[1]` hosts 表格、responsive 收縮、form + 驗證、identity file picker | `ui/hosts.go` `ui/table.go` `ui/form.go` `ui/filepicker.go` |
+| `[1]` `/` 跨欄 fuzzy 搜尋(不含 auth)、依分數排序 | `ui/hosts.go refilter` |
 | `[2]` 四 panel、`remote.FS` 一介面兩實作、marks | `ui/sftptab.go` `remote/fs.go` |
 | `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限 | `remote/search.go` `ui/sftpsearch.go` |
 | `[2]` 傳輸:先 plan、進度、逐條 cancel、半檔清除 | `remote/copy.go` `ui/transfer.go` |
@@ -497,6 +511,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `A` | Add host |
 | `E` | Edit host |
 | `D` | Delete host(先問) |
+| `/` | Search —— name / user / host / port 一起比對,**不含 auth**;依分數排序 |
 
 ### `[2]` sftp —— 小寫是游標那一列,大寫是整個 panel
 

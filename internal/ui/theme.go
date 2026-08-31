@@ -72,11 +72,18 @@ var (
 	glyphInfo    = string(rune(0xf05a)) // nf-fa-info_circle     — toast
 	glyphSearch  = string(rune(0xf002)) // nf-fa-search          — file picker
 
+	// The Auth field's radio buttons. `radiobox_blank` is an MDI alias — the
+	// font exposes that codepoint under the name checkbox-blank-circle-outline —
+	// so anyone checking the cmap will find the other name and should not
+	// "correct" it.
+	glyphRadioOff = string(rune(0xf043d)) // nf-md-radiobox_blank
+	glyphRadioOn  = string(rune(0xf043e)) // nf-md-radiobox_marked
+
 	// tab [2] sftp
-	glyphUpload = string(rune(0xf0552)) // nf-md-transfer
+	glyphUpload = string(rune(0xf1065)) // nf-md-transfer
 	glyphDir    = string(rune(0xe5ff))  // nf-custom-folder
 	glyphFile   = string(rune(0xf15b))  // nf-fa-file
-	glyphMark   = string(rune(0xf0b14)) // nf-md-check_bold — marked for transfer
+	glyphMark   = string(rune(0xf0e1e)) // nf-md-check_bold — marked for transfer
 	// glyphOnScreen marks the session panel [5] is showing. A terminal, because
 	// that is literally what the mark means: this is the one on the screen. It
 	// sits in a fixed column so appearing and disappearing never shifts the name.

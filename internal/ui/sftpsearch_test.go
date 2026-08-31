@@ -110,6 +110,51 @@ func TestStreamingResultsDoNotMoveTheCursor(t *testing.T) {
 	}
 }
 
+// Leaving a search lands the cursor on the row it was on — searching for a file
+// and then losing it on the way out is worse than not searching.
+func TestLeavingASearchKeepsTheRow(t *testing.T) {
+	m, _ := atRoot(sftpFixture(t, 100, 26))
+	// Documents, not backups: backups is already row 0 here, so landing on it
+	// would also be what losing the row looks like.
+	m = pressA(m, "/")
+	m = typeText(m, "Documents")
+	m = settleScan(t, m)
+
+	want, ok := m.sftp.cur().cursorEntry()
+	if !ok || want.Name != "Documents" {
+		t.Fatalf("setup: the cursor is on %q", want.Name)
+	}
+
+	m = pressA(m, "esc")
+	got, ok := m.sftp.cur().cursorEntry()
+	if !ok || got.Name != "Documents" {
+		t.Errorf("Esc landed on %q, want Documents", got.Name)
+	}
+	if m.sftp.sides[sideLeft].cursor == 0 {
+		t.Error("that is also row 0 — the test cannot tell the two outcomes apart")
+	}
+}
+
+// A result from three levels down is not in this directory, so there is nowhere
+// honest to put the cursor for it — that case goes to the top rather than to
+// whichever row happens to hold the same index.
+func TestLeavingASearchOnADeepResultGoesToTheTop(t *testing.T) {
+	m, _ := atRoot(sftpFixture(t, 100, 26))
+	m = pressA(m, "/")
+	m = typeText(m, "deploy")
+	m = settleScan(t, m)
+
+	e, ok := m.sftp.cur().cursorEntry()
+	if !ok || !strings.Contains(e.Name, "/") {
+		t.Fatalf("setup: expected a deep result, got %q", e.Name)
+	}
+
+	m = pressA(m, "esc")
+	if got := m.sftp.sides[sideLeft].cursor; got != 0 {
+		t.Errorf("cursor is at %d, want the top", got)
+	}
+}
+
 // Leaving the search has to stop the round trips, not just hide the results.
 func TestDroppingTheSearchStopsTheWalk(t *testing.T) {
 	m, _ := atRoot(sftpFixture(t, 120, 30))

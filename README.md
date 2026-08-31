@@ -109,6 +109,7 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 | `A` | Add a host |
 | `E` | Edit the host under the cursor |
 | `D` | Delete it (asks first) |
+| `/` | Search — name, user, host and port at once (**not** the auth column), ranked best-first |
 
 In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` switch the Auth field, **`Tab` on IdentityFile opens the file picker**, `Enter` submits, `Esc` cancels.
 

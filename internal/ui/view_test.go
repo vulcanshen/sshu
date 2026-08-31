@@ -235,9 +235,11 @@ func TestTabSwitching(t *testing.T) {
 // the action should not need this test edited, it should just carry on checking
 // the truth.
 func TestEmptyStateDisclosesEntryPoints(t *testing.T) {
+	// The action that gets you OUT of the empty state — found by what it is,
+	// not by its letter, so renaming the key does not need this test edited.
 	add := ""
 	for _, a := range hostActions {
-		if !a.needsHost {
+		if a.label == "Add" {
 			add = "[" + a.key + "]"
 		}
 	}

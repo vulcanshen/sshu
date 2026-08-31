@@ -355,9 +355,9 @@ func (m hostForm) view() string {
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
 
-// renderToggle draws the segmented control: (bullet) on the choice, ( ) on the
-// rest. If the slot cannot hold every option it shows only the current one — an
-// option cut in half would read as a different value.
+// renderToggle draws the segmented control with radio glyphs — filled on the
+// choice, hollow on the rest. If the slot cannot hold every option it shows only
+// the current one: an option cut in half would read as a different value.
 func renderToggle(f formField, focused bool, w int) string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	on := lipgloss.NewStyle().Foreground(textColor)
@@ -367,9 +367,9 @@ func renderToggle(f formField, focused bool, w int) string {
 
 	label := func(i int) string {
 		if i == f.sel {
-			return "(•) " + f.options[i]
+			return glyphRadioOn + " " + f.options[i]
 		}
-		return "( ) " + f.options[i]
+		return glyphRadioOff + " " + f.options[i]
 	}
 	join := func(ix []int) string {
 		parts := make([]string, 0, len(ix))
