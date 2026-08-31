@@ -1,19 +1,18 @@
-# sshu — UI 設計稿(tab [1] hosts)
+# sshu — UI 設計稿
 
 sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。三者**平行**、共用同一套
 [**VTP** — Vulcan's TUI Design Principle](../../thoughts/vtp.md),不是誰
 派生自誰。
 
-本文件是 **UI 設計稿**、不是 implementation record —— 描述「**要做成什麼樣**」。
-實作落地後再改寫成 `sshu-implementation.md`(對齊 `filu-implementation.md` /
-`kbu-implementation.md` 的結構)。
+本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
+否決的做法**。它跟著程式碼走 —— 改一個使用者看得見的東西,就在同一輪改這裡。
 
-> **設計權威順序**:`.forge/meta/IDEA.md`(sshu 專屬決定,尚未建立)>
-> **VTP**。`filu-implementation.md` 是**平行實現的參照、不是上位權威**。
+> **設計權威順序**:**VTP**。`filu-implementation.md` / `kbu-implementation.md`
+> 是**平行實現的參照、不是上位權威**。
 >
-> **範圍**:本稿只完整設計 **tab [1] hosts**。tab [3] ssh 與 tab [2] sftp
-> 只定位、不細設計 —— 開發順序 **1. hosts → 3. ssh → 2. sftp**。
+> **範圍**:三個 tab 都已完整設計並落地(§0)。開發順序是
+> **1. hosts → 3. ssh → 2. sftp**;章節本身照 VTP 的條目排,不照那個順序。
 
 ---
 
@@ -1616,61 +1615,72 @@ TUI。
 
 ---
 
-## §9. 檔案骨架(實作時)
+## §9. 檔案骨架
 
 ```
 sshu/
-├── cmd/sshu/main.go
+├── cmd/sshu/main.go        進入點;也是 ssh 的 askpass helper
 ├── internal/
 │   ├── ui/
-│   │   ├── app.go          AppModel、tab 狀態、按鍵路由
-│   │   ├── view.go         compose、footer legend
+│   │   ├── app.go          AppModel、tab 狀態、按鍵路由、單一出口
+│   │   ├── view.go         compose、浮層疊放次序、footer legend
 │   │   ├── theme.go        色彩錨點與 glyph 常數
 │   │   ├── chrome.go       膠囊 tab bar(自 filu 改)
-│   │   ├── hosts.go        [1] panel:網格、cursor、捲動
+│   │   ├── hosts.go        [1] panel:網格、cursor、捲動、跨欄 fuzzy 搜尋
 │   │   ├── table.go        hosts 表格:欄寬推導、列 render
-│   │   ├── form.go         host form popup(新類)
+│   │   ├── form.go         host form popup(form 類)
 │   │   ├── filepicker.go   identity file picker(menu 類)
-│   │   ├── sshtab.go       [3] 三 panel 版面、session 清單、折行
+│   │   ├── sshtab.go       [3] 版面、session 清單、折行
 │   │   ├── sshkeys.go      [3] 的動作表與 Space menu
+│   │   ├── sshhistory.go   [3] 已結束的 session:popup + 失敗 toast
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
 │   │   ├── sftpview.go     [2] 的 render:檔案列、marks 列、query 列
-│   │   ├── sftpkeys.go     [2] 的動作表、host picker、傳輸入口
+│   │   ├── sftpkeys.go     [2] 的動作表、host picker、rename/add/delete
 │   │   ├── sftpsearch.go   [2] 的 `/`:串流 walk、比對、取消
+│   │   ├── sftpdial.go     連線中的 spinner 與經過秒數
 │   │   ├── sftpwatch.go    目錄刷新:stat mtime、變了才重列
-│   │   ├── inputpopup.go   一行文字的問句(Rename)
+│   │   ├── viewer.go       [v]iew:文字 / hex / 目錄一層,ESC 消毒
+│   │   ├── highlight.go    chroma + catppuccin-mocha(自 filu 搬)
+│   │   ├── edit.go         [e]dit:抓下來 → PTY → 比內容 → 原子寫回
+│   │   ├── editorcmd.go    $VISUAL/$EDITOR/vi 解析、環境剝除
+│   │   ├── inputpopup.go   一行文字的問句(Rename / Add)
+│   │   ├── confirm.go      破壞性動作與離開的確認
+│   │   ├── empty.go        沒有 item 時的統一空狀態(事實 + 可折行提示)
 │   │   ├── nav.go          清單導覽詞彙:繞回、半頁、保留字母
 │   │   ├── crumb.go        cwd 純文字麵包屑(lavender + dim 斜線)
 │   │   ├── transfer.go     傳輸 job、進度條、Transfers popup
 │   │   ├── path.go         fitPath 漸進縮短
 │   │   ├── spacemenu.go    §A.1
 │   │   ├── helppopup.go    §A.2
-│   │   ├── confirm.go      connect / delete 確認
+│   │   ├── popup.go        drawPopupBox + animator + hotkey 比對
 │   │   ├── toast.go        回饋
-│   │   ├── popup.go        drawPopupBox + animator
-│   │   ├── width.go        display-width helper + ANSI-safe clip
-│   │   └── iconwidth.go    CPR 偵測  (planned)
+│   │   └── width.go        display-width helper + ANSI-safe clip
 │   ├── remote/
-│   │   ├── fs.go           FS 介面(local | sftp)、排序、Join/Parent
+│   │   ├── fs.go           FS 介面(local | sftp)、排序、Join/Parent、RemoveAll
 │   │   ├── local.go        本機實作
-│   │   ├── sftp.go         SFTP 實作、認證、known_hosts 驗證
+│   │   ├── sftp.go         SFTP 實作、認證、known_hosts 驗證、posix-rename
 │   │   ├── copy.go         Plan / CopyItem / Conflicts / SameTree
-│   │   └── search.go       Scan:廣度優先子樹走訪、上限、可取消
-│   │       (fs.go 另含 RemoveAll —— 遞迴刪除,以 Lstat 走訪)
+│   │   ├── search.go       Scan:廣度優先子樹走訪、上限、可取消
+│   │   ├── peek.go         Peek:讀開頭 n bytes(給 [v]iew)
+│   │   ├── edit.go         Fetch / Digest / WriteBack / Stamp(給 [e]dit)
+│   │   └── errors.go       兩端錯誤的共同說法
 │   └── store/
 │       ├── store.go        XDG 路徑解析
 │       └── hosts.go        hosts.yaml 讀寫 + 驗證
-├── docs/sshu-ui-design.md  ← 本檔
+├── docs/
+│   ├── sshu-ui-design.md       ← 本檔(為什麼)
+│   └── sshu-implementation.md  現在是怎麼做的
+├── README.md / README-zh_TW.md / CHANGELOG.md
 ├── go.mod
 └── Makefile
 ```
 
-相依對齊 filu:`bubbletea` / `lipgloss` / `bubbletea-overlay` /
-`yaml.v3` / `x/ansi`(+ 之後 ssh session 需要的 `creack/pty`、
-`golang.org/x/crypto/ssh`、`pkg/sftp`)。
-
+相依:`bubbletea` / `lipgloss` / `bubbletea-overlay` / `yaml.v3` / `x/ansi`、
+embedded terminal 的 `creack/pty` + `hinshun/vt10x`、連線的
+`golang.org/x/crypto/ssh` + `pkg/sftp`,以及 `[v]iew` 上色用的
+`alecthomas/chroma/v2`。
 ---
 
 ## §10. 開發順序與狀態
@@ -1895,14 +1905,14 @@ X 回到 ~1.0。
   當前 focus 的那一側,省掉「切 tab → `s` → 在清單裡再找一次」
 - **Mouse**:`(planned)` §5 mapping
 - **未知 host key 的互動確認**:`(planned)` 現在 `remote.Dial` 收到 `nil`
-  prompt、一律拒絕,要先用 tab [3](走真的 `ssh`)連一次寫進 `known_hosts`。
+  prompt、一律拒絕,要先用 tab [3]（走真的 `ssh`）連一次寫進 `known_hosts`。
   缺的是一個能在 dial 途中升起的對話框
 - **加密私鑰**:`(planned)` `remote.authMethods` 今天只會如實說做不到
 - **fsnotify reload**、**`state.yaml`**、**keychain secretStore**:`(planned)`
 
 ---
 
-## 附錄 — hosts tab 按鍵全表
+## 附錄 — 按鍵全表
 
 ### Core key(跨 surface 不變,5 個)
 
