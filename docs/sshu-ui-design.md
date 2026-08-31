@@ -752,6 +752,7 @@ panel-2 menu 同一個形狀:
  Enter                       Enter . open directory
  [m]ark                                      toggle
  [r]ename                           this item, here
+ [v]iew                        read this item, here
  [t]ransfer            this item, to the other side
  [x] Delete                 this item, on this host
  ───────────────────────────────────────────────────
@@ -1339,6 +1340,39 @@ panel 上 `[U]nmark` 是「這一個」、`[C]lear marks` 是「全部」,再讓
 `[R]eset marks` —— 跟 `Delete marks` 只差一個字,對一個不可逆的動作來說,那個距
 離不夠。(`R` 現在是 Rename。)
 
+### 7.3.3 `[v]iew` —— filu 的 preview,搬到 popup 裡
+
+`[v]` 把游標那一項讀出來看。這是傳輸前你真正會問的那個問題:**這是不是我以為的
+那個檔案**。
+
+**filu 有的東西不是全部搬得過來,而且不是懶得搬:**
+
+| filu | sshu | 為什麼 |
+|---|---|---|
+| 文字 + 語法上色 | ✅ | 唯一乾淨過得來的那個,連 chroma 與 catppuccin-mocha 一起搬 |
+| 二進位 hex | ✅ | 認出「這是什麼」需要的資訊量很小 |
+| 目錄樹 | ✅ 但**只有一層** | 每一層都是一次 round trip;「這裡面有什麼」第一層就答完了 |
+| 圖片 | ❌ | 要整份下載,而且要一個這個 app 不會說的終端機協定 |
+| 壓縮檔內容 | ❌ | 要把整個壓縮檔抓下來 |
+| PDF 文字 | ❌ | 要抓下來,還要連一個 parser |
+
+**上限 64 KiB**(`remote.PeekCap`)。這裡的上限不是記憶體考量而是**傳輸預算** ——
+遠端那一側每一個 byte 都要過網路。64 KiB 足以回答「這是不是那個檔案」,又小到讓
+「在一個好幾 GB 的 log 上按到 v」不是一個你得等完的錯誤。
+
+**讀取與上色都不在 update loop 上。** 讀是因為它過網路;上色是因為 64 KiB 過一遍
+lexer 不是免費的。畫面不該等其中任何一個。
+
+**popup 先開、內容後到。** 跟連線的 spinner 同一個教訓:一個要等 bytes 到了才有反應
+的鍵,看起來就是一個沒反應的鍵。
+
+**ESC 一定要被吃掉**(`sanitizeLine`)。這一條在 sshu 比在 filu 更重要:那些 bytes
+是從**別人的機器**上來的。一個含有跳脫序列的檔案,不處理的話可以重畫這個 popup、
+重畫它後面的 panel,或者重畫整個終端機。tab 換成空白、CR 丟掉、其他控制字元換成
+空白,單行長度也設上限 —— 一行病態的長行不該讓寬度計算變貴。
+
+**它是 viewport,不是清單**:沒有游標、不能選,`j`/`k`/`u`/`d` 捲動而且不繞(§4.2)。
+
 ### 7.4 tab [2] 的一次傳輸
 
 **先算完整個 plan,再問。** `remote.Plan` 遞迴展開要建立的每一項(目錄也是一
@@ -1659,8 +1693,9 @@ X 回到 ~1.0。
 | `remote.FS` 一個介面(local / sftp),upload = download = remote-to-remote | `remote/fs.go` |
 | SFTP 自己做認證與 host key 驗證(**變更的 key 直接拒絕,不問**) | `remote/sftp.go` |
 | cwd 在 panel 內第一行、純文字 lavender + dim 斜線 | `ui/crumb.go` |
-| `M` 標記 / `U` 取消標記 / `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
-| `R` 就地改名(預填舊名、拒絕覆寫、mark 跟著走) | `ui/sftpkeys.go` `ui/inputpopup.go` |
+| `m` 標記(再按取消)/ `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
+| `r` 就地改名(預填舊名、拒絕覆寫、mark 跟著走) | `ui/sftpkeys.go` `ui/inputpopup.go` |
+| `v` 讀檔:文字(上色 + 行號)/ hex / 目錄一層,上限 64 KiB | `ui/viewer.go` `remote/peek.go` |
 | `x` 刪游標這一項 / `X` 刪全部 marks(都先問、遞迴、**不跟隨 symlink**) | `remote/fs.go RemoveAll` |
 | `N` 在當前目錄建目錄,游標停在新目錄上 | `ui/sftpkeys.go doNewDir` |
 | Space menu 分 item / panel 兩區,單一區時保持扁平 | `ui/sftpkeys.go sftpMenuItems` |
@@ -1710,6 +1745,10 @@ X 回到 ~1.0。
 | menu 兩區、標題跟著游標;單一區時扁平 | `TestSFTPMenuHasItemAndPanelRegions` / `TestItemRegionFollowsTheCursor` / `TestSFTPMenuStaysFlatWithOneRegion` |
 | 沒有列時 item 動作連同字母一起消失 | `TestSFTPItemActionsNeedARow` |
 | 導覽字母不被任何動作佔用;`d` 在每個 tab 都捲半頁 | `TestNoActionClaimsANavigationKey` / `TestDScrollsInEveryTab` |
+| `v` 顯示文字(行號)/ 二進位(hex)/ 目錄(一層) | `TestViewShowsTextWithLineNumbers` / `TestViewShowsBinaryAsHex` / `TestViewShowsADirectoryListing` |
+| **遠端檔案裡的 ESC 到不了終端機** | `TestViewStripsControlSequences` |
+| 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
+| viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
 | 覆寫會先問 | `TestSFTPOverwriteAsksFirst` |
 | 目錄複製進自己會被擋 | `TestSFTPRefusesSelfCopy` |
 | 傳輸可以取消 | `TestTransferCanBeCancelled` |
@@ -1798,7 +1837,7 @@ picker、input)—— 那裡的空白是字元(§4.2.1)。
 | 沒有 host 的那一側 | 只有 `S` | 其他字母都不作用,menu 也只列這一項 |
 | `[4]` `[6]` | `Enter` · `Esc` | 進目錄 / **先退搜尋、再退上一層** |
 | `[4]` `[6]` | `m` · `/` | 標記(可再按取消)/ **搜尋整棵子樹** |
-| `[4]` `[6]` `[5]` `[7]` | `r` | Rename(游標這一項) |
+| `[4]` `[6]` `[5]` `[7]` | `r` · `v` | Rename / **View**(游標這一項) |
 | 搜尋中 | 打字 · `Backspace` · `Esc` | 改 query / 空 query 再按就退出 / 退出 |
 | `[5]` `[7]` | `j`/`k` · `m` | 移動 / 取消這一個標記(**同一個 `m`**) |
 

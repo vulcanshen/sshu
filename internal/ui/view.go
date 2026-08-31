@@ -43,6 +43,9 @@ func (m AppModel) View() string {
 		out = overlay.Composite(m.historyUI.view(m.ssh.history), out,
 			overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.viewer.isActive() {
+		out = overlay.Composite(m.viewer.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.help.isActive() {
 		out = overlay.Composite(m.help.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}

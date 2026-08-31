@@ -321,7 +321,7 @@ panel `[5]` 把整個鍵盤交給遠端(`Esc`、`Tab`、`q` 都是遠端的)。�
 |---|---|---|
 | **menu** | Space menu、host picker、identity file picker | 分 region / 清單、cursor-first、選一個執行 |
 | **message** | Connect / Delete / Quit 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、`[H]istory` | 可捲、沒有游標 |
+| **viewport** | `?` help、`[H]istory`、**`[v]iew`** | 可捲、沒有游標 |
 | **form** | Add / Edit host | 多欄位、逐欄位 focus、一次提交 |
 | **input** | Rename、New directory | **一行**文字、一個問題、Enter 送出 |
 | **pty** | **tab [3] 的 panel `[5]`** | 外部程式在 sshu 內 render |
@@ -468,6 +468,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限 | `remote/search.go` `ui/sftpsearch.go` |
 | `[2]` 傳輸:先 plan、進度、逐條 cancel、半檔清除 | `remote/copy.go` `ui/transfer.go` |
 | `[2]` rename / delete / new directory(遞迴刪除不跟隨 symlink) | `ui/sftpkeys.go` `remote/fs.go RemoveAll` |
+| `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | `[3]` 多 session、embedded pty、`Alt+Esc` | `ui/sshtab.go` `ui/pty_unix.go` |
 | `[3]` history popup + 失敗 toast | `ui/sshhistory.go` |

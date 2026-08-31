@@ -73,6 +73,7 @@ var sftpActions = []sftpAction{
 	// one item letter navigation already owns.
 	{key: "m", label: "Unmark", hint: "drop from marks", onMarks: true, run: AppModel.sftpUnmark},
 	{key: "r", label: "Rename", hint: "this item, here", onFiles: true, onMarks: true, run: AppModel.sftpRename},
+	{key: "v", label: "View", hint: "read this item, here", onFiles: true, onMarks: true, run: AppModel.sftpView},
 	{key: "t", label: "Transfer", hint: "this item, to the other side", onFiles: true, onMarks: true, run: AppModel.sftpSendCursor},
 	{key: "x", label: "Delete", hint: "this item, on this host", onFiles: true, onMarks: true, run: AppModel.sftpDeleteCursor},
 
@@ -389,6 +390,29 @@ func (m AppModel) sftpRename() (tea.Model, tea.Cmd) {
 		action:  inputRename,
 		subject: p,
 	}, m.layer())
+}
+
+// sftpView opens the item under the cursor for reading — filu's preview, in a
+// popup, over whichever filesystem this side is pointed at.
+//
+// The popup opens FIRST and loads behind itself: a remote read takes as long as
+// the link takes, and a key that shows nothing until the bytes arrive looks like
+// a key that did nothing.
+func (m AppModel) sftpView() (tea.Model, tea.Cmd) {
+	s := m.sftp.cur()
+	p, ok := m.sftpCursorPath()
+	if !ok || s.fs == nil {
+		return m, m.toast.show("Nothing under the cursor", toastError)
+	}
+	isDir := false
+	if e, ok := m.sftp.cur().rowAt(m.sftp.cur().cursor); ok && !m.sftp.focus.isMarks() {
+		isDir = e.IsDir
+	} else if e, err := s.fs.Lstat(p); err == nil {
+		isDir = e.IsDir
+	}
+
+	open := m.viewer.open(m.layer(), path.Base(p))
+	return m, tea.Batch(open, loadView(m.viewer.gen, s.fs, p, isDir))
 }
 
 // sftpNewDir makes a directory in the one being browsed. It is a panel action,
