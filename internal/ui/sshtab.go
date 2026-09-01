@@ -608,7 +608,8 @@ func (m sshModel) layoutPanel(w int) string {
 		}
 		label := l.label()
 		if l == layoutCustom {
-			label += " " + itoa(clamp(m.gridC, 1, 9)) + "×" + itoa(clamp(m.gridR, 1, 9))
+			// Rows × columns — the same order the prompt asks in.
+			label += " " + itoa(clamp(m.gridR, 1, 9)) + "×" + itoa(clamp(m.gridC, 1, 9))
 		}
 		text := glyph + " " + label
 		plain = append(plain, text)

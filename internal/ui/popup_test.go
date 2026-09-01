@@ -284,11 +284,16 @@ func TestFormSkipsTheDisabledAuthRow(t *testing.T) {
 		t.Error("Password must be inert while auth is privatekey")
 	}
 
-	// Tab from Auth lands on Identity, never on the dead Password row.
+	// Tab from Auth lands on User (Credential is dark under privatekey), and
+	// walking on reaches Identity, never the dead Password row.
 	m.form.focus = fAuth
 	m.form.moveFocus(1)
+	if m.form.focus != fUser {
+		t.Errorf("Tab from Auth should reach User, got field %d", m.form.focus)
+	}
+	m.form.moveFocus(1)
 	if m.form.focus != fIdentity {
-		t.Errorf("Tab from Auth should reach Identity, got field %d", m.form.focus)
+		t.Errorf("Tab from User should reach Identity, got field %d", m.form.focus)
 	}
 
 	// Flip to password and the pair swaps.
@@ -302,8 +307,9 @@ func TestFormSkipsTheDisabledAuthRow(t *testing.T) {
 	}
 	m.form.focus = fAuth
 	m.form.moveFocus(1)
+	m.form.moveFocus(1)
 	if m.form.focus != fPassword {
-		t.Errorf("Tab from Auth should now reach Password, got field %d", m.form.focus)
+		t.Errorf("Auth → User → Password under password auth, got field %d", m.form.focus)
 	}
 }
 
@@ -360,7 +366,8 @@ func TestCreateSavesTheNewHost(t *testing.T) {
 	m = typeText(m, "new-box")
 	m = pressA(m, "tab")
 	m = typeText(m, "10.9.9.9")
-	m = pressA(m, "tab", "tab")
+	// Host → Port → Auth → User (Credential is dark under privatekey).
+	m = pressA(m, "tab", "tab", "tab")
 	m = typeText(m, "root")
 	m = pressA(m, "enter")
 
@@ -456,7 +463,7 @@ func TestDuplicateNameRejected(t *testing.T) {
 	m = typeText(m, sample()[1].Name)
 	m = pressA(m, "tab")
 	m = typeText(m, "h")
-	m = pressA(m, "tab", "tab")
+	m = pressA(m, "tab", "tab", "tab")
 	m = typeText(m, "u")
 	m = pressA(m, "enter")
 

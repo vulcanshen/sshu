@@ -191,8 +191,11 @@ func (m AppModel) validateCredForm() (string, int) {
 func (m AppModel) commitCredForm() (tea.Model, tea.Cmd) {
 	m.credFormUI.submitted = true
 	if msg, field := m.validateCredForm(); msg != "" {
+		// Said twice on purpose: the error row marks WHICH field, the toast
+		// makes the refusal impossible to miss. The form stays up — the whole
+		// point of refusing is letting the user finish.
 		m.credFormUI.fail(msg, field)
-		return m, nil
+		return m, m.toast.show(msg, toastError)
 	}
 
 	c := m.credFormUI.credential()

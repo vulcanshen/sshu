@@ -39,8 +39,8 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 			return m, m.input.ask(inputPopup{
 				title:  "Custom grid",
 				glyph:  glyphGrid,
-				prompt: "Columns x rows for the grid, e.g. 3x2",
-				value:  itoa(clamp(m.ssh.gridC, 1, 9)) + "x" + itoa(clamp(m.ssh.gridR, 1, 9)),
+				prompt: "Rows x columns for the grid, e.g. 2x3",
+				value:  itoa(clamp(m.ssh.gridR, 1, 9)) + "x" + itoa(clamp(m.ssh.gridC, 1, 9)),
 				accept: "apply",
 				action: inputGridDims,
 			}, m.layer())
@@ -61,23 +61,23 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// applyGridDims parses the custom grid's "CxR" answer. Any two numbers 1-9
-// separated by anything count; a shape that is not that is refused with the
-// example still on screen.
+// applyGridDims parses the custom grid's "RxC" answer — rows first, the
+// order the shape is read aloud in. Any two numbers 1-9 separated by anything
+// count; a shape that is not that is refused with the example still on screen.
 func (m AppModel) applyGridDims(value string) (tea.Model, tea.Cmd) {
-	c, r, ok := parseGridDims(value)
+	r, c, ok := parseGridDims(value)
 	if !ok {
 		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show("Grid must be columns x rows, each 1-9 — e.g. 3x2", toastError))
+			m.toast.show("Grid must be rows x columns, each 1-9 — e.g. 2x3", toastError))
 	}
 	m.ssh.gridC, m.ssh.gridR = c, r
 	m.ssh.layout = layoutCustom
 	m.ssh.applyGeometry()
 	return m, tea.Batch(m.closeStack(), m.input.close(),
-		m.toast.show("Grid set to "+itoa(c)+"×"+itoa(r), toastInfo))
+		m.toast.show("Grid set to "+itoa(r)+"×"+itoa(c)+" (rows × columns)", toastInfo))
 }
 
-func parseGridDims(s string) (c, r int, ok bool) {
+func parseGridDims(s string) (first, second int, ok bool) {
 	var nums []int
 	cur := -1
 	for _, ch := range s {
