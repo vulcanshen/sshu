@@ -107,7 +107,7 @@ func TestEveryEmptyPanelIsTheSameShape(t *testing.T) {
 	m.tab = tabSSH
 	view = ansi.Strip(m.View())
 	centred(t, view, "No sessions")
-	centred(t, view, "No session on screen")
+	centred(t, view, "Nothing on the grid")
 
 	// And an empty DIRECTORY, which is a fact about a connected side.
 	s := sftpFixture(t, 100, 26)

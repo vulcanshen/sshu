@@ -95,6 +95,12 @@ var (
 	// a magnifier is the symbol `/` owns, and reusing it made the two surfaces
 	// claim the same meaning (§3).
 	glyphEye = string(rune(0xf06d0)) // nf-md-eye_outline — [v]iew
+	// The ssh list's display column: a session with a cell on the grid wears
+	// the monitor, one without wears the struck-through monitor. Two SHAPES,
+	// not one shape in two colours, so the state survives any palette.
+	glyphMonitor    = string(rune(0xf0379)) // nf-md-monitor
+	glyphMonitorOff = string(rune(0xf0d90)) // nf-md-monitor_off
+	glyphGrid       = string(rune(0xf0570)) // nf-md-view_grid — the custom-grid prompt
 	// arrowGlyphs labels the left/right keys in a hint. Plain Unicode arrows, not
 	// Nerd Font: these sit in a border line where a mis-measured glyph shears the
 	// frame, and U+2190/2192 are single-width everywhere.

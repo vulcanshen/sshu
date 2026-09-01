@@ -311,6 +311,16 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Alt+N is the grid's own chord: the keyboard goes to the Nth cell, from
+	// the list, the layout strip or another cell alike — and from inside a
+	// pty, which costs the remote its M-digits the same way the tab chords
+	// cost it M-P. The grid is what this tab is for; the trade is the point.
+	if m.tab == tabSSH && !m.popupOpen() && msg.Alt && msg.Type == tea.KeyRunes &&
+		len(msg.Runes) == 1 && msg.Runes[0] >= '1' && msg.Runes[0] <= '9' {
+		m.ssh.focusPtyIndex(int(msg.Runes[0] - '1'))
+		return m, nil
+	}
+
 	// Alt+Esc is sshu's own key, not a VTP core key: it exists because panel [5]
 	// hands the keyboard to a remote program, and something has to be able to
 	// take it back. It is scoped to that one situation — everywhere else it is
@@ -452,6 +462,8 @@ func (m AppModel) inputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.doRename(m.input.subject, value)
 	case inputAdd:
 		return m.doAdd(value)
+	case inputGridDims:
+		return m.applyGridDims(value)
 	}
 	return m, tea.Batch(m.closeStack(), m.input.close())
 }
@@ -562,7 +574,10 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.syncPrefSizes()
 			m.prefShowed()
 		case tabSSH:
-			m.ssh.cycleFocus(back)
+			// This tab repurposes Tab: the grid is not somewhere Tab may wander
+			// (it would swallow the key), so on the list it toggles the cursor
+			// session's cell instead — the thing the list does all day.
+			m.ssh.toggleCursorShown()
 		case tabFT:
 			m.sftp.cycleFocus(back)
 		}
@@ -638,7 +653,7 @@ func (m *AppModel) focusPanelDigit(k string) {
 		}
 	case tabSSH:
 		if p, ok := map[string]sshPanel{
-			"1": panelSessions, "2": panelPty,
+			"1": panelSessions, "2": panelLayout,
 		}[k]; ok {
 			m.ssh.setFocus(p)
 		}

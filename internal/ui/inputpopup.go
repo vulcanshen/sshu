@@ -16,6 +16,7 @@ const (
 	inputNone inputAction = iota
 	inputRename
 	inputAdd
+	inputGridDims // the ssh grid's custom columns × rows
 )
 
 // inputPopup is one line of text with a question above it — the message class's
