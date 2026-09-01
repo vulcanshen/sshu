@@ -2,6 +2,7 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/vulcanshen/sshu)](https://github.com/vulcanshen/sshu/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/vulcanshen/sshu)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 **語言**: [English](README.md) · 繁體中文
 
