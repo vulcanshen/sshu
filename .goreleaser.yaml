@@ -1,0 +1,45 @@
+version: 2
+
+project_name: sshu
+
+builds:
+  - main: ./cmd/sshu
+    binary: sshu
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X github.com/vulcanshen/sshu/internal/version.Version={{.Version}}
+    goos:
+      # unix-first — no windows target (sshu drives a Unix PTY by design)
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  disable: true
+
+# A formula, not a cask: sshu is a CLI/TUI, so it belongs in a formula like the
+# rest of the u-family (kbu, filu). Homebrew stamps com.apple.quarantine on cask
+# artifacts by default, which trips macOS Gatekeeper on an unsigned binary;
+# formula binaries are never quarantined, so `brew install` runs clean.
+#
+# No dependencies: the ssh tab shells out to the system's OpenSSH client, which
+# every macOS/Linux box already carries, and the sftp side speaks the protocol
+# itself.
+brews:
+  - repository:
+      owner: vulcanshen
+      name: homebrew-tap
+      token: "{{ .Env.ACTION_TOKEN }}"
+    homepage: "https://github.com/vulcanshen/sshu"
+    description: "ssh/sftp terminal front end (u-family) — host book, reusable credentials, two-sided transfers, a grid of live terminals"

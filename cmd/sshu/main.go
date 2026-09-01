@@ -11,9 +11,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vulcanshen/sshu/internal/store"
 	"github.com/vulcanshen/sshu/internal/ui"
+	"github.com/vulcanshen/sshu/internal/version"
 )
 
 func main() {
+	// `sshu version` prints the build version and exits — checked before
+	// anything else, so it answers even with a broken config.
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		fmt.Println("sshu " + version.Display())
+		return
+	}
+
 	// ssh re-executes this binary as its SSH_ASKPASS helper. That mode prints one
 	// password and exits — it must never start the TUI, and must never write
 	// anything else to stdout, because ssh reads the first line as the password.
