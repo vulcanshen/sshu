@@ -86,6 +86,14 @@ make build     # → ./sshu   (CGO_ENABLED=0、-trimpath、已 strip)
 
 **Nerd Font 是必要條件、不是選配**:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫,而且版面會去量它們的寬度。
 
+### 移除
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh | sh
+```
+
+移除 binary 後會**問過你**才碰設定目錄 —— `hosts.yaml` 和 `credentials.yaml` 都住在那裡,絕不擅自刪。
+
 ## 快速開始
 
 ```bash

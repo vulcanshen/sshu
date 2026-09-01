@@ -86,6 +86,14 @@ A `Makefile` wraps the common tasks — `make build`, `make install` (→ `$GOBI
 
 **A Nerd Font is required**, not optional: auth methods, file types and marks are drawn with Nerd Font glyphs, and the layout measures them.
 
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh | sh
+```
+
+Removes the binary, then asks — never assumes — about the config directory, because `hosts.yaml` and `credentials.yaml` live there.
+
 ## Quick start
 
 ```bash
