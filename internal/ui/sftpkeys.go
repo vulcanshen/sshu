@@ -64,7 +64,7 @@ const keySelectHost = "S"
 // goes in the hint rather than in a bracket, §4.4).
 var sftpActions = []sftpAction{
 	// item — the row under the cursor
-	{key: "enter", label: "Enter", hint: "Enter . open directory", onFiles: true, run: AppModel.sftpEnter},
+	{key: "enter", label: "Enter", hint: "Enter . open it, or go to a result", onFiles: true, run: AppModel.sftpEnter},
 	{key: "m", label: "Mark", hint: "toggle", onFiles: true, run: AppModel.sftpToggleMark},
 	// Unmark is the same `m`, and that is not two actions sharing a letter: on a
 	// files panel `m` toggles the row's mark, and on a marks panel the row is
@@ -175,7 +175,11 @@ func (m AppModel) sftpMenuItems() []menuItem {
 // ------------------------------------------------------------------ actions
 
 func (m AppModel) sftpEnter() (tea.Model, tea.Cmd) {
-	m.sftp.cur().enter()
+	s := m.sftp.cur()
+	s.enter()
+	// Landing on a search result can put the cursor anywhere in the listing, and
+	// a cursor below the fold is a cursor nobody can see.
+	s.top = scrollTo(s.top, s.cursor, m.sftp.visibleRows(false))
 	return m, m.closeStack()
 }
 

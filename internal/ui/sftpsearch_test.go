@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,6 +26,75 @@ func settleScan(t *testing.T, m AppModel) AppModel {
 	}
 	t.Fatal("the scan never finished")
 	return m
+}
+
+// The whole promise of the subtree search is that finding something is the same
+// as being able to act on it. It was not: every letter goes into the query while
+// a search is showing (§4.5), so m / t / v / e / x all typed instead of acting,
+// and Esc threw the results away and left the cursor at the top of the current
+// directory. The search could tell you where a file was and then make you walk
+// there yourself.
+//
+// Enter is the one key a search does not swallow, so Enter is what takes you
+// there — the same thing every other finder does with it.
+func TestEnterGoesToWhatTheSearchFound(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	cwd := m.sftp.sides[sideLeft].cwd
+	// Several files, and the target is NOT the first one: landing at the top of
+	// the listing has to be distinguishable from landing on what was found.
+	for _, n := range []string{"aaa.txt", "bbb.txt", "sprite.png", "zzz.txt"} {
+		if err := os.WriteFile(filepath.Join(cwd, "assets", n), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	m = pressA(m, "/")
+	m = typeText(m, "sprite")
+	m = settleScan(t, m)
+	if e, ok := m.sftp.cur().rowAt(m.sftp.cur().cursor); !ok || e.Name != "assets/sprite.png" {
+		t.Fatalf("the search did not land on the file: %q", e.Name)
+	}
+
+	m = pressA(m, "enter")
+	s := m.sftp.cur()
+	if s.filtering {
+		t.Error("going to the result should leave the search")
+	}
+	if want := filepath.Join(cwd, "assets"); s.cwd != want {
+		t.Errorf("landed in %q, want %q", s.cwd, want)
+	}
+	e, ok := s.rowAt(s.cursor)
+	if !ok || e.Name != "sprite.png" {
+		t.Fatalf("the cursor is on %q, want sprite.png", e.Name)
+	}
+
+	// And now the row is an ordinary row, which is what the docs promised.
+	m = pressA(m, "m")
+	if len(m.sftp.cur().marks) != 1 {
+		t.Errorf("m did not mark it: %d marks", len(m.sftp.cur().marks))
+	}
+}
+
+// A directory result still just opens, and it also leaves the search behind
+// rather than keeping a query over a listing it no longer describes.
+func TestEnterOnADirectoryResultOpensIt(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	cwd := m.sftp.sides[sideLeft].cwd
+
+	m = pressA(m, "/")
+	m = typeText(m, "assets")
+	m = settleScan(t, m)
+	m = pressA(m, "enter")
+
+	s := m.sftp.cur()
+	if s.filtering {
+		t.Error("the search should be over")
+	}
+	if want := filepath.Join(cwd, "assets"); s.cwd != want {
+		t.Errorf("landed in %q, want %q", s.cwd, want)
+	}
 }
 
 // atRoot puts the left side at the top of the fixture tree, which is the only

@@ -465,7 +465,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[1]` hosts 表格、responsive 收縮、form + 驗證、identity file picker | `ui/hosts.go` `ui/table.go` `ui/form.go` `ui/filepicker.go` |
 | `[1]` `/` 跨欄 fuzzy 搜尋(不含 auth)、依分數排序 | `ui/hosts.go refilter` |
 | `[2]` 四 panel、`remote.FS` 一介面兩實作、marks;本機側開在啟動目錄 | `ui/sftptab.go` `remote/fs.go` `remote/edit.go StartDir` |
-| `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限 | `remote/search.go` `ui/sftpsearch.go` |
+| `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限;`Enter` 前往結果 | `remote/search.go` `ui/sftpsearch.go` `ui/sftptab.go enter` |
 | `[2]` 傳輸:先 plan、進度、逐條 cancel、半檔清除 | `remote/copy.go` `ui/transfer.go` |
 | `[2]` rename / delete / **add**(結尾 `/` 建目錄,否則建空檔;遞迴刪除不跟隨 symlink) | `ui/sftpkeys.go` `remote/fs.go RemoveAll` |
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
@@ -535,7 +535,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 全部 | `x` / `X` | 刪游標這一項 / 刪所有 marks(都先問) |
 | 全部 | `r` · `v` · `e` | Rename / View / Edit(游標這一項) |
 | 全部 | `S` · `C` · `P` | Select host / Clear marks / Progress |
-| `[4]` `[6]` | `Enter` · `Esc` | 進目錄 / **先退搜尋、再退上一層** |
+| `[4]` `[6]` | `Enter` · `Esc` | 進目錄,**或前往搜尋結果所在的位置** / 先退搜尋、再退上一層 |
 | `[4]` `[6]` | `m` · `/` · `A` | 標記(可再按取消)/ 搜尋整棵子樹 / 新增(結尾 `/` 就是目錄) |
 | `[5]` `[7]` | `m` | 取消這一個標記(**同一個 `m`**) |
 | 搜尋中 | 打字 · `Backspace` · `Esc` | 改 query / 空 query 再按就退出 / 退出 |

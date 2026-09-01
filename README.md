@@ -124,14 +124,14 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | Key | Action |
 |---|---|
 | `h` `l` | Cross to the other half, keeping the row (`[5]`↔`[7]`) |
-| `Enter` | Enter the directory under the cursor |
+| `Enter` | Enter the directory under the cursor — or go to whatever the search found |
 | `m` | Mark / unmark it (on a marks panel, `m` unmarks) |
 | `r` | Rename it, in place |
 | `v` | **View it** — text with syntax highlighting and line numbers, a binary as hex, a directory as its listing |
 | `e` | **Edit it** in `$EDITOR` — fetched, edited, written back |
 | `t` | Transfer it to the other side's current directory |
 | `x` | Delete it (asks first) |
-| `/` | **Search the whole subtree** — results are ordinary rows, so `m` / `t` / `x` work on them |
+| `/` | **Search the whole subtree** — `Enter` goes to a result and leaves the cursor on it, where `m` / `t` / `v` / `e` / `x` all work |
 | `A` | **Add** here — `name` makes an empty file, `name/` makes a directory |
 | `T` | Transfer every mark on this side |
 | `X` | Delete every mark on this side (asks first) |
@@ -159,7 +159,7 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 - **Menus in two regions** — `item` (what happens to the row under the cursor, named by that row) and `panel` (what happens to this side). A menu with only one region stays flat.
 - **Many concurrent ssh sessions** — each a real `ssh` in an embedded PTY. `[5]` takes the whole tab while focused; ended sessions release their terminal emulator immediately rather than freezing on a dead screen.
 - **Two-sided sftp** — local ↔ remote ↔ remote through one `FS` interface. Marks are per side; a mark is an absolute path, so it follows a rename and is dropped when the file is deleted.
-- **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**: a result is an ordinary row, so marking and transferring it needs nothing new.
+- **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**. `Enter` takes you to a result with the cursor already on it, so from there marking and transferring it needs nothing new.
 - **Read before you fetch** — `v` shows the item under the cursor: text syntax-highlighted with line numbers (chroma, catppuccin-mocha — the same as filu), a binary as an xxd-style hex dump, a directory as one level of its listing. It reads at most 64 KiB, because on a remote side every byte of that crosses the network. Escape sequences in the file are stripped: those bytes come off someone else's machine and would otherwise repaint your terminal.
 - **Edit in your own editor** — `e` opens the item under the cursor in `$VISUAL` / `$EDITOR` (`vi` only as a floor, never a dependency), running inside the embedded terminal so the frame stays up. A remote file is fetched, edited and written back; a local one is edited where it lives, so its inode — and every hard link to it — survives. Nothing is written back unless the content actually changed, the write lands atomically so a dropped link cannot leave a truncated config behind, and a file that somebody else changed while you had it open is never overwritten without asking.
 - **A real transfer engine** — the whole plan is computed before anything is written, so the progress bar's denominator is right from the first frame and overwrites are asked about once, up front. Per-job cancel; a cancelled or failed file is removed rather than left looking complete.
@@ -170,7 +170,7 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 
 ## Status
 
-**0.1.0** — the first release. All three tabs work end to end, 236 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**0.1.0** — the first release. All three tabs work end to end, 241 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 

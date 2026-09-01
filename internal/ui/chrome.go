@@ -20,20 +20,27 @@ const minAppW = 20
 // breakage rather than information.
 const statusMinRoom = 6
 
-// capsule is one rounded pill: round-left cap + flush label + round-right cap.
-// Active is a bright blue fill with dark text; inactive is recessed on crust.
-// The caps carry the fill colour as their FOREGROUND, so the pill reads as one
-// solid rounded shape sitting on the canvas.
+// capsule is one tab pill, and the two states are told apart by SHAPE as well as
+// colour: filled is "you are here", outlined is "you can go here".
+//
+// It used to be filled either way — bright blue when lit, and `borderDim` on
+// `crust` when not. That second one was the bug: crust is a shade off the canvas,
+// so an unlit tab had no visible shape at all, while an unfocused PANEL chip
+// (dark text on borderDim) was perfectly legible. The same app was drawing its
+// two "not selected" states in opposite directions.
+//
+// Filled-vs-outlined also stops selection resting on colour alone, and it says
+// something true about the relationship: the three tabs are a choice of one,
+// whereas the panels are all present at once with one of them focused. A pill
+// you can see the shape of, and only one of them lit, is what that looks like.
 func capsule(label string, active bool) string {
-	fg, bg := borderDim, lipgloss.Color(crustHex)
-	if active {
-		fg, bg = lipgloss.Color(baseHex), focusColor
+	if !active {
+		dim := lipgloss.NewStyle().Foreground(borderDim)
+		return dim.Render(capLeftThin) + dim.Render(label) + dim.Render(capRightThin)
 	}
+	bg := focusColor
 	cap := lipgloss.NewStyle().Foreground(bg)
-	body := lipgloss.NewStyle().Foreground(fg).Background(bg)
-	if active {
-		body = body.Bold(true)
-	}
+	body := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(bg).Bold(true)
 	return cap.Render(capLeft) + body.Render(label) + cap.Render(capRight)
 }
 

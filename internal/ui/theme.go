@@ -55,6 +55,11 @@ const (
 var (
 	capLeft  = string(rune(0xe0b6)) // powerline round-left  — capsule start
 	capRight = string(rune(0xe0b4)) // powerline round-right — capsule end
+	// The thin pair is the same shape drawn as an ARC instead of a solid: an
+	// outline capsule for "you can go here", against the filled one for "you are
+	// here". ple-left/right_half_circle_thin.
+	capLeftThin  = string(rune(0xe0b7))
+	capRightThin = string(rune(0xe0b5))
 
 	// The auth column is the one place a glyph still carries meaning in the hosts
 	// table: it IS the type distinction. The other fields lost theirs when the
