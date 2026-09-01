@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // The app log is where sshu says what happened while you were not looking.
@@ -42,6 +43,27 @@ func (l logLevel) label() string {
 	return "INFO"
 }
 
+// name is the level as applogs.yaml spells it.
+func (l logLevel) name() string {
+	switch l {
+	case logWarn:
+		return "warn"
+	case logError:
+		return "error"
+	}
+	return "info"
+}
+
+func levelNamed(name string) logLevel {
+	switch name {
+	case "warn":
+		return logWarn
+	case "error":
+		return logError
+	}
+	return logInfo
+}
+
 func (l logLevel) colour() lipgloss.Color {
 	switch l {
 	case logWarn:
@@ -66,6 +88,12 @@ type appLog struct {
 	// told about is news that did not arrive.
 	unread int
 	top    int
+
+	// sink writes each entry through to applogs.yaml. Nil in tests. sinkBroken
+	// remembers the first failure so a log that cannot be written complains
+	// exactly once instead of once per event.
+	sink       func(store.LogEntry) error
+	sinkBroken bool
 
 	layer   int
 	screenW int
@@ -112,13 +140,36 @@ func (m *appLog) add(level logLevel, msg string, more ...string) {
 	if r := []rune(text); len(r) > entryChars {
 		text = string(r[:entryChars]) + "…"
 	}
-	m.entries = append(m.entries, logEntry{at: time.Now(), level: level, msg: text})
+	e := logEntry{at: time.Now(), level: level, msg: text}
+	m.entries = append(m.entries, e)
 	if len(m.entries) > logCap {
 		m.entries = m.entries[len(m.entries)-logCap:]
 	}
 	if level == logError {
 		m.unread++
 	}
+	// Written through AFTER the in-memory append: whatever happens to the disk,
+	// the panel shows the event. The text is already sanitised and capped.
+	if m.sink != nil && !m.sinkBroken {
+		if err := m.sink(store.LogEntry{At: e.at, Level: level.name(), Msg: text}); err != nil {
+			m.sinkBroken = true
+			m.entries = append(m.entries, logEntry{at: time.Now(), level: logWarn,
+				msg: "applogs.yaml: " + sanitizeLine(err.Error()) + " — new entries stay in memory only"})
+		}
+	}
+}
+
+// preload seeds the log with what applogs.yaml already held. Everything in it
+// predates this run, so nothing is unread — and nothing is re-written through.
+func (m *appLog) preload(tail []store.LogEntry) {
+	if len(tail) > logCap {
+		tail = tail[len(tail)-logCap:]
+	}
+	entries := make([]logEntry, 0, len(tail))
+	for _, e := range tail {
+		entries = append(entries, logEntry{at: e.At, level: levelNamed(e.Level), msg: e.Msg})
+	}
+	m.entries = append(entries, m.entries...)
 }
 
 func (m *appLog) info(msg string, more ...string)   { m.add(logInfo, msg, more...) }

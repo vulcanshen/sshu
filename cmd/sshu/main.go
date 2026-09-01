@@ -33,12 +33,19 @@ func main() {
 	// the complaint goes where complaints go now, which is the app log.
 	cfg, cfgErr := store.LoadConfig()
 
+	// The log's own file failing to load is itself news — but never fatal, and
+	// never a reason to stop recording new events.
+	logTail, logErr := store.LoadLog()
+
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
 	}
-	app := ui.New(hosts.Hosts, save, cfg)
+	app := ui.New(hosts.Hosts, save, cfg).WithLog(logTail, store.AppendLog)
 	if cfgErr != nil {
 		app = app.WithStartupError("config.yaml: " + cfgErr.Error())
+	}
+	if logErr != nil {
+		app = app.WithStartupError("applogs.yaml: " + logErr.Error())
 	}
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

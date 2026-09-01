@@ -93,6 +93,15 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 	return m
 }
 
+// WithLog wires the app log to applogs.yaml: tail is what the file already
+// held (shown, all read), sink is where each new entry goes. Applied before
+// WithStartupError so a startup complaint lands after the tail and on disk.
+func (m AppModel) WithLog(tail []store.LogEntry, sink func(store.LogEntry) error) AppModel {
+	m.log.preload(tail)
+	m.log.sink = sink
+	return m
+}
+
 // WithStartupError records something that went wrong before the first frame.
 // It is a method rather than a New parameter because the caller may or may not
 // have one, and a nil-able argument for "nothing was wrong" reads worse than
