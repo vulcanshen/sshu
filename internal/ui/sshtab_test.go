@@ -70,9 +70,12 @@ func openOne(t *testing.T) AppModel {
 }
 
 // waitFor polls until cond holds, so a test never depends on a fixed sleep.
+// The ceiling is generous because a loaded CI runner can take seconds just to
+// reap a killed child under -race; a passing condition returns immediately, so
+// only the failure case ever pays it.
 func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if cond() {
 			return
