@@ -49,7 +49,9 @@ together: the tab system, the ssh tab, and process cleanup.
   `a` now, the hint owns up ("again takes it off"), and the behaviour stays
   a toggle — mis-marking is still undone by a second press. On the marks
   panels, Unmark became **`[c]lear mark`**, pairing with `[C]lear marks` the
-  way `t`/`T` and `x`/`X` pair: the case says the scope.
+  way `t`/`T` and `x`/`X` pair: the case says the scope. The marks panels
+  retitle from "Marked files" to **"Marks"** — the panel is named what the
+  vocabulary calls it.
 
 ### Added
 

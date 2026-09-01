@@ -101,9 +101,9 @@ func TestMenuTitleNamesTheFocusedPanel(t *testing.T) {
 		want string
 	}{
 		{panelLeftFiles, "[1] local"},
-		{panelLeftMarks, "[2] Marked files"},
+		{panelLeftMarks, "[2] Marks"},
 		{panelRightFiles, "[3] local"},
-		{panelRightMarks, "[4] Marked files"},
+		{panelRightMarks, "[4] Marks"},
 	} {
 		m.sftp.focus = tc.p
 		if got := m.menuTitle(); got != tc.want {

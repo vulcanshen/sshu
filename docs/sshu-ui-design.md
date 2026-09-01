@@ -2354,7 +2354,9 @@ mark**,跟 `[C]lear marks` 同字母成對 —— 小寫單項、大寫整個 pa
 `t`/`T`、`x`/`X` 同一套 case 文法,hint 沿用 C 的「forget it, change
 nothing」(它跟 Delete 的距離就靠這句話)。hotkeyIndex 無大小寫回退,
 `a`/`A`dd 各行其是、files panel 按 `c` 也不會誤射 `C` —— 後者本來就有
-測試釘著。`u` 依然屬於半頁上捲。
+測試釘著。`u` 依然屬於半頁上捲。同批:marks panel 的標題
+`[2]/[4] Marked files` 改成 `[2]/[4] Marks` —— 動作叫 Append to **marks**、
+清的叫 Clear **mark**,panel 就叫它自己的名字,標題跟著語彙走。
 
 ---
 
