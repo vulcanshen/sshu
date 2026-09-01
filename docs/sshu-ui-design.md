@@ -112,7 +112,8 @@ sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
 | **surface2 `#585b70`** | unfocus 的 panel border、inactive 膠囊前景 | — |
 | **subtext1 `#bac2de`**(`handColor`) | Space menu / file picker / session 清單的游標 bar | 不當 panel chrome、不當 form 編輯列、不當 hosts 表格游標(那是 blue) |
 | **lavender `#b4befe`**(`editColor`) | **正在編輯的 form 列**(label + value + caret 一起) | list cursor(那是 `handColor`)、popup border、panel border |
-| **crust `#11111b`** | (不再用於 tab 膠囊,見 §1.1) | — |
+| **crust `#11111b`** | (不再用於 tab bar,見 §1.1) | — |
+| **surface0 `#313244`** | tab 帶上沒亮的那幾段的底色 | — |
 | **overlay0 `#6c7086`**(`dimColor`) | 次要文字、region header、停用欄位 | — |
 | **Peach / Red** | warning / error override | 不參與 popup layer scale;**不拿去標 auth method** |
 | popup border 色 | popup layer 明度(`popupLayerColor`) | 不 hardcode |
@@ -134,21 +135,33 @@ peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專�
 固定 chrome **3 行**:頂部 1 行膠囊 tab bar(獨立 content row,**不是**
 panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間全部給 panel。
 
-**實心 = 你在這裡,外框 = 你可以去**。lit 的 tab 是實心藍底深字;沒 lit 的用
-**細圓帽**(`ple-left/right_half_circle_thin`,U+E0B7 / U+E0B5)畫成外框、不填色。
+**tab bar 是一條連起來的 powerline 帶**,不是三顆各自獨立的膠囊:一個圓帽開頭、
+中間用斜線分段、一個圓帽收尾,恰好一段是亮的。斜線一律 `/`(右上左下,順著讀的
+方向):`ple-lower_right_triangle`(U+E0BA)承載**顏色改變**,
+`ple-forwardslash_separator`(U+E0BB)只在兩側同色時畫一條線。沒亮的段用
+**surface0 `#313244`** 填底。
 
-原本兩種狀態都是實心,差在顏色:lit 是藍,沒 lit 是 `borderDim` 前景配 `crust` 底。
-那個底色是問題所在 —— crust 跟畫布只差一階,所以**沒 lit 的 tab 根本沒有形狀**;
-而同一個 app 裡沒 focus 的 **panel chip**(深字配 `borderDim` 底)卻清楚得很。同一個
-「未選中」,兩個地方畫法相反,而看不見的那個是 tab。
+原本是三顆獨立膠囊,而且沒亮的那兩顆用 `borderDim` 前景配 **`crust`** 底 —— crust
+跟畫布只差一階,所以**沒亮的 tab 根本沒有形狀**;而同一個 app 裡沒 focus 的
+**panel chip**(深字配 `borderDim` 底)卻清楚得很。同一個「未選中」,兩個地方畫法
+相反,而看不見的那個是 tab。
 
-改成外框有兩個好處超過「把顏色調亮」:選中與否**不再只靠顏色**(形狀也講一次),
-而且它說出一件真的事 —— 三個 tab 是**三選一**,四個 panel 是**都在、其中一個有
-focus**。不同的關係用不同的形狀講,比用同一個形狀誠實。
+> **試過而被否決(一)**:把沒亮的 tab 改成跟 panel chip 一樣的灰色實心。可見度
+> 解決了,而且全 app 只有一種膠囊形狀 —— 但三顆實心藥丸並排就是「一排按鈕」,正是
+> 下面那條分隔線當初要處理的問題。
+>
+> **試過而被否決(二)**:沒亮的用**細圓帽**(U+E0B7 / E0B5)畫成外框、不填色。
+> 形狀有了、而且選中與否不再只靠顏色 —— 但實機上兩道細弧夾著暗字**讀起來是括號**,
+> `([2] sftp)`,不是膠囊。終端機畫不出膠囊的上下邊,這是這條路的天花板。
+>
+> 兩次都在修「沒亮的那一段看不見」,而**連起來**同時解掉了兩個顧慮:它是**一個
+> 物件**,所以沒亮的段明顯是「某個東西的一部分」而不是漂浮的字;而它**不可能**被
+> 讀成一排按鈕,因為按鈕之間有縫,這條沒有。
 
-> **試過而被否決**:把沒 lit 的 tab 改成跟 panel chip 一樣的灰色實心。可見度一樣
-> 解決,而且全 app 只有一種膠囊形狀 —— 但三顆實心藥丸並排就是「一排按鈕」,而那
-> 正是下面這條分隔線當初要處理的問題。用形狀分開,比再加一條線便宜。
+> **改過一次**:這裡原本寫著 sshu 刻意**不**用 filu 的 chain,理由是「chain 說的是
+> 『這些是同一個東西的分頁』,而 sshu 的三個 tab 是三個並存的 surface」。實機看過
+> 之後判定那個理由站不住:**一個 app 的三個並存 surface**,正好就是這條帶子畫出來
+> 的東西;而真正需要被分開的是「上面是 chrome、下面是 surface」,那是分隔線的工作。
 
 分隔線是後補的,而且它是**把膠囊還給 panel title 的前提**:tab 膠囊與 panel
 膠囊上下相鄰時,兩排填色形狀會讀成同一條 chrome。中間夾一條線,上面那排才明確
@@ -158,7 +171,7 @@ focus**。不同的關係用不同的形狀講,比用同一個形狀誠實。
 > sshu 留著它是因為 sshu 下方有膠囊要分隔、filu 沒有 —— 但這條仍待實機複核。
 
 ```
- ([1] hosts)  ([2] sftp)  ([3] ssh)                                1/5 hosts
+  [1] hosts / [2] sftp / [3] ssh                                   1/5 hosts
 ──────────────────────────────────────────────────────────────────────────────
 ╭(hosts)─────────────────────────────────────────────────────────────────────╮
 │ Name               User           Host                  Port  Auth         │
@@ -1939,6 +1952,7 @@ X 回到 ~1.0。
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
 | **搜尋找到的檔案,`Enter` 會帶你過去,然後它就是普通的列** | `TestEnterGoesToWhatTheSearchFound` / `TestEnterOnADirectoryResultOpensIt` |
+| tab bar 是**一條帶子**,恰好一段亮著(斜線種類就是證據) | `TestTheTabRowIsOneStripWithOneLitSegment` |
 | 本機側開在**啟動目錄**,而 `home` 仍是家目錄 | `TestTheLocalSideOpensWhereSshuWasLaunched` |
 | viewer 不戴 `/` 的放大鏡 —— 一個 glyph 就是一個詞 | `TestTheViewerDoesNotWearTheSearchGlyph` |
 | **沒有東西會「晃」進 `[5]`**(`l` 不再是入口) | `TestNothingWandersIntoThePty` |
