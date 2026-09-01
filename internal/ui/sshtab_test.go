@@ -112,6 +112,48 @@ func TestNarrowDropsTheLists(t *testing.T) {
 
 // ------------------------------------------------------------------ the PTY
 
+// A live session that has said NOTHING yet is not an empty terminal, it is a
+// wait — and the two look identical: an empty bordered box.
+//
+// ssh prints nothing while it waits for a TCP connection, so against an address
+// that never answers that box stays blank for as long as the OS takes to give
+// up, which can run past a minute. `cat` stands in here for exactly that
+// property: it says nothing until it is spoken to.
+func TestAConnectingSessionSaysSo(t *testing.T) {
+	m := openOne(t)
+	view := ansi.Strip(m.View())
+
+	if !strings.Contains(view, "connecting to") {
+		t.Errorf("a session that has not answered yet says nothing:\n%s", view)
+	}
+	// And it names WHICH host: "connecting" on its own does not tell you whether
+	// you picked the one you meant.
+	h := sample()[0]
+	if !strings.Contains(view, h.User+"@"+h.Host) {
+		t.Errorf("the wait does not name the host:\n%s", view)
+	}
+}
+
+// The moment the far end says anything, its terminal takes the panel back.
+func TestTheTerminalTakesOverOnTheFirstByte(t *testing.T) {
+	fakeSSH(t, "printf 'a word from the remote\\n'; exec cat")
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+
+	waitFor(t, "the remote to say something", func() bool {
+		s := m.ssh.currentSession()
+		return s != nil && s.pty.hasSpoken()
+	})
+
+	view := ansi.Strip(m.View())
+	if strings.Contains(view, "connecting to") {
+		t.Errorf("still waiting after the remote spoke:\n%s", view)
+	}
+	if !strings.Contains(view, "a word from the remote") {
+		t.Errorf("the terminal is not showing what arrived:\n%s", view)
+	}
+}
+
 // Alt+Esc is the only way out of a focused PTY — every other key is the
 // remote's.
 func TestAltEscLeavesThePty(t *testing.T) {

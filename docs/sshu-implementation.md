@@ -475,6 +475,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | `[3]` 多 session、embedded pty、`Alt+Esc` | `ui/sshtab.go` `ui/pty_unix.go` |
 | `[3]` history popup + 失敗 toast | `ui/sshhistory.go` |
+| `[3]` 連線中 spinner:判準是 PTY 有沒有說過話,不是網格空不空 | `ui/sshtab.go connectingBody` `ui/pty_unix.go spoke` |
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
 | `hosts.yaml`:XDG 解析、atomic 0600 寫入、警告標頭 | `store/store.go` `store/hosts.go` |

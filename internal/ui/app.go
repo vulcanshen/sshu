@@ -143,6 +143,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// One tick drives both jobs: reap what has finished and repaint what is
 		// still drawing. It only runs while something is live, so an idle sshu
 		// costs nothing.
+		m.ssh.spinAt++
 		ended := m.ssh.reap()
 		if len(ended) > 0 {
 			m.ssh.setSize(m.w, m.panelHeight())

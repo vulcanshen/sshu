@@ -49,6 +49,11 @@ type sshTickMsg struct{}
 const sshTickEvery = 50 * time.Millisecond
 
 type sshModel struct {
+	// spinAt is the connecting spinner's frame. It counts ticks rather than
+	// reading the clock, so the animation does not depend on when a frame is
+	// drawn — the same as the sftp tab's.
+	spinAt int
+
 	// applied* is the geometry last pushed to the PTY. Resizing is a SIGWINCH
 	// and makes the remote redraw, so it is only done when something changed —
 	// focus flips the layout on every Alt+Esc.
@@ -332,16 +337,59 @@ func (m sshModel) sessionsPanel(w, h int) string {
 	return panelChrome(innerW, rows, m.panelTitle(panelSessions), m.focus == panelSessions)
 }
 
+// ptyPanel draws the session on screen, or says why there is nothing to draw.
+//
+// A live session that has not said ANYTHING yet gets the connecting body rather
+// than its own blank grid. Those two look identical — an empty bordered box —
+// and they are not the same thing at all: ssh prints nothing while it waits for
+// a TCP connection, and against an address that never answers that wait is the
+// operating system's, which can run past a minute. What the user saw was a tab
+// that did nothing, with no way to tell a slow host from a broken app.
+//
+// This is the same complaint the sftp dial spinner was built for, and this tab
+// did not get one because "the PTY shows whatever the remote sends" — which is
+// exactly wrong when the remote has not sent anything.
 func (m sshModel) ptyPanel(w, h int) string {
 	innerW, innerH := w-2, h-2
 	s := m.currentSession()
 
 	rows := m.ptyEmpty(innerW, innerH)
-	if s != nil {
+	switch {
+	case s == nil:
+	case s.state == sessLive && !s.pty.hasSpoken():
+		rows = m.connectingBody(s, innerW, innerH)
+	default:
 		rows = s.pty.render(innerW, innerH)
 	}
 	return panelChrome(innerW, fitLines(rows, innerW, innerH),
 		m.panelTitle(panelPty), m.focus == panelPty)
+}
+
+// connectingBody is the waiting state: it MOVES, because "is this thing stuck"
+// is the question being asked and a still frame is what stuck looks like.
+func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	hand := lipgloss.NewStyle().Foreground(handColor)
+
+	spin := spinnerFrames[(m.spinAt/spinnerEvery)%len(spinnerFrames)]
+	who := s.host.User + "@" + s.host.Host
+	elapsed := ""
+	if waited := int(time.Since(s.started).Seconds()); waited >= 2 {
+		// Only once it is worth mentioning: a counter starting from zero on
+		// every connection makes a fast one look slow.
+		elapsed = "  " + itoa(waited) + "s"
+	}
+
+	plain := spin + " connecting to " + who + elapsed
+	line := centerLine(innerW, plain,
+		hand.Render(spin)+dim.Render(" connecting to ")+hand.Render(who)+dim.Render(elapsed))
+
+	blank := spaces(innerW)
+	out := make([]string, 0, max(0, innerH))
+	for i := 0; i < max(0, (innerH-1)/2); i++ {
+		out = append(out, blank)
+	}
+	return append(out, line)
 }
 
 func (m sshModel) ptyEmpty(innerW, innerH int) []string {
