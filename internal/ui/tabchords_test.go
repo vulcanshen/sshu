@@ -86,8 +86,8 @@ func TestFooterDisclosesTheTabChords(t *testing.T) {
 // bracket, and no two collapse to the same thing (cutting at the wrong spot
 // once left three identical prefixes).
 func TestShortLabelsKeepTheChord(t *testing.T) {
-	short := shortLabels(tabLabels)
-	want := []string{"[Alt+p]", "[Alt+f]", "[Alt+s]"}
+	short := shortLabels(append([]string{tabLead}, tabLabels...))
+	want := []string{"[Alt]", "[p]", "[f]", "[s]"}
 	for i := range want {
 		if short[i] != want[i] {
 			t.Fatalf("short label %d is %q, want %q", i, short[i], want[i])

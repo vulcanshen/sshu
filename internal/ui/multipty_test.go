@@ -245,3 +245,51 @@ func TestDyingOtherCellKeepsTheKeyboard(t *testing.T) {
 		t.Fatal("the keyboard should still be on the same session")
 	}
 }
+
+// j/k on [1] traces across the grid: the cell of the session under the list
+// cursor wears the lit border while the list holds the keyboard, and yields
+// the moment the keyboard is somewhere else.
+func TestListCursorLightsItsCell(t *testing.T) {
+	m := twoOnGrid(t)
+	m.ssh.setFocus(panelSessions)
+	m.ssh.curSess = 0 // NOT focusPty — the newest connect left that at 1
+
+	if !m.ssh.cellLit(m.ssh.sessions[0], 0) {
+		t.Error("the cursor session's cell should light")
+	}
+	if m.ssh.cellLit(m.ssh.sessions[1], 1) {
+		t.Error("only the cursor session's cell lights")
+	}
+
+	m.ssh.setFocus(panelLayout)
+	if m.ssh.cellLit(m.ssh.sessions[0], 0) {
+		t.Error("the layout strip has no session under a cursor to echo")
+	}
+
+	m.ssh.setFocus(panelPty)
+	m.ssh.focusPty = 1
+	if !m.ssh.cellLit(m.ssh.sessions[1], 1) || m.ssh.cellLit(m.ssh.sessions[0], 0) {
+		t.Error("inside the grid the keyboard cell is the lit one")
+	}
+}
+
+// The echo is a border on the RENDERED grid — state alone has been wrong
+// about what actually shows before (the picker once opened under the form).
+func TestListCursorEchoRendersOnTheGrid(t *testing.T) {
+	withColour(t)
+	m := twoOnGrid(t)
+	m.ssh.setFocus(panelSessions)
+	m.ssh.curSess = 0
+	lit := ansiOf(t, focusColor)
+
+	if !strings.Contains(m.ssh.gridView(), lit) {
+		t.Error("the cursor session's cell should wear the lit border")
+	}
+
+	// Take that cell off the grid: the cursor still points at the session,
+	// but there is nothing left to light.
+	m.ssh.toggleShown(m.ssh.sessions[0].id)
+	if strings.Contains(m.ssh.gridView(), lit) {
+		t.Error("a session without a cell has nothing to light")
+	}
+}

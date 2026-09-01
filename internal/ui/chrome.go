@@ -18,7 +18,8 @@ const statusMinRoom = 6
 
 // The tab row is ONE powerline strip, not three free-standing pills: a round cap
 // opens it, the segments run together, slanted dividers separate them, a round
-// cap closes it. Exactly one segment is lit.
+// cap closes it. The [Alt] lead and the active tab are lit — together they
+// spell the chord.
 //
 // It was three separate capsules, and the unlit ones were filled with `crust` —
 // a shade off the canvas — so they had no visible shape at all, while an
@@ -76,11 +77,16 @@ func divider(prev, cur lipgloss.Color) (glyph string, fg, bg lipgloss.Color) {
 	return dividerHard, prev, cur
 }
 
-// tabChain renders the strip.
-func tabChain(labels []string, active int) string {
+// tabChain renders the strip. Segment 0 is the chord LEAD — the held key,
+// always lit: the strip spells what you press, [Alt] plus whichever letter
+// lights after it. When the active tab sits right next to the lead, the seam
+// between the two lit fills is the soft divider and they read as one block —
+// the chord, spelled out.
+func tabChain(segs []string, active int) string {
 	lit, unlit := focusColor, lipgloss.Color(baseHex)
+	isLit := func(i int) bool { return i == 0 || i == active }
 	fill := func(i int) lipgloss.Color {
-		if i == active {
+		if isLit(i) {
 			return lit
 		}
 		return unlit
@@ -88,26 +94,26 @@ func tabChain(labels []string, active int) string {
 
 	var b strings.Builder
 	b.WriteString(lipgloss.NewStyle().Foreground(fill(0)).Render(capLeft))
-	for i, lab := range labels {
+	for i, lab := range segs {
 		if i > 0 {
 			div, fg, bg := divider(fill(i-1), fill(i))
 			b.WriteString(lipgloss.NewStyle().Foreground(fg).Background(bg).Render(div))
 		}
 		seg := " " + lab + " "
-		if i == active {
+		if isLit(i) {
 			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).
 				Background(lit).Bold(true).Render(seg))
 			continue
 		}
 		b.WriteString(lipgloss.NewStyle().Foreground(borderDim).Background(unlit).Render(seg))
 	}
-	b.WriteString(lipgloss.NewStyle().Foreground(fill(len(labels) - 1)).Render(capRight))
+	b.WriteString(lipgloss.NewStyle().Foreground(fill(len(segs) - 1)).Render(capRight))
 	return b.String()
 }
 
-// shortLabels drops each segment to its bracket — "[Alt+p]" — the first
-// narrow-width degradation. The label is the content signal and losing it
-// hurts, but a strip wider than the terminal breaks the frame outright
+// shortLabels drops each segment to its bracket — "[Alt] [p] [f] [s]" — the
+// first narrow-width degradation. The label is the content signal and losing
+// it hurts, but a strip wider than the terminal breaks the frame outright
 // (§1.1 — narrow must stay usable).
 func shortLabels(labels []string) []string {
 	out := make([]string, len(labels))
@@ -121,7 +127,6 @@ func shortLabels(labels []string) []string {
 	return out
 }
 
-
 // tabRow is the top content row: capsules on the left, a per-tab status slot
 // right-aligned. This row replaces the panel border title entirely — the lit
 // capsule is what says which surface you are on (§1.1).
@@ -129,16 +134,17 @@ func shortLabels(labels []string) []string {
 // Always exactly one row of exactly w cells (§1.3): the status is truncated,
 // the labels shorten, nothing wraps.
 func tabRow(w int, labels []string, active int, status string) string {
-	if tabChainW(labels)+1 > w {
-		// "[Alt+p] [Alt+f] [Alt+s]" fits exactly at minAppW, so one tier is
-		// the whole ladder.
-		labels = shortLabels(labels)
+	segs := append([]string{tabLead}, labels...)
+	if tabChainW(segs)+1 > w {
+		// "[Alt] [p] [f] [s]" fits well under minAppW, so one tier is the
+		// whole ladder.
+		segs = shortLabels(segs)
 	}
 
 	var b strings.Builder
 	b.WriteString(" ")
-	b.WriteString(tabChain(labels, active))
-	used := tabChainW(labels) + 1 // the leading indent
+	b.WriteString(tabChain(segs, active+1))
+	used := tabChainW(segs) + 1 // the leading indent
 	if used >= w {
 		return b.String() // pathological width; the guard in View catches this
 	}

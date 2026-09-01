@@ -141,7 +141,9 @@ peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專�
 panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間全部給 panel。
 
 **tab bar 是一條連起來的 powerline 帶**,不是三顆各自獨立的膠囊:一個圓帽開頭、
-中間用**三角**分段、一個圓帽收尾,恰好一段是亮的。三角一律朝右(讀的方向):
+中間用**三角**分段、一個圓帽收尾。開頭是**固定亮的 `[Alt]` 鏈頭**,其後三段
+`[p]reference / [f]ile transfer / [s]sh` 恰好一段亮 —— 亮著的兩段合起來就是
+按的和絃(見 11.8)。三角一律朝右(讀的方向):
 `pl-left_hard_divider`(U+E0B0)是實心的,承載**顏色改變**;
 `pl-left_soft_divider`(U+E0B1)是同一個形狀的外框,只在兩側同色時畫一條線。
 
@@ -2201,9 +2203,9 @@ sshu 攔下。
 
 大小寫的分工是後來補的裁定:**pty 外**小寫 `alt+p/f/s` 也通(那裡它是
 死鍵,離活鍵一個 shift 的死鍵是沒有回報的陷阱);**pty 內**只認大寫
-(`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。標籤最終拼成
-`[Alt+p]reference` —— 一個括號裝整個和絃(`[Alt+p]` 的兩括號版試了一輪
-就併掉)—— 同批把 nav 面板改名 `[1] Resources`(使用者裁定;各節內的
+(`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。標籤先拼成
+`[Alt+p]reference` —— 一個括號裝整個和絃(`[Alt][p]` 的兩括號版試了一輪
+就併掉;之後 `[Alt]` 又抽成固定亮的鏈頭,見 11.8)—— 同批把 nav 面板改名 `[1] Resources`(使用者裁定;各節內的
 舊拼法屬歷史紀錄,不回改)。
 
 **VHS 送不出任何 Alt**(`Alt+F` 只送裸字元、`Alt+Esc` 更是把 "Esc" 三個
@@ -2296,6 +2298,28 @@ frame invariant 不容忍一條散落的直欄。結束的紀律:格子死了就
 門:外部 SIGINT(bubbletea 以 ErrInterrupted 收場、不經 model)、外部
 SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 接)。解法見 §8.6;實測兩種訊號前有 ssh 子行程、後無。
+
+### 11.8 亮的兩段拼出和絃;游標的格子回聲
+
+兩個 live-use 裁定,同批落地。
+
+**`[Alt]` 抽成鏈頭、固定亮**。標籤第三次演進:`[Alt+p]reference` →
+`[Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh`。Alt 是三個和絃共用的
+一半,與其在每段重複拼寫,不如抽成一段恆亮的鏈頭 —— active 的字母段亮起
+之後,**帶子上亮著的兩段合起來就是按的和絃**;active 緊鄰鏈頭時兩段同色、
+中間只剩 soft divider,直接連讀成 `[Alt]・[p]`。窄階退化順帶變好:
+`[Alt] [p] [f] [s]` 比舊的 `[Alt+p] [Alt+f] [Alt+s]` 更窄,單一階仍是
+整座梯子。實作上 tabChain 的段 0 就是鏈頭(isLit:`i == 0 || i == active`),
+divider 語彙不動 —— 哪些三角是實心的,本身就把「兩段亮」釘死在測試裡。
+
+**`[1]` 游標的格子回聲**。j/k 掃過 sessions 清單時,游標所在 session 若在
+網格上,**右側那一格的外框同步亮**(同 focusColor,連 chip 一起)。清單列
+與格子是同一個 session 的兩個面,游標掃過去格子跟著亮,「這一列是哪一格」
+不用讀 cell 標題就有答案;游標停在沒上網格的 session 上時右側什麼都不亮 ——
+沒有回聲本身就是「它不在網格上」的訊號,和列首的劃線 monitor glyph 互為
+印證。鍵盤真的進到網格後,回聲讓位給 keyboard focus(cellLit 先看
+panelPty);focus 在 `[2]` layout 上時也沒有回聲 —— 那裡沒有游標指著任何
+session。
 
 ---
 

@@ -20,13 +20,16 @@ const (
 	tabCount
 )
 
-// Strip labels. One bracket, the whole chord inside it: [Alt+p], disclosed
-// in its everyday lowercase spelling. The tabs moved OFF the bare digits so
-// that every digit could address a panel of the current tab instead — and so
-// that switching tab works even while a remote holds the keyboard, which no
-// bare key could survive. (Inside a pty only the SHIFTED chord is
-// intercepted; see tabForChord.)
-var tabLabels = []string{"[Alt+p]reference", "[Alt+f]ile transfer", "[Alt+s]sh"}
+// Strip labels. The chain opens with the held key — tabLead, always lit —
+// and each label opens with the letter that completes the chord, disclosed
+// in its everyday lowercase spelling: [Alt] ❯ [p]reference. The tabs moved
+// OFF the bare digits so that every digit could address a panel of the
+// current tab instead — and so that switching tab works even while a remote
+// holds the keyboard, which no bare key could survive. (Inside a pty only
+// the SHIFTED chord is intercepted; see tabForChord.)
+const tabLead = "[Alt]"
+
+var tabLabels = []string{"[p]reference", "[f]ile transfer", "[s]sh"}
 
 // chromeRows is the fixed chrome the panels do NOT get: the capsule row, the
 // rule under it, and the footer. Locked at 3 — none of them ever reflows (§1.3).
