@@ -107,7 +107,7 @@ func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int) []string {
 		case s.filtering:
 			fact = "No match"
 		default:
-			hint = emptyHint("Press N to make a directory, or S to switch host", "N", "S")
+			hint = emptyHint("Press [A] to add a file or directory, or [S] to switch host", "[A]", "[S]")
 		}
 		return emptyBody(innerW, innerH, fact, hint)
 	}
@@ -161,7 +161,7 @@ func (m sftpModel) marksPanel(sd side, w, h int) string {
 	var rows []string
 	if len(s.marks) == 0 {
 		rows = emptyBody(innerW, innerH, "Nothing marked",
-			emptyHint("Press a on a file to mark it", "a"))
+			emptyHint("Press [a] on a file to mark it", "[a]"))
 	} else {
 		rows = make([]string, 0, max(0, innerH))
 		for i := s.markTop; i < len(s.marks) && len(rows) < innerH; i++ {

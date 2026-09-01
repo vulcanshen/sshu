@@ -42,7 +42,19 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 
 > sshu is **macOS / Linux only** — it uses a Unix PTY. No native Windows build.
 
-There is no release binary yet. Build from source:
+**Homebrew** (macOS / Linux):
+
+```bash
+brew install vulcanshen/tap/sshu
+```
+
+**Install script** (drops the latest release binary into `~/.local/bin`, or `/usr/local/bin` as root):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | sh
+```
+
+**From source**:
 
 ```bash
 go install github.com/vulcanshen/sshu/cmd/sshu@latest
@@ -183,7 +195,7 @@ The layout strip (`2`, bottom of the left column — the right side is nothing b
 - **Edit in your own editor** — `e` opens the item under the cursor in `$VISUAL` / `$EDITOR` (`vi` only as a floor, never a dependency), running inside the embedded terminal so the frame stays up. A remote file is fetched, edited and written back; a local one is edited where it lives, so its inode — and every hard link to it — survives. Nothing is written back unless the content actually changed, the write lands atomically so a dropped link cannot leave a truncated config behind, and a file that somebody else changed while you had it open is never overwritten without asking.
 - **A real transfer engine** — the whole plan is computed before anything is written, so the progress bar's denominator is right from the first frame and overwrites are asked about once, up front. Per-job cancel; a cancelled or failed file is removed rather than left looking complete.
 - **Directories that stay current, cheaply** — SFTP has no change notification, so sshu stats the directory and compares its mtime, and re-lists only when that moves. One small round trip every couple of seconds instead of a full listing, and only while the tab is on screen.
-- **A connection that has not answered yet says so** — `[5]` draws the PTY, and ssh prints nothing at all while it waits for TCP, so an unreachable host used to leave an empty box for as long as the OS took to give up. The test is whether the far end has sent a byte, not whether the grid is empty: until it does, the panel names the host and counts the seconds.
+- **A connection that has not answered yet says so** — a grid cell draws the PTY, and ssh prints nothing at all while it waits for TCP, so an unreachable host used to leave an empty box for as long as the OS took to give up. The test is whether the far end has sent a byte, not whether the grid is empty: until it does, the panel names the host and counts the seconds.
 - **Nothing dies silently, and nothing is only said once** — a session that ends badly raises a toast naming the host and **what ssh itself said** (`Connection refused`, not `disconnected`), the grid keeps saying it instead of going blank, and the app log holds **the whole final screen** — a refused connection is one line, but a host key mismatch is fifteen and the fingerprint you need is in the middle of them. The log lives at preference → logs, **persisted to `applogs.yaml`** so it survives the process, and it records more than failures: hosts and credentials changing, connections opening and closing, transfers ending, edits written back. The nav and the footer count the errors you have not read until you look.
 - **No exit leaves an orphan** — every child ssh runs on its own PTY session, where no signal would reach it on its own. A registry knows them all, and every way out — `q`, `Ctrl+C`, an outside SIGINT/SIGTERM, even the terminal window closing (SIGHUP) — kills them on the way.
 - **Frame stability** — every rendered line is exactly the terminal width, at every size, with any content. Wide characters from a remote, Nerd Font glyphs that measure differently, and CJK filenames are all handled by measuring rather than assuming; there is a test that checks it across sizes, focus states and data.
@@ -191,11 +203,9 @@ The layout strip (`2`, bottom of the left column — the right side is nothing b
 
 ## Status
 
-**Unreleased, heading for 0.2.0** — 0.1.0's three tabs plus the big rework: Alt-chord tabs, the preference nav, credentials, the persistent app log, and the ssh terminal grid. 280+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v0.1.0 — the first public release.** Three Alt-chord tabs, the preference nav, reusable credentials, the persistent app log, the ssh terminal grid, and no exit that leaves an orphan. 290+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
-
-- no release binary, Homebrew tap or install script — build from source for now
 - **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab
 - **encrypted private keys** for the sftp side — reported plainly, but not usable; agent support is the likely answer
 - content search on a remote (it would mean running a command on the far end, which this tab deliberately does not do)

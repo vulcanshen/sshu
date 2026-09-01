@@ -2192,6 +2192,9 @@ applog 落地、host form 三選 auth 與「選值欄位」互動、ssh 終端�
 
 ## §11. v0.2 大改 —— Alt 和絃、preference、credential、終端網格
 
+(這一輪的內部代號是 v0.2;對外的首發版號定為 **v0.1.0** —— 0.1.0 從未單獨
+發布,首個公開版本就是大改後的樣子。)
+
 一次成塊的重排,整輪都是使用者點名的方向;四個當場裁定的分歧點原文照錄:
 applog「全部落地」、credential「整包供應」、數字例外「只有 pty 內」、
 ssh 清單「Enter 直接切到該 item 的 pty panel,使用 tab 來開關」。
@@ -2360,7 +2363,7 @@ nothing」(它跟 Delete 的距離就靠這句話)。hotkeyIndex 無大小寫回
 
 ---
 
-## 附錄 — 按鍵全表(v0.2)
+## 附錄 — 按鍵全表(v0.1.0)
 
 ### Tab 與 panel
 

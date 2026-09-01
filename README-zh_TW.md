@@ -42,7 +42,19 @@ tab 用 **`Alt+p` / `Alt+f` / `Alt+s`** 和絃切換 —— 是和絃,所以遠�
 
 > sshu **只支援 macOS / Linux** —— 它用 Unix PTY,沒有原生 Windows build。
 
-目前還沒有 release binary,請從原始碼編:
+**Homebrew**(macOS / Linux):
+
+```bash
+brew install vulcanshen/tap/sshu
+```
+
+**安裝腳本**(把最新 release binary 放進 `~/.local/bin`,root 則是 `/usr/local/bin`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | sh
+```
+
+**從原始碼**:
 
 ```bash
 go install github.com/vulcanshen/sshu/cmd/sshu@latest
@@ -191,11 +203,9 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 
 ## 現況
 
-**未發布,朝 0.2.0 前進** —— 0.1.0 的三個 tab,加上這輪大改:Alt 和絃 tab、preference nav、credentials、落地的 app log、ssh 終端網格。280+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**v0.1.0 —— 第一個公開版本。** 三個 Alt 和絃 tab、preference nav、可重用的 credentials、落地的 app log、ssh 終端網格,以及不留孤兒的行程收尾。290+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
-
-- 沒有 release binary、Homebrew tap 或安裝腳本 —— 目前請從原始碼編
 - **sftp 側未知 host key 的互動確認** —— 今天是直接拒絕,要先用 ssh tab 接受
 - **sftp 側的加密私鑰** —— 會如實回報,但還不能用;agent 支援是可能的解法
 - 遠端內容搜尋(那需要在對面跑指令,而這個 tab 刻意不做這件事)
