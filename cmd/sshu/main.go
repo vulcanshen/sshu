@@ -2,8 +2,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vulcanshen/sshu/internal/store"
@@ -60,8 +63,29 @@ func main() {
 		app = app.WithStartupError("credentials.yaml: " + credsErr.Error())
 	}
 	p := tea.NewProgram(app, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "sshu:", err)
+
+	// SIGHUP is the terminal window closing. Bubble Tea does not catch it, and
+	// the default action would end sshu with every child ssh still running —
+	// each leads its own session on its PTY, so no signal reaches them on its
+	// own.
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		<-hup
+		ui.KillChildren()
+		p.Quit()
+	}()
+
+	_, runErr := p.Run()
+	// Whatever door the program left through — q, Ctrl+C inside the app, an
+	// outside SIGINT or SIGTERM (both end the loop WITHOUT the model's own
+	// quit path), or the loop failing — the children go too.
+	ui.KillChildren()
+	switch {
+	case errors.Is(runErr, tea.ErrInterrupted):
+		os.Exit(130) // the conventional 128+SIGINT
+	case runErr != nil:
+		fmt.Fprintln(os.Stderr, "sshu:", runErr)
 		os.Exit(1)
 	}
 }

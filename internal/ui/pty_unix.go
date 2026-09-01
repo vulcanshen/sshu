@@ -54,6 +54,7 @@ func startPty(cmd *exec.Cmd, cols, rows int) (*ptyTerm, error) {
 		return nil, err
 	}
 	p.ptmx = ptmx
+	registerProc(cmd) // so no exit path can leave the child running
 	go p.readLoop()
 	return p, nil
 }
@@ -84,6 +85,7 @@ func (p *ptyTerm) readLoop() {
 		}
 	}
 	err := cmd.Wait()
+	deregisterProc(cmd)
 	p.exitErr.Store(&err)
 	done.Store(true)
 }
