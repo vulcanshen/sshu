@@ -39,7 +39,10 @@ type SaveFunc func([]store.Host) error
 type AppModel struct {
 	w, h      int
 	tab       tabID
+	pref      prefModel
 	hosts     hostsModel
+	creds     credsModel
+	saveCreds func([]store.Credential) error
 	ssh       sshModel
 	sftp      sftpModel
 	transfers transferModel
@@ -61,6 +64,7 @@ type AppModel struct {
 	editorUI    editorPopup
 	help        helpPopup
 	form        hostForm
+	credFormUI  credForm
 	picker      filePicker
 	confirm     confirmPopup
 	input       inputPopup
@@ -75,7 +79,10 @@ type AppModel struct {
 // the filesystem itself.
 func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 	m := AppModel{
-		cfg:         cfg,
+		cfg: cfg,
+		// The tab opens ON its content — the hosts table, exactly where the
+		// old hosts tab put you. The nav is chrome you visit (1, or Tab).
+		pref:        prefModel{focus: panelPrefContent},
 		hosts:       hostsModel{hosts: hosts},
 		ssh:         newSSHModel(),
 		sftp:        newSFTPModel(),
@@ -88,12 +95,20 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		spaceMenu:   newSpaceMenu(),
 		help:        newHelpPopup(),
 		form:        newHostForm(),
+		credFormUI:  newCredForm(),
 		picker:      newFilePicker(),
 		confirm:     newConfirmPopup(),
 		input:       newInputPopup(),
 		toast:       newToast(),
 	}
 	m.ssh.timeout, m.sftp.timeout = cfg.Timeout(), cfg.Timeout()
+	return m
+}
+
+// WithCredentials wires credentials.yaml in: the list, and how to save it.
+func (m AppModel) WithCredentials(creds []store.Credential, save func([]store.Credential) error) AppModel {
+	m.creds.creds = creds
+	m.saveCreds = save
 	return m
 }
 
@@ -132,17 +147,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
-		m.hosts.setSize(m.w, m.panelHeight())
+		m.pref.setSize(m.w, m.panelHeight())
+		m.syncPrefSizes()
 		m.ssh.setSize(m.w, m.panelHeight())
 		m.sftp.setSize(m.w, m.panelHeight())
 		m.hostPicker.setSize(m.w, m.h)
 		m.transfersUI.setSize(m.w, m.h)
-		m.log.setSize(m.w, m.h)
 		m.viewer.setSize(m.w, m.h)
 		m.editorUI.setSize(m.w, m.h)
 		m.spaceMenu.setSize(m.w, m.h)
 		m.help.setSize(m.w, m.h)
 		m.form.setSize(m.w, m.h)
+		m.credFormUI.setSize(m.w, m.h)
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
@@ -156,11 +172,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.spaceMenu.anim.tick(msg),
 			m.hostPicker.anim.tick(msg),
 			m.transfersUI.anim.tick(msg),
-			m.log.anim.tick(msg),
 			m.viewer.anim.tick(msg),
 			m.editorUI.anim.tick(msg),
 			m.help.anim.tick(msg),
 			m.form.anim.tick(msg),
+			m.credFormUI.anim.tick(msg),
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
 			m.input.anim.tick(msg),
@@ -221,6 +237,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.sftp.onDialTick()
 
 	case xferTickMsg:
+		m.logFinishedTransfers()
 		return m, m.transfers.tick()
 
 	case watchTickMsg:
@@ -237,6 +254,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.sftp.takeScans()
 
 	case xferDoneMsg:
+		m.logFinishedTransfers()
 		// Re-list the destination so what just arrived is on screen without the
 		// user having to leave and come back.
 		for i := range m.sftp.sides {
@@ -310,7 +328,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Type == tea.KeyEscape {
 		// A search is the innermost thing Esc can drop, on either tab that has
 		// one.
-		if !m.popupOpen() && m.tab == tabPref && m.hosts.filtering {
+		if !m.popupOpen() && m.tab == tabPref && m.pref.item == prefHosts && m.hosts.filtering {
 			m.hosts.clearFilter()
 			return m, nil
 		}
@@ -360,13 +378,6 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Type == tea.KeySpace && m.popupOpen() && !m.textFloat() {
 		return m.closeTop()
 	}
-	// `!` is the app log's entry key, and like `?` it closes what it opened. It
-	// works from on top of another float for the same reason: the moment you most
-	// want to know what went wrong is while you are standing on the thing that
-	// went wrong.
-	if msg.String() == "!" && !m.textFloat() && !m.ptyFocused() {
-		return m, m.log.toggle(m.layer())
-	}
 	if msg.String() == "?" && !m.textFloat() && !m.inPty() {
 		if m.help.anim.owns() {
 			return m, m.help.close()
@@ -383,7 +394,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.tab == tabFT && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
 		return m, nil
 	}
-	if m.tab == tabPref && !m.popupOpen() && m.hosts.filterKey(msg) {
+	if m.tab == tabPref && m.pref.item == prefHosts && !m.popupOpen() && m.hosts.filterKey(msg) {
 		return m, nil
 	}
 
@@ -394,9 +405,6 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if i := m.transfersUI.update(msg, len(m.transfers.jobs)); i >= 0 {
 			m.transfers.cancelJob(i)
 		}
-		return m, nil
-	case m.log.anim.owns():
-		m.log.update(msg)
 		return m, nil
 	case m.viewer.anim.owns():
 		m.viewer.update(msg)
@@ -411,6 +419,8 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.pickerKey(msg)
 	case m.form.anim.owns():
 		return m.formKey(msg)
+	case m.credFormUI.anim.owns():
+		return m.credFormKey(msg)
 	case m.input.anim.owns():
 		return m.inputKey(msg)
 	case m.confirm.anim.owns():
@@ -448,8 +458,6 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.toast.close()
 	case m.transfersUI.isActive():
 		return m, m.transfersUI.close()
-	case m.log.isActive():
-		return m, m.log.close()
 	case m.viewer.isActive():
 		return m, m.viewer.close()
 	case m.hostPicker.isActive():
@@ -458,6 +466,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.picker.close()
 	case m.form.isActive():
 		return m, m.form.close()
+	case m.credFormUI.isActive():
+		return m, m.credFormUI.close()
 	case m.input.isActive():
 		return m, m.input.close()
 	case m.confirm.isActive():
@@ -478,9 +488,9 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 // errand, so the user is returned to the panel rather than to a menu they are
 // finished with (§7.1).
 func (m *AppModel) closeStack() tea.Cmd {
-	return tea.Batch(m.picker.close(), m.form.close(), m.confirm.close(),
-		m.input.close(), m.help.close(), m.hostPicker.close(),
-		m.transfersUI.close(), m.log.close(), m.viewer.close(),
+	return tea.Batch(m.picker.close(), m.form.close(), m.credFormUI.close(),
+		m.confirm.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
+		m.transfersUI.close(), m.viewer.close(),
 		m.editorUI.close(), m.spaceMenu.close())
 }
 
@@ -527,13 +537,21 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "tab", "shift+tab":
 		// Tab cycles the panels OF THE CURRENT TAB and wraps there. It does not
 		// cross into another tab: one key, one job, and the job is the thing you
-		// can see. Changing tab is 1/2/3 (or the capsules).
+		// can see. Changing tab is an Alt chord.
 		//
 		// It used to run off the end into the next tab — "Tab walks surfaces, not
 		// tabs" — which made the same keystroke mean two different sizes of move
 		// depending on where in the cycle you happened to be.
 		back := k == "shift+tab"
 		switch m.tab {
+		case tabPref:
+			if m.pref.focus == panelPrefNav {
+				m.pref.focus = panelPrefContent
+			} else {
+				m.pref.focus = panelPrefNav
+			}
+			m.syncPrefSizes()
+			m.prefShowed()
 		case tabSSH:
 			m.ssh.cycleFocus(back)
 		case tabFT:
@@ -587,6 +605,10 @@ func tabForChord(k string, remoteHasKeys bool) (tabID, bool) {
 func (m AppModel) switchTab(t tabID) (tea.Model, tea.Cmd) {
 	m.tab = t
 	m.sftp.onScreen = t == tabFT
+	if t == tabPref {
+		m.syncPrefSizes()
+		m.prefShowed()
+	}
 	if t == tabFT {
 		return m, m.sftp.startWatch()
 	}
@@ -597,6 +619,14 @@ func (m AppModel) switchTab(t tabID) (tea.Model, tea.Cmd) {
 // in the order they are drawn. A digit with no panel behind it does nothing.
 func (m *AppModel) focusPanelDigit(k string) {
 	switch m.tab {
+	case tabPref:
+		if p, ok := map[string]prefPanel{
+			"1": panelPrefNav, "2": panelPrefContent,
+		}[k]; ok {
+			m.pref.focus = p
+			m.syncPrefSizes()
+			m.prefShowed()
+		}
 	case tabSSH:
 		if p, ok := map[string]sshPanel{
 			"1": panelSessions, "2": panelPty,
@@ -624,7 +654,7 @@ func (m *AppModel) focusPanelDigit(k string) {
 func (m AppModel) dispatchKey(k string) (tea.Model, tea.Cmd) {
 	switch m.tab {
 	case tabPref:
-		return m.hostsKey(k)
+		return m.prefKey(k)
 	case tabFT:
 		return m.sftpKey(k)
 	case tabSSH:
@@ -681,17 +711,40 @@ func (m AppModel) inPty() bool {
 // That is what makes Space a character rather than a key (§4.5), and it is the
 // one exception to the entry keys closing what they opened.
 func (m AppModel) textFloat() bool {
-	return m.form.anim.owns() || m.picker.anim.owns() || m.input.anim.owns()
+	return m.form.anim.owns() || m.credFormUI.anim.owns() ||
+		m.picker.anim.owns() || m.input.anim.owns()
+}
+
+// logFinishedTransfers records each job's ending exactly once. Swept from the
+// transfer messages rather than hooked into the copy goroutine, so the log
+// write happens on the UI loop like every other entry.
+func (m *AppModel) logFinishedTransfers() {
+	for _, j := range m.transfers.jobs {
+		if j.logged {
+			continue
+		}
+		switch j.status() {
+		case xferDone:
+			j.logged = true
+			m.log.info("transfer done: " + j.label)
+		case xferCancelled:
+			j.logged = true
+			m.log.info("transfer cancelled: " + j.label)
+		case xferFailed:
+			j.logged = true
+			m.log.errorf("transfer failed: "+j.label, j.err())
+		}
+	}
 }
 
 // popupOpen reports whether any float owns the keyboard. A float on its way out
 // does not (popupAnimator.owns) — the keyboard is back on the panel the moment
 // the action commits, not when the animation finishes.
 func (m AppModel) popupOpen() bool {
-	return m.form.anim.owns() || m.picker.anim.owns() || m.confirm.anim.owns() ||
-		m.input.anim.owns() || m.help.anim.owns() || m.spaceMenu.anim.owns() ||
-		m.hostPicker.anim.owns() || m.transfersUI.anim.owns() ||
-		m.log.anim.owns() || m.viewer.anim.owns() || m.editorUI.anim.owns()
+	return m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
+		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
+		m.spaceMenu.anim.owns() || m.hostPicker.anim.owns() ||
+		m.transfersUI.anim.owns() || m.viewer.anim.owns() || m.editorUI.anim.owns()
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -706,7 +759,7 @@ func (m AppModel) hostsKey(k string) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) cursorHost() (store.Host, bool) {
-	if m.tab != tabPref {
+	if m.tab != tabPref || m.pref.item != prefHosts {
 		return store.Host{}, false
 	}
 	return m.hosts.rowAt(m.hosts.cursor)
@@ -783,7 +836,10 @@ func (m AppModel) menuTitle() string {
 	case tabFT:
 		return m.sftp.panelTitle(m.sftp.focus)
 	}
-	return tabLabels[m.tab]
+	if m.pref.focus == panelPrefNav {
+		return m.pref.panelTitle(panelPrefNav)
+	}
+	return m.pref.panelTitle(panelPrefContent)
 }
 
 // menuItems is the §A.1 contents for whichever tab is up.
@@ -793,6 +849,21 @@ func (m AppModel) menuItems() []menuItem {
 		return m.sshMenuItems()
 	case tabFT:
 		return m.sftpMenuItems()
+	}
+	if m.pref.focus == panelPrefNav {
+		return []menuItem{
+			{label: "preference", header: true},
+			{label: "j/k choose a section — Enter opens it", header: true},
+		}
+	}
+	switch m.pref.item {
+	case prefCreds:
+		return m.credsMenuItems()
+	case prefLogs:
+		return []menuItem{
+			{label: "app log", header: true},
+			{label: "newest first — j/k scroll, nothing to act on", header: true},
+		}
 	}
 	_, acts := m.hostsApplicable()
 
@@ -901,6 +972,8 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.doDeleteItem(m.confirm.target)
 	case confirmDeleteMarks:
 		return m.doDeleteMarks()
+	case confirmDeleteCred:
+		return m.doDeleteCred(m.confirm.target)
 	case confirmEditBinary:
 		return m.launchEditor()
 	case confirmEditOverwrite:
@@ -922,6 +995,7 @@ func (m AppModel) doDelete(name string) (tea.Model, tea.Cmd) {
 	m.hosts.hosts = hosts
 	m.hosts.cursor = min(m.hosts.cursor, max(0, len(hosts)-1))
 	m.hosts.ensureVisible()
+	m.log.info(fmt.Sprintf("host %q deleted", name))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Deleted %q", name), toastInfo))
 }
@@ -997,10 +1071,19 @@ func (m *AppModel) syncFormError() {
 
 // pickerKey takes the chosen path straight into the field the picker was opened
 // for. There is no intermediate confirmation: picking IS the confirmation.
+// Both forms use the one picker; whichever form is standing under it owns the
+// answer.
 func (m AppModel) pickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	path, done := m.picker.update(msg)
 	if !done {
 		return m, nil
+	}
+	if m.credFormUI.isActive() {
+		m.credFormUI.fields[cIdentity].value = path
+		m.credFormUI.fields[cIdentity].caret = len([]rune(path))
+		m.credFormUI.focus = cIdentity
+		m.syncCredFormError()
+		return m, m.picker.close()
 	}
 	m.form.fields[fIdentity].value = path
 	m.form.fields[fIdentity].caret = len([]rune(path))
@@ -1039,6 +1122,11 @@ func (m AppModel) commitForm() (tea.Model, tea.Cmd) {
 		m.hosts.cursor = i // land the cursor on what was just saved
 	}
 	m.hosts.ensureVisible()
+	verb := "added"
+	if m.form.editing != "" {
+		verb = "updated"
+	}
+	m.log.info(fmt.Sprintf("host %q %s (%s)", h.Name, verb, h.Addr()))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Saved %q", h.Name), toastInfo))
 }

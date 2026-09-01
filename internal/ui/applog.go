@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/vulcanshen/sshu/internal/store"
 )
@@ -18,8 +17,9 @@ import (
 // place any of them could go was a toast that is gone in two seconds. A record
 // you can go back to is what a toast cannot be.
 //
-// It is a viewport (§6.1): newest first, no cursor, nothing in it can be acted
-// on. `!` opens it and `!` closes it, the same way `?` does for help.
+// It is a viewport (§6.1): newest first, no cursor, nothing in it can be
+// acted on. It lives as preference → logs — a content panel, not a popup —
+// and landing it on screen is what marks its errors read.
 
 // logCap bounds the log. Five hundred lines is far more than a session produces
 // and still nothing next to a terminal's scrollback.
@@ -81,7 +81,6 @@ type logEntry struct {
 }
 
 type appLog struct {
-	anim    popupAnimator
 	entries []logEntry // oldest first; the view reads it backwards
 	// unread counts errors since the log was last opened. It is what puts the
 	// key in the footer in bold words rather than quiet ones — news nobody is
@@ -94,18 +93,15 @@ type appLog struct {
 	// exactly once instead of once per event.
 	sink       func(store.LogEntry) error
 	sinkBroken bool
-
-	layer   int
-	screenW int
-	screenH int
 }
 
-func newAppLog() appLog { return appLog{anim: newPopupAnimator("applog")} }
+func newAppLog() appLog { return appLog{} }
 
-func (m appLog) isActive() bool    { return m.anim.isActive() }
-func (m *appLog) close() tea.Cmd   { return m.anim.close() }
-func (m *appLog) setSize(w, h int) { m.screenW, m.screenH = w, h }
 func (m appLog) unreadErrors() int { return m.unread }
+
+// markRead is the moment the logs content lands on screen — there is no popup
+// to open any more, so being visible is what being read means.
+func (m *appLog) markRead() { m.unread = 0 }
 
 // entryLines and entryChars bound one entry. A whole ssh failure fits easily —
 // even the host key banner is about fifteen lines — while a remote that decides
@@ -176,32 +172,13 @@ func (m *appLog) info(msg string, more ...string)   { m.add(logInfo, msg, more..
 func (m *appLog) warn(msg string, more ...string)   { m.add(logWarn, msg, more...) }
 func (m *appLog) errorf(msg string, more ...string) { m.add(logError, msg, more...) }
 
-// toggle is the whole of `!`: it opens what is closed and closes what is open,
-// the same contract `?` has (§A.2). Opening marks the errors as read.
-func (m *appLog) toggle(layer int) tea.Cmd {
-	if m.anim.owns() {
-		return m.anim.close()
-	}
-	m.layer, m.top, m.unread = layer, 0, 0
-	return m.anim.open()
+// scrollKey scrolls the panel. Bounded by RENDERED rows, not by entries: one
+// entry can be forty lines of somebody else's failure, and scrolling that
+// indexed entries would let you see the top of it and never the rest.
+func (m *appLog) scrollKey(k string, innerW, innerH int) {
+	n := len(m.allRows(innerW))
+	m.top = moveScroll(m.top, max(0, n-innerH), k, innerH)
 }
-
-func (m appLog) rows() int { return max(1, m.screenH-8) }
-
-func (m *appLog) update(msg tea.KeyMsg) {
-	if !m.anim.isInteractive() {
-		return
-	}
-	// Bounded by RENDERED rows, not by entries. One entry can be forty lines of
-	// somebody else's failure, and scrolling that indexed entries would let you
-	// see the top of it and never the rest.
-	n := len(m.allRows(popupInnerW(m.screenW, logW)))
-	m.top = moveScroll(m.top, max(0, n-m.rows()), msg.String(), m.rows())
-}
-
-// logW is the popup's width. Wide, because the lines it holds are somebody
-// else's error messages and those are not written to fit.
-const logW = 88
 
 // allRows is every line the log would draw, newest entry first. The viewport
 // scrolls over THESE rather than over entries, because one entry is not one row.
@@ -237,23 +214,13 @@ func (m appLog) allRows(innerW int) []string {
 	return rows
 }
 
-func (m appLog) view() string {
-	innerW := popupInnerW(m.screenW, logW)
-
+// body renders the log into a content panel of innerW×innerH.
+func (m appLog) body(innerW, innerH int) []string {
 	rows := m.allRows(innerW)
-	total := len(rows)
-	if total == 0 {
-		rows = emptyBody(innerW, min(m.rows(), 5), "Nothing has happened yet",
-			emptyHint("Failed connections and transfers are recorded here", ""))
-	} else {
-		top := clamp(m.top, 0, max(0, total-1))
-		rows = rows[top:min(total, top+m.rows())]
+	if len(rows) == 0 {
+		return emptyBody(innerW, innerH, "Nothing has happened yet",
+			emptyHint("Connections, transfers and edits are recorded here", ""))
 	}
-
-	hint := [][2]string{{"j/k", "scroll"}, {"Esc", "close"}}
-	if total > m.rows() {
-		hint = append([][2]string{{itoa(m.top + 1), "of " + itoa(total)}}, hint...)
-	}
-	return drawPopupBox(popupLayerColor(m.layer), " "+glyphInfo+" app log ",
-		hintLegend(hint), animRows(m.anim, capRows(rows, m.screenH)), innerW)
+	top := clamp(m.top, 0, max(0, len(rows)-1))
+	return fitLines(rows[top:min(len(rows), top+innerH)], innerW, innerH)
 }

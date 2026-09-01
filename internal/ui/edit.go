@@ -397,12 +397,18 @@ func (m AppModel) onEditSaved(msg editSavedMsg) (tea.Model, tea.Cmd) {
 			action: confirmEditOverwrite,
 		}, 1))
 	case msg.err != nil:
+		m.log.errorf("edit: "+name+" · "+msg.err.Error(), "your copy is at "+local)
 		return m, tea.Batch(m.closeEdit(true),
 			m.toast.show("Not saved: "+msg.err.Error()+" — your copy is at "+local, toastError))
 	case !msg.changed:
 		return m, tea.Batch(m.closeEdit(false),
 			m.toast.show("No changes to "+name, toastInfo))
 	}
+	dest := where
+	if dest == "" {
+		dest = "local"
+	}
+	m.log.info("edit: saved " + name + " (" + dest + ")")
 	return m, tea.Batch(m.closeEdit(false), m.toast.show("Saved "+name, toastInfo))
 }
 

@@ -197,7 +197,7 @@ func (m hostsModel) status() string {
 	return fmt.Sprintf("%d/%d hosts", m.cursor+1, len(m.hosts))
 }
 
-func (m hostsModel) view() string {
+func (m hostsModel) view(title string, focused bool) string {
 	innerW, innerH := m.w-2, m.h-2
 	body := m.tableBody(innerW, innerH)
 	switch {
@@ -210,11 +210,7 @@ func (m hostsModel) view() string {
 		body = append([]string{m.filterRow(innerW)},
 			emptyBody(innerW, innerH-1, "No match", nil)...)
 	}
-	// No title. A panel title exists to tell panels APART, and this tab has one
-	// panel — the capsule would have said "hosts" directly under a tab segment
-	// already naming the surface, which is a label answering a question nobody
-	// could have.
-	return panelChrome(innerW, fitLines(body, innerW, innerH), "", true)
+	return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
 }
 
 func (m hostsModel) tableBody(innerW, innerH int) []string {

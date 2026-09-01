@@ -180,31 +180,21 @@ func TestSearchNeedsHostsToSearch(t *testing.T) {
 	}
 }
 
-// The panel carries no border title: a title tells panels APART, and this tab
-// has one panel under a tab capsule that already reads "[1] hosts".
-func TestHostsPanelHasNoTitle(t *testing.T) {
+// The preference tab is two panels, and a title is what tells panels APART —
+// so both wear one, numbered with the digit that focuses them. (The old hosts
+// tab had one panel and deliberately no title; that reasoning inverted the
+// moment a side nav moved in next to it.)
+func TestPrefPanelsWearTheirTitles(t *testing.T) {
 	view := ansi.Strip(sized(sample(), 100, 24).View())
-	lines := strings.Split(view, "\n")
-	// The panel's top border is the first line starting with the box corner.
-	//
-	// Checking for the word is not enough — an EMPTY capsule contains no word
-	// and still puts two round caps on the border, which is exactly what this
-	// missed the first time.
-	for _, l := range lines {
-		if strings.HasPrefix(l, "╭") {
-			if strings.Contains(l, "hosts") {
-				t.Errorf("the panel still wears a title: %q", l)
-			}
-			for _, cap := range []string{capLeft, capRight} {
-				if strings.Contains(l, cap) {
-					t.Errorf("a capsule cap is still on the border: %q", l)
-				}
-			}
-			if want := "╭" + strings.Repeat("─", 98) + "╮"; l != want {
-				t.Errorf("the border is not plain:\n got %q\nwant %q", l, want)
-			}
-			return
+	for _, want := range []string{"[1] preference", "[2] hosts"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("%q is not on screen:\n%s", want, view)
 		}
 	}
-	t.Error("no panel border found")
+	// And the nav lists every section by name.
+	for _, want := range []string{"hosts", "credentials", "logs"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the nav does not offer %q", want)
+		}
+	}
 }

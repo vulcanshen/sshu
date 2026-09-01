@@ -37,15 +37,27 @@ func main() {
 	// never a reason to stop recording new events.
 	logTail, logErr := store.LoadLog()
 
+	// Credentials are data like hosts, but a broken credentials.yaml only
+	// breaks the hosts that reference it — sshu still starts, and says so.
+	credsFile, credsErr := store.LoadCreds()
+
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
 	}
-	app := ui.New(hosts.Hosts, save, cfg).WithLog(logTail, store.AppendLog)
+	saveCreds := func(list []store.Credential) error {
+		return store.SaveCreds(store.CredsFile{Credentials: list})
+	}
+	app := ui.New(hosts.Hosts, save, cfg).
+		WithLog(logTail, store.AppendLog).
+		WithCredentials(credsFile.Credentials, saveCreds)
 	if cfgErr != nil {
 		app = app.WithStartupError("config.yaml: " + cfgErr.Error())
 	}
 	if logErr != nil {
 		app = app.WithStartupError("applogs.yaml: " + logErr.Error())
+	}
+	if credsErr != nil {
+		app = app.WithStartupError("credentials.yaml: " + credsErr.Error())
 	}
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
