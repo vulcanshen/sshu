@@ -36,6 +36,10 @@ type transferJob struct {
 	errText   atomic.Pointer[string]
 
 	cancel context.CancelFunc
+
+	// logged: this job's ending has reached the app log. Touched only on the
+	// UI loop (logFinishedTransfers), never by the copy goroutine.
+	logged bool
 }
 
 func (j *transferJob) status() xferState { return xferState(j.state.Load()) }

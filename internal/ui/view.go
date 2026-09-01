@@ -40,9 +40,6 @@ func (m AppModel) View() string {
 		out = overlay.Composite(m.transfersUI.view(m.transfers.jobs), out,
 			overlay.Center, overlay.Center, 0, 0)
 	}
-	if m.log.isActive() {
-		out = overlay.Composite(m.log.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
 	if m.viewer.isActive() {
 		out = overlay.Composite(m.viewer.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
@@ -61,6 +58,9 @@ func (m AppModel) View() string {
 	if m.form.isActive() {
 		out = overlay.Composite(m.form.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.credFormUI.isActive() {
+		out = overlay.Composite(m.credFormUI.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.picker.isActive() {
 		out = overlay.Composite(m.picker.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
@@ -76,14 +76,12 @@ func (m AppModel) View() string {
 // wants to say about itself, in one line.
 func (m AppModel) status() string {
 	switch m.tab {
-	case tabPref:
-		return m.hosts.status()
 	case tabFT:
 		return m.sftp.status(m.transfers.summary())
 	case tabSSH:
 		return m.ssh.status()
 	}
-	return "planned"
+	return m.prefStatus()
 }
 
 func (m AppModel) panel() string {
@@ -93,7 +91,7 @@ func (m AppModel) panel() string {
 	case tabSSH:
 		return m.ssh.view()
 	}
-	return m.hosts.view()
+	return m.prefView()
 }
 
 // footer is the mandatory disclosure channel for both VTP entry keys (§A.1 /
@@ -112,21 +110,17 @@ func (m AppModel) footer() string {
 	}
 	// The digits offered are the ones the current tab actually shows (§4.4): a
 	// number the screen does not display is a number the keyboard ignores.
-	nav := [2]string{"alt+P/F/S", "tab"}
-	switch m.tab {
-	case tabFT:
+	nav := [2]string{"1-2 alt+P/F/S", "panel tab"}
+	if m.tab == tabFT {
 		nav = [2]string{"1-4 alt+P/F/S", "panel tab"}
-	case tabSSH:
-		nav = [2]string{"1-2 alt+P/F/S", "panel tab"}
 	}
-	// `!` is disclosed like every other entry key, and when the log holds errors
-	// nobody has read it says HOW MANY instead of just "log". A record nobody is
-	// told about is a record nobody opens.
-	log := [2]string{"!", "log"}
+	// Unread errors are disclosed against the chord that reaches them: the log
+	// lives at preference → logs now, and a record nobody is told about is a
+	// record nobody opens.
+	pairs := [][2]string{{"space", "menu"}, {"?", "help"}, nav}
 	if n := m.log.unreadErrors(); n > 0 {
-		log[1] = plural(n, "error")
+		pairs = append(pairs, [2]string{"alt+P", plural(n, "unread error")})
 	}
-	return keyLegend([][2]string{
-		{"space", "menu"}, {"?", "help"}, nav, log, {"q", "quit"},
-	}, m.w)
+	pairs = append(pairs, [2]string{"q", "quit"})
+	return keyLegend(pairs, m.w)
 }

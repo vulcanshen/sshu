@@ -190,17 +190,28 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 		m.moveFocus(-1)
 	case tea.KeyEnter:
 		return m, formSubmit
+	}
+	if editField(f, msg) && f.kind == fieldToggle {
+		m.syncFocus() // the toggle may have disabled the focused row
+	}
+	return m, formNone
+}
+
+// editField applies one EDITING keystroke to a field: the caret moves, the
+// toggle cycles, text arrives, characters die. Navigation and submit stay
+// with the form that owns the field — this is the part every form shares.
+// Reports whether it consumed the key.
+func editField(f *formField, msg tea.KeyMsg) bool {
+	switch msg.Type {
 	case tea.KeyLeft:
 		if f.kind == fieldToggle {
 			f.sel = (f.sel + len(f.options) - 1) % len(f.options)
-			m.syncFocus()
 		} else {
 			f.caret = max(0, f.caret-1)
 		}
 	case tea.KeyRight:
 		if f.kind == fieldToggle {
 			f.sel = (f.sel + 1) % len(f.options)
-			m.syncFocus()
 		} else {
 			f.caret = min(len([]rune(f.value)), f.caret+1)
 		}
@@ -218,16 +229,18 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 			f.value = string(r[:f.caret]) + string(r[f.caret+1:])
 		}
 	case tea.KeySpace:
-		m.insert(f, ' ')
+		insertRune(f, ' ')
 	case tea.KeyRunes:
 		for _, r := range msg.Runes {
-			m.insert(f, r)
+			insertRune(f, r)
 		}
+	default:
+		return false
 	}
-	return m, formNone
+	return true
 }
 
-func (m *hostForm) insert(f *formField, r rune) {
+func insertRune(f *formField, r rune) {
 	if f.kind != fieldText {
 		return
 	}
@@ -296,42 +309,7 @@ func (m hostForm) view() string {
 	labelCol := min(labelW+4, max(0, innerW-8))
 	valueW := max(0, innerW-labelCol-1)
 
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	txt := lipgloss.NewStyle().Foreground(textColor)
-	edit := lipgloss.NewStyle().Foreground(editColor)
-	red := lipgloss.NewStyle().Foreground(warnColor)
-
-	rows := make([]string, 0, fCount+2)
-	for i, f := range m.fields {
-		on := m.enabled(i)
-		focused := i == m.focus
-
-		lStyle := dim
-		switch {
-		case i == m.errIdx:
-			lStyle = red
-		case focused:
-			lStyle = edit
-		case on:
-			lStyle = txt
-		}
-		label := lStyle.Render(padRight("  "+f.label, labelCol))
-
-		var value string
-		switch {
-		case !on:
-			value = dim.Render(padRight("—", valueW))
-		case f.kind == fieldToggle:
-			value = renderToggle(f, focused, valueW)
-		default:
-			value = renderTextValue(f, focused, valueW)
-		}
-		rows = append(rows, label+value+" ")
-	}
-
-	// The error row is always present, blank when there is nothing wrong, so the
-	// popup does not change height the moment validation fails.
-	rows = append(rows, strings.Repeat(" ", innerW), red.Render(padRight("  "+m.err, innerW)))
+	rows := formBody(m.fields, m.focus, m.errIdx, m.err, m.enabled, innerW, labelCol, valueW)
 
 	glyph, title := glyphPlus, "New host"
 	if m.editing != "" {
@@ -353,6 +331,46 @@ func (m hostForm) view() string {
 
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+title+" ", hintLegend(pairs),
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
+}
+
+// formBody renders any field form's rows: labels, values, and the standing
+// error row — always present, blank when clean, so the popup does not change
+// height the moment validation fails.
+func formBody(fields []formField, focus, errIdx int, errMsg string,
+	enabled func(int) bool, innerW, labelCol, valueW int) []string {
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	txt := lipgloss.NewStyle().Foreground(textColor)
+	edit := lipgloss.NewStyle().Foreground(editColor)
+	red := lipgloss.NewStyle().Foreground(warnColor)
+
+	rows := make([]string, 0, len(fields)+2)
+	for i, f := range fields {
+		on := enabled(i)
+		focused := i == focus
+
+		lStyle := dim
+		switch {
+		case i == errIdx:
+			lStyle = red
+		case focused:
+			lStyle = edit
+		case on:
+			lStyle = txt
+		}
+		label := lStyle.Render(padRight("  "+f.label, labelCol))
+
+		var value string
+		switch {
+		case !on:
+			value = dim.Render(padRight("—", valueW))
+		case f.kind == fieldToggle:
+			value = renderToggle(f, focused, valueW)
+		default:
+			value = renderTextValue(f, focused, valueW)
+		}
+		rows = append(rows, label+value+" ")
+	}
+	return append(rows, strings.Repeat(" ", innerW), red.Render(padRight("  "+errMsg, innerW)))
 }
 
 // renderToggle draws the segmented control with radio glyphs — filled on the

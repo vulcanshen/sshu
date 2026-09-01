@@ -18,6 +18,7 @@ const (
 	confirmQuit          // leave sshu while sessions are live
 	confirmDeleteItem    // erase the path under the cursor in tab [2]
 	confirmDeleteMarks   // erase every marked path on one side of tab [2]
+	confirmDeleteCred    // remove a credential from credentials.yaml
 	confirmEditBinary    // open something that does not look like text
 	confirmEditOverwrite // write back over a file that changed underneath
 )

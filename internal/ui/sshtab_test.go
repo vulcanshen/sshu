@@ -150,30 +150,33 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 	}
 
 	// The footer stops being quiet about it.
-	if !strings.Contains(view, "1 error") {
+	if !strings.Contains(view, "1 unread error") {
 		t.Errorf("the footer does not say there is something to read:\n%s", view)
 	}
 
-	// And the log kept it, in the words the remote used.
-	m = pressA(m, "!")
-	if !m.log.isActive() {
-		t.Fatal("! did not open the log")
+	// And the log kept it, in the words the remote used — as the newest entry,
+	// after the "connecting" event that opened the attempt.
+	last := m.log.entries[len(m.log.entries)-1]
+	if last.level != logError {
+		t.Fatalf("the newest entry should be the failure, got level %d: %q", last.level, last.msg)
 	}
-	if n := len(m.log.entries); n != 1 {
-		t.Fatalf("%d entries, want the one failure", n)
+	if !strings.Contains(last.msg, "Connection refused") {
+		t.Errorf("the entry lost the reason: %q", last.msg)
 	}
-	if !strings.Contains(m.log.entries[0].msg, "Connection refused") {
-		t.Errorf("the entry lost the reason: %q", m.log.entries[0].msg)
+	// Reading it happens where the log lives now: preference → logs. The line
+	// is WRAPPED onto the panel, not truncated — the word that says why is at
+	// the end, which is exactly what a cut tail would eat.
+	m = pressA(m, "alt+P", "1", "j", "j") // to the nav, then hosts → credentials → logs
+	if m.pref.item != prefLogs {
+		t.Fatalf("expected the logs section, got %d", m.pref.item)
 	}
-	// And it is WRAPPED onto the screen, not truncated: the word that says why
-	// is at the end of the line, which is exactly what a cut tail would eat.
-	log := ansi.Strip(m.log.view())
-	if !strings.Contains(log, "refused") {
-		t.Errorf("the rendered log dropped the tail of the reason:\n%s", log)
+	logView := ansi.Strip(m.View())
+	if !strings.Contains(logView, "refused") {
+		t.Errorf("the rendered log dropped the tail of the reason:\n%s", logView)
 	}
-	// Opening it is reading it.
+	// Having it on screen is reading it.
 	if m.log.unreadErrors() != 0 {
-		t.Errorf("%d errors still unread after opening the log", m.log.unreadErrors())
+		t.Errorf("%d errors still unread with the log on screen", m.log.unreadErrors())
 	}
 }
 
@@ -260,11 +263,9 @@ exit 255`)
 	if !strings.Contains(s.reason, "Host key verification failed") {
 		t.Errorf("headline is %q", s.reason)
 	}
-	// The log has the parts a headline had no room for.
-	if len(m.log.entries) != 1 {
-		t.Fatalf("%d entries, want one event", len(m.log.entries))
-	}
-	body := m.log.entries[0].msg
+	// The log has the parts a headline had no room for. The failure is ONE
+	// entry — the newest, after the "connecting" event.
+	body := m.log.entries[len(m.log.entries)-1].msg
 	for _, want := range []string{
 		"REMOTE HOST IDENTIFICATION HAS CHANGED",
 		"SHA256:uNiVeRsAlLyUnIqUeFiNgErPrInT",
@@ -286,31 +287,30 @@ exit 255`)
 // one entry is not one row.
 func TestTheLogScrollsThroughALongEntry(t *testing.T) {
 	m := sshApp(t, sample())
-	m.log.setSize(100, 16)
 	long := make([]string, 30)
 	for i := range long {
 		long[i] = "line " + itoa(i)
 	}
 	m.log.errorf("something went wrong", long...)
-	m.log.anim.phase = animOpen
 
-	rows := len(m.log.allRows(popupInnerW(100, logW)))
+	const w, h = 80, 12
+	rows := len(m.log.allRows(w))
 	if rows < 30 {
 		t.Fatalf("%d rendered rows, want the whole entry", rows)
 	}
 	for range 40 {
-		m.log.update(keyMsg("j"))
+		m.log.scrollKey("j", w, h)
 	}
 	if m.log.top == 0 {
 		t.Error("j never scrolled")
 	}
-	if m.log.top > rows-m.log.rows() {
+	if m.log.top > rows-h {
 		t.Errorf("scrolled past the end: top=%d rows=%d", m.log.top, rows)
 	}
 	// The last line is reachable.
-	view := ansi.Strip(m.log.view())
-	if !strings.Contains(view, "line 29") {
-		t.Errorf("the end of the entry is unreachable:\n%s", view)
+	body := ansi.Strip(strings.Join(m.log.body(w, h), "\n"))
+	if !strings.Contains(body, "line 29") {
+		t.Errorf("the end of the entry is unreachable:\n%s", body)
 	}
 }
 
@@ -1038,14 +1038,12 @@ func TestPanelTitlesAreCapsulesUnderTheRule(t *testing.T) {
 func TestTheAppLogIsAViewNotAList(t *testing.T) {
 	withColour(t)
 	m := sshApp(t, sample())
-	m.log.setSize(100, 14) // shorter than the entries, so it can scroll
 	for i := range 12 {
 		m.log.errorf("prod-web-0" + itoa(i%9+1) + " · Connection refused")
 	}
 
 	// No row is ever painted as a cursor.
-	m.log.anim.phase = animOpen
-	box := m.log.view()
+	box := strings.Join(m.log.body(96, 8), "\n") // shorter than the rows, so it scrolls
 	for name, bg := range map[string]string{
 		"cursor": ansiBgOf(t, handColor), "green": ansiBgOf(t, liveColor),
 	} {
@@ -1056,12 +1054,12 @@ func TestTheAppLogIsAViewNotAList(t *testing.T) {
 
 	// j/k scroll the view, and it does not wrap.
 	before := m.log.top
-	m.log.update(keyMsg("j"))
+	m.log.scrollKey("j", 96, 8)
 	if m.log.top != before+1 {
 		t.Errorf("j should scroll, top=%d want %d", m.log.top, before+1)
 	}
-	m.log.update(keyMsg("k"))
-	m.log.update(keyMsg("k"))
+	m.log.scrollKey("k", 96, 8)
+	m.log.scrollKey("k", 96, 8)
 	if m.log.top != 0 {
 		t.Errorf("k should scroll back and clamp, top=%d", m.log.top)
 	}

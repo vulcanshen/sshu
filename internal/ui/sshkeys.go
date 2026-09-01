@@ -118,6 +118,7 @@ func (m AppModel) startSession(h store.Host) (tea.Model, tea.Cmd) {
 	m.tab = tabSSH
 	m.sftp.onScreen = false // same rule switchTab keeps: hidden tabs do not poll
 	m.ssh.setSize(m.w, m.panelHeight())
+	m.log.info("connecting to " + h.Name + " · " + h.Addr())
 	if _, err := m.ssh.connect(h); err != nil {
 		return m, tea.Batch(cmd, m.toast.show(err.Error(), toastError))
 	}

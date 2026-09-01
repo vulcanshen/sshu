@@ -266,13 +266,16 @@ func (m AppModel) sftpConnected(msg sftpConnectedMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	name := s.dialing
 	s.dialing = ""
 
 	if msg.err != nil {
 		s.fs, s.host, s.err = nil, "", msg.err.Error()
+		m.log.errorf("sftp: " + name + " · " + msg.err.Error())
 		return m, m.toast.show(msg.err.Error(), toastError)
 	}
 	s.connect(msg.fs)
+	m.log.info("sftp: connected to " + msg.fs.Label())
 	// A side that has just connected is something to keep current.
 	return m, m.sftp.startWatch()
 }

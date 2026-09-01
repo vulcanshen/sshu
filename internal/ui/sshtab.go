@@ -364,7 +364,7 @@ func endedBadlyToast(bad []*session) string {
 	case 1:
 		return bad[0].host.Name + " · " + bad[0].reason
 	default:
-		return plural(len(bad), "session") + " ended badly · press ! for the log"
+		return plural(len(bad), "session") + " ended badly · see [Alt-P] logs"
 	}
 }
 
@@ -490,7 +490,7 @@ func (m sshModel) ptyEmpty(innerW, innerH int) []string {
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 	who := s.host.User + "@" + s.host.Host
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
-		emptyHint("Press ! for the app log, or [Alt-P] to try another host", "!", "[Alt-P]"))
+		emptyHint("The detail is in [Alt-P] logs — or try another host", "[Alt-P]"))
 }
 
 // listBody lays out [4]. Each entry is a block, because a long address wraps.
