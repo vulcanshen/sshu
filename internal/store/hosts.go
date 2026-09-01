@@ -17,6 +17,9 @@ type AuthMethod string
 const (
 	AuthPassword   AuthMethod = "password"
 	AuthPrivateKey AuthMethod = "privatekey"
+	// AuthCredential defers to a named entry in credentials.yaml, which supplies
+	// user and the concrete auth together — see Resolve.
+	AuthCredential AuthMethod = "credential"
 )
 
 // DefaultPort is what a new host gets when the form's Port field is left alone.
@@ -41,6 +44,9 @@ type Host struct {
 	Auth         AuthMethod `yaml:"auth"`
 	IdentityFile string     `yaml:"identity_file,omitempty"`
 	Password     string     `yaml:"password,omitempty"`
+	// Credential names an entry in credentials.yaml when Auth is "credential".
+	// The credential supplies User too, so User may be empty on such a host.
+	Credential string `yaml:"credential,omitempty"`
 }
 
 // Addr is the ssh-native "user@host:port" rendering, used by the connect
@@ -57,14 +63,37 @@ func (h Host) Validate() error {
 		return fmt.Errorf("name is required")
 	case strings.TrimSpace(h.Host) == "":
 		return fmt.Errorf("host is required")
-	case strings.TrimSpace(h.User) == "":
+	// A credential host has no user of its own — the credential supplies it.
+	case strings.TrimSpace(h.User) == "" && h.Auth != AuthCredential:
 		return fmt.Errorf("user is required")
 	case h.Port < 1 || h.Port > 65535:
 		return fmt.Errorf("port must be 1-65535, got %d", h.Port)
-	case h.Auth != AuthPassword && h.Auth != AuthPrivateKey:
-		return fmt.Errorf("auth must be %q or %q, got %q", AuthPassword, AuthPrivateKey, h.Auth)
+	case h.Auth == AuthCredential && strings.TrimSpace(h.Credential) == "":
+		return fmt.Errorf("auth is credential but no credential is named")
+	case h.Auth != AuthPassword && h.Auth != AuthPrivateKey && h.Auth != AuthCredential:
+		return fmt.Errorf("auth must be %q, %q or %q, got %q",
+			AuthPassword, AuthPrivateKey, AuthCredential, h.Auth)
 	}
 	return nil
+}
+
+// Resolve returns the host as ssh will actually see it. A credential host
+// takes user and auth wholesale from the named credential — the credential is
+// one package, not a set of defaults the host can partially override. The two
+// concrete methods pass through untouched.
+func Resolve(h Host, creds []Credential) (Host, error) {
+	if h.Auth != AuthCredential {
+		return h, nil
+	}
+	for _, c := range creds {
+		if c.Name == h.Credential {
+			h.User, h.Auth = c.User, c.Auth
+			h.IdentityFile, h.Password = c.IdentityFile, c.Password
+			return h, nil
+		}
+	}
+	return h, fmt.Errorf("host %q: credential %q is not in credentials.yaml",
+		h.Name, h.Credential)
 }
 
 // File is the whole hosts.yaml document.
@@ -167,13 +196,20 @@ func SaveTo(path string, f File) error {
 	if err != nil {
 		return err
 	}
-	out := append([]byte(header), body...)
+	return writeFile0600(path, append([]byte(header), body...))
+}
 
+// writeFile0600 lands out at path atomically, at mode 0600 whatever the file
+// was before. Shared by every store file that can hold a secret.
+//
+// Atomic because a half-written file loses the only copy; 0600 re-asserted so a
+// file that was widened by hand narrows again on the next save.
+func writeFile0600(path string, out []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, ".hosts.yaml.*")
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*")
 	if err != nil {
 		return err
 	}
