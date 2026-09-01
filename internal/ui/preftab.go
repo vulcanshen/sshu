@@ -3,6 +3,7 @@ package ui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // The preference tab is where sshu's own data lives: the hosts, the
@@ -18,17 +19,37 @@ const (
 	prefHosts prefItem = iota
 	prefCreds
 	prefLogs
+	prefExport
+	prefImport
 	prefItemCount
 )
 
 func (p prefItem) label() string {
 	switch p {
 	case prefCreds:
-		return "credentials"
+		return "Credentials"
 	case prefLogs:
-		return "logs"
+		return "Logs"
+	case prefExport:
+		return "Export"
+	case prefImport:
+		return "Import"
 	}
-	return "hosts"
+	return "Hosts"
+}
+
+// prefSections groups the nav rows under category headers — kbu's sidebar
+// shape. A header is decoration: the cursor never lands on one, and j/k walk
+// the items straight through it. SSH is the data connections run on, Events
+// is what happened, Operation is what sshu can do to its own config as a
+// whole.
+var prefSections = []struct {
+	header string
+	items  []prefItem
+}{
+	{"SSH", []prefItem{prefHosts, prefCreds}},
+	{"Events", []prefItem{prefLogs}},
+	{"Operation", []prefItem{prefExport, prefImport}},
 }
 
 type prefPanel int
@@ -75,7 +96,10 @@ func (m *prefModel) navKey(k string) {
 
 func (m prefModel) panelTitle(p prefPanel) string {
 	if p == panelPrefNav {
-		return "[1] Resources"
+		// The nav holds sshu's own data and operations — the app's name is
+		// the shortest honest label for "everything that is sshu's, not a
+		// host's".
+		return "[1] sshu"
 	}
 	return "[2] " + m.item.label()
 }
@@ -115,6 +139,10 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 	switch m.pref.item {
 	case prefCreds:
 		return m.credsKey(k)
+	case prefExport, prefImport:
+		// The page claimed its keys in handleKey (textPage) before the global
+		// vocabulary ran; nothing is left to do here.
+		return m, nil
 	case prefLogs:
 		_, _, rightW, rightH := m.pref.panes()
 		m.log.scrollKey(k, max(1, rightW-2), max(1, rightH-2))
@@ -137,8 +165,12 @@ func (m AppModel) prefView() string {
 func (m AppModel) prefNav(w, h int) string {
 	innerW, innerH := w-2, h-2
 	rows := make([]string, 0, max(0, innerH))
-	for i := prefItem(0); i < prefItemCount; i++ {
-		rows = append(rows, m.prefNavRow(i, innerW))
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	for _, sec := range prefSections {
+		rows = append(rows, dim.Render(padRight(" "+sec.header, innerW)))
+		for _, it := range sec.items {
+			rows = append(rows, m.prefNavRow(it, innerW))
+		}
 	}
 	return panelChrome(innerW, fitLines(rows, innerW, innerH),
 		m.pref.panelTitle(panelPrefNav), m.pref.focus == panelPrefNav)
@@ -161,7 +193,7 @@ func (m AppModel) prefNavRow(it prefItem, innerW int) string {
 		}
 	}
 	nameW := max(1, innerW-dispW(badge))
-	return body.Render(padRight(" "+it.label(), nameW)) + tail.Render(badge)
+	return body.Render(padRight("  "+it.label(), nameW)) + tail.Render(badge)
 }
 
 func (m AppModel) prefContent(w, h int) string {
@@ -170,6 +202,14 @@ func (m AppModel) prefContent(w, h int) string {
 	switch m.pref.item {
 	case prefCreds:
 		return m.creds.view(title, focused)
+	case prefExport:
+		innerW, innerH := w-2, h-2
+		body := m.exportPage.body(exportIntro, exportWarn, "export", focused, innerW)
+		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
+	case prefImport:
+		innerW, innerH := w-2, h-2
+		body := m.importPage.body(importIntro, "", "import", focused, innerW)
+		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
 	case prefLogs:
 		innerW, innerH := w-2, h-2
 		return panelChrome(innerW, m.log.body(innerW, innerH), title, focused)
@@ -182,6 +222,11 @@ func (m AppModel) prefStatus() string {
 	switch m.pref.item {
 	case prefCreds:
 		return m.creds.status()
+	case prefExport:
+		// What the bundle would hold, so the slot answers "is it worth it".
+		return plural(len(m.hosts.hosts), "host") + " · " + plural(len(m.creds.creds), "credential")
+	case prefImport:
+		return "merge a " + store.BundleExt + " bundle"
 	case prefLogs:
 		switch n := len(m.log.entries); n {
 		case 0:

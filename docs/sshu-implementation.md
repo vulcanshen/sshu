@@ -144,7 +144,7 @@ liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[Alt+p]reference` | `[1]` nav + `[2]` 內容(hosts / credentials / logs) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
+| `[Alt+p]reference` | `[1] sshu` nav(SSH / Events / Operation 三類)+ `[2]` 內容(Hosts / Credentials / Logs / Export / Import) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
 | `[Alt+f]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
 | `[Alt+s]sh` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **26 欄**,strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬) |
 
@@ -500,7 +500,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
-| preference:nav + hosts / credentials / logs;logs 上畫面即已讀,nav 與 footer 掛未讀數 | `ui/preftab.go` `ui/applog.go` |
+| preference:nav(分類 header)+ Hosts / Credentials / Logs / Export / Import;logs 上畫面即已讀,nav 與 footer 掛未讀數 | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
 | 「選值欄位」互動:空欄 Enter 開選單、有值 Enter 下一欄、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
 | app log 落地 applogs.yaml(append-only、自我修剪、0600);tail 開機讀回 | `store/applog.go` `ui/applog.go` |
@@ -543,10 +543,11 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` nav | `j`/`k` · `Enter` | 選區(內容即換)/ 鍵盤給內容 |
-| `[2]` hosts | `Enter` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ Add / Edit / Delete / Search |
-| `[2]` credentials | `Enter` · `A` · `D` | Edit / Add / Delete(先問,列出引用數) |
-| `[2]` logs | 導覽鍵 | 捲動;上畫面即已讀 |
+| `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
+| `[2]` Hosts | `Enter` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ Add / Edit / Delete / Search |
+| `[2]` Credentials | `Enter` · `A` · `D` | Edit / Add / Delete(先問,列出引用數) |
+| `[2]` Logs | 導覽鍵 | 捲動;上畫面即已讀 |
+| `[2]` Export / Import | 打字 · `Tab` · `Enter` · `Esc` | Operation 頁(§4.5 的 text surface 進了 panel):換欄 / 執行 / 鍵盤還給 nav |
 
 ### form(host / credential 共通)
 

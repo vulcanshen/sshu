@@ -30,7 +30,7 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[Alt+p]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
+| **[Alt+p]reference** | sshu 自己的資料與操作,nav 分三類:SSH(Hosts、Credentials)、Events(Logs)、Operation(Export、Import)—— 左側 nav `[1] sshu` + 右側內容 `[2]` | 已落地 |
 | **[Alt+f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
 | **[Alt+s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
 
@@ -2212,7 +2212,7 @@ sshu 攔下。
 (`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。標籤先拼成
 `[Alt+p]reference` —— 一個括號裝整個和絃(`[Alt][p]` 的兩括號版試了一輪
 就併掉;之後 `[Alt]` 又抽成固定亮的鏈頭,見 11.8)—— 同批把 nav 面板改名 `[1] Resources`(使用者裁定;各節內的
-舊拼法屬歷史紀錄,不回改)。
+舊拼法屬歷史紀錄,不回改。之後再改名 `[1] sshu` 並分類,見 11.12)。
 
 **VHS 送不出任何 Alt**(`Alt+F` 只送裸字元、`Alt+Esc` 更是把 "Esc" 三個
 字母打出來,cat -v 實證)。和絃由單元測試覆蓋;tape 要壓 Alt 得繞
@@ -2373,6 +2373,56 @@ icon 含幾個 10×15 的 rect,固定 10px 網格會漏掉 S 的豎筆,實際漏
 一次);splash 期間鍵盤完全歸它,pty 內 V 屬於遠端(外層路由先擋,
 條件裡的 inPty 是縱深防禦)。
 
+### 11.12 [1] sshu:nav 分類與 Operation 頁(Export / Import)
+
+**改名**:`[1] Resources` → `[1] sshu`(使用者要求)。這個 panel 裝的是
+「屬於 sshu 自己、而不是屬於某台 host」的一切 —— 資料、事件、以及對設定
+整體的操作 —— app 名是這件事最短的誠實標籤。同批把 nav 項目改成大寫
+(`hosts`→`Hosts` 等):它們現在是**分類底下的條目**,跟 kbu sidebar 的
+條目同一身分,拼法也跟上。
+
+**分類**(kbu sidebar 的形狀):header 是裝飾列 —— 游標永遠不落在上面,
+j/k 直接跨過去 —— 條目縮排一格站在它底下。三類:**SSH**(Hosts、
+Credentials:連線跑在上面的資料)、**Events**(Logs:發生過的事)、
+**Operation**(Export、Import:對 sshu 自己的設定整體做的動作)。header
+用 dim:它是地標不是選項,跟游標搶眼就輸了。enum 與 moveCursor 原封不動
+—— 分類只活在渲染層,「游標即選擇」的機制一行沒改。
+
+**Operation 頁是 panel,不是 popup。** Export / Import 是 nav 游標落腳的
+目的地,跟 Hosts 或 Logs 同級;它們唯一的內容就是一張小表單,再包一層
+popup 等於多一個沒東西站的臺階。代價是 §4.5 的老帳進了 panel:focus 在頁
+上時字母**與數字**都是字元 —— 數字直達、`q` quit、Space menu、`?` help、
+`V` 彩蛋全部讓位(`textPage()` 給 ?/V 的全域 handler 各加一道 guard;
+漏掉的話「檔名裡打個 V」會開 splash)。出口只剩 **Esc = 鍵盤還給 nav**;
+footer 沿用 pty 列的誠實原則,切成 `tab field · enter run · esc back`。
+頁內常駐一列 hint(§4.5 的 standing disclosure),status 列(錯誤**或**
+上次成功)永遠保留一行 —— 頁的形狀不因驗證結果改變(§6.7 / §1.3)。
+
+**Export**:Directory(預設 = 啟動目錄,tab [2] 的 local 同款慣例)+
+Filename(預設 `sshu-export.sshu`,副檔名寫全 —— 欄位顯示什麼就寫什麼;
+漏打 `.sshu` 自動補上而不是報錯,這頁只會寫這一種東西)。Enter 把**當前
+清單**(畫面上的,不是重讀磁碟)打包成 zip:`hosts.yaml` +
+`credentials.yaml` 原樣兩個 entry、各帶警告標頭、bundle 本身 0600 —— 它帶
+著跟 YAML 一樣的明文密碼,頁上有一行常駐警語。**目錄不存在報錯**(擅自
+mkdir 會吞掉打錯的路徑)、**檔案已存在拒絕**。被否決的替代:蓋掉前彈
+confirm —— 又一層浮層,而改個檔名比回答一個問題便宜。
+
+**Import**:一個路徑欄(**用打的,不是 picker** —— filepicker 刻意不走
+$HOME,遞迴掃 home 會掛 UI;而剛跨完機器的 .sshu,路徑本來就在使用者手
+上)。Enter 讀 zip、合併、**同名跳過**:Name 是兩個檔案的 key
+(File.Validate 強制唯一),撞名的 incoming **整條跳過、絕不逐欄合併** ——
+本機那份是使用者看得到、一直在信任的那份。無效條目同理跳過。credentials
+先落地、hosts 後(imported host 可能引用 imported credential,反序在第二
+個 save 失敗時會留 dangling reference)。結果句照實數:
+`Imported 1 host · 1 credential (1 skipped)`,toast、頁上、app log 三處
+同句。
+
+**splash 落款**:caption 最下方新增一行 dim 的
+`developed by vulcan.shen.2304@gmail.com`,跟 Esc 提示同拍浮現。
+
+7 個 mutation 全數被抓(merge 不去重、export 蓋檔、副檔名不補、頁不攔鍵、
+header 不畫、import 不落地、落款不顯示)。
+
 ---
 
 ## 附錄 — 按鍵全表(v0.1.0)
@@ -2398,10 +2448,11 @@ icon 含幾個 10×15 的 rect,固定 10px 網格會漏掉 S 的豎筆,實際漏
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` nav | `j`/`k` · `Enter` | 選區(內容立刻跟著換)/ 鍵盤交給內容 |
-| `[2]` hosts | `Enter` · `E` · `D` · `A` · `/` | Connect(確認)/ Edit / Delete(確認)/ Add / Search |
-| `[2]` credentials | `Enter` · `D` · `A` | Edit / Delete(確認,列出引用數)/ Add |
-| `[2]` logs | `j`/`k`/`u`/`d`/`gg`/`G` | 捲動(viewport,無游標;上畫面即已讀) |
+| `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events / Operation 三類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 |
+| `[2]` Hosts | `Enter` · `E` · `D` · `A` · `/` | Connect(確認)/ Edit / Delete(確認)/ Add / Search |
+| `[2]` Credentials | `Enter` · `D` · `A` | Edit / Delete(確認,列出引用數)/ Add |
+| `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` | 捲動(viewport,無游標;上畫面即已讀) |
+| `[2]` Export / Import | 字母/數字打字 · `Tab` 換欄 · `Enter` 執行 · `Esc` 回 nav | Operation 頁(§11.12):focus 在頁上時,數字直達、q/Space/?/V 全部讓位 |
 
 ### Host / credential form
 

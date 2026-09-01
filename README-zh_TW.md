@@ -47,7 +47,7 @@ tab 用 **`Alt+p` / `Alt+f` / `Alt+s`** 和絃切換 —— 是和絃,所以遠�
  [Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh
 ```
 
-**`[Alt+p]reference`** —— sshu 自己的資料在同一個 nav 底下:**hosts**、**credentials**、**app log**。hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟。
+**`[Alt+p]reference`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分三類:**SSH**(Hosts、Credentials)、**Events**(Logs)、**Operation**(Export、Import)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟。Export 把 `hosts.yaml` + `credentials.yaml` 打包成一個 `.sshu` zip,帶去另一台機器;Import 把 bundle 併進你手上的 —— 同名的以現有為準,重複的跳過。
 
 **`[Alt+f]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。傳輸進行時,右上角的 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線同時兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
 
@@ -159,7 +159,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 
 ### `[Alt+p]reference`
 
-左側 nav(`1`)選區 —— **hosts**、**credentials**、**logs** —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。
+左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Logs**、**Export**、**Import**,分在 SSH / Events / Operation 三個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。
 
 | 鍵 | 動作 |
 |---|---|
@@ -168,6 +168,8 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `E` | 編輯游標這一台 |
 | `D` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它) |
 | `/` | hosts:搜尋 —— name / user / host / port 一起比對,依分數排序 |
+
+兩個 **Operation 頁**的內容 panel 本身就是一張小表單:字母和數字都是打字,`Tab` 換欄、`Enter` 執行、`Esc` 把鍵盤還給 nav。**Export** 寫出一個 `.sshu` zip(`hosts.yaml` + `credentials.yaml`)—— 已存在就拒絕,而且它帶著跟 YAML 一樣的明文密碼。**Import** 把 bundle 的條目併進來:你已經有的名字整條跳過,結果句把加了幾條、跳了幾條都講清楚。
 
 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。兩個「選值欄位」—— IdentityFile 與 Credential —— **空欄按 `Enter` 開選單、有值按 `Enter` 跳下一欄、`Backspace` 整行清除**。選了 `credential`,User 列會變暗:user 由 credential 供應。
 
@@ -212,6 +214,7 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 - **menu 分兩區** —— `item`(對游標那一列做什麼,標題就是那一列)和 `panel`(對這一側做什麼)。只有一區的時候維持扁平。
 - **並存 ssh session 的網格** —— 每一個都是 embedded PTY 裡的真 `ssh`,同時上畫面幾個都行,水平、垂直或自訂列 × 行排列。每一格的遠端只在尺寸真的變了才收到通知。結束的 session 立刻離開網格並放掉模擬器;鍵盤絕不會默默落進另一台遠端。
 - **可重用的 credential** —— 一個 user 加上他怎麼驗證,存一次在 `credentials.yaml`,任意數量的 host 用 `auth: credential` 引用。解析發生在門口:連線確認框顯示的就是實際要用的身分,斷掉的引用在那一步就用一句話失敗,不會走進 ssh 裡才爆。
+- **帶著走的設定** —— Export 把 `hosts.yaml` + `credentials.yaml` 打包成一個 `.sshu` zip(0600、絕不覆寫);Import 把 bundle 併回來,以 Name 為 key —— 你已經有的永遠贏,結果句把加了什麼、跳了什麼講清楚。
 - **兩側對等的 sftp** —— local ↔ remote ↔ remote 走同一個 `FS` 介面。marks 是分側的;一個 mark 是一條絕對路徑,所以改名它會跟著走,刪掉它會被拿掉。
 - **遞迴子樹搜尋** —— `/` 走遍當前目錄底下整棵樹,**廣度優先**(SFTP 上每一層目錄都是一次 round trip,所以近的先到),串流、可取消、有上限,而且**就地畫出來**。`Enter` 把你帶到結果所在的位置、游標已經停在它上面,從那裡標記它、傳它,不需要學任何新東西。
 - **抓下來之前先讀** —— `v` 顯示游標那一項:文字帶語法上色與行號(chroma + catppuccin-mocha,跟 filu 同一套),二進位是 xxd 風格的 hex dump,目錄是它的第一層列表。最多讀 64 KiB,因為在遠端那一側每一個 byte 都要過網路。檔案裡的跳脫序列會被剝掉:那些 bytes 是從別人的機器上來的,不處理的話會重畫你的終端機。

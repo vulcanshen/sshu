@@ -62,6 +62,20 @@ func TestSplashTickDoesNotExceedTotal(t *testing.T) {
 	}
 }
 
+// The byline arrives with the hint — the splash's last reveal — and sits on
+// the caption's bottom line.
+func TestSplashRevealsTheByline(t *testing.T) {
+	m := newSplashModel()
+	m.show()
+	if out := m.render(80, 40); strings.Contains(out, "vulcan.shen.2304@gmail.com") {
+		t.Error("the byline must not be visible before the hint stage")
+	}
+	m, _ = m.update(splashHintMsg{})
+	if out := m.render(80, 40); !strings.Contains(out, "developed by vulcan.shen.2304@gmail.com") {
+		t.Error("the hint stage should reveal the byline")
+	}
+}
+
 // V outside a pty reveals the logo; any key puts the frame back; V inside a
 // pty belongs to the remote and must not open it.
 func TestSplashOpensOnVAndAnyKeyCloses(t *testing.T) {

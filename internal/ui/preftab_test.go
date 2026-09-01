@@ -18,16 +18,26 @@ func TestPrefNavSwapsContentAsTheCursorMoves(t *testing.T) {
 	}
 
 	m = pressA(m, "j")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] credentials") ||
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Credentials") ||
 		!strings.Contains(v, "No credentials yet") {
 		t.Errorf("moving to credentials should show them:\n%s", v)
 	}
 	m = pressA(m, "j")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] logs") {
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Logs") {
 		t.Errorf("moving to logs should show them:\n%s", v)
 	}
 	m = pressA(m, "j")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] hosts") {
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Export") ||
+		!strings.Contains(v, "Directory") {
+		t.Errorf("moving to export should show its page:\n%s", v)
+	}
+	m = pressA(m, "j")
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Import") ||
+		!strings.Contains(v, "Bundle") {
+		t.Errorf("moving to import should show its page:\n%s", v)
+	}
+	m = pressA(m, "j")
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Hosts") {
 		t.Errorf("the nav should wrap back to hosts:\n%s", v)
 	}
 }
@@ -87,6 +97,8 @@ func TestPrefTabPreservesFrame(t *testing.T) {
 		for _, keys := range [][]string{
 			{}, {"1"}, {"1", "j"}, {"1", "j", "j"},
 			{"1", "j", "enter"}, {"2"},
+			{"1", "j", "j", "j"}, {"1", "j", "j", "j", "enter"},
+			{"1", "G"}, {"1", "G", "enter"},
 		} {
 			m := pressA(sized(sample(), w, h), keys...)
 			got := m.View()

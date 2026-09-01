@@ -186,13 +186,14 @@ func TestSearchNeedsHostsToSearch(t *testing.T) {
 // moment a side nav moved in next to it.)
 func TestPrefPanelsWearTheirTitles(t *testing.T) {
 	view := ansi.Strip(sized(sample(), 100, 24).View())
-	for _, want := range []string{"[1] Resources", "[2] hosts"} {
+	for _, want := range []string{"[1] sshu", "[2] Hosts"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("%q is not on screen:\n%s", want, view)
 		}
 	}
-	// And the nav lists every section by name.
-	for _, want := range []string{"hosts", "credentials", "logs"} {
+	// And the nav lists every section by name, under its category header.
+	for _, want := range []string{"SSH", "Hosts", "Credentials",
+		"Events", "Logs", "Operation", "Export", "Import"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the nav does not offer %q", want)
 		}

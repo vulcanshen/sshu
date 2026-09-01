@@ -122,6 +122,13 @@ func (m AppModel) footer() string {
 		// chords — so they are the only other thing the row may honestly say.
 		return keyLegend([][2]string{{"alt+esc", "leave pty"}, {"alt+" + arrowGlyphs + arrowUpDown, "cell"}, {"alt+P/F/S", "tab"}}, m.w)
 	}
+	// An Operation page eats the digits, space, ? and q — while one is
+	// focused the footer says only the keys that are still true, the same
+	// honesty the pty row keeps.
+	if m.textPage() {
+		return keyLegend([][2]string{{"tab", "field"}, {"enter", "run"},
+			{"esc", "back"}, {"alt+p/f/s", "tab"}}, m.w)
+	}
 	// The digits offered are the ones the current tab actually shows (§4.4): a
 	// number the screen does not display is a number the keyboard ignores.
 	nav := [2]string{"1-2 alt+p/f/s", "panel tab"}

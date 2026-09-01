@@ -177,7 +177,7 @@ func (m splashModel) render(width, height int) string {
 	name := lipgloss.NewStyle().Foreground(focusColor).Bold(true)
 	line := lipgloss.NewStyle().Foreground(focusColor)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
-	identityText, versionText, taglineText, hintText := " ", " ", " ", " "
+	identityText, versionText, taglineText, hintText, bylineText := " ", " ", " ", " ", " "
 	if m.identityVisible {
 		identityText = name.Render("sshu")
 	}
@@ -189,6 +189,7 @@ func (m splashModel) render(width, height int) string {
 	}
 	if m.hintVisible {
 		hintText = dim.Render("Press Esc to close")
+		bylineText = dim.Render("developed by vulcan.shen.2304@gmail.com")
 	}
 	caption := "\n\n" +
 		lipgloss.PlaceHorizontal(logoW, lipgloss.Center, identityText) +
@@ -197,7 +198,9 @@ func (m splashModel) render(width, height int) string {
 		"\n" +
 		lipgloss.PlaceHorizontal(logoW, lipgloss.Center, taglineText) +
 		"\n\n" +
-		lipgloss.PlaceHorizontal(logoW, lipgloss.Center, hintText)
+		lipgloss.PlaceHorizontal(logoW, lipgloss.Center, hintText) +
+		"\n" +
+		lipgloss.PlaceHorizontal(logoW, lipgloss.Center, bylineText)
 
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, logo+caption)
 }
