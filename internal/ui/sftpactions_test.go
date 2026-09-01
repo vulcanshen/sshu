@@ -20,7 +20,7 @@ func TestTransferCursorAndTransferAllAreDifferentKeys(t *testing.T) {
 		t.Helper()
 		m := sftpFixture(t, 100, 26)
 		m.sftp.focus = panelLeftFiles
-		m = pressA(m, "j", "m", "j", "m", "j")
+		m = pressA(m, "j", "a", "j", "a", "j")
 		if n := len(m.sftp.sides[sideLeft].marks); n != 2 {
 			t.Fatalf("setup: expected two marks, got %d", n)
 		}

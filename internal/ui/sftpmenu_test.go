@@ -53,7 +53,7 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 	}
 
 	got := regions(items)
-	for _, k := range []string{"enter", "m", "r", "t", "x"} {
+	for _, k := range []string{"enter", "a", "r", "t", "x"} {
 		if !hasKey(got[menuItemRegion], k) {
 			t.Errorf("%q should be an item action, region has %v",
 				k, got[menuItemRegion])
@@ -98,7 +98,7 @@ func TestSFTPItemActionsNeedARow(t *testing.T) {
 	}
 
 	for _, it := range m.sftpMenuItems() {
-		if hasKey([]string{"enter", "m", "r", "t", "x"}, it.key) {
+		if hasKey([]string{"enter", "a", "r", "t", "x"}, it.key) {
 			t.Errorf("%q is offered with no row to act on", it.key)
 		}
 		if it.header || it.separator {
@@ -122,7 +122,7 @@ func TestDeleteCursorAndDeleteMarksAreDifferentKeys(t *testing.T) {
 	m.sftp.focus = panelLeftFiles
 	m = pressA(m, "j") // deploy.sh, deliberately NOT marked
 	victim, _ := m.sftp.cur().cursorPath()
-	m = pressA(m, "j", "m") // mark main.go instead
+	m = pressA(m, "j", "a") // mark main.go instead
 	marked := m.sftp.sides[sideLeft].marks[0]
 	m = pressA(m, "k") // back onto deploy.sh
 
@@ -153,7 +153,7 @@ func TestDeleteCursorAndDeleteMarksAreDifferentKeys(t *testing.T) {
 func TestDeletingAMarkedRowDropsItsMark(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "j", "m") // mark deploy.sh, cursor still on it
+	m = pressA(m, "j", "a") // mark deploy.sh, cursor still on it
 	if len(m.sftp.sides[sideLeft].marks) != 1 {
 		t.Fatal("setup: expected one mark")
 	}

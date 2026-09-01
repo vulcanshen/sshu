@@ -20,7 +20,7 @@ func TestRenameMovesTheFileAndItsMark(t *testing.T) {
 	if filepath.Base(old) != "deploy.sh" {
 		t.Fatalf("setup: cursor is on %q", old)
 	}
-	m = pressA(m, "m") // mark it, so the mark has to follow
+	m = pressA(m, "a") // mark it, so the mark has to follow
 
 	m = pressA(m, "r")
 	if !m.input.isActive() {
@@ -97,7 +97,7 @@ func TestRenameRefusesASlash(t *testing.T) {
 func TestDeleteMarksErasesThemAfterConfirming(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "m", "j", "m") // assets/ (a directory) and deploy.sh
+	m = pressA(m, "a", "j", "a") // assets/ (a directory) and deploy.sh
 	marks := append([]string(nil), m.sftp.sides[sideLeft].marks...)
 	if len(marks) != 2 {
 		t.Fatalf("setup: expected two marks, got %d", len(marks))
@@ -131,7 +131,7 @@ func TestDeleteMarksErasesThemAfterConfirming(t *testing.T) {
 func TestClearMarksLeavesTheFilesAlone(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "m", "j", "m")
+	m = pressA(m, "a", "j", "a")
 	marks := append([]string(nil), m.sftp.sides[sideLeft].marks...)
 
 	m = pressA(m, "C")

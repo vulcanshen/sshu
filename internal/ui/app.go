@@ -420,7 +420,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// A filtering file list claims printable keys before the action table can:
-	// while a query is being typed, "m" is a letter, not Mark. Arrows, Enter and
+	// while a query is being typed, "a" is a letter, not Append. Arrows, Enter and
 	// Esc fall through — the same split the picker and the form make (§4.5).
 	if m.tab == tabFT && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
 		return m, nil

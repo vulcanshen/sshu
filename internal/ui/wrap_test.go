@@ -25,7 +25,7 @@ func TestCursorsWrapEverywhere(t *testing.T) {
 
 	// [2] marks panel
 	s.sftp.focus = panelLeftFiles
-	s = pressA(s, "m", "j", "m")
+	s = pressA(s, "a", "j", "a")
 	s.sftp.focus = panelLeftMarks
 	marks := len(s.sftp.sides[sideLeft].marks)
 	s = pressA(s, "k")

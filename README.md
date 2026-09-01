@@ -142,17 +142,17 @@ In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→`
 |---|---|
 | `h` `l` | Cross to the other half, keeping the row (`[2]`↔`[4]`) |
 | `Enter` | Enter the directory under the cursor — or go to whatever the search found |
-| `m` | Mark / unmark it (on a marks panel, `m` unmarks) |
+| `a` | **Append to marks** — press it again to take the mark off |
 | `r` | Rename it, in place |
 | `v` | **View it** — text with syntax highlighting and line numbers, a binary as hex, a directory as its listing |
 | `e` | **Edit it** in `$EDITOR` — fetched, edited, written back |
 | `t` | Transfer it to the other side's current directory |
 | `x` | Delete it (asks first) |
-| `/` | **Search the whole subtree** — `Enter` goes to a result and leaves the cursor on it, where `m` / `t` / `v` / `e` / `x` all work |
+| `/` | **Search the whole subtree** — `Enter` goes to a result and leaves the cursor on it, where `a` / `t` / `v` / `e` / `x` all work |
 | `A` | **Add** here — `name` makes an empty file, `name/` makes a directory |
 | `T` | Transfer every mark on this side |
 | `X` | Delete every mark on this side (asks first) |
-| `C` | Clear the marks — forgets them, changes nothing on disk |
+| `c` / `C` | Clear one mark (on a marks panel) / clear them all — forgets them, changes nothing on disk |
 | `S` | Select host — `local` is first, and it opens **the directory you launched sshu in** |
 | `P` | Progress — running transfers, with per-job cancel |
 

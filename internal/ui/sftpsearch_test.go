@@ -70,9 +70,9 @@ func TestEnterGoesToWhatTheSearchFound(t *testing.T) {
 	}
 
 	// And now the row is an ordinary row, which is what the docs promised.
-	m = pressA(m, "m")
+	m = pressA(m, "a")
 	if len(m.sftp.cur().marks) != 1 {
-		t.Errorf("m did not mark it: %d marks", len(m.sftp.cur().marks))
+		t.Errorf("a did not mark it: %d marks", len(m.sftp.cur().marks))
 	}
 }
 

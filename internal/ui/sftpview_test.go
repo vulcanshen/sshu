@@ -94,24 +94,29 @@ func TestSFTPEnterAndEsc(t *testing.T) {
 	}
 }
 
-// m toggles. Marking the wrong thing is undone by pressing it again, which keeps
-// the common mistake off the marks panel entirely.
+// `a` appends — and still toggles, so marking the wrong thing is undone by
+// pressing it again rather than by a trip to the marks panel. There, `c`
+// clears the one under the cursor, pairing with `C` the way t/T and x/X pair.
 func TestSFTPMarkToggles(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
 
-	m = pressA(m, "m")
+	m = pressA(m, "a")
 	if n := len(m.sftp.sides[sideLeft].marks); n != 1 {
-		t.Fatalf("m should mark one item, got %d", n)
+		t.Fatalf("a should mark one item, got %d", n)
+	}
+	m = pressA(m, "a")
+	if n := len(m.sftp.sides[sideLeft].marks); n != 0 {
+		t.Errorf("a second a should take the mark off, got %d", n)
 	}
 	m = pressA(m, "m")
 	if n := len(m.sftp.sides[sideLeft].marks); n != 0 {
-		t.Errorf("a second m should unmark, got %d", n)
+		t.Errorf("m is not a key any more, it must not mark (%d)", n)
 	}
 
-	// And `m` on the marks panel drops the one under its cursor — the same
-	// toggle, on a row that is marked by definition. `u` stays half-page-up.
-	m = pressA(m, "m", "j", "m")
+	// `c` on the marks panel drops the one under its cursor; `u` stays
+	// half-page-up.
+	m = pressA(m, "a", "j", "a")
 	if n := len(m.sftp.sides[sideLeft].marks); n != 2 {
 		t.Fatalf("expected two marks, got %d", n)
 	}
@@ -120,9 +125,9 @@ func TestSFTPMarkToggles(t *testing.T) {
 	if n := len(m.sftp.sides[sideLeft].marks); n != 2 {
 		t.Errorf("u is half-page-up, it must not unmark (%d left)", n)
 	}
-	m = pressA(m, "m")
+	m = pressA(m, "c")
 	if n := len(m.sftp.sides[sideLeft].marks); n != 1 {
-		t.Errorf("m should drop one mark, got %d", n)
+		t.Errorf("c should drop one mark, got %d", n)
 	}
 }
 
@@ -131,7 +136,7 @@ func TestSFTPMarkToggles(t *testing.T) {
 func TestSFTPMarksAreClearedOnHostSwitch(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "m")
+	m = pressA(m, "a")
 	if len(m.sftp.sides[sideLeft].marks) != 1 {
 		t.Fatal("setup: expected a mark")
 	}
@@ -199,7 +204,7 @@ func TestSFTPMenuOffersTransferEverywhere(t *testing.T) {
 	// to be about — with nothing marked they correctly offer none of them.
 	for _, p := range []sftpPanel{panelLeftFiles, panelRightFiles} {
 		m.sftp.focus = p
-		m = pressA(m, "m")
+		m = pressA(m, "a")
 	}
 	for _, p := range []sftpPanel{panelLeftFiles, panelLeftMarks,
 		panelRightFiles, panelRightMarks} {
@@ -216,18 +221,25 @@ func TestSFTPMenuOffersTransferEverywhere(t *testing.T) {
 				t.Errorf("panel %d: menu is missing %q (have %s)", p, want, joined)
 			}
 		}
-		// Mark and Unmark share `m`, so the LABEL is what tells them apart now.
-		var mLabel string
+		// The mark actions split by panel: `a` appends on a files row (and
+		// its hint owns up to the toggle), `c` clears on a marks row.
+		var aLabel, aHint, cLabel string
 		for _, it := range m.sftpMenuItems() {
-			if it.key == "m" {
-				mLabel = it.label
+			if it.key == "a" {
+				aLabel, aHint = it.label, it.hint
+			}
+			if it.key == "c" {
+				cLabel = it.label
 			}
 		}
-		if p.isMarks() && mLabel != "Unmark" {
-			t.Errorf("panel %d: m should be Unmark here, got %q", p, mLabel)
+		if p.isMarks() && (cLabel != "Clear mark" || aLabel != "") {
+			t.Errorf("panel %d: want c=Clear mark and no a, got a=%q c=%q", p, aLabel, cLabel)
 		}
-		if !p.isMarks() && mLabel != "Mark" {
-			t.Errorf("panel %d: m should be Mark here, got %q", p, mLabel)
+		if !p.isMarks() && (aLabel != "Append to marks" || cLabel != "") {
+			t.Errorf("panel %d: want a=Append to marks and no c, got a=%q c=%q", p, aLabel, cLabel)
+		}
+		if !p.isMarks() && aHint != "again takes it off" {
+			t.Errorf("panel %d: the hint must own up to the toggle, got %q", p, aHint)
 		}
 	}
 }
@@ -295,7 +307,7 @@ func TestSFTPFilter(t *testing.T) {
 		t.Fatal("/ should start a filter")
 	}
 
-	// "m" is a letter here, not the Mark action.
+	// "a" (in "ma") is a letter here, not the Append action.
 	m = typeText(m, "ma")
 	if n := len(m.sftp.sides[sideLeft].marks); n != 0 {
 		t.Errorf("typing into the query must not mark anything, got %d marks", n)
@@ -405,7 +417,7 @@ func TestSFTPTransferCursorItem(t *testing.T) {
 func TestSFTPTransferAllMarks(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "m", "j", "m") // "assets" (a directory) and the first file
+	m = pressA(m, "a", "j", "a") // "assets" (a directory) and the first file
 	if len(m.sftp.sides[sideLeft].marks) != 2 {
 		t.Fatalf("setup: expected two marks, got %d", len(m.sftp.sides[sideLeft].marks))
 	}
@@ -512,7 +524,7 @@ func TestTransferSummaryTakesTheStatusSlot(t *testing.T) {
 		t.Errorf("a running transfer should own the slot, got %q", got)
 	}
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "m")
+	m = pressA(m, "a")
 	if got := m.sftp.status(""); !strings.Contains(got, "mark") {
 		t.Errorf("with nothing running the slot shows marks, got %q", got)
 	}
