@@ -41,6 +41,11 @@ func newSpaceMenu() spaceMenu {
 	return spaceMenu{anim: newPopupAnimator("spacemenu")}
 }
 
+// newCredPicker is the same reuse for the host form's credential chooser.
+func newCredPicker() spaceMenu {
+	return spaceMenu{anim: newPopupAnimator("credpicker")}
+}
+
 func (m *spaceMenu) setItems(items []menuItem, title string, layer int) {
 	m.items, m.title, m.layer = items, title, layer
 	m.cursor = m.firstSelectable()

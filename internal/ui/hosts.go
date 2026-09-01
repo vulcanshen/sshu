@@ -19,7 +19,11 @@ import (
 // a real list stopped fitting on screen. The table keeps the same fields
 // (Name, User, Host, Port, Auth) at one row each.
 type hostsModel struct {
-	hosts  []store.Host
+	hosts []store.Host
+	// creds mirrors credentials.yaml, for display only: the user column shows
+	// who a credential host will connect as. Kept in step by the app whenever
+	// either list changes.
+	creds  []store.Credential
 	cursor int
 	top    int // first visible host
 	w, h   int // panel outer size
@@ -129,6 +133,21 @@ func (m *hostsModel) refilter() {
 	m.ensureVisible()
 }
 
+// displayUser is the user column: a credential host shows the credential's
+// user, because that is who the connection will run as. "?" when the
+// credential is gone — the row must say something is wrong, not invent a name.
+func (m hostsModel) displayUser(h store.Host) string {
+	if h.Auth != store.AuthCredential {
+		return h.User
+	}
+	for _, c := range m.creds {
+		if c.Name == h.Credential {
+			return c.User
+		}
+	}
+	return "?"
+}
+
 func hostHaystack(h store.Host) string {
 	return h.Name + " " + h.User + " " + h.Host + " " + strconv.Itoa(h.Port)
 }
@@ -231,7 +250,7 @@ func (m hostsModel) tableBody(innerW, innerH int) []string {
 		if !ok {
 			break
 		}
-		out = append(out, renderHostRow(h, c, i == m.cursor, innerW))
+		out = append(out, renderHostRow(h, m.displayUser(h), c, i == m.cursor, innerW))
 	}
 	return out
 }

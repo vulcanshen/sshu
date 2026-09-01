@@ -107,8 +107,8 @@ func TestTableHeaderAndRowsAlign(t *testing.T) {
 	for _, w := range []int{100, 76, 60, 44, 30, 18} {
 		c := computeCols(w)
 		head := dispW(tableHeader(c, w))
-		row := dispW(renderHostRow(sample()[1], c, false, w))
-		selRow := dispW(renderHostRow(sample()[1], c, true, w))
+		row := dispW(renderHostRow(sample()[1], sample()[1].User, c, false, w))
+		selRow := dispW(renderHostRow(sample()[1], sample()[1].User, c, true, w))
 		if head != w || row != w || selRow != w {
 			t.Errorf("w=%d: header=%d row=%d selected=%d, all should be %d", w, head, row, selRow, w)
 		}

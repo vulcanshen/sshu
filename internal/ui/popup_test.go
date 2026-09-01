@@ -15,8 +15,8 @@ import (
 // Every animator name in the app. A popup missing from this list never
 // finishes opening under test, so its content renders as nothing and the
 // test passes for the wrong reason.
-var animTargets = []string{"spacemenu", "hostpicker", "help", "form", "picker",
-	"transfers", "credform", "viewer", "editor", "confirm", "input", "toast"}
+var animTargets = []string{"spacemenu", "hostpicker", "credpicker", "help", "form",
+	"picker", "transfers", "credform", "viewer", "editor", "confirm", "input", "toast"}
 
 // settle runs the animations to completion — a popup mid-open refuses keys on
 // purpose (§6.2), so a test that skips this is testing a half-drawn surface.

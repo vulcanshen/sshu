@@ -65,8 +65,9 @@ var (
 	// The auth column is the one place a glyph still carries meaning in the hosts
 	// table: it IS the type distinction. The other fields lost theirs when the
 	// cards became rows — a column header names them now, which a card could not.
-	glyphKey  = string(rune(0xf084)) // nf-fa-key  — privatekey
-	glyphLock = string(rune(0xf023)) // nf-fa-lock — password
+	glyphKey  = string(rune(0xf084))  // nf-fa-key  — privatekey
+	glyphLock = string(rune(0xf023))  // nf-fa-lock — password
+	glyphCred = string(rune(0xf05d2)) // nf-md-card_account_details — credential
 
 	// Popup title glyphs — the type signal half of a surface label (§3.4).
 	glyphMenu    = string(rune(0xf0c9)) // nf-fa-bars            — Space menu

@@ -142,6 +142,7 @@ func (m AppModel) doDeleteCred(name string) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
 	}
 	m.creds.creds = creds
+	m.hosts.creds = creds
 	m.creds.cursor = min(m.creds.cursor, max(0, len(creds)-1))
 	m.creds.ensureVisible()
 	m.log.info(fmt.Sprintf("credential %q deleted", name))
@@ -220,6 +221,7 @@ func (m AppModel) commitCredForm() (tea.Model, tea.Cmd) {
 	}
 
 	m.creds.creds = creds
+	m.hosts.creds = creds
 	for i := range creds {
 		if creds[i].Name == c.Name {
 			m.creds.cursor = i

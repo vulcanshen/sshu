@@ -58,6 +58,7 @@ type AppModel struct {
 	// over the Space menu; the toast rides on top of everything.
 	spaceMenu   spaceMenu
 	hostPicker  spaceMenu
+	credPicker  spaceMenu
 	transfersUI transfersPopup
 	log         appLog
 	viewer      viewerPopup
@@ -91,6 +92,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		viewer:      newViewerPopup(),
 		editorUI:    newEditorPopup(),
 		hostPicker:  newHostPicker(),
+		credPicker:  newCredPicker(),
 		save:        save,
 		spaceMenu:   newSpaceMenu(),
 		help:        newHelpPopup(),
@@ -108,6 +110,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 // WithCredentials wires credentials.yaml in: the list, and how to save it.
 func (m AppModel) WithCredentials(creds []store.Credential, save func([]store.Credential) error) AppModel {
 	m.creds.creds = creds
+	m.hosts.creds = creds
 	m.saveCreds = save
 	return m
 }
@@ -152,6 +155,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ssh.setSize(m.w, m.panelHeight())
 		m.sftp.setSize(m.w, m.panelHeight())
 		m.hostPicker.setSize(m.w, m.h)
+		m.credPicker.setSize(m.w, m.h)
 		m.transfersUI.setSize(m.w, m.h)
 		m.viewer.setSize(m.w, m.h)
 		m.editorUI.setSize(m.w, m.h)
@@ -171,6 +175,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(
 			m.spaceMenu.anim.tick(msg),
 			m.hostPicker.anim.tick(msg),
+			m.credPicker.anim.tick(msg),
 			m.transfersUI.anim.tick(msg),
 			m.viewer.anim.tick(msg),
 			m.editorUI.anim.tick(msg),
@@ -415,6 +420,8 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case m.hostPicker.anim.owns():
 		return m.hostPickerKey(msg)
+	case m.credPicker.anim.owns():
+		return m.credPickerKey(msg)
 	case m.picker.anim.owns():
 		return m.pickerKey(msg)
 	case m.form.anim.owns():
@@ -462,6 +469,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.viewer.close()
 	case m.hostPicker.isActive():
 		return m, m.hostPicker.close()
+	case m.credPicker.isActive():
+		return m, m.credPicker.close()
 	case m.picker.isActive():
 		return m, m.picker.close()
 	case m.form.isActive():
@@ -490,7 +499,7 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.credFormUI.close(),
 		m.confirm.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
-		m.transfersUI.close(), m.viewer.close(),
+		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(),
 		m.editorUI.close(), m.spaceMenu.close())
 }
 
@@ -744,7 +753,8 @@ func (m AppModel) popupOpen() bool {
 	return m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
 		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
 		m.spaceMenu.anim.owns() || m.hostPicker.anim.owns() ||
-		m.transfersUI.anim.owns() || m.viewer.anim.owns() || m.editorUI.anim.owns()
+		m.credPicker.anim.owns() || m.transfersUI.anim.owns() ||
+		m.viewer.anim.owns() || m.editorUI.anim.owns()
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -938,12 +948,24 @@ func (m AppModel) askConnect() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, m.toast.show("No host selected", toastError)
 	}
+	// Resolve NOW, so the confirmation shows who the connection will actually
+	// run as — and so a missing credential fails here, with a sentence, rather
+	// than three keystrokes later inside ssh.
+	rh, err := store.Resolve(h, m.creds.creds)
+	if err != nil {
+		m.log.errorf(err.Error())
+		return m, m.toast.show(err.Error(), toastError)
+	}
+	authNote := string(h.Auth)
+	if h.Auth == store.AuthCredential {
+		authNote = "credential " + h.Credential
+	}
 	return m, m.confirm.ask(confirmPopup{
 		glyph: glyphConnect,
 		title: "Connect",
 		lines: []string{
 			fmt.Sprintf("Connect to %s?", h.Name),
-			h.Addr() + "  ·  " + string(h.Auth),
+			rh.Addr() + "  ·  " + authNote,
 		},
 		accept: "connect",
 		action: confirmConnect,
@@ -1054,9 +1076,42 @@ func (m AppModel) formKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// The picker stacks on top of the form, which stays behind it (§6.4):
 		// cancelling the pick returns to the half-filled form, not to the panel.
 		return m, m.picker.open(identityRoot(), m.form.layer+1)
+	case formPickCred:
+		return m.openCredPicker()
 	}
 	m.syncFormError()
 	return m, nil
+}
+
+// openCredPicker lists the saved credentials over the form. An empty list is
+// still an answer: it says where credentials come from.
+func (m AppModel) openCredPicker() (tea.Model, tea.Cmd) {
+	items := []menuItem{{label: "use credential", header: true}}
+	for _, c := range m.creds.creds {
+		items = append(items, menuItem{label: c.Name, key: "@" + c.Name,
+			hint: c.User + " · " + string(c.Auth)})
+	}
+	if len(m.creds.creds) == 0 {
+		items = append(items,
+			menuItem{label: "none saved yet — add them in preference → credentials", header: true})
+	}
+	m.credPicker.setItems(items, "credentials", m.form.layer+1)
+	return m, m.credPicker.open()
+}
+
+// credPickerKey commits a choice into the form's Credential field.
+func (m AppModel) credPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var key string
+	m.credPicker, key, _ = m.credPicker.update(msg)
+	if key == "" {
+		return m, nil
+	}
+	name := strings.TrimPrefix(key, "@")
+	m.form.fields[fCredential].value = name
+	m.form.fields[fCredential].caret = len([]rune(name))
+	m.form.focus = fCredential
+	m.syncFormError()
+	return m, m.credPicker.close()
 }
 
 // syncFormError keeps a submitted form's error honest as the user edits. Before
@@ -1137,13 +1192,30 @@ func (m AppModel) commitForm() (tea.Model, tea.Cmd) {
 // still enforced even if this layer misses it.
 func (m AppModel) validateForm() (string, int) {
 	name := strings.TrimSpace(m.form.fields[fName].value)
+	credential := m.form.auth() == store.AuthCredential
 	switch {
 	case name == "":
 		return "Name is required", fName
 	case strings.TrimSpace(m.form.fields[fHost].value) == "":
 		return "Host is required", fHost
-	case strings.TrimSpace(m.form.fields[fUser].value) == "":
+	case !credential && strings.TrimSpace(m.form.fields[fUser].value) == "":
 		return "User is required", fUser
+	}
+	if credential {
+		cn := strings.TrimSpace(m.form.fields[fCredential].value)
+		if cn == "" {
+			return "Choose a credential (Enter opens the list)", fCredential
+		}
+		found := false
+		for _, c := range m.creds.creds {
+			if c.Name == cn {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Sprintf("No credential named %q — see preference → credentials", cn), fCredential
+		}
 	}
 	port, err := strconv.Atoi(strings.TrimSpace(m.form.fields[fPort].value))
 	if err != nil || port < 1 || port > 65535 {
