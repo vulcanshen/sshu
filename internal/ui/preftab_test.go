@@ -27,18 +27,8 @@ func TestPrefNavSwapsContentAsTheCursorMoves(t *testing.T) {
 		t.Errorf("moving to logs should show them:\n%s", v)
 	}
 	m = pressA(m, "j")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Export") ||
-		!strings.Contains(v, "Directory") {
-		t.Errorf("moving to export should show its page:\n%s", v)
-	}
-	m = pressA(m, "j")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Import") ||
-		!strings.Contains(v, "Bundle") {
-		t.Errorf("moving to import should show its page:\n%s", v)
-	}
-	m = pressA(m, "j")
 	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Hosts") {
-		t.Errorf("the nav should wrap back to hosts:\n%s", v)
+		t.Errorf("the nav should wrap back to hosts — the masked Operation items take no cursor stops:\n%s", v)
 	}
 }
 
@@ -97,8 +87,7 @@ func TestPrefTabPreservesFrame(t *testing.T) {
 		for _, keys := range [][]string{
 			{}, {"1"}, {"1", "j"}, {"1", "j", "j"},
 			{"1", "j", "enter"}, {"2"},
-			{"1", "j", "j", "j"}, {"1", "j", "j", "j", "enter"},
-			{"1", "G"}, {"1", "G", "enter"},
+			{"1", "j", "j", "j"}, {"1", "G", "enter"},
 		} {
 			m := pressA(sized(sample(), w, h), keys...)
 			got := m.View()
@@ -113,6 +102,39 @@ func TestPrefTabPreservesFrame(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The category headers are app structure — the panel-border blue, not the
+// dim of secondary text — and the items under them are not.
+func TestNavHeadersAreBlue(t *testing.T) {
+	withColour(t)
+	const blueHex = "#89b4fa"
+	if string(focusColor) != blueHex {
+		t.Fatalf("the header accent must be the structure blue %s, got %s", blueHex, focusColor)
+	}
+	blue := ansiOf(t, focusColor)
+
+	// The nav is sampled UNFOCUSED (the tab opens on the content): a focused
+	// panel border wears the same blue, which would put it on every row.
+	m := appWith(sample(), nil)
+	var header, item string
+	for _, row := range strings.Split(m.prefNav(prefLeftW, 20), "\n") {
+		if strings.Contains(row, "Events") {
+			header = row
+		}
+		if strings.Contains(row, "Credentials") {
+			item = row
+		}
+	}
+	if header == "" || item == "" {
+		t.Fatal("could not find the Events header / Credentials item rows")
+	}
+	if !strings.Contains(header, blue) {
+		t.Error("a category header should wear the structure blue")
+	}
+	if strings.Contains(item, blue) {
+		t.Error("an item row must not wear the header's blue")
 	}
 }
 

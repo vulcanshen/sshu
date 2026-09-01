@@ -47,7 +47,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
  [Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh
 ```
 
-**`[Alt+p]reference`** — everything that is sshu's own, under one nav in three groups: **SSH** (Hosts, Credentials), **Events** (Logs) and **Operation** (Export, Import). Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk. Export bundles `hosts.yaml` + `credentials.yaml` into one `.sshu` zip to carry to another machine; Import appends a bundle to what you have — existing names win, duplicates are skipped.
+**`[Alt+p]reference`** — everything that is sshu's own, under one nav: **SSH** (Hosts, Credentials) and **Events** (Logs). Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk.
 
 **`[Alt+f]ile transfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. While bytes move, the `<done>/<files> · <pct>%` summary in the top right reports in green, and the rule under the tab row doubles as a progress bar — green ink filling from the left with the percentage, on every tab, snapping back to a plain line when the transfer ends. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
@@ -159,7 +159,7 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 
 ### `[Alt+p]reference`
 
-The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, **Export**, **Import**, grouped under SSH / Events / Operation headers the cursor skips over — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content.
+The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, grouped under SSH / Events headers the cursor skips over — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content.
 
 | Key | Action |
 |---|---|
@@ -168,8 +168,6 @@ The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, **E
 | `E` | Edit the host under the cursor |
 | `D` | Delete it (asks first — deleting a credential counts the hosts that still reference it) |
 | `/` | hosts: Search — name, user, host and port at once, ranked best-first |
-
-On the two **Operation pages** the content panel itself is a small form: letters and digits type, `Tab` moves fields, `Enter` runs it, `Esc` hands the keyboard back to the nav. **Export** writes a `.sshu` zip of `hosts.yaml` + `credentials.yaml` — it refuses to overwrite, and it carries the same plaintext passwords the YAML files do. **Import** appends a bundle's entries to yours: a name you already have is skipped whole, and the summary counts both.
 
 In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). On the two pick-a-value fields — IdentityFile and Credential — **`Enter` on the empty field opens the chooser, `Enter` on a filled one moves on, and `Backspace` clears the whole line**. Choosing `credential` darkens the User row: the credential supplies the user.
 
@@ -214,7 +212,6 @@ The layout strip (`2`, bottom of the left column — the right side is nothing b
 - **Menus in two regions** — `item` (what happens to the row under the cursor, named by that row) and `panel` (what happens to this side). A menu with only one region stays flat.
 - **A grid of concurrent ssh sessions** — each a real `ssh` in an embedded PTY, any number on screen at once, arranged horizontally, vertically or in a custom rows × columns. Each cell's remote is told its own size, and only when it actually changes. Ended sessions leave the grid and release their emulator immediately; the keyboard never silently lands in another remote.
 - **Reusable credentials** — a user plus how that user authenticates, saved once in `credentials.yaml` and referenced by any number of hosts with `auth: credential`. Resolution happens at the doors: the connect confirmation shows who the session will actually run as, and a dangling reference fails there with a sentence, not inside ssh.
-- **Config that travels** — Export bundles `hosts.yaml` + `credentials.yaml` into one `.sshu` zip (0600, never overwrites); Import merges a bundle back in, keyed by name — what you already have always wins, and the result says exactly what was added and what was skipped.
 - **Two-sided sftp** — local ↔ remote ↔ remote through one `FS` interface. Marks are per side; a mark is an absolute path, so it follows a rename and is dropped when the file is deleted.
 - **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**. `Enter` takes you to a result with the cursor already on it, so from there marking and transferring it needs nothing new.
 - **Read before you fetch** — `v` shows the item under the cursor: text syntax-highlighted with line numbers (chroma, catppuccin-mocha — the same as filu), a binary as an xxd-style hex dump, a directory as one level of its listing. It reads at most 64 KiB, because on a remote side every byte of that crosses the network. Escape sequences in the file are stripped: those bytes come off someone else's machine and would otherwise repaint your terminal.
