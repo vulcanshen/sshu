@@ -474,7 +474,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | `[3]` 多 session、embedded pty、`Alt+Esc` | `ui/sshtab.go` `ui/pty_unix.go` |
-| `[3]` 連線中 spinner、失敗顯示遠端原話、app log + 失敗 toast | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go lastWords` |
+| `[3]` 連線中 spinner;失敗時 `[5]` 顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go screenLines` |
 | `[3]` 連線中 spinner:判準是 PTY 有沒有說過話,不是網格空不空 | `ui/sshtab.go connectingBody` `ui/pty_unix.go spoke` |
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |

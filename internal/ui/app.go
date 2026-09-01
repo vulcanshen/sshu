@@ -159,7 +159,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.log.info(line)
 				continue
 			}
-			m.log.errorf(line)
+			// The headline plus everything ssh printed. A refused connection is
+			// one line either way; a host key mismatch is fifteen, and the
+			// fingerprint you need is in the middle of them.
+			m.log.errorf(line, s.detail...)
 			bad = append(bad, s)
 		}
 		if msg := endedBadlyToast(bad); msg != "" {

@@ -177,6 +177,88 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 	}
 }
 
+// A failure is often not one line. A host key mismatch is a banner, a
+// fingerprint and an offending known_hosts line — and the LAST of them is only
+// "Host key verification failed", which is the one line that tells you nothing
+// you did not already know. The fingerprint is the part you need and it is in
+// the middle, so the log keeps the whole screen.
+func TestTheLogKeepsTheWholeFailureNotJustItsLastLine(t *testing.T) {
+	fakeSSH(t, `cat >&2 <<'EOF'
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@  WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!  @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:uNiVeRsAlLyUnIqUeFiNgErPrInTvAlUe1234567890.
+Offending ECDSA key in /Users/you/.ssh/known_hosts:42
+Host key verification failed.
+EOF
+exit 255`)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	s := m.ssh.sessions[0]
+	waitFor(t, "ssh to give up", func() bool { return s.pty.exited() })
+
+	next, _ := m.Update(sshTickMsg{})
+	m = settle(next.(AppModel))
+
+	// The headline is the last line, because that is what a toast can hold.
+	if !strings.Contains(s.reason, "Host key verification failed") {
+		t.Errorf("headline is %q", s.reason)
+	}
+	// The log has the parts a headline had no room for.
+	if len(m.log.entries) != 1 {
+		t.Fatalf("%d entries, want one event", len(m.log.entries))
+	}
+	body := m.log.entries[0].msg
+	for _, want := range []string{
+		"REMOTE HOST IDENTIFICATION HAS CHANGED",
+		"SHA256:uNiVeRsAlLyUnIqUeFiNgErPrInT",
+		"known_hosts:42",
+		"Host key verification failed",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the log lost %q:\n%s", want, body)
+		}
+	}
+
+	// And it is one ENTRY, not eight — one thing happened.
+	if n := strings.Count(body, "\n"); n < 5 {
+		t.Errorf("the entry has only %d line breaks, want the whole screen", n)
+	}
+}
+
+// A long entry is scrollable to its end: the viewport counts rendered ROWS, and
+// one entry is not one row.
+func TestTheLogScrollsThroughALongEntry(t *testing.T) {
+	m := sshApp(t, sample())
+	m.log.setSize(100, 16)
+	long := make([]string, 30)
+	for i := range long {
+		long[i] = "line " + itoa(i)
+	}
+	m.log.errorf("something went wrong", long...)
+	m.log.anim.phase = animOpen
+
+	rows := len(m.log.allRows(popupInnerW(100, logW)))
+	if rows < 30 {
+		t.Fatalf("%d rendered rows, want the whole entry", rows)
+	}
+	for range 40 {
+		m.log.update(keyMsg("j"))
+	}
+	if m.log.top == 0 {
+		t.Error("j never scrolled")
+	}
+	if m.log.top > rows-m.log.rows() {
+		t.Errorf("scrolled past the end: top=%d rows=%d", m.log.top, rows)
+	}
+	// The last line is reachable.
+	view := ansi.Strip(m.log.view())
+	if !strings.Contains(view, "line 29") {
+		t.Errorf("the end of the entry is unreachable:\n%s", view)
+	}
+}
+
 // Keys typed at a connection that has not answered are NOT sent. ssh is not
 // reading its stdin while it waits, so they would be delivered to the remote
 // shell whenever it finally arrives — a `q` meant for sshu, run minutes later on
