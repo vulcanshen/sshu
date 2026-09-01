@@ -25,7 +25,7 @@ var sftpPanelNum = map[sftpPanel]string{
 func (m sftpModel) panelTitle(p sftpPanel) string {
 	n := sftpPanelNum[p]
 	if p.isMarks() {
-		return n + " Marked files"
+		return n + " Marks"
 	}
 	if h := m.sides[p.side()].host; h != "" {
 		return n + " " + h
