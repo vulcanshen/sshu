@@ -36,7 +36,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 
 **`[Alt-F]ileTransfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
-**`[Alt-S]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom columns × rows.
+**`[Alt-S]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom rows × columns.
 
 ## Install
 
@@ -167,7 +167,7 @@ In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→`
 | **`Alt+1`–`9`** | Jump to the Nth cell — from the list, the layout strip, or another cell |
 | **`Alt+Esc`** | **Take the keyboard back from the remote** — back to the list, side column returns |
 
-The layout strip (`2`) arranges the grid: `h`/`l` walk **horizontal / vertical / custom** and apply as you move; `Enter` on custom asks for columns × rows (any two digits 1–9). Rows read `<user>@<host>` with the port at the right edge, and lead with a display column — a monitor glyph for a session with a cell on the grid, a struck-through one without.
+The layout strip (`2`) arranges the grid: `h`/`l` walk **horizontal / vertical / custom** and apply as you move; `Enter` on custom asks for rows × columns (any two digits 1–9). Rows read `<user>@<host>` with the port at the right edge, and lead with a display column — a monitor glyph for a session with a cell on the grid, a struck-through one without.
 
 `Alt+Esc` is sshu's own key and exists for exactly one situation: a grid cell hands every keystroke to the remote, so something has to be able to take it back. Everywhere else, plain `Esc` is enough.
 
@@ -175,7 +175,7 @@ The layout strip (`2`) arranges the grid: `h`/`l` walk **horizontal / vertical /
 
 - **Zero learning curve** — every action surfaces through the `Space` menu, in context, on every panel. The menu and the letter hotkey are generated from one table, so a hotkey that is not in the menu cannot exist.
 - **Menus in two regions** — `item` (what happens to the row under the cursor, named by that row) and `panel` (what happens to this side). A menu with only one region stays flat.
-- **A grid of concurrent ssh sessions** — each a real `ssh` in an embedded PTY, any number on screen at once, arranged horizontally, vertically or in a custom columns × rows. Each cell's remote is told its own size, and only when it actually changes. Ended sessions leave the grid and release their emulator immediately; the keyboard never silently lands in another remote.
+- **A grid of concurrent ssh sessions** — each a real `ssh` in an embedded PTY, any number on screen at once, arranged horizontally, vertically or in a custom rows × columns. Each cell's remote is told its own size, and only when it actually changes. Ended sessions leave the grid and release their emulator immediately; the keyboard never silently lands in another remote.
 - **Reusable credentials** — a user plus how that user authenticates, saved once in `credentials.yaml` and referenced by any number of hosts with `auth: credential`. Resolution happens at the doors: the connect confirmation shows who the session will actually run as, and a dangling reference fails there with a sentence, not inside ssh.
 - **Two-sided sftp** — local ↔ remote ↔ remote through one `FS` interface. Marks are per side; a mark is an absolute path, so it follows a rename and is dropped when the file is deleted.
 - **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**. `Enter` takes you to a result with the cursor already on it, so from there marking and transferring it needs nothing new.

@@ -1883,7 +1883,7 @@ sshu/
 │   │   ├── form.go         host form popup(form 類)
 │   │   ├── filepicker.go   identity file picker(menu 類)
 │   │   ├── sshtab.go       [Alt-S] 終端網格、layout strip、session 清單(v0.2 重寫)
-│   │   ├── sshkeys.go      [Alt-S] 的動作表、layout 鍵、C×R 解析
+│   │   ├── sshkeys.go      [Alt-S] 的動作表、layout 鍵、R×C 解析
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
@@ -2169,7 +2169,7 @@ X 回到 ~1.0。
 
 Alt 和絃 tab、preference(nav + hosts/credentials/logs)、credential 整包、
 applog 落地、host form 三選 auth 與「選值欄位」互動、ssh 終端網格
-(Tab 開關、Enter 進入、Alt+1..9、layout strip、custom C×R)、訊號清理。
+(Tab 開關、Enter 進入、Alt+1..9、layout strip、custom R×C)、訊號清理。
 決策紀錄見 §11。
 
 ### 之後
@@ -2235,7 +2235,14 @@ preference → logs 的內容 panel,**上了畫面就是已讀**;寫不進去的
 ### 11.5 「選值欄位」:Enter 開、Enter 走、Backspace 整行
 
 IdentityFile 的舊互動(`Tab` 開 picker)把 Tab 在唯一一個欄位上變成別的
-意思。新互動是使用者描述的流程原樣:**空欄 Enter 開選單 → 選好 Enter →
+意思。host form 的欄位順序同時前移了 Auth(Name、Host、Port、**Auth**、
+Credential、User、IdentityFile、Password):Auth 決定後面哪些列存在,選了
+credential 就不必填 user —— 先問 user 再把它變暗,是問了一個得收回的問題。
+
+**credential picker 曾經開在 form 底下**:composite 順序讓 form 蓋掉了它,
+而所有 isActive 斷言照樣綠 —— z-order bug 只有 render 出來的畫面抓得到,
+釘住它的測試讀的就是畫面。無效送出則是「說兩次」:error row 標出是哪一欄,
+toast 讓拒絕不可能被錯過,form 留在原地讓人填完。新互動是使用者描述的流程原樣:**空欄 Enter 開選單 → 選好 Enter →
 有值的欄 Enter 跳下一欄;Backspace 整行清除**,選來的值是被替換的,不是
 一個字母一個字母刮掉的。`Tab` 回歸全欄位一致的「下一欄」。host form 的
 Credential 欄與 credForm 的 IdentityFile 欄同一套;兩張 form 共用同一個
@@ -2253,7 +2260,9 @@ Credential 欄與 credForm 的 IdentityFile 欄同一套;兩張 form 共用同�
 
 layout strip `[2]` 蓋在網格上方、永遠在場(高度不隨 focus 跳動):
 horizontal / vertical 是兩個退化網格(一列 / 一欄),custom 是指定的
-C×R —— Enter 問形狀,兩個 1-9 的數字用什麼隔開都行;**塞爆時長列不砍格**
+R×C(**先列後行**,提示、解析、條紋標籤、toast 四處同一個順序 —— 一開始
+是 C×R,使用者裁定改為列先)—— Enter 問形狀,兩個 1-9 的數字用什麼隔開
+都行;**塞爆時長列不砍格**
 (格子絕不能默默不存在)。條紋在高度撐不起「三行 chrome + 可用網格」時
 讓位。
 
@@ -2328,7 +2337,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | `[1]` | **`Tab`** | **顯示開關** —— 游標 session 的格子上/下網格 |
 | `[1]` | `Enter` | 顯示**並把鍵盤交給那一格**(side 欄收起) |
 | `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認) |
-| `[2]` layout | `h`/`l` · `Enter` | 換排列(立刻生效)/ custom 上問 C×R |
+| `[2]` layout | `h`/`l` · `Enter` | 換排列(立刻生效)/ custom 上問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 任何處 | **`Alt+1..9`** | 跳到第 N 格(pty 內也有效) |
 | 格子(pty) | **`Alt+Esc`** | 收回鍵盤、回 `[1]`(side 欄回來) |
