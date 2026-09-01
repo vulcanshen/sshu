@@ -15,7 +15,7 @@ import (
 //
 // It is drawn in place rather than in a popup, and that is the decision the rest
 // of this file follows from. A result is an ordinary row in panel [4]/[6], so
-// `m` marks it, `t` sends it and Enter descends into it — the same keys, doing
+// `a` marks it, `t` sends it and Enter descends into it — the same keys, doing
 // the same things, on a row that happens to have come from three directories
 // down. A finder popup would have had to invent a "reveal" step and then hand
 // the user back to the panel to do the thing they actually opened it for.

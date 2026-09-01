@@ -58,21 +58,22 @@ const keySelectHost = "S"
 // And the CASE says which: lower case acts on the row, upper case acts on the
 // panel. This tab is the one that needs the distinction — it is the only place
 // where both scopes exist side by side, with the same verb twice ([t]ransfer /
-// [T]ransfer all marks, [x] / [X]). A reader has to be able to tell them apart
-// without reading the hint column.
+// [T]ransfer all marks, [x] / [X], [c]lear mark / [C]lear marks). A reader has
+// to be able to tell them apart without reading the hint column.
 //
 // `/` is outside the rule (not a letter) and so is Enter (a core key, whose name
 // goes in the hint rather than in a bracket, §4.4).
 var sftpActions = []sftpAction{
 	// item — the row under the cursor
 	{key: "enter", label: "Enter", hint: "Enter . open it, or go to a result", onFiles: true, run: AppModel.sftpEnter},
-	{key: "m", label: "Mark", hint: "toggle", onFiles: true, run: AppModel.sftpToggleMark},
-	// Unmark is the same `m`, and that is not two actions sharing a letter: on a
-	// files panel `m` toggles the row's mark, and on a marks panel the row is
-	// marked by definition, so the toggle can only take it off. One key, one
-	// meaning — "un/mark this" — which is also what frees Unmark from `u`, the
-	// one item letter navigation already owns.
-	{key: "m", label: "Unmark", hint: "drop from marks", onMarks: true, run: AppModel.sftpUnmark},
+	// Append still toggles — the hint says so honestly. "I marked the wrong
+	// one" stays a second press, not a trip to another panel.
+	{key: "a", label: "Append to marks", hint: "again takes it off", onFiles: true, run: AppModel.sftpToggleMark},
+	// Clear mark pairs with [C]lear marks the way t/T and x/X pair: the case
+	// says the scope — this row, or every mark on this side. It lives only on
+	// the marks panels, where the row is a mark by definition; on a files
+	// panel the same rescue is `a` again. `u` stays with half-page scroll.
+	{key: "c", label: "Clear mark", hint: "forget it, change nothing", onMarks: true, run: AppModel.sftpUnmark},
 	{key: "r", label: "Rename", hint: "this item, here", onFiles: true, onMarks: true, run: AppModel.sftpRename},
 	{key: "v", label: "View", hint: "read this item, here", onFiles: true, onMarks: true, run: AppModel.sftpView},
 	{key: "e", label: "Edit", hint: "open this item in $EDITOR", onFiles: true, onMarks: true, run: AppModel.sftpEdit},

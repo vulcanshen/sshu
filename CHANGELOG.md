@@ -44,6 +44,12 @@ together: the tab system, the ssh tab, and process cleanup.
   every field again. The host form asks Auth before User — Auth decides which
   rows exist. An invalid credential submit toasts AND marks the field, with
   the form staying up.
+- **`[m]ark` became `[a]ppend to marks`.** The old name said one-way, the
+  behaviour was a toggle, and the menu hint just said "toggle". The key is
+  `a` now, the hint owns up ("again takes it off"), and the behaviour stays
+  a toggle — mis-marking is still undone by a second press. On the marks
+  panels, Unmark became **`[c]lear mark`**, pairing with `[C]lear marks` the
+  way `t`/`T` and `x`/`X` pair: the case says the scope.
 
 ### Added
 

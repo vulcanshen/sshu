@@ -806,7 +806,7 @@ panel-2 menu 同一個形狀:
 ```
  item operation
  Enter                       Enter . open directory
- [m]ark                                      toggle
+ [a]ppend to marks               again takes it off
  [r]ename                           this item, here
  [v]iew                        read this item, here
  [e]dit                   open this item in $EDITOR
@@ -824,18 +824,20 @@ panel-2 menu 同一個形狀:
 ```
 
 **大小寫本身就說明範圍**:**小寫作用在游標那一列,大寫作用在整個 panel。**
-`[m]ark` / `[r]ename` / `[t]ransfer` / `[x]` 對著一列;`[A]` / `[T]` / `[X]` /
+`[a]ppend` / `[r]ename` / `[t]ransfer` / `[x]` 對著一列;`[A]` / `[T]` / `[X]` /
 `[C]` / `[S]` / `[P]` 對著這一側。tab [2] 是唯一需要這個區分的地方 —— 它是唯一
 兩種範圍並存、而且同一個動詞出現兩次的 tab(`[t]ransfer` / `[T]ransfer all
-marks`、`[x]` / `[X]`),讀的人必須不看 hint 欄就分得出來。
+marks`、`[x]` / `[X]`、`[c]lear mark` / `[C]lear marks`),讀的人必須不看 hint
+欄就分得出來。
 
 `/` 不在這條規則裡(不是字母),`Enter` 也不在(core key,鍵名放 hint 不套
 bracket,§4.4)。
 
-**`[U]nmark` 被併進 `[m]`,而不是給它一個例外。** 它是 item 動作,照規則該用小寫,
-但 `u` 是半頁上捲。與其為它開一條「這個字母例外」,不如看清楚它本來就是同一個動作:
-在檔案清單按 `m` 是切換這一列的 mark,在 marks 清單那一列**依定義就是被 mark 的**,
-所以同一個切換只能是拿掉。一個鍵一個意思(「把這個 un/mark 掉」),例外消失。
+**把東西移出 marks 的字母幾經演進,落在 `[c]lear mark`。** 一開始 `[U]nmark`
+併進 `[m]`(一鍵 toggle,`u` 屬於半頁上捲);v0.2 後使用者裁定拆開(見
+11.10):檔案清單是 `[a]ppend to marks`(仍 toggle,hint 誠實寫「again takes
+it off」),marks 清單的移出是 `[c]lear mark` —— 跟 `[C]lear marks` 同字母
+成對,小寫單項、大寫整個 panel,同 `t`/`T`、`x`/`X` 的 case 文法。
 
 **兩個 region 的標題是 `item operation` / `panel operation`**,三個 tab 共用同兩
 個字串(`menuItemRegion` / `menuPanelRegion`)。標題措辭不一樣的 menu 會讀成另一
@@ -1396,7 +1398,7 @@ reason 寫成 `no answer after Ns`。
 ╰─────────────────────────────────────╯╰─────────────────────────────────────╯
 ```
 
-**畫在原地,不開 popup。** 結果就是 `[4]`/`[6]` 裡的普通一列 —— `m` 標記它、
+**畫在原地,不開 popup。** 結果就是 `[4]`/`[6]` 裡的普通一列 —— `a` 標記它、
 `t` 傳它、`Enter` 進它所在的目錄,同一批鍵做同一件事,只是這一列剛好來自三層
 底下。做成 finder popup 的話,得先發明一個「reveal」步驟,再把使用者送回 panel
 去做他本來就要做的那件事。
@@ -1443,20 +1445,20 @@ reason 寫成 `no answer after Ns`。
 
 #### `Enter` 是搜尋結果唯一到得了 panel 的鍵,所以它就是「去那裡」
 
-搜尋中每一個可見字元都進 query(§4.5)—— 這是對的,不然打不出含 `m` 的檔名。
-但它有一個沒被看見的後果:**找到的檔案沒有任何一個鍵動得了它**。`m`、`t`、`v`、
+搜尋中每一個可見字元都進 query(§4.5)—— 這是對的,不然打不出含 `a` 的檔名。
+但它有一個沒被看見的後果:**找到的檔案沒有任何一個鍵動得了它**。`a`、`t`、`v`、
 `e`、`x` 全部變成打字,而 `Esc` 把整批結果丟掉、游標回到當前目錄第一列。搜尋能告訴
 你東西在哪,然後要你自己走過去 —— 那正是它本來要省掉的事。
 
 `Enter` 是唯一不會被吞掉的鍵,所以它承擔這件事:**到那個東西所在的地方去,並把游標
-停在它上面**,順手退出搜尋。之後 `m`/`t`/`v`/`e`/`x` 全部是普通的列上動作,不需要
+停在它上面**,順手退出搜尋。之後 `a`/`t`/`v`/`e`/`x` 全部是普通的列上動作,不需要
 新詞彙 —— 這正是「結果就是普通的列」原本承諾的那句話,現在才是真的。
 
 目錄結果本來就會被 `Enter` 打開;現在它也會一起退出搜尋,而不是留著一個已經不描述
 眼前這份清單的 query。
 
 > **這是實機 dogfood 才抓到的**。所有測試都綠,四份文件都寫著「結果是普通的列,
-> 所以 `m` / `t` / `x` 照樣能用」,而那句話是假的 —— 沒有任何一個測試去按過那些鍵。
+> 所以 `a` / `t` / `x` 照樣能用」,而那句話是假的 —— 沒有任何一個測試去按過那些鍵。
 
 ### 7.3.1 目錄怎麼保持最新 —— SFTP 沒有 watch
 
@@ -2003,7 +2005,7 @@ X 回到 ~1.0。
 | Auth 用 radio glyph、panel 不戴 title | `TestAuthFieldUsesRadioGlyphs` / `TestHostsPanelHasNoTitle` |
 | 舊 toast timer 不會關掉新 toast | `TestToastGenerationGuard` |
 | bracket 印的那個大小寫**是唯一**按得動的鍵 | `TestOnlyTheMarkedCaseFires` / `TestLowercaseDoesNotFireAnUppercaseAction` |
-| tab [2] 小寫作用在游標列、大寫作用在 panel;`m` 同時是 Mark 與 Unmark | `TestSFTPMenuHasItemAndPanelRegions` / `TestSFTPMarkToggles` |
+| tab [2] 小寫作用在游標列、大寫作用在 panel;`a` append(再按取消)、marks panel `c` 清單項 | `TestSFTPMenuHasItemAndPanelRegions` / `TestSFTPMarkToggles` |
 | 導覽鍵不受大小寫折疊影響(`G` vs `g`) | `TestNavigationKeysStayCaseSensitive` |
 | `Tab` 只在 IdentityFile 欄開 picker、hint 也只在那裡宣傳 | `TestBrowseOpensOnlyOnTheIdentityField` / `TestFormHintIsPerField` |
 | `Tab` 不會打字;方向鍵仍能離開該欄 | `TestTabBrowsesOnlyOnThePathField` / `TestPathFieldCanStillBeLeft` |
@@ -2088,7 +2090,7 @@ X 回到 ~1.0。
 | `remote.FS` 一個介面(local / sftp),upload = download = remote-to-remote | `remote/fs.go` |
 | SFTP 自己做認證與 host key 驗證(**變更的 key 直接拒絕,不問**) | `remote/sftp.go` |
 | cwd 在 panel 內第一行、純文字 lavender + dim 斜線 | `ui/crumb.go` |
-| `m` 標記(再按取消)/ `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
+| `a` 標記(再按取消)/ `c` 清單項 / `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
 | `r` 就地改名(預填舊名、拒絕覆寫、mark 跟著走) | `ui/sftpkeys.go` `ui/inputpopup.go` |
 | `v` 讀檔:文字(上色 + 行號)/ hex / 目錄一層,上限 64 KiB | `ui/viewer.go` `remote/peek.go` |
 | 本機側開在啟動目錄(`home` 仍是家目錄,折麵包屑用) | `remote/edit.go StartDir` |
@@ -2342,6 +2344,18 @@ ink 從左緣起依 blended percent 換成 liveColor,其餘維持 borderDim;沒
 tab 就停,而這條線是三個 tab 唯一共用的 chrome —— 在 ssh tab 盯著遠端,
 眼角那條綠線仍在報進度。
 
+### 11.10 [a]ppend to marks 與 [c]lear mark
+
+`[m]ark`(hint「toggle」)名不符實兩頭落空:名字說單向、行為是雙向,hint
+又只剩一個孤零零的「toggle」。裁定改成:檔案 panel `a` = **Append to
+marks**,行為維持 toggle(誤標的救援仍是再按一次,不用跑去 marks panel),
+hint 誠實寫「again takes it off」;marks panel 的移出改成 `c` = **Clear
+mark**,跟 `[C]lear marks` 同字母成對 —— 小寫單項、大寫整個 panel,與
+`t`/`T`、`x`/`X` 同一套 case 文法,hint 沿用 C 的「forget it, change
+nothing」(它跟 Delete 的距離就靠這句話)。hotkeyIndex 無大小寫回退,
+`a`/`A`dd 各行其是、files panel 按 `c` 也不會誤射 `C` —— 後者本來就有
+測試釘著。`u` 依然屬於半頁上捲。
+
 ---
 
 ## 附錄 — 按鍵全表(v0.2)
@@ -2389,8 +2403,8 @@ tab 就停,而這條線是三個 tab 唯一共用的 chrome —— 在 ssh tab �
 |---|---|---|
 | 全部 | `1` / `2` / `3` / `4` | 左檔案 / 左 marks / 右檔案 / 右 marks |
 | 全部 | `Tab` · `h`/`l` | 輪詢四個 panel / 切左右半 |
-| 全部 | `S` · `P` · `R` · `x`/`X` · `C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear marks / 傳輸(項/marks) |
-| 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / 標記 / 搜尋子樹 / Add / Rename / View / Edit |
+| 全部 | `S` · `P` · `R` · `x`/`X` · `c`/`C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear(marks 單項/全部)/ 傳輸(項/marks) |
+| 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add / Rename / View / Edit |
 
 ### [Alt+s]sh
 

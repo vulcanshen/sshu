@@ -584,7 +584,7 @@ func TestLowercaseDoesNotFireAnUppercaseAction(t *testing.T) {
 	// tab [2]: `c` must not clear the marks — lower case is the row here.
 	s := sftpFixture(t, 100, 26)
 	s.sftp.focus = panelLeftFiles
-	s = pressA(s, "m")
+	s = pressA(s, "a")
 	if n := len(s.sftp.sides[sideLeft].marks); n != 1 {
 		t.Fatal("setup: expected one mark")
 	}

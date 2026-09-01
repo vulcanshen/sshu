@@ -74,7 +74,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 ```
  item operation
  Enter                       Enter . open directory
- [m]ark                                      toggle
+ [a]ppend to marks               again takes it off
  [r]ename                           this item, here
  [t]ransfer            this item, to the other side
  [x] Delete                 this item, on this host
@@ -414,7 +414,7 @@ sftp 傳輸。
 SFTP 每個目錄是一次 round trip,所以結果抵達的順序就是使用者等待的順序。深度優先
 會把最初幾秒花在剛好排最前面的那棵子樹裡,從外面看跟卡住沒兩樣。
 
-- **畫在原地不開 popup**:結果是普通一列,`m`/`t`/`x`/`Enter` 直接可用
+- **畫在原地不開 popup**:結果是普通一列,`a`/`t`/`x`/`Enter` 直接可用
 - **空 query = 當前目錄**,不是「底下全部」
 - **到達順序就是順序,不重排** —— 游標全程活著,每來一批就重排等於把使用者手底下
   那一列抽掉
@@ -563,8 +563,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | 全部 | `1`-`4` · `h`/`l` | panel 直達 / 切左右半 |
-| 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `S` · `C` · `P` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Select host / Clear marks / Progress |
-| 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / 標記 / 搜尋子樹 / Add |
+| 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `S` · `c`/`C` · `P` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Select host / Clear(marks 單項/全部)/ Progress |
+| 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add |
 
 ### [Alt+s]sh
 

@@ -394,9 +394,9 @@ func (s sftpSideModel) cursorPath() (string, bool) {
 	return remote.Join(s.cwd, e.Name), true
 }
 
-// toggleMark is `m` in the files list. It toggles, which is what makes the
-// common "I marked the wrong one" case a second press rather than a trip to
-// another panel.
+// toggleMark is `a` in the files list — Append to marks. It still toggles,
+// which is what makes the common "I marked the wrong one" case a second press
+// rather than a trip to another panel; the menu hint says so.
 func (s *sftpSideModel) toggleMark() {
 	p, ok := s.cursorPath()
 	if !ok {

@@ -161,7 +161,7 @@ func (m sftpModel) marksPanel(sd side, w, h int) string {
 	var rows []string
 	if len(s.marks) == 0 {
 		rows = emptyBody(innerW, innerH, "Nothing marked",
-			emptyHint("Press m on a file to mark it", "m"))
+			emptyHint("Press a on a file to mark it", "a"))
 	} else {
 		rows = make([]string, 0, max(0, innerH))
 		for i := s.markTop; i < len(s.marks) && len(rows) < innerH; i++ {
