@@ -44,7 +44,10 @@ type session struct {
 	// detail is the whole final screen, kept for the app log while reason keeps
 	// the one line a toast has room for.
 	detail []string
-	pty    *ptyTerm
+	// timedOut marks a session sshu stopped itself, because ssh got past the
+	// part its own ConnectTimeout covers and then said nothing at all.
+	timedOut bool
+	pty      *ptyTerm
 }
 
 // ordinalTag is the #N shown only when a host has more than one live session.
@@ -68,8 +71,13 @@ var sshBinary = "ssh"
 // the user already relies on keeps working. TERM is pinned to xterm-256color
 // because that is what the embedded emulator implements — claiming more would
 // make remote programs emit sequences vt10x drops on the floor.
-func buildSSHCmd(h store.Host, self string) *exec.Cmd {
-	args := []string{"-p", strconv.Itoa(h.Port)}
+func buildSSHCmd(h store.Host, self string, timeoutSecs int) *exec.Cmd {
+	// ssh does the timing out, not sshu, because ssh knows how to SAY it: it
+	// prints "Connection timed out" and exits, which flows through the same
+	// path every other failure does. Killing the process ourselves would have
+	// produced a corpse with no explanation attached to it.
+	args := []string{"-p", strconv.Itoa(h.Port),
+		"-o", "ConnectTimeout=" + strconv.Itoa(timeoutSecs)}
 	if h.Auth == store.AuthPrivateKey && h.IdentityFile != "" {
 		args = append(args, "-i", store.ExpandTilde(h.IdentityFile))
 		// With an explicit key, stop ssh from silently trying every agent

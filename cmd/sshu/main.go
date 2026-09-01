@@ -27,10 +27,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// A settings file that cannot be parsed is not fatal — sshu runs on the
+	// defaults — but it must not be silent either: somebody wrote something and
+	// it is not being honoured. stderr is invisible behind the alt screen, so
+	// the complaint goes where complaints go now, which is the app log.
+	cfg, cfgErr := store.LoadConfig()
+
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
 	}
-	p := tea.NewProgram(ui.New(hosts.Hosts, save), tea.WithAltScreen())
+	app := ui.New(hosts.Hosts, save, cfg)
+	if cfgErr != nil {
+		app = app.WithStartupError("config.yaml: " + cfgErr.Error())
+	}
+	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "sshu:", err)
 		os.Exit(1)

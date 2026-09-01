@@ -80,6 +80,18 @@ sshu
 
 它是可以手改的 YAML,而且 sshu 在檔案自己的標頭裡就這樣說。寫入是原子的(暫存檔 + rename),而且**每次寫入都重新確立 `0600`**。
 
+### 設定 —— `config.yaml`
+
+選用,放在同一個目錄,而且 **sshu 永遠不會寫它**:你手改過的檔案不會被重排,寫進去的註解也活得下來。檔案不存在就用預設值,所以它只需要寫你想改的那幾行。
+
+```yaml
+# 一次連線嘗試的預算,單位秒,預設 15。
+# tab [3] 把它交給 ssh 當 -o ConnectTimeout;tab [2] 拿它當 dial timeout。
+connect_timeout: 15
+```
+
+超出 1–600 的值一律當成打錯,改用預設。設定檔壞掉不會擋著不讓 sshu 啟動 —— 它用預設值跑,並且在 app log 裡說出來。
+
 ### 密碼是明文存的 —— 請讀這段
 
 `auth: password` 的 host 會把密碼**明文**放在 `hosts.yaml` 裡。這是一個刻意的取捨,以下是配套:
@@ -171,7 +183,7 @@ sshu
 
 ## 現況
 
-**0.1.0** —— 第一個 release。三個 tab 都能端到端運作,241 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**0.1.0** —— 第一個 release。三個 tab 都能端到端運作,247 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
 

@@ -7,12 +7,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // emptyApp is every tab with nothing in it.
 func emptyApp(t *testing.T, w, h int) AppModel {
 	t.Helper()
-	m := New(nil, nil)
+	m := New(nil, nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	return settle(next.(AppModel))
 }

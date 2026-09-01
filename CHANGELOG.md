@@ -92,14 +92,38 @@ member of the `u`-family — a parallel implementation of
   takes it back.
 - Rows read `<user>@<host>` with the port at the right edge, and the session on
   screen is green.
-- `[C]lose`, `[D]uplicate` and `[H]istory`. A session that ends badly raises a
-  toast naming the host and the reason; a clean `exit` says nothing.
+- `[C]lose` and `[D]uplicate`, both after a confirm.
+- A spinner while a connection is being made, because ssh prints nothing at all
+  while it waits for TCP and an empty terminal looks exactly like a frozen app.
+  Keys are not forwarded during that wait: ssh is not reading its stdin, so they
+  would be delivered to the remote shell whenever it finally arrived.
+- A failure says **what ssh said** — `Connection refused`, not `disconnected` —
+  keeps saying it in `[5]` instead of going blank, and raises a toast. A clean
+  `exit` says nothing, because that is what you asked for.
+
+**The app log**
+
+- **`!` opens a record of what happened while you were not looking**, and `!`
+  closes it again. Newest first, no cursor, nothing in it can be acted on.
+- It holds **the whole final screen** of a failed connection, not one line: a
+  refused connection is one line, but a host key mismatch is fifteen and the
+  fingerprint you need is in the middle of them. Entries are capped at 40 lines.
+- The footer discloses the key and counts what you have not read — `! 2 errors`.
+- A toast and the log are two jobs, not two options: the toast is "this just
+  happened" and vanishing is its function; the log is the part you can go back
+  to.
 
 **Data**
 
 - One hand-editable `hosts.yaml`, resolved through `$SSHU_CONFIG` →
   `$XDG_CONFIG_HOME/sshu` → `os.UserConfigDir()/sshu`. Writes are atomic and
   re-assert mode `0600` every time.
+- An optional `config.yaml` beside it, which sshu **never writes** — a file you
+  have edited is never reformatted and your comments survive. `connect_timeout`
+  (seconds, default 15) bounds one connection attempt: tab `[3]` hands it to ssh
+  as `-o ConnectTimeout` so ssh produces its own message, and tab `[2]` uses it
+  to bound its dial. A value outside 1–600 is treated as a typo; a file that
+  cannot be parsed does not stop sshu from starting, and says so in the app log.
 
 ### Security
 

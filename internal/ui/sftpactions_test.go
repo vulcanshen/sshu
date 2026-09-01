@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/remote"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // `t` and `T` are two actions, not two spellings of one: the item under the
@@ -63,7 +64,7 @@ func TestTransferCursorAndTransferAllAreDifferentKeys(t *testing.T) {
 // A side with no host has nothing to mark, send or reset. Offering those rows
 // anyway teaches that the menu does not mean what it says (§A.1).
 func TestASideWithNoHostOnlyOffersSelectHost(t *testing.T) {
-	m := New(sample(), nil)
+	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	m = settle(next.(AppModel))
 	m.tab = tabSFTP

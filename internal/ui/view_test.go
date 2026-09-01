@@ -25,7 +25,7 @@ func sample() []store.Host {
 }
 
 func sized(hosts []store.Host, w, h int) AppModel {
-	m := New(hosts, nil)
+	m := New(hosts, nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	return next.(AppModel)
 }

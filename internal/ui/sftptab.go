@@ -116,6 +116,10 @@ type sftpModel struct {
 	onScreen bool
 	watchGen int
 
+	// timeout is one dial's budget, from config.yaml — the same number tab [3]
+	// gives ssh as -o ConnectTimeout.
+	timeout time.Duration
+
 	// spinAt is the connecting spinner's frame. It counts ticks rather than
 	// reading the clock, so the animation does not depend on when a frame is
 	// drawn.

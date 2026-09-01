@@ -43,7 +43,11 @@ func (m *sftpModel) startDial(sd side, h store.Host) tea.Cmd {
 	s := &m.sides[sd]
 	s.dialGen++
 	s.dialing, s.dialSince, s.host, s.err = h.Name, time.Now(), h.Name, ""
-	return tea.Batch(dialCmd(sd, h, s.dialGen), m.dialTick())
+	budget := m.timeout
+	if budget <= 0 {
+		budget = store.DefaultConnectTimeout * time.Second
+	}
+	return tea.Batch(dialCmd(sd, h, s.dialGen, budget), m.dialTick())
 }
 
 // dialTick keeps the spinner turning while any side is connecting, and stops

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vulcanshen/sshu/internal/remote"
@@ -245,12 +246,12 @@ func (m AppModel) hostPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // dialCmd connects off the update loop.
-func dialCmd(sd side, h store.Host, gen int) tea.Cmd {
+func dialCmd(sd side, h store.Host, gen int, timeout time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		// An unknown host is refused rather than waved through. Accepting a key
 		// needs a dialog mid-dial, which this path cannot raise yet — so it says
 		// how to accept it deliberately instead of pretending it does not matter.
-		fsys, err := remote.Dial(h, nil)
+		fsys, err := remote.Dial(h, nil, timeout)
 		return sftpConnectedMsg{sd: sd, gen: gen, fs: fsys, err: err}
 	}
 }

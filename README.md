@@ -80,6 +80,18 @@ One file, `hosts.yaml`, resolved in this order:
 
 It is hand-editable YAML and sshu says so in the file's own header. Writes are atomic (temp file + rename) and re-assert mode `0600` every time.
 
+### Settings — `config.yaml`
+
+Optional, in the same directory, and **sshu never writes it**: a file you have edited is never reformatted and your comments survive. A missing file means the defaults, so it only has to say what you want changed.
+
+```yaml
+# How long one connection attempt gets, in seconds. Default 15.
+# Tab [3] hands it to ssh as -o ConnectTimeout; tab [2] uses it to bound its dial.
+connect_timeout: 15
+```
+
+A value outside 1–600 is treated as a slipped decimal and the default is used instead. A file that cannot be parsed does not stop sshu from starting — it runs on the defaults and says so in the app log.
+
 ### Passwords are stored in plaintext — read this
 
 A host with `auth: password` keeps its password in `hosts.yaml` **in the clear**. That is a deliberate trade, and these are the mitigations:
@@ -171,7 +183,7 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 
 ## Status
 
-**0.1.0** — the first release. All three tabs work end to end, 241 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**0.1.0** — the first release. All three tabs work end to end, 247 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 

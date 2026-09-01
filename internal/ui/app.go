@@ -39,6 +39,7 @@ type AppModel struct {
 	ssh       sshModel
 	sftp      sftpModel
 	transfers transferModel
+	cfg       store.Config
 	pending   pendingTransfer
 	// pendingEdit is the file currently being edited, and it outlives the popup
 	// on purpose: the overwrite question is asked after the box is gone, and its
@@ -66,8 +67,11 @@ type AppModel struct {
 	pendingG bool
 }
 
-func New(hosts []store.Host, save SaveFunc) AppModel {
-	return AppModel{
+// New builds the app. cfg is config.yaml, already loaded — the UI never reads
+// the filesystem itself.
+func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
+	m := AppModel{
+		cfg:         cfg,
 		hosts:       hostsModel{hosts: hosts},
 		ssh:         newSSHModel(),
 		sftp:        newSFTPModel(),
@@ -85,6 +89,17 @@ func New(hosts []store.Host, save SaveFunc) AppModel {
 		input:       newInputPopup(),
 		toast:       newToast(),
 	}
+	m.ssh.timeout, m.sftp.timeout = cfg.Timeout(), cfg.Timeout()
+	return m
+}
+
+// WithStartupError records something that went wrong before the first frame.
+// It is a method rather than a New parameter because the caller may or may not
+// have one, and a nil-able argument for "nothing was wrong" reads worse than
+// not calling this at all.
+func (m AppModel) WithStartupError(msg string) AppModel {
+	m.log.errorf(msg)
+	return m
 }
 
 func (m AppModel) Init() tea.Cmd { return nil }
@@ -144,6 +159,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// still drawing. It only runs while something is live, so an idle sshu
 		// costs nothing.
 		m.ssh.spinAt++
+		m.ssh.sweepStalled()
 		ended := m.ssh.reap()
 		if len(ended) > 0 {
 			m.ssh.setSize(m.w, m.panelHeight())

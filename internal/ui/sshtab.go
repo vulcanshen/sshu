@@ -49,6 +49,9 @@ type sshTickMsg struct{}
 const sshTickEvery = 50 * time.Millisecond
 
 type sshModel struct {
+	// timeout is one connection attempt's budget, from config.yaml.
+	timeout time.Duration
+
 	// failed is the session that was ON SCREEN when it ended badly. [5] keeps
 	// showing it: the panel that was watching a connection is the right place to
 	// say how it turned out, and going blank was the thing that made a failure
@@ -157,7 +160,7 @@ func (m *sshModel) connect(h store.Host) (*session, error) {
 	s := &session{id: m.nextID, host: h, started: time.Now(), state: sessLive}
 	m.nextID++
 
-	p, err := startPty(buildSSHCmd(h, selfPath()), cols, rows)
+	p, err := startPty(buildSSHCmd(h, selfPath(), m.timeoutSecs()), cols, rows)
 	if err != nil {
 		s.state, s.ended, s.reason = sessEnded, time.Now(), "failed to start: "+err.Error()
 		m.failed = s
@@ -171,6 +174,49 @@ func (m *sshModel) connect(h store.Host) (*session, error) {
 	m.clampCursors()
 	return s, nil
 }
+
+// timeoutSecs is the budget in whole seconds, defaulted here so a zero value
+// model (tests that build sshModel directly) still behaves.
+func (m sshModel) timeoutSecs() int {
+	if m.timeout <= 0 {
+		return store.DefaultConnectTimeout
+	}
+	return int(m.timeout / time.Second)
+}
+
+// sweepStalled stops sessions that have said NOTHING for longer than the budget.
+//
+// ssh's own -o ConnectTimeout covers the TCP connect and covers it better than
+// this can, because ssh prints a real message when it fires. What it does not
+// cover is a host that completes the connection and then goes quiet — DNS that
+// stalls, a server that accepts and never sends its banner. From the outside
+// those are indistinguishable from a connection still being made, and without
+// this they would spin until the user gave up on the app rather than on the
+// host.
+//
+// The grace is what keeps the two from racing: ssh gets to fire its own timeout,
+// with its own words, before sshu reaches for the plug.
+func (m *sshModel) sweepStalled() {
+	if len(m.sessions) == 0 {
+		return
+	}
+	budget := m.timeout
+	if budget <= 0 {
+		budget = store.DefaultConnectTimeout * time.Second
+	}
+	deadline := budget + stallGrace
+	for _, s := range m.sessions {
+		if s.pty.hasSpoken() || s.pty.exited() || time.Since(s.started) < deadline {
+			continue
+		}
+		s.timedOut = true
+		s.pty.stop() // reap notices on the next tick
+	}
+}
+
+// stallGrace is how long ssh's own timeout gets before sshu stops waiting for
+// it to act.
+const stallGrace = 5 * time.Second
 
 // renumber assigns #N to hosts that have more than one live session, so the
 // name-only list can still tell them apart.
@@ -205,6 +251,11 @@ func (m *sshModel) reap() []*session {
 		s.state, s.ended, s.reason = sessEnded, time.Now(), s.pty.exitReason()
 		s.ordinal = 0
 		s.ok = s.reason == "exited 0"
+		if s.timedOut {
+			// It was killed, so its exit code says nothing worth repeating.
+			s.reason = "no answer after " + itoa(m.timeoutSecs()) + "s"
+			s.ok = false
+		}
 		// What ssh SAID beats what its exit code implies: "exited 255" is the
 		// same for a refused connection, a wrong key and a changed host key,
 		// and the line on the screen tells them apart. Read it before the

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // A remote that prints emoji renders wider than the emulator grid says, which is
@@ -13,7 +14,7 @@ func TestWideRemoteOutputCannotBreakTheFrame(t *testing.T) {
 	fakeSSH(t, `printf "vulcan in \360\237\214\220 Mac in ~   \360\237\225\220 11:24:10\n"; exec cat`)
 	for _, sz := range [][2]int{{92, 24}, {70, 20}, {54, 16}} {
 		w, h := sz[0], sz[1]
-		m := New(sample(), nil)
+		m := New(sample(), nil, store.DefaultConfig())
 		next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 		m = pressA(settle(next.(AppModel)), "enter", "enter")
 		s := m.ssh.currentSession()

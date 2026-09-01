@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/vulcanshen/sshu/internal/remote"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // sftpFixture builds a small local tree and points both sides at it, so the
@@ -28,7 +29,7 @@ func sftpFixture(t *testing.T, w, h int) AppModel {
 	os.MkdirAll(filepath.Join(root, "backups", "2026-08"), 0o755)
 	os.WriteFile(filepath.Join(root, "backups", "dump.sql.gz"), make([]byte, 4200000), 0o644)
 
-	m := New(sample(), nil)
+	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	m = settle(next.(AppModel))
 	m.tab = tabSFTP

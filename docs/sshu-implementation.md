@@ -479,6 +479,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
 | `hosts.yaml`:XDG 解析、atomic 0600 寫入、警告標頭 | `store/store.go` `store/hosts.go` |
+| `config.yaml`:唯讀設定,`connect_timeout` 兩個 tab 共用;缺檔用預設、壞檔進 app log | `store/config.go` |
 | `SSH_ASKPASS` 供密碼(不進子行程環境) | `cmd/sshu/main.go` `ui/session.go` |
 
 ### `(planned)`

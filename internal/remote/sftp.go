@@ -18,9 +18,6 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// dialTimeout bounds a connection attempt so a dead host cannot hang the UI.
-const dialTimeout = 15 * time.Second
-
 // sftpFS is a host reached over SFTP.
 //
 // Unlike tab [3], which hands a PTY to the real ssh binary, this speaks the
@@ -46,7 +43,11 @@ type HostKeyPrompt func(host, fingerprint string) bool
 // prompt with its fingerprint; a host whose key has CHANGED is refused outright
 // and never offered — that is the case known_hosts exists to catch, and turning
 // it into a yes/no question trains people to answer yes.
-func Dial(h store.Host, prompt HostKeyPrompt) (FS, error) {
+// Dial opens an SFTP connection. timeout bounds the attempt, so a host that
+// will never answer cannot hold a panel open forever; it comes from config.yaml
+// by way of the UI, because a person on a slow link and a person on a LAN want
+// different numbers and neither of them should have to rebuild sshu.
+func Dial(h store.Host, prompt HostKeyPrompt, timeout time.Duration) (FS, error) {
 	auth, err := authMethods(h)
 	if err != nil {
 		return nil, err
@@ -61,7 +62,7 @@ func Dial(h store.Host, prompt HostKeyPrompt) (FS, error) {
 		User:            h.User,
 		Auth:            auth,
 		HostKeyCallback: cb,
-		Timeout:         dialTimeout,
+		Timeout:         timeout,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", h.Name, err)

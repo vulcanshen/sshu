@@ -1305,6 +1305,37 @@ footer 一直在講的那個 `Alt+Esc`。
 > 的遠端會被顯示成「連線中」,而且在它說話之前不能對它打字。實務上 ssh 一接上就會有
 > prompt 或 banner,但這個代價是真的;出口一樣是 `Alt+Esc`。
 
+#### 連線有預算,而且**讓 ssh 自己去超時**
+
+「連線中」不能是一個沒有盡頭的狀態。預算放在 `config.yaml` 的 `connect_timeout`
+(秒,預設 15 —— 也就是這件事可設定之前兩個 tab 各自寫死的那個常數),tab [2] 拿它
+當 SSH client 的 dial timeout,tab [3] 把它交給 ssh 當 `-o ConnectTimeout`。
+
+**交給 ssh 而不是自己動手,是因為 ssh 會「講」。** 它自己超時的時候會印
+`Operation timed out` 然後離開,那句話走的是每一種失敗都在走的同一條路(§7.1.4:
+最後畫面 → reason + app log)。sshu 自己把行程殺掉,只會得到一具沒有附說明的屍體。
+
+實測:`10.255.255.1` 原本會轉大約 75 秒(那是作業系統的 TCP 逾時),設成 3 之後三秒
+就結束,而且畫面上寫的是 ssh 的原話。
+
+**但 ssh 的 `ConnectTimeout` 只管 TCP 那一段。** 一台接了連線之後就不說話的主機
+——、DNS 卡住、server accept 了卻不送 banner —— 從外面看跟「還在連」一模一樣。所以
+另外有一個兜底:一條**完全沒說過話**的 session 超過「預算 + 5 秒寬限」就被停掉,
+reason 寫成 `no answer after Ns`。
+
+那 5 秒寬限就是兩者的分工:**先讓 ssh 用自己的話去超時,sshu 才伸手拔插頭**。
+
+**`config.yaml` 對 sshu 是唯讀的。** 沒有任何 UI 會寫回它,所以手改過的檔案不會被
+重排、不會被重新格式化,寫在裡面的註解也活得下來。檔案不存在不是錯誤:每個設定的
+預設值就是「這個設定存在之前 sshu 的行為」,所以那個檔只需要寫你想改的那幾行。
+
+**壞掉的設定檔會被講出來,但不會擋著不讓你開。** 解析失敗就用預設值繼續跑,並把
+錯誤丟進 app log —— alt screen 之後 stderr 是看不見的,而「有人寫了東西而它沒有生
+效」是一定要讓那個人知道的事。
+
+**超出範圍的數字當打錯處理**(1–600 秒以外一律回到預設)。`connect_timeout: 0` 照字
+面執行的話,是一個永遠連不上又不說為什麼的 tab。
+
 ### 7.2 hosts.yaml 外部變更
 
 `(planned)` 用 fsnotify 監看 `hosts.yaml`,外部編輯後即時 reload
@@ -1818,6 +1849,7 @@ sshu/
 │   │   └── errors.go       兩端錯誤的共同說法
 │   └── store/
 │       ├── store.go        XDG 路徑解析
+│       ├── config.go       config.yaml(唯讀:連線預算)
 │       └── hosts.go        hosts.yaml 讀寫 + 驗證
 ├── docs/
 │   ├── sshu-ui-design.md       ← 本檔(為什麼)
@@ -1951,6 +1983,8 @@ X 回到 ~1.0。
 | 結束的 session 立刻離開 `[5]`、emulator 被釋放 | `TestEndedSessionLeavesThePanel` |
 | app log 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | `TestTheAppLogIsAViewNotAList` |
 | **失敗會被說出來、留在 `[5]`、也進 log**;footer 報未讀 | `TestAFailedConnectionIsSaidAndKept` |
+| 連線有預算,交給 ssh 講;它管不到的沉默由 sweep 兜底 | `TestTheTimeoutIsHandedToSSH` / `TestAStalledConnectionIsGivenUpOn` |
+| `config.yaml` 缺檔不是錯、壞檔不致命、荒謬的值不照做 | `TestNoConfigIsNotAProblem` / `TestABrokenConfigIsReportedButNotFatal` / `TestAnAbsurdTimeoutFallsBackToTheDefault` |
 | log 收的是**整個失敗畫面**,而且長的那則捲得到底 | `TestTheLogKeepsTheWholeFailureNotJustItsLastLine` / `TestTheLogScrollsThroughALongEntry` |
 | **還沒接通就不接受打字**,而 `Alt+Esc` 仍然出得去 | `TestKeysAreNotSentToAConnectionThatHasNotAnswered` |
 | panel title 是純文字,膠囊只留給 tab row | `TestPanelTitlesAreNotCapsules` |
