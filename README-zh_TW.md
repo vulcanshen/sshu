@@ -226,7 +226,7 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 
 ## 現況
 
-**v0.1.0 —— 第一個公開版本。** 三個 Alt 和絃 tab、preference nav、可重用的 credentials、落地的 app log、ssh 終端網格,以及不留孤兒的行程收尾。290+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**v0.1.1。** 三個 Alt 和絃 tab、分類的 `[1] sshu` nav、可重用的 credentials、落地的 app log、ssh 終端網格,以及不留孤兒的行程收尾。300+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
 - **sftp 側未知 host key 的互動確認** —— 今天是直接拒絕,要先用 ssh tab 接受
