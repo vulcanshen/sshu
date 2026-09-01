@@ -115,29 +115,50 @@ func (p *ptyTerm) exitReason() string {
 	return "failed"
 }
 
-// lastWords is the last non-blank line on the grid.
+// screenLines is everything readable on the grid, blank rows at either end
+// trimmed off.
 //
-// It exists because ssh's failures are printed and then thrown away: the reaper
-// drops the emulator when a session ends, and exitReason can only say "exited
-// 255" — while the line ssh actually wrote says "Connection refused" or
-// "Permission denied" or which host key changed. That line is the whole of what
-// a person needs, and it was being discarded a tick after it arrived.
-func (p *ptyTerm) lastWords() string {
+// One line is not enough. A refused connection is one line, but a host key
+// mismatch is fifteen — a banner, the fingerprint, the offending known_hosts
+// line — and the LAST of them is only "Host key verification failed.", which is
+// the one line that tells you nothing you did not already know. The fingerprint
+// is the part you need, and it is in the middle.
+func (p *ptyTerm) screenLines() []string {
 	if p == nil || p.term == nil {
-		return ""
+		return nil
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	cols, rows := p.term.Size()
-	for y := rows - 1; y >= 0; y-- {
+	out := make([]string, 0, rows)
+	for y := range rows {
 		var b strings.Builder
 		for x := range cols {
 			if c := p.term.Cell(x, y).Char; c != 0 {
 				b.WriteRune(c)
 			}
 		}
-		if line := strings.TrimSpace(b.String()); line != "" {
-			return line
+		out = append(out, strings.TrimRight(b.String(), " "))
+	}
+	// Trim the blank rows at each end; the ones in the middle are the remote's
+	// own spacing and throwing them away would re-flow somebody else's message.
+	for len(out) > 0 && strings.TrimSpace(out[0]) == "" {
+		out = out[1:]
+	}
+	for len(out) > 0 && strings.TrimSpace(out[len(out)-1]) == "" {
+		out = out[:len(out)-1]
+	}
+	return out
+}
+
+// lastWords is the single most useful line: the last non-blank one. It is the
+// headline — what the toast says and what [5] leads with — while the whole
+// screen goes to the log.
+func (p *ptyTerm) lastWords() string {
+	lines := p.screenLines()
+	for i := len(lines) - 1; i >= 0; i-- {
+		if l := strings.TrimSpace(lines[i]); l != "" {
+			return l
 		}
 	}
 	return ""

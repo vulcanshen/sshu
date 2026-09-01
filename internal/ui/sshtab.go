@@ -210,9 +210,14 @@ func (m *sshModel) reap() []*session {
 		// and the line on the screen tells them apart. Read it before the
 		// emulator goes.
 		if !s.ok {
+			// Two different jobs, so two different amounts of it: the headline
+			// is what a toast and a panel line can hold, the whole screen is
+			// what the log keeps. Both are read here because a tick later the
+			// emulator is gone.
 			if w := s.pty.lastWords(); w != "" {
 				s.reason = w
 			}
+			s.detail = s.pty.screenLines()
 		}
 		// The screen is not kept, so neither is the emulator behind it: a whole
 		// terminal grid per past session, for something nothing renders.

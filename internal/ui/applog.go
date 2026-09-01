@@ -79,17 +79,40 @@ func (m *appLog) close() tea.Cmd   { return m.anim.close() }
 func (m *appLog) setSize(w, h int) { m.screenW, m.screenH = w, h }
 func (m appLog) unreadErrors() int { return m.unread }
 
-// add records one line.
+// entryLines and entryChars bound one entry. A whole ssh failure fits easily —
+// even the host key banner is about fifteen lines — while a remote that decides
+// to print a megabyte cannot take the log with it. kbu caps entries the same
+// way, at a smaller number, because kbu's entries are single lines.
+const (
+	entryLines = 40
+	entryChars = 4000
+)
+
+// add records one event, which may be several lines.
 //
-// The message is SANITISED because much of what lands here came off another
-// machine — ssh's last words before it gave up are the whole point of this
-// thing, and those bytes are the remote's, not ours.
-func (m *appLog) add(level logLevel, msg string) {
-	msg = strings.TrimSpace(sanitizeLine(msg))
-	if msg == "" {
+// Every line is SANITISED because this is where other machines' output ends up
+// — ssh's own words before it gave up are the whole point of the thing — and
+// those bytes are the remote's, not ours.
+func (m *appLog) add(level logLevel, msg string, more ...string) {
+	lines := make([]string, 0, 1+len(more))
+	for _, l := range append([]string{msg}, more...) {
+		for _, part := range strings.Split(l, "\n") {
+			if len(lines) >= entryLines {
+				break
+			}
+			if part = strings.TrimRight(sanitizeLine(part), " "); strings.TrimSpace(part) != "" {
+				lines = append(lines, part)
+			}
+		}
+	}
+	if len(lines) == 0 {
 		return
 	}
-	m.entries = append(m.entries, logEntry{at: time.Now(), level: level, msg: msg})
+	text := strings.Join(lines, "\n")
+	if r := []rune(text); len(r) > entryChars {
+		text = string(r[:entryChars]) + "…"
+	}
+	m.entries = append(m.entries, logEntry{at: time.Now(), level: level, msg: text})
 	if len(m.entries) > logCap {
 		m.entries = m.entries[len(m.entries)-logCap:]
 	}
@@ -98,9 +121,9 @@ func (m *appLog) add(level logLevel, msg string) {
 	}
 }
 
-func (m *appLog) info(msg string)   { m.add(logInfo, msg) }
-func (m *appLog) warn(msg string)   { m.add(logWarn, msg) }
-func (m *appLog) errorf(msg string) { m.add(logError, msg) }
+func (m *appLog) info(msg string, more ...string)   { m.add(logInfo, msg, more...) }
+func (m *appLog) warn(msg string, more ...string)   { m.add(logWarn, msg, more...) }
+func (m *appLog) errorf(msg string, more ...string) { m.add(logError, msg, more...) }
 
 // toggle is the whole of `!`: it opens what is closed and closes what is open,
 // the same contract `?` has (§A.2). Opening marks the errors as read.
@@ -118,53 +141,67 @@ func (m *appLog) update(msg tea.KeyMsg) {
 	if !m.anim.isInteractive() {
 		return
 	}
-	m.top = moveScroll(m.top, max(0, len(m.entries)-m.rows()), msg.String(), m.rows())
+	// Bounded by RENDERED rows, not by entries. One entry can be forty lines of
+	// somebody else's failure, and scrolling that indexed entries would let you
+	// see the top of it and never the rest.
+	n := len(m.allRows(popupInnerW(m.screenW, logW)))
+	m.top = moveScroll(m.top, max(0, n-m.rows()), msg.String(), m.rows())
 }
 
 // logW is the popup's width. Wide, because the lines it holds are somebody
 // else's error messages and those are not written to fit.
 const logW = 88
 
-func (m appLog) view() string {
-	innerW := popupInnerW(m.screenW, logW)
+// allRows is every line the log would draw, newest entry first. The viewport
+// scrolls over THESE rather than over entries, because one entry is not one row.
+func (m appLog) allRows(innerW int) []string {
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	// The prefix is "15:04:05 ERR  ", and the continuation lines of an entry are
+	// indented under its message rather than under its timestamp.
+	const prefixW = 15
+	msgW := max(8, innerW-prefixW-1)
 
 	var rows []string
-	if len(m.entries) == 0 {
-		rows = emptyBody(innerW, min(m.rows(), 5), "Nothing has happened yet",
-			emptyHint("Failed connections and transfers are recorded here", ""))
-	} else {
-		dim := lipgloss.NewStyle().Foreground(dimColor)
-		// The prefix is "15:04:05 ERR  ", and continuation lines are indented
-		// under the message rather than under the timestamp.
-		const prefixW = 15
-		msgW := max(8, innerW-prefixW-1)
-		// Newest first: the reason you opened this is almost always the last
-		// thing that went wrong.
-		end := min(len(m.entries), m.top+m.rows())
-		for i := m.top; i < end && len(rows) < m.rows(); i++ {
-			e := m.entries[len(m.entries)-1-i]
-			lvl := lipgloss.NewStyle().Foreground(e.level.colour())
-			// WRAPPED, not truncated. These lines are somebody else's error
-			// messages and the part that says why is at the END of them —
-			// "…port 22: Connection refused" — so cutting the tail throws away
-			// the only word anybody opened the log to read.
-			for j, line := range wrapText(e.msg, msgW) {
-				if j == 0 {
+	for i := len(m.entries) - 1; i >= 0; i-- {
+		e := m.entries[i]
+		lvl := lipgloss.NewStyle().Foreground(e.level.colour())
+		// An entry can be many lines — a whole ssh failure — and each of them is
+		// WRAPPED rather than truncated: these are somebody else's error
+		// messages and the part that says why is at the END of them ("…port 22:
+		// Connection refused"), so cutting the tail throws away the only words
+		// anybody opened the log to read.
+		first := true
+		for _, para := range strings.Split(e.msg, "\n") {
+			for _, line := range wrapText(para, msgW) {
+				if first {
 					rows = append(rows, " "+dim.Render(e.at.Format("15:04:05"))+" "+
 						lvl.Render(e.level.label())+" "+line)
+					first = false
 					continue
-				}
-				if len(rows) >= m.rows() {
-					break
 				}
 				rows = append(rows, spaces(prefixW)+line)
 			}
 		}
 	}
+	return rows
+}
+
+func (m appLog) view() string {
+	innerW := popupInnerW(m.screenW, logW)
+
+	rows := m.allRows(innerW)
+	total := len(rows)
+	if total == 0 {
+		rows = emptyBody(innerW, min(m.rows(), 5), "Nothing has happened yet",
+			emptyHint("Failed connections and transfers are recorded here", ""))
+	} else {
+		top := clamp(m.top, 0, max(0, total-1))
+		rows = rows[top:min(total, top+m.rows())]
+	}
 
 	hint := [][2]string{{"j/k", "scroll"}, {"Esc", "close"}}
-	if n := len(m.entries); n > m.rows() {
-		hint = append([][2]string{{itoa(m.top + 1), "of " + itoa(n)}}, hint...)
+	if total > m.rows() {
+		hint = append([][2]string{{itoa(m.top + 1), "of " + itoa(total)}}, hint...)
 	}
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphInfo+" app log ",
 		hintLegend(hint), animRows(m.anim, capRows(rows, m.screenH)), innerW)

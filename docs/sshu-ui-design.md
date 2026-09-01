@@ -1253,6 +1253,26 @@ session」,而是「**它們怎麼結束的**」—— 而那個問題不是 tab
 **log 裡的訊息是折行、不是截斷。** 那些是別人機器寫的錯誤訊息,而它們把原因放在
 **句尾** —— `…port 22: Connection refused`。截掉尾巴,等於截掉唯一有人想讀的那個字。
 
+**一則事件記的是整個畫面,不是最後一行。** 連線被拒是一行,但 host key 不符是十五行
+—— banner、指紋、`known_hosts` 的第幾行 —— 而**最後一行只是
+`Host key verification failed.`**,那正是唯一沒有告訴你任何新東西的一行。你需要的
+指紋在中間。
+
+所以兩個份量各給各的:
+
+| | 內容 | 為什麼 |
+|---|---|---|
+| toast / `[5]` 標題 | **最後一行** | 那是一行字塞得下的量 |
+| app log | **整個最終畫面** | 那是你事後真的要讀的東西 |
+
+兩者都在 reaper 丟掉 emulator **之前**讀走,因為再一個 tick 就沒有了。
+
+上限是**每則 40 行 / 4000 字**(kbu 也對每則設上限,只是它的每則是單行)。一台決定
+印一 MB 出來的遠端,不能把整份紀錄一起帶走。
+
+`top` 數的是**畫出來的列**而不是「第幾則」:一則可以是四十行,用「則」捲動會變成
+看得到開頭、永遠到不了結尾。
+
 #### 連不上的時候要說**它說了什麼**,不是「disconnected」
 
 `exitReason` 只看得到 exit code,而 ssh 的 255 對「連線被拒」「金鑰不對」「host key
@@ -1931,6 +1951,7 @@ X 回到 ~1.0。
 | 結束的 session 立刻離開 `[5]`、emulator 被釋放 | `TestEndedSessionLeavesThePanel` |
 | app log 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | `TestTheAppLogIsAViewNotAList` |
 | **失敗會被說出來、留在 `[5]`、也進 log**;footer 報未讀 | `TestAFailedConnectionIsSaidAndKept` |
+| log 收的是**整個失敗畫面**,而且長的那則捲得到底 | `TestTheLogKeepsTheWholeFailureNotJustItsLastLine` / `TestTheLogScrollsThroughALongEntry` |
 | **還沒接通就不接受打字**,而 `Alt+Esc` 仍然出得去 | `TestKeysAreNotSentToAConnectionThatHasNotAnswered` |
 | panel title 是純文字,膠囊只留給 tab row | `TestPanelTitlesAreNotCapsules` |
 | `[6]` 不帶 on-screen glyph | `TestHistoryHasNoOnScreenMarker` |
