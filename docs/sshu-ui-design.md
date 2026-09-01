@@ -30,12 +30,12 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[Alt][p]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
-| **[Alt][f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
-| **[Alt][s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
+| **[Alt+p]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
+| **[Alt+f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
+| **[Alt+s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
 
 三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),以 **Alt 和絃**
-切換:標籤印的就是按的 —— `[Alt][p]` 兩個括號、一個和絃,小寫是日常拼法;
+切換:標籤印的就是按的 —— `[Alt+p]` 一個括號、整個和絃,小寫是日常拼法;
 pty 內只攔 shift 加大寫(小寫屬於遠端)。裸數字整組讓給「當前 tab 的 panel」。v0.2 之前 tab 掛在
 `1`/`2`/`3` 上 —— 換掉的理由與整輪大改的紀錄見 §11。
 
@@ -1874,7 +1874,7 @@ sshu/
 │   │   ├── view.go         compose、浮層疊放次序、footer legend
 │   │   ├── theme.go        色彩錨點與 glyph 常數
 │   │   ├── chrome.go       powerline tab 帶(自 filu 改)
-│   │   ├── preftab.go      [Alt][p] nav + 內容切換 + 版面(v0.2)
+│   │   ├── preftab.go      [Alt+p] nav + 內容切換 + 版面(v0.2)
 │   │   ├── hosts.go        hosts 表格 model:cursor、捲動、跨欄 fuzzy 搜尋
 │   │   ├── credlist.go     credentials 表格(v0.2)
 │   │   ├── credform.go     credential form(v0.2;與 host form 共用欄位引擎)
@@ -1882,8 +1882,8 @@ sshu/
 │   │   ├── table.go        hosts 表格:欄寬推導、列 render
 │   │   ├── form.go         host form popup(form 類)
 │   │   ├── filepicker.go   identity file picker(menu 類)
-│   │   ├── sshtab.go       [Alt][s] 終端網格、layout strip、session 清單(v0.2 重寫)
-│   │   ├── sshkeys.go      [Alt][s] 的動作表、layout 鍵、R×C 解析
+│   │   ├── sshtab.go       [Alt+s] 終端網格、layout strip、session 清單(v0.2 重寫)
+│   │   ├── sshkeys.go      [Alt+s] 的動作表、layout 鍵、R×C 解析
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
@@ -2202,8 +2202,9 @@ sshu 攔下。
 大小寫的分工是後來補的裁定:**pty 外**小寫 `alt+p/f/s` 也通(那裡它是
 死鍵,離活鍵一個 shift 的死鍵是沒有回報的陷阱);**pty 內**只認大寫
 (`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。標籤最終拼成
-`[Alt][p]reference` —— 小寫、兩個括號 —— 同批把 nav 面板改名
-`[1] Resources`(使用者裁定;各節內的舊拼法屬歷史紀錄,不回改)。
+`[Alt+p]reference` —— 一個括號裝整個和絃(`[Alt+p]` 的兩括號版試了一輪
+就併掉)—— 同批把 nav 面板改名 `[1] Resources`(使用者裁定;各節內的
+舊拼法屬歷史紀錄,不回改)。
 
 **VHS 送不出任何 Alt**(`Alt+F` 只送裸字元、`Alt+Esc` 更是把 "Esc" 三個
 字母打出來,cat -v 實證)。和絃由單元測試覆蓋;tape 要壓 Alt 得繞
@@ -2265,17 +2266,23 @@ workspace 鍵正是 Alt+數字,和絃在本地層就被吃掉、到不了 sshu),
 方向鍵往鄰格走 —— `Alt+方向鍵` 在裸終端裡本來就是無效輸入(使用者裁定),
 不用記編號、重排無感;邊緣 **clamp 不繞**(空間移動絕不瞬移,同 u/d 的
 規則),ragged 網格短列之外沒有格子就是不動。格子標題隨之拿掉
-`[Alt][N]` 前綴 —— 沒有編號好揭露,名字本身就是身分。清單列開頭多一個顯示欄:有格子
+`[Alt+N]` 前綴 —— 沒有編號好揭露,名字本身就是身分。清單列開頭多一個顯示欄:有格子
 的是 monitor、沒有的是劃線 monitor —— 兩個**形狀**,不是一個形狀兩種
 顏色,色弱也讀得出來(codepoint 照規矩查 cmap:f0379 / f0d90)。
 
-layout strip `[2]` 蓋在網格上方、永遠在場(高度不隨 focus 跳動):
-horizontal / vertical 是兩個退化網格(一列 / 一欄),custom 是指定的
-R×C(**先列後行**,提示、解析、條紋標籤、toast 四處同一個順序 —— 一開始
-是 C×R,使用者裁定改為列先)—— Enter 問形狀,兩個 1-9 的數字用什麼隔開
-都行;**塞爆時長列不砍格**
-(格子絕不能默默不存在)。條紋在高度撐不起「三行 chrome + 可用網格」時
-讓位。
+layout strip `[2]` 住在**左欄底部**、sessions 清單之下 —— 一開始蓋在網格
+上方,使用者裁定搬家:右側就該完整屬於 pty panel。三個選項直排(26 欄的
+左欄坐不下三個並排的選項,而且清單下面接一個清單讀起來自然),j/k 走、
+h/l 也還答應。horizontal / vertical 是兩個退化網格(一列 / 一欄),custom
+是指定的 R×C(**先列後行**,提示、解析、條紋標籤、toast 四處同一個順序 ——
+一開始是 C×R,使用者裁定改為列先)—— Enter 問形狀,兩個 1-9 的數字用什麼
+隔開都行;**塞爆時長列不砍格**(格子絕不能默默不存在)。條紋在左欄高度
+撐不起「它自己 + 可用清單」時讓位。
+
+清單列同批改成**一行**:`<user>@<host>:<port>`,ssh 自己的拼法 —— port
+不再擁有右緣的專屬 slot(使用者裁定)。位址照折行,但 `:port`(與 #N)是
+**一個不可拆的尾巴**:掛不上最後一行就整個自己一行 —— 拆到兩行的 port
+(「…:2 / 222」)是另一個數字,不是短一點的同一個。
 
 幾何的紀律:每一格的遠端只在數字真的變了才收到 SIGWINCH(applied 幾何
 記在 session 上);splitEven 把餘數攤開,欄寬總和**精確等於**總寬 ——
@@ -2311,7 +2318,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | `Space` | contextual 入口(Space menu);**在浮層上按 = 關掉它** |
 | `?` | non-contextual 入口(help);**再按一次關掉** |
 
-### [Alt][p]reference
+### [Alt+p]reference
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -2331,7 +2338,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄) · `Esc` | 送出 / 取消 |
 
-### [Alt][f]ile transfer
+### [Alt+f]ile transfer
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -2340,7 +2347,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | 全部 | `S` · `P` · `R` · `x`/`X` · `C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear marks / 傳輸(項/marks) |
 | 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / 標記 / 搜尋子樹 / Add / Rename / View / Edit |
 
-### [Alt][s]sh
+### [Alt+s]sh
 
 | Surface | 鍵 | 動作 |
 |---|---|---|

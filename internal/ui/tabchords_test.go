@@ -81,3 +81,16 @@ func TestFooterDisclosesTheTabChords(t *testing.T) {
 		t.Errorf("the pty footer must disclose the chords that still work, got %q", foot)
 	}
 }
+
+// The short tier must still tell the tabs apart: each keeps its whole
+// bracket, and no two collapse to the same thing (cutting at the wrong spot
+// once left three identical prefixes).
+func TestShortLabelsKeepTheChord(t *testing.T) {
+	short := shortLabels(tabLabels)
+	want := []string{"[Alt+p]", "[Alt+f]", "[Alt+s]"}
+	for i := range want {
+		if short[i] != want[i] {
+			t.Fatalf("short label %d is %q, want %q", i, short[i], want[i])
+		}
+	}
+}

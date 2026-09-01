@@ -20,13 +20,13 @@ const (
 	tabCount
 )
 
-// Strip labels. Two brackets, one chord: [Alt][p] disclosed in lowercase —
-// the everyday, unshifted spelling. The tabs moved OFF the bare digits so
+// Strip labels. One bracket, the whole chord inside it: [Alt+p], disclosed
+// in its everyday lowercase spelling. The tabs moved OFF the bare digits so
 // that every digit could address a panel of the current tab instead — and so
 // that switching tab works even while a remote holds the keyboard, which no
 // bare key could survive. (Inside a pty only the SHIFTED chord is
 // intercepted; see tabForChord.)
-var tabLabels = []string{"[Alt][p]reference", "[Alt][f]ile transfer", "[Alt][s]sh"}
+var tabLabels = []string{"[Alt+p]reference", "[Alt+f]ile transfer", "[Alt+s]sh"}
 
 // chromeRows is the fixed chrome the panels do NOT get: the capsule row, the
 // rule under it, and the footer. Locked at 3 — none of them ever reflows (§1.3).
@@ -607,7 +607,7 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // tabForChord resolves a tab-switch chord. The disclosed spelling is the
-// lowercase one — [Alt][p] — and outside a pty both cases answer: a dead key
+// lowercase one — [Alt+p] — and outside a pty both cases answer: a dead key
 // one shift away from a live one is a trap with no payoff. INSIDE a pty the
 // unshifted chords are not sshu's to take — M-f is forward-word in every
 // readline and emacs on the far end — so only the shifted spelling is

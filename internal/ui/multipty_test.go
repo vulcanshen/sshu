@@ -173,13 +173,13 @@ func TestLayoutStripDrivesTheGrid(t *testing.T) {
 	if m.ssh.focus != panelLayout {
 		t.Fatalf("2 should focus the layout strip, got %d", m.ssh.focus)
 	}
-	m = pressA(m, "l")
+	m = pressA(m, "j") // the options stack vertically, so j/k is the walk
 	if m.ssh.layout != layoutVertical {
-		t.Fatalf("l should move to vertical, got %d", m.ssh.layout)
+		t.Fatalf("j should move to vertical, got %d", m.ssh.layout)
 	}
-	m = pressA(m, "l")
+	m = pressA(m, "l") // the old horizontal vocabulary still answers
 	if m.ssh.layout != layoutCustom {
-		t.Fatalf("l again should reach custom, got %d", m.ssh.layout)
+		t.Fatalf("l should reach custom, got %d", m.ssh.layout)
 	}
 	m = pressA(m, "enter")
 	if !m.input.isActive() {
