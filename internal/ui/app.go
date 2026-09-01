@@ -40,17 +40,19 @@ const chromeRows = 3
 type SaveFunc func([]store.Host) error
 
 type AppModel struct {
-	w, h      int
-	tab       tabID
-	pref      prefModel
-	hosts     hostsModel
-	creds     credsModel
-	saveCreds func([]store.Credential) error
-	ssh       sshModel
-	sftp      sftpModel
-	transfers transferModel
-	cfg       store.Config
-	pending   pendingTransfer
+	w, h       int
+	tab        tabID
+	pref       prefModel
+	exportPage bundlePage
+	importPage bundlePage
+	hosts      hostsModel
+	creds      credsModel
+	saveCreds  func([]store.Credential) error
+	ssh        sshModel
+	sftp       sftpModel
+	transfers  transferModel
+	cfg        store.Config
+	pending    pendingTransfer
 	// pendingEdit is the file currently being edited, and it outlives the popup
 	// on purpose: the overwrite question is asked after the box is gone, and its
 	// answer needs the local copy that box was standing on.
@@ -88,6 +90,8 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		// The tab opens ON its content — the hosts table, exactly where the
 		// old hosts tab put you. The nav is chrome you visit (1, or Tab).
 		pref:        prefModel{focus: panelPrefContent},
+		exportPage:  newExportPage(),
+		importPage:  newImportPage(),
 		hosts:       hostsModel{hosts: hosts},
 		ssh:         newSSHModel(),
 		sftp:        newSFTPModel(),
@@ -378,6 +382,14 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.hosts.clearFilter()
 			return m, nil
 		}
+		// An Operation page is left the way any text surface is: Esc hands
+		// the keyboard back to the nav. It HAS to be Esc — the page swallows
+		// the digits and Tab that move focus everywhere else (§4.5).
+		if m.textPage() {
+			m.pref.focus = panelPrefNav
+			m.syncPrefSizes()
+			return m, nil
+		}
 		// filu's two-stage Esc: close a float if one is up, otherwise go up a
 		// directory. Only the sftp browser has an "up" to go to.
 		if !m.popupOpen() && m.tab == tabFT && !m.sftp.focus.isMarks() {
@@ -424,7 +436,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Type == tea.KeySpace && m.popupOpen() && !m.textFloat() {
 		return m.closeTop()
 	}
-	if msg.String() == "?" && !m.textFloat() && !m.inPty() {
+	if msg.String() == "?" && !m.textFloat() && !m.textPage() && !m.inPty() {
 		if m.help.anim.owns() {
 			return m, m.help.close()
 		}
@@ -435,7 +447,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	// V is the hidden u-family easter egg: the logo, revealed. Outside a pty
 	// only — in there V belongs to the remote.
-	if msg.String() == "V" && !m.textFloat() && !m.inPty() && !m.popupOpen() {
+	if msg.String() == "V" && !m.textFloat() && !m.textPage() && !m.inPty() && !m.popupOpen() {
 		return m, m.splash.show()
 	}
 
@@ -447,6 +459,12 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.tab == tabPref && m.pref.item == prefHosts && !m.popupOpen() && m.hosts.filterKey(msg) {
 		return m, nil
+	}
+	// An Operation page (Export / Import) is a text surface IN a panel: while
+	// it holds focus it claims every printable key, Tab and Enter, the same
+	// §4.5 split every other typing surface makes.
+	if m.textPage() {
+		return m.bundlePageKey(msg)
 	}
 
 	// Same rule as popupOpen: a float that is closing has already handed the
@@ -912,7 +930,7 @@ func (m AppModel) menuItems() []menuItem {
 	}
 	if m.pref.focus == panelPrefNav {
 		return []menuItem{
-			{label: "resources", header: true},
+			{label: "sshu", header: true},
 			{label: "j/k choose a section — Enter opens it", header: true},
 		}
 	}
@@ -923,6 +941,11 @@ func (m AppModel) menuItems() []menuItem {
 		return []menuItem{
 			{label: "app log", header: true},
 			{label: "newest first — j/k scroll, nothing to act on", header: true},
+		}
+	case prefExport, prefImport:
+		return []menuItem{
+			{label: "operation", header: true},
+			{label: "a form — letters type, Enter runs it", header: true},
 		}
 	}
 	_, acts := m.hostsApplicable()
