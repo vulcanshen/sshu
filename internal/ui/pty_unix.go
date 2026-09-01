@@ -33,6 +33,11 @@ type ptyTerm struct {
 
 	// exitErr is what cmd.Wait returned, read only after done flips.
 	exitErr atomic.Pointer[error]
+
+	// spoke flips at the first byte out of the subprocess. It is the difference
+	// between "this terminal is empty" and "nothing has happened yet", which
+	// look identical on screen and are not remotely the same thing.
+	spoke atomic.Bool
 }
 
 // startPty launches cmd on a PTY sized cols×rows.
@@ -72,6 +77,7 @@ func (p *ptyTerm) readLoop() {
 				_, _ = p.term.Write(buf[:n])
 			}
 			p.mu.Unlock()
+			p.spoke.Store(true)
 		}
 		if err != nil {
 			break
@@ -83,6 +89,9 @@ func (p *ptyTerm) readLoop() {
 }
 
 func (p *ptyTerm) exited() bool { return p != nil && p.done != nil && p.done.Load() }
+
+// hasSpoken reports whether anything has come back yet.
+func (p *ptyTerm) hasSpoken() bool { return p != nil && p.spoke.Load() }
 
 // exitReason describes how the subprocess ended, for the history list. ssh's
 // own exit code 255 is its "connection failed" signal, which is worth naming
