@@ -109,7 +109,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 | 元素 | 專職 | 不可挪用 |
 |---|---|---|
-| **blue `#89b4fa`** | panel border、active tab 膠囊底、hosts 表格選中列的 bar | 不拿去表達 user state |
+| **blue `#89b4fa`** | panel border、tab 帶上亮著那段的底、hosts 表格選中列的 bar | 不拿去表達 user state |
 | **subtext1 `#bac2de`** | 清單游標 bar(menu / picker / session) | 不當 panel chrome |
 | **lavender `#b4befe`** | **正在編輯的東西**:form 的當前欄位、sftp 的 cwd、Rename 輸入框 | 不當 popup border |
 | **green `#a6e3a1`** | 正在進行 / 成功:`[5]` 顯示中的 session、sftp marks、history 的 `exited 0` | 不當裝飾 |
@@ -131,7 +131,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 頂部 1 行膠囊 tab bar(獨立 content row,**不是** panel border title)、其下 1 行
 整寬分隔線、底部 1 行 footer。中間全部給 panel。`chromeRows = 3`,**選定即鎖死**。
 
-那條分隔線是**把膠囊還給 panel title 的前提**:tab 膠囊與 panel 膠囊上下相鄰時,
+那條分隔線是**把膠囊還給 panel title 的前提**:tab 帶與 panel 膠囊上下相鄰時,
 兩排填色形狀會讀成同一條 chrome。
 
 ### 1.2 三個 tab 的版面
@@ -224,7 +224,7 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成兩格。`ptyTer
 
 ### 3.4 Surface 標籤
 
-- **tab 膠囊**:`[N] label`(型別訊號 + 內容訊號)
+- **tab 帶**:每段 `[N] label`(型別訊號 + 內容訊號)
 - **panel**:**有兩個以上 panel 的 tab**,每個 panel 都有 `[N] label`,同形圓角
   膠囊嵌在上邊框。**只有一個 panel 的 tab 不戴**(tab [1]):title 是用來把 panel
   彼此分開的,一張表底下再掛一顆寫著 `hosts` 的膠囊,是在回答沒有人會問的問題
@@ -416,13 +416,15 @@ ssh session、進行中的傳輸、sftp 連線。三條出口(`q`、quit 確認�
 
 ## §8. Panel chrome in sshu
 
-### 8.1 膠囊 tab bar
+### 8.1 powerline tab bar
 
-三顆**各自獨立**的圓角膠囊、彼此不相連(不用 filu 那種 powerline 連鎖 chain ——
-那條 chain 是「同一組分頁」的語彙,這裡三個 tab 是三個並存 surface,分開才誠實)。
+**一條連起來的帶子**(filu 的 chain 語彙):圓帽開頭、斜線分段、圓帽收尾,恰好一段
+亮著。斜線一律 `/`,`ple-lower_right_triangle`(U+E0BA)承載顏色改變、
+`ple-forwardslash_separator`(U+E0BB)在兩側同色時只畫線。
 
-- **active**:blue 底 + base 深字 + bold,兩端圓 cap 同 blue
-- **inactive**:crust 底 + surface2 字
+- **active**:blue 底 + base 深字 + bold
+- **inactive**:**surface0 `#313244`** 底 + surface2 字(不是 crust —— crust 跟畫布
+  只差一階,沒亮的段會整個消失,理由與兩次被否決的做法見設計稿 §1.1)
 - 右端是**狀態 slot**:hosts `1/5 hosts`、sftp `2 marks` 或傳輸進度、ssh
   `3 live · 1 past`
 

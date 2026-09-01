@@ -665,28 +665,34 @@ func TestQuitFromSessionsAsksAndThenStops(t *testing.T) {
 	waitFor(t, "the session to be killed", func() bool { return s.pty.exited() })
 }
 
-// Filled means you are here; outlined means you can go here. The unlit tabs used
-// to be filled too, on a `crust` background a shade off the canvas — which gave
-// them no visible shape at all, while an unfocused PANEL chip was perfectly
-// legible. Shape now carries the state as well as colour, so selection does not
-// rest on one weak colour difference.
-func TestOnlyTheLitTabIsFilled(t *testing.T) {
-	m := sized(sample(), 100, 26)
-	row := strings.Split(m.View(), "\n")[0]
+// The tab row is ONE strip: two round caps for the whole thing, and a slanted
+// divider between neighbours. Which divider says where the lit segment is — a
+// SOLID slant carries a colour change, a THIN one only draws a line where the
+// fill is the same on both sides. So the counts pin down the shape and the
+// lit position together.
+func TestTheTabRowIsOneStripWithOneLitSegment(t *testing.T) {
+	for _, tc := range []struct {
+		key         string
+		solid, thin int
+	}{
+		{"1", 1, 1}, // lit|unlit, unlit|unlit
+		{"2", 2, 0}, // unlit|lit, lit|unlit
+		{"3", 1, 1}, // unlit|unlit, unlit|lit
+	} {
+		m := pressA(sized(sample(), 100, 26), tc.key)
+		row := strings.Split(m.View(), "\n")[0]
 
-	if strings.Count(row, capLeftThin) != 2 || strings.Count(row, capRightThin) != 2 {
-		t.Errorf("want two outlined tabs, got %d/%d thin caps:\n%q",
-			strings.Count(row, capLeftThin), strings.Count(row, capRightThin), row)
-	}
-	if strings.Count(row, capLeft) != 1 || strings.Count(row, capRight) != 1 {
-		t.Errorf("want exactly one filled tab, got %d/%d solid caps:\n%q",
-			strings.Count(row, capLeft), strings.Count(row, capRight), row)
-	}
-	// And the filled one is the tab you are actually on.
-	lit := strings.Index(row, capLeft)
-	for _, other := range []string{"[2] sftp", "[3] ssh"} {
-		if at := strings.Index(row, other); at >= 0 && at < lit {
-			t.Errorf("the filled capsule is not the first tab: %q", row)
+		if got := strings.Count(row, capLeft); got != 1 {
+			t.Errorf("%s: %d opening caps, want one strip", tc.key, got)
+		}
+		if got := strings.Count(row, capRight); got != 1 {
+			t.Errorf("%s: %d closing caps, want one strip", tc.key, got)
+		}
+		if got := strings.Count(row, slantSolid); got != tc.solid {
+			t.Errorf("%s: %d solid slants, want %d", tc.key, got, tc.solid)
+		}
+		if got := strings.Count(row, slantThin); got != tc.thin {
+			t.Errorf("%s: %d thin slants, want %d", tc.key, got, tc.thin)
 		}
 	}
 }

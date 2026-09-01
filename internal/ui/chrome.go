@@ -6,11 +6,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// capsuleGap is the space between two tab capsules. They are deliberately NOT
-// joined into a powerline chain (filu's tab-bar vocabulary): a chain says "these
-// are pages of one thing", and sshu's three tabs are three co-existing surfaces.
-const capsuleGap = 2
-
 // minAppW is the narrowest terminal sshu draws in: the width of the short-label
 // capsule strip. Below it the tab row cannot be honest about which tab is lit.
 const minAppW = 20
@@ -20,41 +15,80 @@ const minAppW = 20
 // breakage rather than information.
 const statusMinRoom = 6
 
-// capsule is one tab pill, and the two states are told apart by SHAPE as well as
-// colour: filled is "you are here", outlined is "you can go here".
+// The tab row is ONE powerline strip, not three free-standing pills: a round cap
+// opens it, the segments run together, slanted dividers separate them, a round
+// cap closes it. Exactly one segment is lit.
 //
-// It used to be filled either way — bright blue when lit, and `borderDim` on
-// `crust` when not. That second one was the bug: crust is a shade off the canvas,
-// so an unlit tab had no visible shape at all, while an unfocused PANEL chip
-// (dark text on borderDim) was perfectly legible. The same app was drawing its
-// two "not selected" states in opposite directions.
+// It was three separate capsules, and the unlit ones were filled with `crust` —
+// a shade off the canvas — so they had no visible shape at all, while an
+// unfocused PANEL chip (dark text on borderDim) was perfectly legible. The same
+// app drew its two "not selected" states in opposite directions.
 //
-// Filled-vs-outlined also stops selection resting on colour alone, and it says
-// something true about the relationship: the three tabs are a choice of one,
-// whereas the panels are all present at once with one of them focused. A pill
-// you can see the shape of, and only one of them lit, is what that looks like.
-func capsule(label string, active bool) string {
-	if !active {
-		dim := lipgloss.NewStyle().Foreground(borderDim)
-		return dim.Render(capLeftThin) + dim.Render(label) + dim.Render(capRightThin)
-	}
-	bg := focusColor
-	cap := lipgloss.NewStyle().Foreground(bg)
-	body := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(bg).Bold(true)
-	return cap.Render(capLeft) + body.Render(label) + cap.Render(capRight)
-}
+// Two things were tried before this. Raising the unlit fill to match the panel
+// chip fixed visibility but made three filled pills in a row read as a strip of
+// buttons — the thing the rule under this row exists to prevent. Outlining the
+// unlit ones with thin half-circle caps (U+E0B7/E0B5) gave them a shape, but two
+// thin arcs around dim text read as PARENTHESES rather than as a capsule.
+//
+// A chain answers both. It is one object, so the unlit segments are visibly part
+// of something rather than floating; and it cannot be mistaken for a row of
+// buttons, because a row of buttons has gaps and this has none. The earlier note
+// here said sshu deliberately avoided filu's chain because "a chain says these
+// are pages of one thing, and sshu's tabs are three co-existing surfaces" — but
+// three co-existing surfaces of ONE app is exactly what the strip draws, and the
+// separation that matters (chrome above, surface below) is the rule's job.
+//
+// The dividers slant "/", forward, in the direction the eye reads.
 
-// capsulesW is the width of the whole capsule strip, including the leading
-// indent and the gaps between pills.
-func capsulesW(labels []string) int {
-	w := 1
+// tabChainW is the strip's width: two caps, a space either side of every label,
+// and one divider between neighbours.
+func tabChainW(labels []string) int {
+	w := 2
 	for i, l := range labels {
 		if i > 0 {
-			w += capsuleGap
+			w++
 		}
-		w += dispW(l) + 2 // two caps
+		w += dispW(l) + 2
 	}
 	return w
+}
+
+// tabChain renders the strip. The solid divider is drawn in the RIGHT segment's
+// fill over the LEFT segment's, which is what makes the colour change land on
+// the slant instead of on a cell boundary.
+func tabChain(labels []string, active int) string {
+	lit, unlit := focusColor, lipgloss.Color(surface0Hex)
+	fill := func(i int) lipgloss.Color {
+		if i == active {
+			return lit
+		}
+		return unlit
+	}
+
+	var b strings.Builder
+	b.WriteString(lipgloss.NewStyle().Foreground(fill(0)).Render(capLeft))
+	for i, lab := range labels {
+		if i > 0 {
+			prev, cur := fill(i-1), fill(i)
+			st := lipgloss.NewStyle().Foreground(cur).Background(prev)
+			div := slantSolid
+			if prev == cur {
+				// Same fill on both sides: a line, not a transition.
+				st = lipgloss.NewStyle().Foreground(borderDim).Background(cur)
+				div = slantThin
+			}
+			b.WriteString(st.Render(div))
+		}
+		seg := " " + lab + " "
+		if i == active {
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).
+				Background(lit).Bold(true).Render(seg))
+			continue
+		}
+		b.WriteString(lipgloss.NewStyle().Foreground(borderDim).Background(unlit).Render(seg))
+	}
+	b.WriteString(lipgloss.NewStyle().Foreground(fill(len(labels) - 1)).Render(capRight))
+	return b.String()
 }
 
 // shortLabels drops each capsule to its "[N]" prefix. This is the narrow-width
@@ -80,19 +114,14 @@ func shortLabels(labels []string) []string {
 // Always exactly one row of exactly w cells (§1.3): the status is truncated,
 // the labels shorten, nothing wraps.
 func tabRow(w int, labels []string, active int, status string) string {
-	if capsulesW(labels) > w {
+	if tabChainW(labels)+1 > w {
 		labels = shortLabels(labels)
 	}
 
 	var b strings.Builder
 	b.WriteString(" ")
-	for i, lab := range labels {
-		if i > 0 {
-			b.WriteString(strings.Repeat(" ", capsuleGap))
-		}
-		b.WriteString(capsule(lab, i == active))
-	}
-	used := capsulesW(labels)
+	b.WriteString(tabChain(labels, active))
+	used := tabChainW(labels) + 1 // the leading indent
 	if used >= w {
 		return b.String() // pathological width; the guard in View catches this
 	}
