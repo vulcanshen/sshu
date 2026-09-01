@@ -6,7 +6,7 @@ import (
 	overlay "github.com/rmhubbert/bubbletea-overlay"
 )
 
-// View composes the whole screen: one capsule row, the active tab's panel, one
+// View composes the whole screen: one strip row, the active tab's panel, one
 // footer — then composites whatever floats are up on top of that canvas.
 //
 // Both chrome rows are locked at one line each, so the panel absorbs every
@@ -15,7 +15,8 @@ func (m AppModel) View() string {
 	if m.w == 0 || m.h == 0 {
 		return "" // wait for the first WindowSizeMsg
 	}
-	// 20 is where the short-label capsule strip ([1] [2] [3]) still fits.
+	// minAppW is where the short-label strip ([Alt-P] [Alt-F] [Alt-S]) still
+	// fits.
 	if m.w < minAppW || m.h < chromeRows+3 {
 		return "terminal too small"
 	}
@@ -75,9 +76,9 @@ func (m AppModel) View() string {
 // wants to say about itself, in one line.
 func (m AppModel) status() string {
 	switch m.tab {
-	case tabHosts:
+	case tabPref:
 		return m.hosts.status()
-	case tabSFTP:
+	case tabFT:
 		return m.sftp.status(m.transfers.summary())
 	case tabSSH:
 		return m.ssh.status()
@@ -87,7 +88,7 @@ func (m AppModel) status() string {
 
 func (m AppModel) panel() string {
 	switch m.tab {
-	case tabSFTP:
+	case tabFT:
 		return m.sftp.view()
 	case tabSSH:
 		return m.ssh.view()
@@ -105,16 +106,18 @@ func (m AppModel) footer() string {
 	// mandatory disclosure for Alt+Esc: it is advertised exactly where it means
 	// something, and nowhere else.
 	if m.inPty() {
-		return keyLegend([][2]string{{"alt+esc", "leave pty"}}, m.w)
+		// The chords still work in here — that is the point of them being
+		// chords — so they are the only other thing the row may honestly say.
+		return keyLegend([][2]string{{"alt+esc", "leave pty"}, {"alt+P/F/S", "tab"}}, m.w)
 	}
 	// The digits offered are the ones the current tab actually shows (§4.4): a
 	// number the screen does not display is a number the keyboard ignores.
-	nav := [2]string{"1-3", "tabs"}
+	nav := [2]string{"alt+P/F/S", "tab"}
 	switch m.tab {
-	case tabSFTP:
-		nav = [2]string{"1-7", "surfaces"}
+	case tabFT:
+		nav = [2]string{"1-4 alt+P/F/S", "panel tab"}
 	case tabSSH:
-		nav = [2]string{"1-5", "surfaces"}
+		nav = [2]string{"1-2 alt+P/F/S", "panel tab"}
 	}
 	// `!` is disclosed like every other entry key, and when the log holds errors
 	// nobody has read it says HOW MANY instead of just "log". A record nobody is

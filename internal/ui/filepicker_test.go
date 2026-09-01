@@ -132,7 +132,7 @@ func TestPickerFiltersAndMoves(t *testing.T) {
 
 func TestPickerFrameHolds(t *testing.T) {
 	fixtureKeys(t)
-	for _, sz := range [][2]int{{100, 30}, {78, 24}, {60, 16}, {40, 12}, {24, 9}} {
+	for _, sz := range [][2]int{{100, 30}, {78, 24}, {60, 16}, {40, 12}, {34, 9}} {
 		w, h := sz[0], sz[1]
 		m := New(sample(), nil, store.DefaultConfig())
 		next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})

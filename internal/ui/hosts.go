@@ -211,8 +211,8 @@ func (m hostsModel) view() string {
 			emptyBody(innerW, innerH-1, "No match", nil)...)
 	}
 	// No title. A panel title exists to tell panels APART, and this tab has one
-	// panel — the capsule would have said "hosts" directly under a tab capsule
-	// already reading "[1] hosts", which is a label answering a question nobody
+	// panel — the capsule would have said "hosts" directly under a tab segment
+	// already naming the surface, which is a label answering a question nobody
 	// could have.
 	return panelChrome(innerW, fitLines(body, innerW, innerH), "", true)
 }

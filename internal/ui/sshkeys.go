@@ -116,6 +116,7 @@ func (m AppModel) askDuplicate() (tea.Model, tea.Cmd) {
 func (m AppModel) startSession(h store.Host) (tea.Model, tea.Cmd) {
 	cmd := m.closeStack()
 	m.tab = tabSSH
+	m.sftp.onScreen = false // same rule switchTab keeps: hidden tabs do not poll
 	m.ssh.setSize(m.w, m.panelHeight())
 	if _, err := m.ssh.connect(h); err != nil {
 		return m, tea.Batch(cmd, m.toast.show(err.Error(), toastError))

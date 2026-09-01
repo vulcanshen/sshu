@@ -67,7 +67,7 @@ func TestASideWithNoHostOnlyOffersSelectHost(t *testing.T) {
 	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	m = settle(next.(AppModel))
-	m.tab = tabSFTP
+	m.tab = tabFT
 	m.sftp.focus = panelLeftFiles
 
 	items := m.sftpMenuItems()
@@ -100,10 +100,10 @@ func TestMenuTitleNamesTheFocusedPanel(t *testing.T) {
 		p    sftpPanel
 		want string
 	}{
-		{panelLeftFiles, "[4] local"},
-		{panelLeftMarks, "[5] Marked files"},
-		{panelRightFiles, "[6] local"},
-		{panelRightMarks, "[7] Marked files"},
+		{panelLeftFiles, "[1] local"},
+		{panelLeftMarks, "[2] Marked files"},
+		{panelRightFiles, "[3] local"},
+		{panelRightMarks, "[4] Marked files"},
 	} {
 		m.sftp.focus = tc.p
 		if got := m.menuTitle(); got != tc.want {
@@ -125,8 +125,8 @@ func TestSSHMenuTitleNamesTheFocusedPanel(t *testing.T) {
 		p    sshPanel
 		want string
 	}{
-		{panelSessions, "[4] sessions"},
-		{panelPty, "[5] ssh"},
+		{panelSessions, "[1] sessions"},
+		{panelPty, "[2] ssh"},
 	} {
 		m.ssh.setFocus(tc.p)
 		if got := m.menuTitle(); got != tc.want {

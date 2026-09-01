@@ -88,7 +88,7 @@ func TestSSHTabPreservesFrame(t *testing.T) {
 	aliveSSH(t)
 	// 55/54/53 straddle the narrow threshold, where the layout changes shape.
 	for _, sz := range [][2]int{{100, 30}, {92, 24}, {78, 24}, {60, 30}, {55, 30},
-		{54, 30}, {53, 30}, {54, 16}, {40, 12}, {24, 9}} {
+		{54, 30}, {53, 30}, {54, 16}, {40, 12}, {34, 9}} {
 		w, h := sz[0], sz[1]
 		m := New(sample(), nil, store.DefaultConfig())
 		next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
@@ -456,24 +456,24 @@ func TestDigitsAddressPanelsOfTheCurrentTab(t *testing.T) {
 	for _, tc := range []struct {
 		key  string
 		want sshPanel
-	}{{"4", panelSessions}, {"5", panelPty}} {
-		m := pressA(sshApp(t, sample()), "3", tc.key)
+	}{{"1", panelSessions}, {"2", panelPty}} {
+		m := pressA(sshApp(t, sample()), "alt+S", tc.key)
 		if m.ssh.focus != tc.want {
-			t.Errorf("%s in tab [3] should focus panel %d, got %d", tc.key, tc.want, m.ssh.focus)
+			t.Errorf("%s in the ssh tab should focus panel %d, got %d", tc.key, tc.want, m.ssh.focus)
 		}
 	}
 
-	// From tab [1] the same digits do nothing at all: no tab change, no focus
-	// change, no surprise.
-	for _, k := range []string{"4", "5", "6", "7"} {
+	// On the preference tab the same digits do nothing at all: no tab change,
+	// no focus change, no surprise.
+	for _, k := range []string{"1", "2", "3", "4"} {
 		m := sshApp(t, sample())
 		before := m.ssh.focus
 		m = pressA(m, k)
-		if m.tab != tabHosts {
-			t.Errorf("%s from tab [1] must not switch tabs, got %d", k, m.tab)
+		if m.tab != tabPref {
+			t.Errorf("%s from the preference tab must not switch tabs, got %d", k, m.tab)
 		}
 		if m.ssh.focus != before {
-			t.Errorf("%s from tab [1] must not move focus elsewhere", k)
+			t.Errorf("%s from the preference tab must not move focus elsewhere", k)
 		}
 	}
 }
@@ -482,7 +482,7 @@ func TestDigitsAddressPanelsOfTheCurrentTab(t *testing.T) {
 // With [6] gone there is one list left, so Tab has nowhere to go — but it must
 // still be a way OUT of the pty, which costs nothing to offer.
 func TestTabNeverEntersThePty(t *testing.T) {
-	m := pressA(sshApp(t, sample()), "3")
+	m := pressA(sshApp(t, sample()), "alt+S")
 	for i := 0; i < 6; i++ {
 		m = pressA(m, "tab")
 		if m.tab != tabSSH {
@@ -508,7 +508,7 @@ func TestCursorDoesNotSwitchTheSession(t *testing.T) {
 	m := pressA(sshApp(t, sample()), "enter", "enter")
 	m = pressA(m, "esc") // out of the PTY, onto [4]
 	m.ssh.setFocus(panelSessions)
-	m = pressA(m, "1", "l", "enter", "enter") // connect to a second host
+	m = pressA(m, "alt+P", "l", "enter", "enter") // connect to a second host
 	t.Cleanup(func() { m.ssh.stopAll() })
 
 	if len(m.ssh.sessions) != 2 {
@@ -534,7 +534,7 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 	m := pressA(sshApp(t, sample()), "enter", "enter") // first session
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 	m = settle(next.(AppModel))
-	m = pressA(m, "1", "j", "enter", "enter") // a second session, to a second host
+	m = pressA(m, "alt+P", "j", "enter", "enter") // a second session, to a second host
 	t.Cleanup(func() { m.ssh.stopAll() })
 	if len(m.ssh.sessions) != 2 {
 		t.Fatalf("expected two sessions, got %d", len(m.ssh.sessions))
@@ -981,9 +981,9 @@ func TestTheTabRowIsOneStripWithOneLitSegment(t *testing.T) {
 		key         string
 		solid, thin int
 	}{
-		{"1", 1, 1}, // lit|unlit, unlit|unlit
-		{"2", 2, 0}, // unlit|lit, lit|unlit
-		{"3", 1, 1}, // unlit|unlit, unlit|lit
+		{"alt+P", 1, 1}, // lit|unlit, unlit|unlit
+		{"alt+F", 2, 0}, // unlit|lit, lit|unlit
+		{"alt+S", 1, 1}, // unlit|unlit, unlit|lit
 	} {
 		m := pressA(sized(sample(), 100, 26), tc.key)
 		row := strings.Split(m.View(), "\n")[0]
@@ -1008,8 +1008,8 @@ func TestTheTabRowIsOneStripWithOneLitSegment(t *testing.T) {
 // run together and read as one row of buttons, which is why the capsules came
 // off these titles once and went back on only alongside the rule.
 func TestPanelTitlesAreCapsulesUnderTheRule(t *testing.T) {
-	got := panelChrome(30, []string{strings.Repeat(" ", 30)}, "[4] sessions", true)
-	if !strings.Contains(got, "[4] sessions") {
+	got := panelChrome(30, []string{strings.Repeat(" ", 30)}, "[1] sessions", true)
+	if !strings.Contains(got, "[1] sessions") {
 		t.Fatal("the title should still be in the border")
 	}
 	for name, cap := range map[string]string{"left cap": capLeft, "right cap": capRight} {

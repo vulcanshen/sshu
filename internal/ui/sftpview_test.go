@@ -32,7 +32,7 @@ func sftpFixture(t *testing.T, w, h int) AppModel {
 	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	m = settle(next.(AppModel))
-	m.tab = tabSFTP
+	m.tab = tabFT
 
 	for _, sd := range []side{sideLeft, sideRight} {
 		m.sftp.sides[sd].connect(remote.Local())
@@ -45,7 +45,7 @@ func sftpFixture(t *testing.T, w, h int) AppModel {
 
 // The frame invariant again, for four panels this time.
 func TestSFTPTabPreservesFrame(t *testing.T) {
-	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {73, 16}, {72, 16}, {71, 16}, {50, 12}, {30, 9}} {
+	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {73, 16}, {72, 16}, {71, 16}, {50, 12}, {34, 9}} {
 		w, h := sz[0], sz[1]
 		m := sftpFixture(t, w, h)
 		m.sftp.cur().toggleMark()
@@ -157,12 +157,12 @@ func TestSFTPTabWalksAllFourPanels(t *testing.T) {
 	}
 	// Past the last panel it wraps, staying in this tab: changing tab is 1/2/3.
 	m = pressA(m, "tab")
-	if m.tab != tabSFTP || m.sftp.focus != panelLeftFiles {
-		t.Errorf("tab should wrap to [4], got tab=%d focus=%d", m.tab, m.sftp.focus)
+	if m.tab != tabFT || m.sftp.focus != panelLeftFiles {
+		t.Errorf("tab should wrap to [1], got tab=%d focus=%d", m.tab, m.sftp.focus)
 	}
 	m = pressA(m, "shift+tab")
-	if m.tab != tabSFTP || m.sftp.focus != panelRightMarks {
-		t.Errorf("shift+tab should wrap back to [7], got tab=%d focus=%d",
+	if m.tab != tabFT || m.sftp.focus != panelRightMarks {
+		t.Errorf("shift+tab should wrap back to [4], got tab=%d focus=%d",
 			m.tab, m.sftp.focus)
 	}
 }
@@ -171,8 +171,8 @@ func TestSFTPDigitsFocusPanels(t *testing.T) {
 	for _, tc := range []struct {
 		key  string
 		want sftpPanel
-	}{{"4", panelLeftFiles}, {"5", panelLeftMarks},
-		{"6", panelRightFiles}, {"7", panelRightMarks}} {
+	}{{"1", panelLeftFiles}, {"2", panelLeftMarks},
+		{"3", panelRightFiles}, {"4", panelRightMarks}} {
 		m := pressA(sftpFixture(t, 100, 26), tc.key)
 		if m.sftp.focus != tc.want {
 			t.Errorf("%s should focus panel %d, got %d", tc.key, tc.want, m.sftp.focus)

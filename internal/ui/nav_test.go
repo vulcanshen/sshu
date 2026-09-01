@@ -176,21 +176,21 @@ func TestTabStaysInsideTheCurrentTab(t *testing.T) {
 	m := sized(sample(), 100, 26)
 	for i := 0; i < 3; i++ {
 		m = press(m, "tab")
-		if m.tab != tabHosts {
+		if m.tab != tabPref {
 			t.Fatalf("tab %d left the hosts tab, now %d", i, m.tab)
 		}
 	}
 
-	// [3] has one list panel, so Tab holds still there — and never walks into
-	// the pty.
-	m = press(m, "3")
+	// The ssh tab has one list panel, so Tab holds still there — and never
+	// walks into the pty.
+	m = press(m, "alt+S")
 	for i := 0; i < 6; i++ {
 		m = press(m, "tab")
 		if m.tab != tabSSH {
 			t.Fatalf("tab %d left the ssh tab", i)
 		}
 		if m.ssh.focus != panelSessions {
-			t.Fatalf("tab %d moved to panel %d, want [4]", i, m.ssh.focus)
+			t.Fatalf("tab %d moved to panel %d, want [1]", i, m.ssh.focus)
 		}
 	}
 }

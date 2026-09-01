@@ -338,7 +338,7 @@ func TestNarrowSearchRowDropsTheCountRatherThanCutIt(t *testing.T) {
 // The frame invariant again, this time with deep relative paths in the rows and
 // a count sharing the path line — both of which are new ways to be a cell wide.
 func TestSearchPreservesFrame(t *testing.T) {
-	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {72, 16}, {50, 12}, {30, 9}} {
+	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {72, 16}, {50, 12}, {34, 9}} {
 		w, h := sz[0], sz[1]
 		m, _ := atRoot(sftpFixture(t, w, h))
 
