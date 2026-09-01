@@ -17,8 +17,9 @@ type splashHintMsg struct{}
 
 // splashModel renders the sshu logo as a hidden easter egg (the `V` key), a
 // sibling of kbu's and filu's splashes. The u-family mark is a navy U wrapping
-// a gold figure; it reveals in stages — the background sheet, the left rail,
-// the rungs, the right rail, then the U frame rising around them.
+// a gold figure that spells SSH — two S's stacked between the H's rails — and
+// it reveals in that order: the background sheet, S, S, then the H, then the
+// U frame rising around them.
 type splashModel struct {
 	active          bool
 	pixelOrder      []int    // reveal order across all stages
@@ -38,11 +39,11 @@ func newSplashModel() splashModel { return splashModel{} }
 func (m splashModel) isActive() bool { return m.active }
 
 // show activates the splash and returns the first animation tick. Reveal
-// stages, each held apart by a beat: (1) background — a dark sheet, row-major
-// top-to-bottom sweep; (2) the left rail, top to bottom; (3) the rungs,
-// scattered in; (4) the right rail, bottom to top; (5) the U frame (navy),
-// bottom-to-top so it rises from the base around the mark. Then a hold reveals
-// the name + version + tagline, and a final hold the Esc hint.
+// stages, each held apart by a beat, spell the name: (1) background — a dark
+// sheet, row-major top-to-bottom sweep; (2) the top S, scattered in; (3) the
+// bottom S; (4) the H — rails and crossbar, top to bottom; (5) the U frame
+// (navy), bottom-to-top so it rises from the base around the mark. Then a
+// hold reveals the name + version + tagline, and a final hold the Esc hint.
 func (m *splashModel) show() tea.Cmd {
 	m.active = true
 	m.revealedCount = 0
@@ -93,35 +94,37 @@ func (m *splashModel) show() tea.Cmd {
 		m.stageStep = append(m.stageStep, step)
 	}
 	addStage(bg, logoBg, cols) // one full row per tick
-	addStage(band('L', "down"), logoGold, 2)
-	addStage(band('M', "shuffle"), logoGold, 3)
-	addStage(band('R', "rise"), logoGold, 2)
+	addStage(band('S', "shuffle"), logoGold, 2)
+	addStage(band('T', "shuffle"), logoGold, 2)
+	addStage(band('H', "down"), logoGold, 3)
 	addStage(band('U', "rise"), logoNavy, 3) // the frame rises from the base
 
 	return tea.Tick(10*time.Millisecond, func(time.Time) tea.Msg { return splashTickMsg{} })
 }
 
-// sshu logo — generated from docs/icon.svg (25×25, trimmed to 21 rows).
-// D = background sheet, U = navy frame, L/M/R = the gold mark's left rail,
-// rungs and right rail.
+// sshu logo — generated from docs/icon.svg by cell-center sampling (25×25,
+// trimmed to 21 rows; the icon carries a few 10×15 rects, which is why the
+// sampling is by center rather than by a fixed 10px grid). D = background
+// sheet, U = navy frame; the gold mark spells SSH — S/T are the two S's,
+// H the rails + crossbar.
 var logoPixels = [21]string{
 	"DDDDDDDDDDDDDDDDDDDDDDDDD",
-	"DDUUUDLLDMMMMMMMDRRDUUUDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDMMMMMMMDRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDMMMMMMMDRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLMMMMMMMMMRRDUUDDD",
-	"DDDUUDLLMMMMMMMMMRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDMMMMMMMDRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDMMMMMMMDRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDDDDDDDDDRRDUUDDD",
-	"DDDUUDLLDMMMMMMMDRRDUUDDD",
+	"DDUUUDHHDSSSSSSSDHHDUUUDD",
+	"DDDUUDHHDSDDDDDDDHHDUUDDD",
+	"DDDUUDHHDSSSSSSSDHHDUUDDD",
+	"DDDUUDHHDDDDDDDSDHHDUUDDD",
+	"DDDUUDHHDDDDDDDSDHHDUUDDD",
+	"DDDUUDHHDSSSSSSSDHHDUUDDD",
+	"DDDUUDHHDDDDDDDDDHHDUUDDD",
+	"DDDUUDHHHHHHHHHHHHHDUUDDD",
+	"DDDUUDHHHHHHHHHHHHHDUUDDD",
+	"DDDUUDHHDDDDDDDDDHHDUUDDD",
+	"DDDUUDHHDTTTTTTTDHHDUUDDD",
+	"DDDUUDHHDTDDDDDDDHHDUUDDD",
+	"DDDUUDHHDTTTTTTTDHHDUUDDD",
+	"DDDUUDHHDDDDDDDDDHHDUUDDD",
+	"DDDUUDHHDDDDDDDTDHHDUUDDD",
+	"DDDUUDHHDTTTTTTTDHHDUUDDD",
 	"DDDUUDDDDDDDDDDDDDDDUUDDD",
 	"DDUUUUUUUUUUUUUUUUUUUUUDD",
 	"DUUUUUUUUUUUUUUUUUUUUUUUD",
