@@ -10,13 +10,14 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// navTo walks the pref nav to an item and hands the keyboard to the content.
-func navTo(m AppModel, item prefItem) AppModel {
-	m = pressA(m, "1")
-	for m.pref.item != item {
-		m = pressA(m, "j")
-	}
-	return pressA(m, "enter")
+// openPage steps straight onto an Operation page — cursor choice + content
+// focus, the state navigating there would produce. Straight, because the
+// section is masked out of the nav for now and j/k cannot reach it.
+func openPage(m AppModel, item prefItem) AppModel {
+	m.pref.item = item
+	m.pref.focus = panelPrefContent
+	m.syncPrefSizes()
+	return m
 }
 
 // The Export page writes a real .sshu: 0600, both YAMLs inside, the extension
@@ -27,7 +28,7 @@ func TestExportPageWritesABundle(t *testing.T) {
 	m := appWith(sample(), nil)
 	m.creds.creds = []store.Credential{{Name: "ops", User: "root", Auth: store.AuthPassword, Password: "pw"}}
 
-	m = navTo(m, prefExport)
+	m = openPage(m, prefExport)
 	if !m.textPage() {
 		t.Fatal("setup: the export page should hold the keyboard")
 	}
@@ -80,7 +81,7 @@ func TestImportPageMergesAndDedups(t *testing.T) {
 	m := appWith(sample(), &savedHosts)
 	m.saveCreds = func(l []store.Credential) error { savedCreds = l; return nil }
 
-	m = navTo(m, prefImport)
+	m = openPage(m, prefImport)
 	m.importPage.fields[0].value = bundle
 	m.importPage.fields[0].caret = len([]rune(bundle))
 	m = pressA(m, "enter")
@@ -109,7 +110,7 @@ func TestImportPageMergesAndDedups(t *testing.T) {
 // does not quit, V does not open the splash, ? does not open help, a digit
 // goes into the field — and Esc is the one way back to the nav.
 func TestOperationPageTypesInsteadOfActing(t *testing.T) {
-	m := navTo(appWith(sample(), nil), prefExport)
+	m := openPage(appWith(sample(), nil), prefExport)
 	m.exportPage.fields[1].value = ""
 	m.exportPage.fields[1].caret = 0
 	m.exportPage.focus = 1
@@ -134,7 +135,7 @@ func TestOperationPageTypesInsteadOfActing(t *testing.T) {
 // Submitting with a bad target parks the error on the page (§6.7) — and
 // editing any field clears the stale verdict.
 func TestExportPageFailsOnThePage(t *testing.T) {
-	m := navTo(appWith(sample(), nil), prefExport)
+	m := openPage(appWith(sample(), nil), prefExport)
 	m.exportPage.fields[0].value = "/nonexistent-sshu-dir/nope"
 	m.exportPage.fields[0].caret = len("/nonexistent-sshu-dir/nope")
 	m = pressA(m, "enter")

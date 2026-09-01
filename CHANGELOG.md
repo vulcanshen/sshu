@@ -4,21 +4,21 @@
 
 ### Added
 
-- **`[1] sshu` nav, in three groups** — the preference nav is retitled from
-  `[1] Resources` and grouped kbu-style: **SSH** (Hosts, Credentials),
-  **Events** (Logs), **Operation** (Export, Import). Headers are decoration —
-  the cursor skips them — and the section names are capitalized.
-- **Export** — bundle `hosts.yaml` + `credentials.yaml` into one `.sshu` zip
-  (0600 — it carries the same plaintext passwords the YAML files do; refuses
-  to overwrite, appends the extension when left off). A page, not a popup:
-  letters and digits type, `Tab` moves fields, `Enter` runs, `Esc` returns to
-  the nav.
-- **Import** — read a `.sshu` bundle and append its entries, keyed by name:
-  a name you already have is skipped whole, invalid entries too, and the
-  summary counts added and skipped — on the page, as a toast, and in the app
-  log.
-- **Splash byline** — the easter egg signs off with
-  `developed by vulcan.shen.2304@gmail.com`.
+- **`[1] sshu` nav, in groups** — the preference nav is retitled from
+  `[1] Resources` and grouped kbu-style: **SSH** (Hosts, Credentials) and
+  **Events** (Logs). Headers wear the structure blue, are skipped by the
+  cursor, and the section names are capitalized. (An Operation group —
+  Export / Import of a `.sshu` config bundle — is implemented and tested
+  behind a mask, waiting on its final design.)
+- **Splash byline** — the easter egg signs off with `developed by` /
+  `vulcan.shen.2304@gmail.com` on their own lines, above the Esc hint.
+
+### Fixed
+
+- On a terminal narrower than 60 columns, an **empty app log** drew a panel
+  shorter than the frame (the log's empty state returned fewer rows than the
+  panel is tall, and the narrow layout has no neighbouring panel to prop it
+  up).
 
 ## [0.1.0] — 2026-09-01
 

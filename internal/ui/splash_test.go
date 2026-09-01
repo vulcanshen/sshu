@@ -62,8 +62,8 @@ func TestSplashTickDoesNotExceedTotal(t *testing.T) {
 	}
 }
 
-// The byline arrives with the hint — the splash's last reveal — and sits on
-// the caption's bottom line.
+// The byline arrives with the hint — the splash's last reveal — as TWO lines
+// ("developed by" over the address), sitting ABOVE the Esc hint.
 func TestSplashRevealsTheByline(t *testing.T) {
 	m := newSplashModel()
 	m.show()
@@ -71,8 +71,15 @@ func TestSplashRevealsTheByline(t *testing.T) {
 		t.Error("the byline must not be visible before the hint stage")
 	}
 	m, _ = m.update(splashHintMsg{})
-	if out := m.render(80, 40); !strings.Contains(out, "developed by vulcan.shen.2304@gmail.com") {
-		t.Error("the hint stage should reveal the byline")
+	out := m.render(80, 40)
+	if !strings.Contains(out, "developed by") || !strings.Contains(out, "vulcan.shen.2304@gmail.com") {
+		t.Error("the hint stage should reveal both byline lines")
+	}
+	if strings.Contains(out, "developed by vulcan") {
+		t.Error("the address must be its own line, not appended to the label")
+	}
+	if strings.Index(out, "vulcan.shen.2304@gmail.com") > strings.Index(out, "Press Esc to close") {
+		t.Error("the byline must sit above the Esc hint")
 	}
 }
 

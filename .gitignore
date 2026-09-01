@@ -3,3 +3,6 @@
 .DS_Store
 .local/
 .idea/
+
+# export bundles carry plaintext passwords — never commit one
+*.sshu

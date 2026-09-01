@@ -191,11 +191,16 @@ func TestPrefPanelsWearTheirTitles(t *testing.T) {
 			t.Errorf("%q is not on screen:\n%s", want, view)
 		}
 	}
-	// And the nav lists every section by name, under its category header.
-	for _, want := range []string{"SSH", "Hosts", "Credentials",
-		"Events", "Logs", "Operation", "Export", "Import"} {
+	// And the nav lists every visible section by name, under its category
+	// header — while the masked Operation section stays off screen.
+	for _, want := range []string{"SSH", "Hosts", "Credentials", "Events", "Logs"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the nav does not offer %q", want)
+		}
+	}
+	for _, banned := range []string{"Operation", "Export", "Import"} {
+		if strings.Contains(view, banned) {
+			t.Errorf("the masked %q must not be on screen", banned)
 		}
 	}
 }

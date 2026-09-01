@@ -49,7 +49,11 @@ var prefSections = []struct {
 }{
 	{"SSH", []prefItem{prefHosts, prefCreds}},
 	{"Events", []prefItem{prefLogs}},
-	{"Operation", []prefItem{prefExport, prefImport}},
+	// Operation (Export / Import) is MASKED until its design settles: the
+	// enum keeps the tail values, the pages stay compiled and tested, but
+	// the nav neither draws the section nor stops on its items. Unmasking
+	// is putting the row back:
+	//	{"Operation", []prefItem{prefExport, prefImport}},
 }
 
 type prefPanel int
@@ -91,7 +95,14 @@ func (m *prefModel) setSize(w, h int) { m.w, m.h = w, h }
 // navKey moves the nav cursor. The content follows it; there is no separate
 // "open" step to forget.
 func (m *prefModel) navKey(k string) {
-	m.item = prefItem(moveCursor(int(m.item), int(prefItemCount), k, int(prefItemCount)))
+	// Count the items prefSections actually shows. The masked Operation
+	// items keep the enum's tail, so the visible ones are exactly 0..n-1
+	// and the index IS the item.
+	n := 0
+	for _, s := range prefSections {
+		n += len(s.items)
+	}
+	m.item = prefItem(moveCursor(int(m.item), n, k, n))
 }
 
 func (m prefModel) panelTitle(p prefPanel) string {
@@ -165,9 +176,9 @@ func (m AppModel) prefView() string {
 func (m AppModel) prefNav(w, h int) string {
 	innerW, innerH := w-2, h-2
 	rows := make([]string, 0, max(0, innerH))
-	dim := lipgloss.NewStyle().Foreground(dimColor)
+	head := lipgloss.NewStyle().Foreground(focusColor)
 	for _, sec := range prefSections {
-		rows = append(rows, dim.Render(padRight(" "+sec.header, innerW)))
+		rows = append(rows, head.Render(padRight(" "+sec.header, innerW)))
 		for _, it := range sec.items {
 			rows = append(rows, m.prefNavRow(it, innerW))
 		}
@@ -212,7 +223,10 @@ func (m AppModel) prefContent(w, h int) string {
 		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
 	case prefLogs:
 		innerW, innerH := w-2, h-2
-		return panelChrome(innerW, m.log.body(innerW, innerH), title, focused)
+		// fitLines like every content body: the log empty state returns
+		// fewer rows than the panel is tall, and on a narrow terminal there
+		// is no neighbouring panel to prop the frame up.
+		return panelChrome(innerW, fitLines(m.log.body(innerW, innerH), innerW, innerH), title, focused)
 	}
 	return m.hosts.view(title, focused)
 }

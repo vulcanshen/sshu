@@ -30,7 +30,7 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[Alt+p]reference** | sshu 自己的資料與操作,nav 分三類:SSH(Hosts、Credentials)、Events(Logs)、Operation(Export、Import)—— 左側 nav `[1] sshu` + 右側內容 `[2]` | 已落地 |
+| **[Alt+p]reference** | sshu 自己的資料,nav 分類:SSH(Hosts、Credentials)、Events(Logs)—— 左側 nav `[1] sshu` + 右側內容 `[2]`(Operation 類已實作、遮罩中,見 §11.12) | 已落地 |
 | **[Alt+f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
 | **[Alt+s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
 
@@ -2423,6 +2423,22 @@ $HOME,遞迴掃 home 會掛 UI;而剛跨完機器的 .sshu,路徑本來就在使
 7 個 mutation 全數被抓(merge 不去重、export 蓋檔、副檔名不補、頁不攔鍵、
 header 不畫、import 不落地、落款不顯示)。
 
+> **同日追記(使用者裁定)**:
+> 1. **header dim → 藍(focusColor)**:分類是 app 結構,跟 panel border /
+>    title 同一種藍,不是次要資訊的 dim。條目維持 textColor,游標 bar 不變。
+> 2. **Operation 整類遮罩**:Export / Import 的設計尚未定案 —— enum 尾值、
+>    頁面程式與測試全部留著,但 `prefSections` 不列、nav 不畫也不停
+>    (`navKey` 只在可見條目數內繞)。解除遮罩 = 把
+>    `{"Operation", …}` 那行放回 prefSections。README / CHANGELOG 同步
+>    不宣傳。
+> 3. **splash 落款拆兩行、移到 Esc 提示上方**:`developed by` 與
+>    `vulcan.shen.2304@gmail.com` 各一行,接著空一行才是
+>    `Press Esc to close` —— 行動提示留在最後一行。
+> 4. 順手修一個既有 frame 缺陷:logs 內容的空狀態(`emptyBody`)回傳的
+>    行數少於 panel 高,窄寬(<60)只畫 content 側時整個 frame 短三行 ——
+>    logs branch 補上 `fitLines`,跟其他 content body 同款。frame 測試
+>    的 `{"1","G","enter"}` 路徑現在守著它。
+
 ---
 
 ## 附錄 — 按鍵全表(v0.1.0)
@@ -2448,11 +2464,11 @@ header 不畫、import 不落地、落款不顯示)。
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events / Operation 三類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 |
+| `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events 分類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 |
 | `[2]` Hosts | `Enter` · `E` · `D` · `A` · `/` | Connect(確認)/ Edit / Delete(確認)/ Add / Search |
 | `[2]` Credentials | `Enter` · `D` · `A` | Edit / Delete(確認,列出引用數)/ Add |
 | `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` | 捲動(viewport,無游標;上畫面即已讀) |
-| `[2]` Export / Import | 字母/數字打字 · `Tab` 換欄 · `Enter` 執行 · `Esc` 回 nav | Operation 頁(§11.12):focus 在頁上時,數字直達、q/Space/?/V 全部讓位 |
+| ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案,見 §11.12 追記 |
 
 ### Host / credential form
 
