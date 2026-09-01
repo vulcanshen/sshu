@@ -43,10 +43,6 @@ var (
 const (
 	baseHex  = "#1e1e2e" // canvas; also dark text on a bright chip
 	crustHex = "#11111b" // recessed background of an inactive capsule
-	// surface0 is the unlit fill of the tab strip. Not crust: against the canvas
-	// crust is a shade away from nothing, which is how the unlit tabs came to
-	// have no visible shape at all.
-	surface0Hex = "#313244"
 )
 
 // Nerd Font glyphs. Never a PUA literal in source — build them from the rune so
@@ -59,11 +55,12 @@ const (
 var (
 	capLeft  = string(rune(0xe0b6)) // powerline round-left  — capsule start
 	capRight = string(rune(0xe0b4)) // powerline round-right — capsule end
-	// The tab strip's inner dividers, both slanted "/" — the solid one carries a
-	// colour CHANGE (lit to unlit), the thin one only draws a line where the fill
-	// on both sides is the same.
-	slantSolid = string(rune(0xe0ba)) // ple-lower_right_triangle
-	slantThin  = string(rune(0xe0bb)) // ple-forwardslash_separator
+	// The tab strip's inner dividers. The HARD one is a filled triangle and
+	// carries a colour change (lit to unlit); the SOFT one is the same shape as
+	// an outline, and only draws a line where the fill is the same on both sides.
+	// Both point right, which is the direction the strip is read in.
+	dividerHard = string(rune(0xe0b0)) // pl-left_hard_divider
+	dividerSoft = string(rune(0xe0b1)) // pl-left_soft_divider
 
 	// The auth column is the one place a glyph still carries meaning in the hosts
 	// table: it IS the type distinction. The other fields lost theirs when the

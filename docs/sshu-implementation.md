@@ -418,13 +418,13 @@ ssh session、進行中的傳輸、sftp 連線。三條出口(`q`、quit 確認�
 
 ### 8.1 powerline tab bar
 
-**一條連起來的帶子**(filu 的 chain 語彙):圓帽開頭、斜線分段、圓帽收尾,恰好一段
-亮著。斜線一律 `/`,`ple-lower_right_triangle`(U+E0BA)承載顏色改變、
-`ple-forwardslash_separator`(U+E0BB)在兩側同色時只畫線。
+**一條連起來的帶子**(filu 的 chain 語彙):圓帽開頭、**三角**分段、圓帽收尾,恰好
+一段亮著。三角朝右,`pl-left_hard_divider`(U+E0B0)實心、承載顏色改變,
+`pl-left_soft_divider`(U+E0B1)是它的外框、在兩側同色時只畫線。
 
 - **active**:blue 底 + base 深字 + bold
-- **inactive**:**surface0 `#313244`** 底 + surface2 字(不是 crust —— crust 跟畫布
-  只差一階,沒亮的段會整個消失,理由與兩次被否決的做法見設計稿 §1.1)
+- **inactive**:**畫布色(base)**底 + surface2 字 —— crust 與 surface0 都試過當
+  「凹槽」並且都被否決,理由與另外兩種被否決的形狀見設計稿 §1.1
 - 右端是**狀態 slot**:hosts `1/5 hosts`、sftp `2 marks` 或傳輸進度、ssh
   `3 live · 1 past`
 

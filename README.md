@@ -170,7 +170,7 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 
 ## Status
 
-**0.1.0** — the first release. All three tabs work end to end, 241 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**0.1.0** — the first release. All three tabs work end to end, 242 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 
