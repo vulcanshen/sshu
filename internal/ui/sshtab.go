@@ -680,8 +680,19 @@ func (m sshModel) gridView() string {
 	return joinVertical(out...)
 }
 
-// cellView is one grid cell: a bordered terminal wearing the chord that
-// focuses it.
+// cellLit says whether cell i wears the lit border. Inside the grid it is
+// the cell holding the keyboard. While the LIST holds the keyboard it is the
+// cell of the session under the cursor — the row and its cell light
+// together, so j/k on [1] traces across the grid.
+func (m sshModel) cellLit(s *session, i int) bool {
+	if m.focus == panelPty {
+		return i == m.focusPty
+	}
+	return m.focus == panelSessions && m.curSess < len(m.sessions) &&
+		m.sessions[m.curSess].id == s.id
+}
+
+// cellView is one grid cell: a bordered terminal.
 func (m sshModel) cellView(s *session, i, w, h int) string {
 	innerW, innerH := w-2, h-2
 	var rows []string
@@ -690,9 +701,8 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 	} else {
 		rows = s.pty.render(innerW, innerH)
 	}
-	focused := m.focus == panelPty && i == m.focusPty
 	return panelChrome(innerW, fitLines(rows, innerW, innerH),
-		m.cellTitle(s, i, innerW), focused)
+		m.cellTitle(s, i, innerW), m.cellLit(s, i))
 }
 
 // cellTitle names the cell by what it is. It used to lead with an [Alt][N]

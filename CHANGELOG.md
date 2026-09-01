@@ -7,9 +7,10 @@ together: the tab system, the ssh tab, and process cleanup.
 
 ### Changed
 
-- **Tabs live on Alt chords now** — `[Alt+p]reference` / `[Alt+f]ile transfer`
-  / `[Alt+s]sh`: two brackets, one chord, disclosed in its everyday lowercase
-  spelling. The chords work from inside a PTY — the whole reason they moved
+- **Tabs live on Alt chords now** — the strip opens with an always-lit
+  `[Alt]` lead and reads `[p]reference` / `[f]ile transfer` / `[s]sh`: the
+  two lit segments together spell the chord, disclosed in its everyday
+  lowercase spelling. The chords work from inside a PTY — the whole reason they moved
   off the digits — where only the shifted spelling is intercepted (the
   lowercase Alt keys belong to the remote's readline). The Resources nav
   panel is titled `[1] Resources`.
@@ -32,7 +33,8 @@ together: the tab system, the ssh tab, and process cleanup.
   Each cell's remote is told its own size, only when it actually changes; a
   dead cell leaves the grid and the keyboard never silently lands in another
   remote. List rows lead with a display column: a monitor glyph for a session
-  with a cell, a struck-through one without.
+  with a cell, a struck-through one without — and as the list cursor moves,
+  the matching cell's border lights on the grid.
 - **The `!` popup is gone.** The app log is the third preference section;
   landing it on screen is what marks its errors read, and the nav row and
   footer carry the unread count until then.

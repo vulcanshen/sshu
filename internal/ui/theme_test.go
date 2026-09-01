@@ -133,3 +133,23 @@ func TestSelectedHostRowIsBlue(t *testing.T) {
 		t.Error("an unselected row should be a bright name over dim detail")
 	}
 }
+
+// The [Alt] lead never goes out: it is half of every chord, so the strip
+// keeps it on the lit fill no matter which tab is active.
+func TestTheAltLeadIsAlwaysLit(t *testing.T) {
+	withColour(t)
+	bg := ansiBgOf(t, focusColor)
+	for _, key := range []string{"alt+P", "alt+F", "alt+S"} {
+		m := pressA(sized(sample(), 100, 26), key)
+		row := strings.Split(m.View(), "\n")[0]
+		at := strings.Index(row, "[Alt]")
+		if at < 0 {
+			t.Fatalf("%s: no [Alt] lead in the strip", key)
+		}
+		// The style run covering the lead opens at the last escape before it.
+		open := strings.LastIndex(row[:at], "\x1b[")
+		if open < 0 || !strings.Contains(row[open:at], bg) {
+			t.Errorf("%s: the [Alt] lead must sit on the lit fill", key)
+		}
+	}
+}

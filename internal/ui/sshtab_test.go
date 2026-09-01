@@ -964,22 +964,25 @@ func TestTheSeamBelongsToTheTabOnItsLeft(t *testing.T) {
 }
 
 // The tab row is ONE strip: two round caps for the whole thing, and an arrow
-// between neighbours. WHICH arrow says where the lit segment is — a filled one
-// carries a colour change, an outlined one only draws a line where the fill is
-// the same on both sides. So the counts pin down the shape and the lit position
-// together.
-func TestTheTabRowIsOneStripWithOneLitSegment(t *testing.T) {
+// between neighbours. The [Alt] lead is always lit and the active tab lights
+// with it, so WHICH arrows are filled pins down both — a filled arrow
+// carries a colour change, an outlined one only draws a line where the fill
+// matches on both sides.
+func TestTheTabRowIsOneStripSpellingTheChord(t *testing.T) {
 	for _, tc := range []struct {
 		key         string
 		solid, thin int
 	}{
-		{"alt+P", 1, 1}, // lit|unlit, unlit|unlit
-		{"alt+F", 2, 0}, // unlit|lit, lit|unlit
-		{"alt+S", 1, 1}, // unlit|unlit, unlit|lit
+		{"alt+P", 1, 2}, // Alt·p lit as ONE block: only p|f changes colour
+		{"alt+F", 3, 0}, // every seam is a colour change
+		{"alt+S", 2, 1}, // Alt|p and f|s change; p|f does not
 	} {
 		m := pressA(sized(sample(), 100, 26), tc.key)
 		row := strings.Split(m.View(), "\n")[0]
 
+		if !strings.Contains(row, "[Alt]") {
+			t.Errorf("%s: the strip must open with the held key", tc.key)
+		}
 		if got := strings.Count(row, capLeft); got != 1 {
 			t.Errorf("%s: %d opening caps, want one strip", tc.key, got)
 		}

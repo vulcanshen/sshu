@@ -312,7 +312,8 @@ ssh `1`-`2`(格子走 Alt+方向鍵)。畫面上沒有那個編號,按下去就�
 
 ### 4.8 tab 切換 —— `Alt+p/f/s` 和絃
 
-標籤 `[Alt+p]reference` 印的就是按的:小寫是日常拼法,pty 外大小寫皆通
+tab 帶開頭是**固定亮的 `[Alt]` 鏈頭**,標籤 `[p]reference` 亮起的字母段
+補上和絃的另一半 —— 亮著的兩段合起來就是按的:小寫是日常拼法,pty 外大小寫皆通
 (死鍵離活鍵一個 shift 是沒有回報的陷阱);**pty 內**只認 shift 加大寫 ——
 `M-f` 是 readline 的 forward-word,不是 sshu 的。popup 開著時和絃不作用:tab 在
 form 底下換掉,form 就懸在一個它不認識的 surface 上。
@@ -564,7 +565,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` sessions | `Tab` · `Enter` · `C` · `D` | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問) |
+| `[1]` sessions | `Tab` · `Enter` · `C` · `D` | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問);j/k 掃過時,游標 session 的格子外框在網格上同步亮 |
 | `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
