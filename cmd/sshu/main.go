@@ -61,6 +61,16 @@ func runAskpass(name string) int {
 		return 1
 	}
 	h := f.Hosts[i]
+	// A credential host stores its password in credentials.yaml, one hop away.
+	if h.Auth == store.AuthCredential {
+		cf, err := store.LoadCreds()
+		if err != nil {
+			return 1
+		}
+		if h, err = store.Resolve(h, cf.Credentials); err != nil {
+			return 1
+		}
+	}
 	if h.Auth != store.AuthPassword || h.Password == "" {
 		return 1
 	}
