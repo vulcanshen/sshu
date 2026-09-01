@@ -506,7 +506,7 @@ sshu 是必要而非可選。
 | **`u` / `d`** | **上 / 下半頁**(`Ctrl+U` / `Ctrl+D` 同義) |
 | `gg` / `G` | 第一列 / 最後一列 |
 | 方向鍵 | 與 `j`/`k` 同義 |
-| **`h` / `l`** | tab [2]:切到左半 / 右半,保持同一列 · tab [3]:`l` 進 `[5]` |
+| **`h` / `l`** | tab [2]:切到左半 / 右半,保持同一列。**tab [3] 沒有 `h`/`l`** |
 
 **一份詞彙、一個實作**(`ui/nav.go moveCursor`)。四個清單面(hosts 表格、
 `[4]` sessions、sftp 的檔案與 marks)全部走它,所以往詞彙裡加
@@ -543,7 +543,13 @@ menu、host picker、file picker、Transfers)。
 沒換在看什麼」的落點。`Tab` 是「下一個 panel」,`h`/`l` 是「我要哪一邊」;1:1
 分割時後者才是常態。
 
-**tab [3] 的 `l` 進 `[5]`**,一樣是空間上的「往右」:`[4]` 是左欄、pty 是右欄。
+> **改過一次**:原本 **tab [3] 的 `l` 也進 `[5]`**,理由是空間上的「往右」——
+> `[4]` 是左欄、pty 是右欄,跟 tab [2] 的 `h`/`l` 同一個意思。**移除了**:`Enter`
+> 在一個 session 上本來就同時「顯示它」和「把 focus 給 `[5]`」(`openSession`),
+> 所以 `l` 是第二個鍵去做一個鍵已經做完的事。而它的代價不是零 —— 每一個會把鍵盤
+> 交給遠端的鍵,都是一個你可能「路過」而不是「決定」進去的入口,而唯一的出路是
+> `Alt+Esc`。**把鍵盤交出去應該是一個決定**,所以入口只留刻意的那兩個:`Enter`,
+> 和直達任何 panel 的 `5`。
 
 > **這跟「`Tab` 不進 `[5]`」(§4.4.1)不衝突。** `Tab` 進去會被遠端吞掉 ——
 > 等於把帶你進去的那把鑰匙鎖在門內。`l` 不是任何地方的「出口鍵」,借給 pty 不
@@ -1495,6 +1501,20 @@ logs/     ->  目錄
 已存在的名字按 Add 不是被拒絕,而是把那個檔案清空 —— 所以測試比對的是**內容有沒有
 被清掉**,不是目錄裡的項目數(數量在那個情況下根本不會變)。
 
+#### 本機那一側從**啟動目錄**開始,不是從 `$HOME`
+
+遠端那一側只能開在它的 home —— 沒有別的地方可以解釋成「這裡」。**本機不一樣**:
+你是在某個目錄裡站著的時候決定需要 sshu 的。`cd ~/release && sshu` 應該一進去就
+看著那批要送出去的東西,而不是先落在一個滿是 dotfile 的家目錄、再從那裡導航出來。
+
+所以 `remote.StartDir` 跟 `remote.LocalPath` 問的是同一類問題(這個 FS 是不是這台
+機器),而 host picker 第一列的說明也跟著從「this machine」改成「this directory」
+—— 它連的不再只是一台機器,而是一個**位置**。
+
+`s.home` 仍然是真正的家目錄:麵包屑把路徑折回 `~` 靠的是它,把它換掉會讓
+`~/release` 被折成 `~`。**「開在哪」和「用什麼折」是兩個問題**,之前它們共用一個
+值,所以看起來像同一個。
+
 ### 7.4 tab [2] 的一次傳輸
 
 **先算完整個 plan,再問。** `remote.Plan` 遞迴展開要建立的每一項(目錄也是一
@@ -1829,6 +1849,7 @@ X 回到 ~1.0。
 | `m` 標記(再按取消)/ `C` 清空,marks 換 host 時清掉 | `ui/sftptab.go` |
 | `r` 就地改名(預填舊名、拒絕覆寫、mark 跟著走) | `ui/sftpkeys.go` `ui/inputpopup.go` |
 | `v` 讀檔:文字(上色 + 行號)/ hex / 目錄一層,上限 64 KiB | `ui/viewer.go` `remote/peek.go` |
+| 本機側開在啟動目錄(`home` 仍是家目錄,折麵包屑用) | `remote/edit.go StartDir` |
 | `e` 在 `$EDITOR` 裡編輯:遠端抓下來再寫回、本機就地改 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `x` 刪游標這一項 / `X` 刪全部 marks(都先問、遞迴、**不跟隨 symlink**) | `remote/fs.go RemoveAll` |
 | `A` 在當前目錄建檔或建目錄(結尾 `/` 決定),游標停在新的那一項上 | `ui/sftpkeys.go doAdd` |
@@ -1883,6 +1904,9 @@ X 回到 ~1.0。
 | **遠端檔案裡的 ESC 到不了終端機** | `TestViewStripsControlSequences` |
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
+| 本機側開在**啟動目錄**,而 `home` 仍是家目錄 | `TestTheLocalSideOpensWhereSshuWasLaunched` |
+| viewer 不戴 `/` 的放大鏡 —— 一個 glyph 就是一個詞 | `TestTheViewerDoesNotWearTheSearchGlyph` |
+| **沒有東西會「晃」進 `[5]`**(`l` 不再是入口) | `TestNothingWandersIntoThePty` |
 | `A` 兩種都做得出來,游標停在新的那一項 | `TestAddMakesAFileOrADirectory` |
 | **框在你打字時就說會做出哪一種** | `TestAddSaysWhichKindItWillMake` |
 | 路徑 / 空的 / 已存在都拒絕,而且不會清空既有檔案 | `TestAddRefusesBadNames` |
@@ -1995,9 +2019,8 @@ picker、input)—— 那裡的空白是字元(§4.2.1)。
 |---|---|---|
 | 全部 | `4` / `5` | 直達 sessions / pty |
 | 全部 | `Tab` | **只有從 `[5]` 出來**(`[4]` 是唯一的清單 panel,不跨 tab) |
-| `[4]` | `j`/`k`/`u`/`d` · `Enter` · `C` · `D` | 移動 / 進入或切換(不確認) / Close(確認) / Duplicate(確認) |
+| `[4]` | `j`/`k`/`u`/`d` · `Enter` · `C` · `D` | 移動 / 進入或切換並把 focus 給 `[5]`(不確認) / Close(確認) / Duplicate(確認) |
 | `[4]` | **`H`** | **History popup** —— 已結束的 session(view,沒有游標) |
-| `[4]` `[6]` | **`l`** | **進 `[5]`**(`Tab` 不會,見 §4.4.1) |
 | `[5]` | 所有鍵 | 送給遠端 |
 | `[5]` | **`Alt+Esc`** | **收回鍵盤、focus 回 `[4]`** |
 

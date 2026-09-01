@@ -84,6 +84,10 @@ var (
 	glyphDir    = string(rune(0xe5ff))  // nf-custom-folder
 	glyphFile   = string(rune(0xf15b))  // nf-fa-file
 	glyphMark   = string(rune(0xf0e1e)) // nf-md-check_bold — marked for transfer
+	// The viewer wore glyphSearch until it was seen next to an actual search:
+	// a magnifier is the symbol `/` owns, and reusing it made the two surfaces
+	// claim the same meaning (§3).
+	glyphEye = string(rune(0xf06d0)) // nf-md-eye_outline — [v]iew
 	// arrowGlyphs labels the left/right keys in a hint. Plain Unicode arrows, not
 	// Nerd Font: these sit in a border line where a mis-measured glyph shears the
 	// frame, and U+2190/2192 are single-width everywhere.

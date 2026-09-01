@@ -49,6 +49,20 @@ func TestViewShowsTextWithLineNumbers(t *testing.T) {
 	}
 }
 
+// A glyph is a word (§3), and two surfaces wearing the same one say they mean
+// the same thing. The viewer wore the search magnifier until it was seen on
+// screen next to an actual search — `/` owns that symbol.
+func TestTheViewerDoesNotWearTheSearchGlyph(t *testing.T) {
+	m := viewing(t, "hello.txt", "alpha\n", 110, 26)
+	view := m.View()
+	if !strings.Contains(view, glyphEye) {
+		t.Error("the viewer is not wearing its own glyph")
+	}
+	if strings.Contains(view, glyphSearch) {
+		t.Error("the viewer is still wearing the search glyph")
+	}
+}
+
 // A file that is not text is shown as hex rather than as mojibake.
 func TestViewShowsBinaryAsHex(t *testing.T) {
 	// A NUL is the deciding byte here: everything else in this content is

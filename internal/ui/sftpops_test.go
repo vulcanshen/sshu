@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+	"github.com/vulcanshen/sshu/internal/remote"
 )
 
 // Rename changes a name in place, and moves the mark with it — a mark is a path,
@@ -167,6 +168,36 @@ func TestDeleteAndClearReadDifferently(t *testing.T) {
 	}
 	if !strings.Contains(clear.hint, "forget") {
 		t.Errorf("Clear's hint should say it changes nothing: %q", clear.hint)
+	}
+}
+
+// The local side opens where sshu was launched, not at $HOME. `cd ~/release &&
+// sshu` should already be looking at the release — a home directory full of
+// dotfiles is a place you then have to navigate OUT of.
+//
+// home is still the real home, because that is what folds the crumb back to ~.
+func TestTheLocalSideOpensWhereSshuWasLaunched(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wd == home {
+		t.Skip("the test is running from $HOME, so the two are indistinguishable")
+	}
+
+	m := sftpFixture(t, 100, 26)
+	m.sftp.sides[sideLeft].connect(remote.Local())
+	s := m.sftp.sides[sideLeft]
+
+	if s.cwd != filepath.ToSlash(wd) {
+		t.Errorf("the local side opened at %q, want the launch directory %q", s.cwd, wd)
+	}
+	if s.home != filepath.ToSlash(home) {
+		t.Errorf("home is %q, want the real home %q — the crumb folds on it", s.home, home)
 	}
 }
 
