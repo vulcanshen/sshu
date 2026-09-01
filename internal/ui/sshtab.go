@@ -10,14 +10,14 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// Tab [3] holds two panels, numbered [4] [5] — the digits continue past
-// the tabs rather than restarting, so one number always means one surface and
-// nothing collides with the tab hotkeys.
+// The ssh tab holds two panels, numbered [1] [2]. Digits number the panels of
+// each tab from 1 now that the tabs themselves live on Alt chords — there is
+// no tab hotkey left to collide with.
 type sshPanel int
 
 const (
-	panelSessions sshPanel = iota // [4] live sessions
-	panelPty                      // [5] the session on screen
+	panelSessions sshPanel = iota // [1] live sessions
+	panelPty                      // [2] the session on screen
 )
 
 // Geometry. The left column is fixed: a draggable split would put the panel
@@ -339,7 +339,7 @@ func (m *sshModel) handleListKey(k string) {
 	// already shows it AND focuses it (openSession), so `l` was a second key for
 	// something one key already did — and every key that hands the keyboard to a
 	// remote is one more way to end up somewhere you need Alt+Esc to leave.
-	// Entering [5] is Enter, or the `5` that jumps to any panel.
+	// Entering [2] is Enter, or the `2` that jumps to any panel.
 	switch m.focus {
 	case panelSessions:
 		m.curSess = moveCursor(m.curSess, len(m.sessions), k, m.listRows())
@@ -407,12 +407,12 @@ func (m sshModel) view() string {
 func (m sshModel) panelTitle(p sshPanel) string {
 	switch p {
 	case panelSessions:
-		return "[4] sessions"
+		return "[1] sessions"
 	}
 	if s := m.currentSession(); s != nil {
-		return "[5] " + s.host.Name
+		return "[2] " + s.host.Name
 	}
-	return "[5] ssh"
+	return "[2] ssh"
 }
 
 func (m sshModel) sessionsPanel(w, h int) string {
@@ -480,7 +480,7 @@ func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
 
 func (m sshModel) ptyEmpty(innerW, innerH int) []string {
 	return emptyBody(innerW, innerH, "No session on screen",
-		emptyHint("Select a session in [4], or open one from [1]", "[4]", "[1]"))
+		emptyHint("Select a session in [1], or connect from [Alt-P] hosts", "[1]", "[Alt-P]"))
 }
 
 // failedBody is how a connection ends when it ends badly: the host, what the
@@ -490,14 +490,14 @@ func (m sshModel) ptyEmpty(innerW, innerH int) []string {
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 	who := s.host.User + "@" + s.host.Host
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
-		emptyHint("Press ! for the app log, or [1] to try another host", "!", "[1]"))
+		emptyHint("Press ! for the app log, or [Alt-P] to try another host", "!", "[Alt-P]"))
 }
 
 // listBody lays out [4]. Each entry is a block, because a long address wraps.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		return emptyBody(innerW, innerH, "No sessions",
-			emptyHint("Connect from [1] hosts", "[1]"))
+			emptyHint("Connect from [Alt-P] hosts", "[Alt-P]"))
 	}
 
 	out := make([]string, 0, max(0, innerH))

@@ -11,8 +11,8 @@ import (
 // not show is a number the keyboard does not answer to (§4.4), so these and the
 // digit bindings are one list.
 var sftpPanelNum = map[sftpPanel]string{
-	panelLeftFiles: "[4]", panelLeftMarks: "[5]",
-	panelRightFiles: "[6]", panelRightMarks: "[7]",
+	panelLeftFiles: "[1]", panelLeftMarks: "[2]",
+	panelRightFiles: "[3]", panelRightMarks: "[4]",
 }
 
 // panelTitle is what panel p's capsule says — and what the Space menu calls the

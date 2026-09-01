@@ -6,9 +6,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// minAppW is the narrowest terminal sshu draws in: the width of the short-label
-// capsule strip. Below it the tab row cannot be honest about which tab is lit.
-const minAppW = 20
+// minAppW is the narrowest terminal sshu draws in: the width of the
+// short-label strip ("[Alt-P] [Alt-F] [Alt-S]" as one chain). Below it the tab
+// row cannot be honest about which tab is lit.
+const minAppW = 32
 
 // statusMinRoom is how much slack the tab row needs before it shows the status
 // slot at all. Less than this and the text is all ellipsis, which reads as

@@ -32,16 +32,7 @@ func sized(hosts []store.Host, w, h int) AppModel {
 
 func press(m AppModel, keys ...string) AppModel {
 	for _, k := range keys {
-		var msg tea.KeyMsg
-		switch k {
-		case " ":
-			msg = tea.KeyMsg{Type: tea.KeySpace}
-		case "tab":
-			msg = tea.KeyMsg{Type: tea.KeyTab}
-		default:
-			msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
-		}
-		next, _ := m.Update(msg)
+		next, _ := m.Update(keyMsg(k))
 		m = next.(AppModel)
 	}
 	return m
@@ -54,14 +45,14 @@ func TestViewLineWidths(t *testing.T) {
 	sizes := [][2]int{
 		{78, 24}, {80, 30}, {120, 40}, {160, 50}, // grid, 2-4 columns
 		{40, 20}, {38, 12}, // grid at its lower bound
-		{37, 20}, {30, 14}, {24, 10}, {20, 8}, // narrow list fallback
+		{37, 20}, {34, 14}, {32, 10}, // narrow list fallback (32 = minAppW)
 		{100, 7}, // very short: chrome + a clipped panel
 	}
 	for _, hosts := range [][]store.Host{sample(), nil} {
 		for _, sz := range sizes {
 			w, h := sz[0], sz[1]
 			m := sized(hosts, w, h)
-			for _, tab := range []string{"1", "2", "3"} {
+			for _, tab := range []string{"alt+P", "alt+F", "alt+S"} {
 				got := press(m, tab).View()
 				lines := strings.Split(got, "\n")
 				if len(lines) != h {
@@ -209,22 +200,26 @@ func TestScrollFollowsCursor(t *testing.T) {
 
 func TestTabSwitching(t *testing.T) {
 	m := sized(sample(), 78, 24)
-	if m.tab != tabHosts {
+	if m.tab != tabPref {
 		t.Fatal("must start on hosts")
 	}
-	m = press(m, "3")
+	m = press(m, "alt+S")
 	if m.tab != tabSSH {
-		t.Fatalf("3 -> tab=%d want %d", m.tab, tabSSH)
+		t.Fatalf("alt+S -> tab=%d want %d", m.tab, tabSSH)
 	}
-	// Tab stays in this tab. [3] has one list panel now, so it has nowhere to go.
+	// Tab stays in this tab. The ssh tab has one list panel, so nowhere to go.
 	m = press(m, "tab")
 	if m.tab != tabSSH || m.ssh.focus != panelSessions {
-		t.Fatalf("tab should stay on [4], got tab=%d focus=%d", m.tab, m.ssh.focus)
+		t.Fatalf("tab should stay on [1], got tab=%d focus=%d", m.tab, m.ssh.focus)
 	}
-	// Only a digit changes tab.
-	m = press(m, "1")
-	if m.tab != tabHosts {
-		t.Fatalf("1 -> tab=%d want %d", m.tab, tabHosts)
+	// Only an Alt chord changes tab — a bare digit addresses a panel.
+	m = press(m, "alt+P")
+	if m.tab != tabPref {
+		t.Fatalf("alt+P -> tab=%d want %d", m.tab, tabPref)
+	}
+	m = press(m, "3")
+	if m.tab != tabPref {
+		t.Fatalf("a bare digit must not switch tabs any more, tab=%d", m.tab)
 	}
 }
 

@@ -31,6 +31,11 @@ func settle(m AppModel) AppModel {
 }
 
 func keyMsg(k string) tea.KeyMsg {
+	// "alt+X" for a rune chord — how bubbletea reports ESC-prefixed keys, and
+	// how alt+shift+p arrives (the shifted rune, Alt set).
+	if r, ok := strings.CutPrefix(k, "alt+"); ok && k != "alt+esc" {
+		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r), Alt: true}
+	}
 	switch k {
 	case " ":
 		return tea.KeyMsg{Type: tea.KeySpace}
@@ -96,7 +101,7 @@ func appWith(hosts []store.Host, saved *[]store.Host) AppModel {
 // A composited float must not change the canvas: the overlay has to preserve
 // both the line count and every line's width, or the whole frame shears.
 func TestPopupPreservesFrame(t *testing.T) {
-	sizes := [][2]int{{100, 30}, {78, 24}, {60, 16}, {40, 12}, {24, 9}}
+	sizes := [][2]int{{100, 30}, {78, 24}, {60, 16}, {40, 12}, {34, 9}}
 	opens := map[string][]string{
 		"space menu": {" "},
 		"help":       {"?"},
@@ -155,7 +160,7 @@ func TestEveryMenuRowRuns(t *testing.T) {
 			t.Fatal("Space did not open the menu")
 		}
 		m = pressA(m, a.key)
-		opened := m.form.isActive() || m.confirm.isActive() || m.tab != tabHosts ||
+		opened := m.form.isActive() || m.confirm.isActive() || m.tab != tabPref ||
 			m.hosts.filtering
 		if !opened {
 			t.Errorf("menu row %q committed but nothing happened", a.label)
@@ -197,7 +202,7 @@ func TestMenuOnEmptyPanelStillOffersCreate(t *testing.T) {
 
 // Space must answer on every surface, including the tabs that do not exist yet.
 func TestSpaceRespondsOnUnbuiltTabs(t *testing.T) {
-	for _, tab := range []string{"2", "3"} {
+	for _, tab := range []string{"alt+F", "alt+S"} {
 		m := pressA(appWith(sample(), nil), tab, " ")
 		if !m.spaceMenu.isActive() {
 			t.Errorf("tab %s: Space must open something, even if it only says there is nothing", tab)
@@ -514,7 +519,7 @@ func TestDumpPopups(t *testing.T) {
 // matching stayed on as a binding nothing discloses.
 func TestOnlyTheMarkedCaseFires(t *testing.T) {
 	fired := func(m AppModel) bool {
-		return m.form.isActive() || m.confirm.isActive() || m.tab != tabHosts ||
+		return m.form.isActive() || m.confirm.isActive() || m.tab != tabPref ||
 			m.hosts.filtering
 	}
 	for _, a := range hostActions {
@@ -552,8 +557,8 @@ func TestLowercaseDoesNotFireAnUppercaseAction(t *testing.T) {
 		live  func(AppModel) bool
 		what  string
 	}{
-		{tabHosts, "e", func(m AppModel) bool { return m.form.isActive() }, "[E]dit"},
-		{tabHosts, "a", func(m AppModel) bool { return m.form.isActive() }, "[A]dd"},
+		{tabPref, "e", func(m AppModel) bool { return m.form.isActive() }, "[E]dit"},
+		{tabPref, "a", func(m AppModel) bool { return m.form.isActive() }, "[A]dd"},
 	} {
 		m := appWith(sample(), nil)
 		m.tab = tc.tab

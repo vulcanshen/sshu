@@ -22,7 +22,7 @@ func emptyApp(t *testing.T, w, h int) AppModel {
 // panel the sentence telling a stuck user what to press was cut off — at exactly
 // the width where they most needed it.
 func TestEmptyHintWrapsInsteadOfTruncating(t *testing.T) {
-	for _, tab := range []tabID{tabHosts, tabSFTP, tabSSH} {
+	for _, tab := range []tabID{tabPref, tabFT, tabSSH} {
 		m := emptyApp(t, 46, 16)
 		m.tab = tab
 		view := ansi.Strip(m.View())
@@ -99,7 +99,7 @@ func TestEveryEmptyPanelIsTheSameShape(t *testing.T) {
 	m := emptyApp(t, 100, 20)
 	centred(t, ansi.Strip(m.View()), "No hosts yet")
 
-	m.tab = tabSFTP
+	m.tab = tabFT
 	view := ansi.Strip(m.View())
 	centred(t, view, "No host")
 	centred(t, view, "Nothing marked")
@@ -142,9 +142,9 @@ func TestAShortPanelKeepsTheFact(t *testing.T) {
 
 // The frame invariant, for every tab in its empty state.
 func TestEmptyStatesPreserveFrame(t *testing.T) {
-	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {72, 16}, {50, 12}, {30, 9}} {
+	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {72, 16}, {50, 12}, {34, 9}} {
 		w, h := sz[0], sz[1]
-		for _, tab := range []tabID{tabHosts, tabSFTP, tabSSH} {
+		for _, tab := range []tabID{tabPref, tabFT, tabSSH} {
 			m := emptyApp(t, w, h)
 			m.tab = tab
 			for i, l := range strings.Split(m.View(), "\n") {

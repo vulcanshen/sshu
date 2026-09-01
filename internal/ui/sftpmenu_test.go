@@ -73,7 +73,7 @@ func TestSFTPMenuStaysFlatWithOneRegion(t *testing.T) {
 	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	m = settle(next.(AppModel))
-	m.tab = tabSFTP
+	m.tab = tabFT
 	m.sftp.focus = panelLeftFiles
 
 	for _, it := range m.sftpMenuItems() {

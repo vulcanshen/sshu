@@ -161,7 +161,7 @@ func TestDialElapsedAppearsOnlyAfterAWhile(t *testing.T) {
 
 // The frame invariant, in the state that has its own body.
 func TestDialingPreservesFrame(t *testing.T) {
-	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {72, 16}, {50, 12}, {30, 9}} {
+	for _, sz := range [][2]int{{120, 40}, {100, 26}, {80, 20}, {72, 16}, {50, 12}, {34, 9}} {
 		w, h := sz[0], sz[1]
 		m := dialing(t, w, h)
 		for i, l := range strings.Split(m.View(), "\n") {

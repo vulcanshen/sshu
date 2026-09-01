@@ -9,20 +9,24 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// The three top-level surfaces. Screen order is hosts / sftp / ssh (that is what
-// the capsules read left to right); build order is hosts → ssh → sftp.
+// The three top-level surfaces. Screen order is preference / file transfer /
+// ssh (that is what the strip reads left to right).
 type tabID int
 
 const (
-	tabHosts tabID = iota
-	tabSFTP
+	tabPref tabID = iota
+	tabFT
 	tabSSH
 	tabCount
 )
 
-// Capsule labels. "[N]" is doing double duty as the type signal and as the
-// hotkey disclosure — one bracket convention for the whole app (§3.4 / §4.4).
-var tabLabels = []string{"[1] hosts", "[2] sftp", "[3] ssh"}
+// Strip labels. The bracket is still the hotkey disclosure, and it still
+// prints the key exactly as pressed: the capital letter means shift, so
+// [Alt-P] is alt+shift+p. The tabs moved OFF the bare digits so that every
+// digit could address a panel of the current tab instead — and so that
+// switching tab works even while a remote holds the keyboard, which no bare
+// key could survive.
+var tabLabels = []string{"[Alt-P]reference", "[Alt-F]ileTransfer", "[Alt-S]sh"}
 
 // chromeRows is the fixed chrome the panels do NOT get: the capsule row, the
 // rule under it, and the footer. Locked at 3 — none of them ever reflows (§1.3).
@@ -274,6 +278,16 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The tab chords work from anywhere below the float layer — including from
+	// inside a PTY, which is the whole reason they are Alt chords. Under a
+	// popup they do nothing: a tab switching beneath a form would strand the
+	// form over a surface it knows nothing about.
+	if !m.popupOpen() {
+		if t, ok := tabForChord(msg.String(), m.inPty()); ok {
+			return m.switchTab(t)
+		}
+	}
+
 	// Alt+Esc is sshu's own key, not a VTP core key: it exists because panel [5]
 	// hands the keyboard to a remote program, and something has to be able to
 	// take it back. It is scoped to that one situation — everywhere else it is
@@ -296,13 +310,13 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Type == tea.KeyEscape {
 		// A search is the innermost thing Esc can drop, on either tab that has
 		// one.
-		if !m.popupOpen() && m.tab == tabHosts && m.hosts.filtering {
+		if !m.popupOpen() && m.tab == tabPref && m.hosts.filtering {
 			m.hosts.clearFilter()
 			return m, nil
 		}
 		// filu's two-stage Esc: close a float if one is up, otherwise go up a
 		// directory. Only the sftp browser has an "up" to go to.
-		if !m.popupOpen() && m.tab == tabSFTP && !m.sftp.focus.isMarks() {
+		if !m.popupOpen() && m.tab == tabFT && !m.sftp.focus.isMarks() {
 			// A filter is the innermost thing Esc can drop, before the directory.
 			if s := m.sftp.cur(); s.filtering {
 				s.clearFilter()
@@ -366,10 +380,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// A filtering file list claims printable keys before the action table can:
 	// while a query is being typed, "m" is a letter, not Mark. Arrows, Enter and
 	// Esc fall through — the same split the picker and the form make (§4.5).
-	if m.tab == tabSFTP && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
+	if m.tab == tabFT && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
 		return m, nil
 	}
-	if m.tab == tabHosts && !m.popupOpen() && m.hosts.filterKey(msg) {
+	if m.tab == tabPref && !m.popupOpen() && m.hosts.filterKey(msg) {
 		return m, nil
 	}
 
@@ -502,40 +516,13 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}, m.layer())
 		}
 		return m.quit()
-	case "1":
-		m.tab = tabHosts
-		m.sftp.onScreen = false
-		return m, nil
-	case "2":
-		m.tab = tabSFTP
-		m.sftp.onScreen = true
-		return m, m.sftp.startWatch()
-	case "3":
-		m.tab = tabSSH
-		m.sftp.onScreen = false
-		return m, nil
-	case "4", "5", "6", "7":
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 		// A digit addresses a panel OF THE CURRENT TAB, and does nothing where no
 		// such panel is on screen. The rule reads off the screen: the numbers you
-		// can see are the numbers you can press.
-		//
-		// It used to jump across tabs — 4 from anywhere landed on tab [3]'s
-		// sessions — which meant a digit did something the screen never showed.
-		switch m.tab {
-		case tabSSH:
-			if p, ok := map[string]sshPanel{
-				"4": panelSessions, "5": panelPty,
-			}[k]; ok {
-				m.ssh.setFocus(p)
-			}
-		case tabSFTP:
-			if p, ok := map[string]sftpPanel{
-				"4": panelLeftFiles, "5": panelLeftMarks,
-				"6": panelRightFiles, "7": panelRightMarks,
-			}[k]; ok {
-				m.sftp.focus = p
-			}
-		}
+		// can see are the numbers you can press. Every digit is free for this
+		// now that the tabs live on Alt chords — each tab numbers its panels
+		// from 1.
+		m.focusPanelDigit(k)
 		return m, nil
 	case "tab", "shift+tab":
 		// Tab cycles the panels OF THE CURRENT TAB and wraps there. It does not
@@ -549,7 +536,7 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch m.tab {
 		case tabSSH:
 			m.ssh.cycleFocus(back)
-		case tabSFTP:
+		case tabFT:
 			m.sftp.cycleFocus(back)
 		}
 		return m, nil
@@ -564,6 +551,68 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.dispatchKey(k)
 }
 
+// tabForChord resolves a tab-switch chord. The disclosed spelling is the
+// shifted one — [Alt-P] prints the key as pressed, capital meaning shift — but
+// OUTSIDE a pty the unshifted chord answers too: alt+p is a dead key there,
+// and a dead key one shift away from a live one is a trap with no payoff.
+// INSIDE a pty the unshifted chords are not sshu's to take — M-f is
+// forward-word in every readline and emacs on the far end — so only the
+// shifted spelling is intercepted where a remote holds the keyboard.
+func tabForChord(k string, remoteHasKeys bool) (tabID, bool) {
+	switch k {
+	case "alt+P":
+		return tabPref, true
+	case "alt+F":
+		return tabFT, true
+	case "alt+S":
+		return tabSSH, true
+	}
+	if remoteHasKeys {
+		return 0, false
+	}
+	switch k {
+	case "alt+p":
+		return tabPref, true
+	case "alt+f":
+		return tabFT, true
+	case "alt+s":
+		return tabSSH, true
+	}
+	return 0, false
+}
+
+// switchTab is the one place the tab changes. The sftp watcher only runs
+// while its tab is on screen, and a second caller that forgot onScreen is how
+// a hidden tab ends up polling a connection nobody is looking at.
+func (m AppModel) switchTab(t tabID) (tea.Model, tea.Cmd) {
+	m.tab = t
+	m.sftp.onScreen = t == tabFT
+	if t == tabFT {
+		return m, m.sftp.startWatch()
+	}
+	return m, nil
+}
+
+// focusPanelDigit maps a digit onto the current tab's panels, numbered from 1
+// in the order they are drawn. A digit with no panel behind it does nothing.
+func (m *AppModel) focusPanelDigit(k string) {
+	switch m.tab {
+	case tabSSH:
+		if p, ok := map[string]sshPanel{
+			"1": panelSessions, "2": panelPty,
+		}[k]; ok {
+			m.ssh.setFocus(p)
+		}
+	case tabFT:
+		if p, ok := map[string]sftpPanel{
+			"1": panelLeftFiles, "2": panelLeftMarks,
+			"3": panelRightFiles, "4": panelRightMarks,
+		}[k]; ok {
+			m.sftp.focus = p
+		}
+	}
+}
+
 // dispatchKey routes a key to the ACTIVE TAB's action table.
 //
 // Both ways of running an action come through here: the letter hotkey and the
@@ -574,9 +623,9 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // makes that class of bug impossible rather than merely fixed.
 func (m AppModel) dispatchKey(k string) (tea.Model, tea.Cmd) {
 	switch m.tab {
-	case tabHosts:
+	case tabPref:
 		return m.hostsKey(k)
-	case tabSFTP:
+	case tabFT:
 		return m.sftpKey(k)
 	case tabSSH:
 		return m.sshKey(k)
@@ -657,7 +706,7 @@ func (m AppModel) hostsKey(k string) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) cursorHost() (store.Host, bool) {
-	if m.tab != tabHosts {
+	if m.tab != tabPref {
 		return store.Host{}, false
 	}
 	return m.hosts.rowAt(m.hosts.cursor)
@@ -731,7 +780,7 @@ func (m AppModel) menuTitle() string {
 	switch m.tab {
 	case tabSSH:
 		return m.ssh.panelTitle(m.ssh.focus)
-	case tabSFTP:
+	case tabFT:
 		return m.sftp.panelTitle(m.sftp.focus)
 	}
 	return tabLabels[m.tab]
@@ -742,7 +791,7 @@ func (m AppModel) menuItems() []menuItem {
 	switch m.tab {
 	case tabSSH:
 		return m.sshMenuItems()
-	case tabSFTP:
+	case tabFT:
 		return m.sftpMenuItems()
 	}
 	_, acts := m.hostsApplicable()

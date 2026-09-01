@@ -11,7 +11,7 @@ import (
 // marks. It has nothing to do with tab [3]: an sftp side is its own connection,
 // and however many ssh sessions are open changes nothing here.
 //
-// Panels are [4] [5] [6] [7] — left files, left marks, right files, right marks
+// Panels are [1] [2] [3] [4] — left files, left marks, right files, right marks
 // — and each is its own focus, because doing anything to a mark needs a cursor
 // on it.
 type sftpPanel int
@@ -191,8 +191,8 @@ func (m sftpModel) visibleRows(marks bool) int {
 
 // ---------------------------------------------------------------- navigation
 
-// cycleFocus walks [4] -> [5] -> [6] -> [7], wrapping. It stays inside this tab:
-// Tab moves between the panels you can see, and changing tab is 1/2/3.
+// cycleFocus walks [1] -> [2] -> [3] -> [4], wrapping. It stays inside this
+// tab: Tab moves between the panels you can see; changing tab is an Alt chord.
 func (m *sftpModel) cycleFocus(back bool) {
 	n := int(panelRightMarks) + 1
 	at := int(m.focus)
