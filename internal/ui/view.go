@@ -20,6 +20,10 @@ func (m AppModel) View() string {
 	if m.w < minAppW || m.h < chromeRows+3 {
 		return "terminal too small"
 	}
+	// The easter-egg splash replaces the whole frame while it plays.
+	if m.splash.isActive() {
+		return m.splash.render(m.w, m.h)
+	}
 
 	// The rule carries the transfer bar on every tab; the green status only
 	// where the summary itself lives (the file-transfer tab).

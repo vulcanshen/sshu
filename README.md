@@ -1,5 +1,7 @@
 # sshu
 
+<p align="center"><img src="docs/icon.svg" width="128" alt="sshu icon" /></p>
+
 [![GitHub Release](https://img.shields.io/github/v/release/vulcanshen/sshu)](https://github.com/vulcanshen/sshu/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/vulcanshen/sshu)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
@@ -11,6 +13,17 @@
 > _When in doubt, hit_ **`Space`**.
 
 sshu is a member of the `u`-family and an ssh-domain implementation of [Vulcan's TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/vtp.md) — the same design system as [kbu](https://github.com/vulcanshen/kbu) (Kubernetes) and [filu](https://github.com/vulcanshen/filu) (filesystem). See [`docs/sshu-implementation.md`](docs/sshu-implementation.md) for the clause-by-clause record, and [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md) for the reasoning behind it — including the approaches that were tried and rejected.
+
+## Demo
+
+### The preference tab — hosts, credentials, logs, and a connect
+![preference](docs/demo-preference.gif)
+
+### Two-sided file transfer — marks, a real transfer, the rule as its progress bar
+![file transfer](docs/demo-transfer.gif)
+
+### The ssh grid — cells, layouts, held-Alt arrows
+![ssh grid](docs/demo-grid.gif)
 
 ## Five keys to drive sshu
 
