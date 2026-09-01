@@ -2361,6 +2361,18 @@ nothing」(它跟 Delete 的距離就靠這句話)。hotkeyIndex 無大小寫回
 `[2]/[4] Marked files` 改成 `[2]/[4] Marks` —— 動作叫 Append to **marks**、
 清的叫 Clear **mark**,panel 就叫它自己的名字,標題跟著語彙走。
 
+### 11.11 icon 與 splash 彩蛋
+
+`docs/icon.svg` 是 u-family mark 的 sshu 版:藍 U 框住一個**拼出 SSH 的
+金色圖形** —— 兩個 S 疊在 H 的雙軌之間,rows 10-11 的整寬橫槓是 H 的
+橫畫。`V`(pty 外、無 popup 時)觸發 splash 彩蛋,kbu / filu 的同款:
+底片掃入 → 上 S 散點浮現 → 下 S → H 自上而下 → 藍 U 框自底升起 ——
+**揭示順序唸出 s-s-h** —— 然後名稱 / 版本 / tagline / Esc 提示分兩拍
+淡入,任意鍵放回原畫面。像素畫由 icon.svg 逐格生成(中心點取樣 ——
+icon 含幾個 10×15 的 rect,固定 10px 網格會漏掉 S 的豎筆,實際漏過
+一次);splash 期間鍵盤完全歸它,pty 內 V 屬於遠端(外層路由先擋,
+條件裡的 inPty 是縱深防禦)。
+
 ---
 
 ## 附錄 — 按鍵全表(v0.1.0)
