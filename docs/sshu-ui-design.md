@@ -30,12 +30,14 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[1] hosts** | 連線目標的 CRUD(表格);也是 ssh / sftp 的**發射台** | 已落地 |
-| **[2] sftp** | 兩個檔案系統之間的傳輸;內含 `[4]` `[5]` `[6]` `[7]` 四個 panel | 已落地 |
-| **[3] ssh** | 對某台 host 的互動式 session;內含 `[4]` `[5]` 兩個 panel | 已落地 |
+| **[Alt-P]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
+| **[Alt-F]ileTransfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
+| **[Alt-S]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子以 `Alt+1..9` 直達 | 已落地 |
 
-三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),彼此以頂部
-獨立膠囊按鈕切換。
+三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),以 **Alt 和絃**
+切換:`Alt+Shift+P/F/S`(bracket 印的就是按的 —— 大寫即 shift);pty 之外
+小寫和絃也通。裸數字整組讓給「當前 tab 的 panel」。v0.2 之前 tab 掛在
+`1`/`2`/`3` 上 —— 換掉的理由與整輪大改的紀錄見 §11。
 
 ---
 
@@ -51,6 +53,10 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 | **Score** | **~100%** | 第一次開就能用完 |
 
 ### §A.0.Y core-key 集合(5 個,跨 surface 不變)
+
+> **v0.2**:tab 切換移到 `Alt+P/F/S` 和絃,`1`-`9` 全數改為「當前 tab 的
+> panel 直達」;ssh tab 的 `Tab` 改為顯示開關(§11.一、§11.六)。下表的
+> 「`1`/`2`/`3` 直達 alias」是 v0.1 的形狀,保留當時推理。
 
 | Core-key | sshu 語意 | 通用條款 |
 |---|---|---|
@@ -670,6 +676,11 @@ cursor 驅動,不另設 half-page)。
 
 ### 4.4.1 `Tab` 只在當前 tab 裡輪詢
 
+> **v0.2**:本節「輪詢」在 preference / file transfer 照舊;**ssh tab 的
+> `Tab` 改為「顯示開關」**(切換游標 session 在網格上的格子)—— 該 tab 的
+> panel 輪詢本來就是空集合(網格不是 Tab 可以走進去的地方),鍵讓給清單
+> 整天在做的那件事。見 §11.六。
+
 `Tab` 循環**當前 tab 看得見的 panel**,到底就繞回第一個,**不會跨到別的 tab**。
 換 tab 是 `1`/`2`/`3` 的事 —— 一個鍵一個工作。
 
@@ -691,6 +702,10 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 按 `Enter`、或按 `5`),出來一律是 `Alt+Esc`。
 
 ### 4.6 `Alt+Esc` —— sshu 專屬、只在 panel [5]
+
+> **v0.2**:`[5]` 已成**網格**。`Alt+Esc` 的語意不變(把鍵盤收回來),落點
+> 是 `[1]` sessions,side 欄同時回來;格子之間用 `Alt+1..9`,tab 和絃
+> `Alt+P/F/S` 在 pty 內也通。見 §11.六。
 
 **這條不是 VTP core key,也不計入 §A.0.Y 的 5 個 role。** 理由:panel [5] 把
 鍵盤整個交給遠端程式,五個 core key 在那裡全部失效(`Tab` `Enter` `Esc`
@@ -866,6 +881,11 @@ entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
 
 ### 6.3 Host form(form)—— Add / Edit 共用
 
+> **v0.2**:Auth 變三選(password / privatekey / **credential**),選
+> credential 時 User 欄整列變暗(credential 整包供應 user);IdentityFile 與
+> Credential 兩個「選值欄位」改為 **Enter 空欄開選單、Enter 有值跳下一欄、
+> Backspace 整行清除**,`Tab` 回歸「下一欄」。見 §11.三、§11.五。
+
 ```
       ╭─ ◆ New host ──────────────────────────────────╮
       │                                               │
@@ -926,6 +946,9 @@ border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surf
 留住 value 欄 —— 截斷的 label 還讀得懂,消失的 value 不行。
 
 ### 6.3.1 Identity file picker(menu)—— `Tab`
+
+> **v0.2**:開啟鍵由 `Tab` 改為**空欄位上的 `Enter`**(§11.五)。picker 本身
+> 的行為不變。
 
 私鑰路徑**用選的、不用打**。打錯的路徑要到連線那一刻才會失敗,離出錯的地方
 太遠。
@@ -1056,6 +1079,10 @@ Space menu 選了 Search、緊接著按 `Esc` 想退出搜尋,第一下沒有反
 刪完退回 Space menu)。
 
 ### 7.1.1 session 的一生
+
+> **v0.2**:單一 `[5]` 已成**終端網格** —— 任意數量的 session 可同時各佔
+> 一格;本節的 `[4]`/`[5]` 編號在新鍵位下是 `[1]` 與網格。一生的形狀
+> (連線中 → 說話 → 結束讀最後畫面)不變。見 §11.六。
 
 | 事件 | 發生什麼 |
 |---|---|
@@ -1192,6 +1219,10 @@ port 不吃這套色 —— 它在非游標列一律 `dimColor`。使用者要�
 
 ### 7.1.2 session 完全不落地
 
+> **v0.2**:**已反轉** —— 失敗連線的完整畫面現在寫進 applogs.yaml(使用者
+> 裁定「全部落地」),0600 + 警告標頭 + 自我修剪。理由與緩解記在 §11.四;
+> 本節保留當時的推理。
+
 session 與 app log **只活在記憶體裡**,關掉 sshu 就沒了。沒有 `history.yaml`。
 
 理由不只是省事:最後一屏可能含遠端印出的任何東西(token、金鑰、客戶資料),
@@ -1235,6 +1266,11 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成**兩格**。所
 **乾淨離開不出聲**:`exited 0` 是你打 `exit` 要的結果 —— 它只進 log,不跳 toast。
 
 ### 7.1.5 app log —— 一則消息只出現兩秒,等於沒出現過
+
+> **v0.2**:`!` popup 已移除,app log 變成 preference → logs 的**內容
+> panel**,並且**落地到 applogs.yaml**(反轉 §7.1.2「session 完全不落地」——
+> 使用者裁定,代價與緩解見 §11.四)。「看到即已讀」:logs 區上了畫面,未讀
+> 計數就歸零;在那之前 nav 列與 footer 都掛著數字。
 
 原本是 `[H]istory`:一份「結束過的 session」清單。它答的問題其實不是「有哪些
 session」,而是「**它們怎麼結束的**」—— 而那個問題不是 tab [3] 專屬的。傳輸失敗、
@@ -1796,6 +1832,37 @@ TUI。
 
 ---
 
+### 8.4 `credentials.yaml` —— 可重用的身分(v0.2)
+
+```yaml
+# sshu credentials —— 由 preference → credentials 管理,手改也可以。
+version: 1
+credentials:
+  - name: ops-pw          # host 以這個名字引用
+    user: ops             # credential 整包供應 user(§11.三)
+    auth: password        # password | privatekey(不能再是 credential)
+    password: "..."       # 與 hosts.yaml 同一個明文決策、同一組緩解
+```
+
+host 端寫 `auth: credential` + `credential: ops-pw`,連線時經
+`store.Resolve` 換成具體的 user+auth;引用斷掉在**確認框那一步**就報錯,
+不會走到 ssh 裡才失敗。刪除/改名 credential 時會數還有幾台 host 引用它。
+
+### 8.5 `applogs.yaml` —— app log 的落地(v0.2)
+
+裸的 top-level YAML list:記一筆事件=往檔尾 append 一個單元素 list 的
+bytes,熱路徑沒有 read-modify-write,寫到一半掛掉損失一筆而不是整檔。
+超過 1 MiB 自我修剪(條數與位元組雙重上限)。失敗連線的完整畫面在裡面,
+所以比照密碼檔:0600 每次重申 + 警告標頭。
+
+### 8.6 訊號與孤兒(v0.2)
+
+每個子行程都在自己的 PTY session 裡,殺 sshu 的訊號**到不了它們**。
+startPty 是所有子行程的出生地,所以 registry 記在那裡;`KillChildren()`
+是每條退出路徑的最後一行,外加自己接的 SIGHUP(關終端視窗)。外部
+SIGINT/SIGTERM 走 bubbletea 內部路徑、不經 model 的 quit —— 這就是
+registry 必須存在的原因。實測:SIGTERM 與 SIGHUP 前有 ssh 子行程,後無。
+
 ## §9. 檔案骨架
 
 ```
@@ -1806,13 +1873,17 @@ sshu/
 │   │   ├── app.go          AppModel、tab 狀態、按鍵路由、單一出口
 │   │   ├── view.go         compose、浮層疊放次序、footer legend
 │   │   ├── theme.go        色彩錨點與 glyph 常數
-│   │   ├── chrome.go       膠囊 tab bar(自 filu 改)
-│   │   ├── hosts.go        [1] panel:網格、cursor、捲動、跨欄 fuzzy 搜尋
+│   │   ├── chrome.go       powerline tab 帶(自 filu 改)
+│   │   ├── preftab.go      [Alt-P] nav + 內容切換 + 版面(v0.2)
+│   │   ├── hosts.go        hosts 表格 model:cursor、捲動、跨欄 fuzzy 搜尋
+│   │   ├── credlist.go     credentials 表格(v0.2)
+│   │   ├── credform.go     credential form(v0.2;與 host form 共用欄位引擎)
+│   │   ├── credkeys.go     credentials 的動作表 + credential picker(v0.2)
 │   │   ├── table.go        hosts 表格:欄寬推導、列 render
 │   │   ├── form.go         host form popup(form 類)
 │   │   ├── filepicker.go   identity file picker(menu 類)
-│   │   ├── sshtab.go       [3] 版面、session 清單、折行
-│   │   ├── sshkeys.go      [3] 的動作表與 Space menu
+│   │   ├── sshtab.go       [Alt-S] 終端網格、layout strip、session 清單(v0.2 重寫)
+│   │   ├── sshkeys.go      [Alt-S] 的動作表、layout 鍵、C×R 解析
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
@@ -1827,7 +1898,8 @@ sshu/
 │   │   ├── editorcmd.go    $VISUAL/$EDITOR/vi 解析、環境剝除
 │   │   ├── inputpopup.go   一行文字的問句(Rename / Add)
 │   │   ├── confirm.go      破壞性動作與離開的確認
-│   │   ├── applog.go       `!` 全 app 事件紀錄(viewport,最新在上)
+│   │   ├── applog.go       app log(preference → logs 的內容 panel;寫穿 applogs.yaml)
+│   │   ├── procreg.go      子行程 registry + KillChildren(v0.2)
 │   │   ├── empty.go        沒有 item 時的統一空狀態(事實 + 可折行提示)
 │   │   ├── nav.go          清單導覽詞彙:繞回、半頁、保留字母
 │   │   ├── crumb.go        cwd 純文字麵包屑(lavender + dim 斜線)
@@ -1850,7 +1922,9 @@ sshu/
 │   └── store/
 │       ├── store.go        XDG 路徑解析
 │       ├── config.go       config.yaml(唯讀:連線預算)
-│       └── hosts.go        hosts.yaml 讀寫 + 驗證
+│       ├── hosts.go        hosts.yaml 讀寫 + 驗證 + Resolve(credential)
+│       ├── credentials.go  credentials.yaml 讀寫 + 驗證(v0.2)
+│       └── applog.go       applogs.yaml append/讀回/自我修剪(v0.2)
 ├── docs/
 │   ├── sshu-ui-design.md       ← 本檔(為什麼)
 │   └── sshu-implementation.md  現在是怎麼做的
@@ -2091,6 +2165,13 @@ X 回到 ~1.0。
 | 傳輸可以取消 | `TestTransferCanBeCancelled` |
 | 三張 action table 沒有大小寫撞號 | `TestNoHotkeyCollisions` |
 
+### 第四階段:v0.2 大改 —— **完成**
+
+Alt 和絃 tab、preference(nav + hosts/credentials/logs)、credential 整包、
+applog 落地、host form 三選 auth 與「選值欄位」互動、ssh 終端網格
+(Tab 開關、Enter 進入、Alt+1..9、layout strip、custom C×R)、訊號清理。
+決策紀錄見 §11。
+
 ### 之後
 
 - **tab [1] 的 `[S]ftp`**:`(planned)` 從 hosts 表格把游標那台直接接到 tab [2]
@@ -2104,98 +2185,166 @@ X 回到 ~1.0。
 
 ---
 
-## 附錄 — 按鍵全表
+## §11. v0.2 大改 —— Alt 和絃、preference、credential、終端網格
 
-### Core key(跨 surface 不變,5 個)
+一次成塊的重排,整輪都是使用者點名的方向;四個當場裁定的分歧點原文照錄:
+applog「全部落地」、credential「整包供應」、數字例外「只有 pty 內」、
+ssh 清單「Enter 直接切到該 item 的 pty panel,使用 tab 來開關」。
+
+### 11.1 tab 讓出數字,搬到 Alt 和絃
+
+`1`/`2`/`3` 切 tab 的舊形狀有兩個天花板:數字不夠 panel 用(sftp 四個
+panel 得從 4 編起,「畫面上的號碼」跟「按的號碼」隔了一個位移),而且
+**pty 裡一個裸鍵都活不下來** —— 遠端拿著鍵盤時,你沒有任何辦法換 tab。
+Alt 和絃兩個都解:每個 tab 的 panel 都從 1 編號,和絃在 pty 裡照樣被
+sshu 攔下。
+
+大小寫的分工是後來補的裁定:**pty 外**小寫 `alt+p/f/s` 也通(那裡它是
+死鍵,離活鍵一個 shift 的死鍵是沒有回報的陷阱);**pty 內**只認大寫
+(`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。
+
+**VHS 送不出任何 Alt**(`Alt+F` 只送裸字元、`Alt+Esc` 更是把 "Esc" 三個
+字母打出來,cat -v 實證)。和絃由單元測試覆蓋;tape 要壓 Alt 得繞
+`tmux send-keys`(M-P / M-Escape),網格的 dogfood 截圖就是這樣拍的。
+
+### 11.2 preference:sshu 自己的資料一個屋簷
+
+hosts 表格從「一個 tab 就是一張表」變成 preference 的一個區,旁邊住進
+credentials 與 logs。左側 nav 的游標**就是選擇**:j/k 移過去內容立刻換,
+Enter 只負責把鍵盤移過去 —— 需要第二個鍵才有意義的游標,瀏覽起來像壞掉。
+tab 仍然**開在內容上**(hosts 表格,舊肌肉記憶的落點),nav 是去了才去的
+chrome。
+
+### 11.3 credential 是整包,不是預設值
+
+credential = user + auth 一組,host 寫 `auth: credential` 就整包拿走,
+**User 欄同時變暗**。裁定選了整包而不是「host 的 user 可覆蓋」:後者讓
+「這條連線到底用誰」要看兩個地方才有答案。連帶的誠實成本都在門口付:
+表格的 user 欄顯示 credential 的 user(引用斷掉顯示 `?`,不編造名字)、
+確認框顯示解析後的身分、斷掉的引用在確認框那一步就用一句話失敗。
+
+### 11.4 applog 落地(反轉「session 不落地」)
+
+0.1.0 的立場是「連線紀錄不值得那個洩漏」。使用者裁定反轉:**全部落地**,
+含失敗連線的完整畫面。緩解照密碼檔那一套 —— 0600 每次重申、警告標頭、
+自我修剪(1 MiB,條數與位元組雙重上限)。`!` popup 一併退場:log 變成
+preference → logs 的內容 panel,**上了畫面就是已讀**;寫不進去的 log 自己
+在 log 裡抱怨,而且只抱怨一次。事件面也放寬:不只失敗 —— host/credential
+的增刪改、連線的開始與結束、sftp 撥號、傳輸結果、edit 寫回,全都是事件。
+
+### 11.5 「選值欄位」:Enter 開、Enter 走、Backspace 整行
+
+IdentityFile 的舊互動(`Tab` 開 picker)把 Tab 在唯一一個欄位上變成別的
+意思。新互動是使用者描述的流程原樣:**空欄 Enter 開選單 → 選好 Enter →
+有值的欄 Enter 跳下一欄;Backspace 整行清除**,選來的值是被替換的,不是
+一個字母一個字母刮掉的。`Tab` 回歸全欄位一致的「下一欄」。host form 的
+Credential 欄與 credForm 的 IdentityFile 欄同一套;兩張 form 共用同一個
+欄位引擎(editField / formBody),不是兩份實作。
+
+### 11.6 ssh 終端網格
+
+單一 `[5]` 變成**網格**:每個 session 可以有一格,格與格等分。裁定的
+操作語彙:**清單上 `Tab` 開關格子**(該 tab 的 panel 輪詢本來就沒有地方
+可去 —— 網格不是 Tab 可以走進去的地方,鍵讓給清單整天做的事)、**Enter
+顯示並把鍵盤交過去**(side 欄同時收起)、**`Alt+1..9` 在格子間跳**、
+**`Alt+Esc` 收回鍵盤**(side 欄回來)。清單列開頭多一個顯示欄:有格子
+的是 monitor、沒有的是劃線 monitor —— 兩個**形狀**,不是一個形狀兩種
+顏色,色弱也讀得出來(codepoint 照規矩查 cmap:f0379 / f0d90)。
+
+layout strip `[2]` 蓋在網格上方、永遠在場(高度不隨 focus 跳動):
+horizontal / vertical 是兩個退化網格(一列 / 一欄),custom 是指定的
+C×R —— Enter 問形狀,兩個 1-9 的數字用什麼隔開都行;**塞爆時長列不砍格**
+(格子絕不能默默不存在)。條紋在高度撐不起「三行 chrome + 可用網格」時
+讓位。
+
+幾何的紀律:每一格的遠端只在數字真的變了才收到 SIGWINCH(applied 幾何
+記在 session 上);splitEven 把餘數攤開,欄寬總和**精確等於**總寬 ——
+frame invariant 不容忍一條散落的直欄。結束的紀律:格子死了就離場重排,
+**鍵盤絕不默默落進另一台遠端** —— focus 格死了就退回清單;失敗畫面只在
+「這一死讓網格空了」時佔住網格說話。
+
+### 11.7 訊號與孤兒
+
+`若程式被 ctrl-c 砍掉,同時需要砍掉所有連線中的 process`。三條沒人管的
+門:外部 SIGINT(bubbletea 以 ErrInterrupted 收場、不經 model)、外部
+SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
+接)。解法見 §8.6;實測兩種訊號前有 ssh 子行程、後無。
+
+---
+
+## 附錄 — 按鍵全表(v0.2)
+
+### Tab 與 panel
 
 | 鍵 | 語意 |
 |---|---|
-| `Tab` / `1`-`3` | 切 tab(popup 內:切欄位) |
-| `Enter` | 確認 / 連線 |
-| `Esc` | 關浮層 / 取消 |
-| `Space` | contextual 入口(Space menu);**在浮層上按 = 關掉它** |
-| `?` | non-contextual 入口(help popup);**再按一次關掉**,可疊在別的浮層上開 |
+| `Alt+P` / `Alt+F` / `Alt+S`(大寫;pty 外小寫也通) | 切 tab —— pty 內也有效 |
+| `1`-`9` | **當前 tab** 的 panel 直達(pty 內數字屬於遠端) |
+| `Tab` | 當前 tab 的下一個 panel(**ssh tab 例外:顯示開關**) |
 
-### Contextual letter hotkey(在 Space menu 現身)
+### Core key(跨 surface 不變)
 
-**只認 bracket 印出來的那個大小寫**(`C` ≠ `c`)—— 見 §4.4。
-
-| 鍵 | 動作 |
+| 鍵 | 語意 |
 |---|---|
-| `e` / `E` | Edit host |
-| **`D`(只認大寫)** | Delete host —— 小寫 `d` 是半頁下捲(§4.2) |
-| `a` / `A` | Add host |
-| `/` | Search(name / user / host / port,**不含 auth**) |
-| `s` / `S` | Sftp `(planned)` |
+| `Enter` | 確認 / 連線 / 進入 |
+| `Esc` | 關浮層 / 取消(pty 內屬於遠端) |
+| `Space` | contextual 入口(Space menu);**在浮層上按 = 關掉它** |
+| `?` | non-contextual 入口(help);**再按一次關掉** |
 
-### Popup 內(由該 popup 的下邊框 hint 常駐揭露)
+### [Alt-P]reference
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| Space menu | `j`/`k` · `Enter` · `Esc` | 移動 / 執行 / 關閉 |
-| help | `j`/`k` · `Esc` | 捲動 / 關閉 |
-| form | `Tab`/`Shift+Tab`/`↑``↓` | 切欄位 |
-| form(Auth 欄) | `←` `→` | 切 password / privatekey |
-| form(IdentityFile 欄) | **`Tab`** | **開檔案選擇器**(`↑``↓` / `Shift+Tab` 才是換欄) |
-| form | `Enter` · `Esc` | 送出 / 取消 |
-| file picker | 打字 · `↑``↓` · `Enter` · `Esc` | 過濾 / 選擇 / 取用 / 取消 |
-| input(Rename) | 打字 · `Enter` · `Esc` | 編輯 / 送出 / 取消 |
-| confirm | `Enter` · `Esc` | 執行 / 取消 |
+| `[1]` nav | `j`/`k` · `Enter` | 選區(內容立刻跟著換)/ 鍵盤交給內容 |
+| `[2]` hosts | `Enter` · `E` · `D` · `A` · `/` | Connect(確認)/ Edit / Delete(確認)/ Add / Search |
+| `[2]` credentials | `Enter` · `D` · `A` | Edit / Delete(確認,列出引用數)/ Add |
+| `[2]` logs | `j`/`k`/`u`/`d`/`gg`/`G` | 捲動(viewport,無游標;上畫面即已讀) |
 
-所有有游標的浮層,`j`/`k`(或 `↑`/`↓`)都**繞**(§4.2)。
+### Host / credential form
 
-所有浮層都可以用 **`Space`** 關掉,唯一例外是正在被打字的三個(form、file
-picker、input)—— 那裡的空白是字元(§4.2.1)。
+| 鍵 | 動作 |
+|---|---|
+| `Tab` / `Shift+Tab` / `↑``↓` | 換欄(所有欄位一致) |
+| `←` `→`(Auth 欄) | password / privatekey / credential(host form 三選) |
+| `Enter`(IdentityFile / Credential 欄,**空**) | 開 picker / credential 選單 |
+| `Enter`(同上,**有值**) | 跳下一欄 |
+| `Backspace`(同上) | **整行清除** |
+| `Enter`(其他欄) · `Esc` | 送出 / 取消 |
+
+### [Alt-F]ileTransfer
+
+| Surface | 鍵 | 動作 |
+|---|---|---|
+| 全部 | `1` / `2` / `3` / `4` | 左檔案 / 左 marks / 右檔案 / 右 marks |
+| 全部 | `Tab` · `h`/`l` | 輪詢四個 panel / 切左右半 |
+| 全部 | `S` · `P` · `R` · `x`/`X` · `C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear marks / 傳輸(項/marks) |
+| 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / 標記 / 搜尋子樹 / Add / Rename / View / Edit |
+
+### [Alt-S]sh
+
+| Surface | 鍵 | 動作 |
+|---|---|---|
+| `[1]` sessions | `j`/`k`/`u`/`d` | 移動 |
+| `[1]` | **`Tab`** | **顯示開關** —— 游標 session 的格子上/下網格 |
+| `[1]` | `Enter` | 顯示**並把鍵盤交給那一格**(side 欄收起) |
+| `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認) |
+| `[2]` layout | `h`/`l` · `Enter` | 換排列(立刻生效)/ custom 上問 C×R |
+| 格子(pty) | 所有裸鍵 | 送給遠端 |
+| 任何處 | **`Alt+1..9`** | 跳到第 N 格(pty 內也有效) |
+| 格子(pty) | **`Alt+Esc`** | 收回鍵盤、回 `[1]`(side 欄回來) |
 
 ### 導覽(所有清單共用)
 
 | 鍵 | 動作 |
 |---|---|
-| `j` / `k` | 上 / 下一列 |
-| `u` / `d`(或 `Ctrl+U` / `Ctrl+D`) | 上 / 下半頁 |
+| `j` / `k` | 上 / 下一列(繞) |
+| `u` / `d`(或 `Ctrl+U` / `Ctrl+D`) | 上 / 下半頁(不繞) |
 | `gg` / `G` | 第一列 / 最後一列 |
-| `Tab` | 當前 tab 的下一個 panel(**繞回,不跨 tab**) |
-
-這些字母被保留:動作只能用**宣告的那個大小寫**碰到它們(§4.4)。
-
-### tab [2] sftp
-
-| Surface | 鍵 | 動作 |
-|---|---|---|
-| 全部 | `4` / `5` / `6` / `7` | 左檔案 / 左 marks / 右檔案 / 右 marks |
-| 全部 | `Tab` | `[4]` → `[5]` → `[6]` → `[7]` → 繞回 `[4]`(不跨 tab) |
-| 全部 | **`h` / `l`** | **切到左半 / 右半,保持同一列**(`[5]`↔`[7]`) |
-| 全部 | `S` · `P` | Select host / Progress |
-| 全部 | **`R`** | **Rename**(游標這一項,就地改名;含 `/` 會被拒絕) |
-| 全部 | **`x`** vs **`X`** | **Delete**(游標這一項)/ **Delete all marks**;都先問 |
-| 全部 | **`C`** | Clear marks —— 只忘記,不刪檔 |
-| `[4]` `[6]` | **`A`** | **Add**(建在當前目錄;結尾 `/` 就是目錄) |
-| 全部 | **`t` vs `T`** | 傳游標這一項 / 傳這一側所有 marks(都送到對面的當前目錄) |
-| 沒有 host 的那一側 | 只有 `S` | 其他字母都不作用,menu 也只列這一項 |
-| `[4]` `[6]` | `Enter` · `Esc` | 進目錄 / **先退搜尋、再退上一層** |
-| `[4]` `[6]` | `m` · `/` | 標記(可再按取消)/ **搜尋整棵子樹** |
-| `[4]` `[6]` `[5]` `[7]` | `r` · `v` · `e` | Rename / View / **Edit**(游標這一項) |
-| 搜尋中 | 打字 · `Backspace` · `Esc` | 改 query / 空 query 再按就退出 / 退出 |
-| `[5]` `[7]` | `j`/`k` · `m` | 移動 / 取消這一個標記(**同一個 `m`**) |
-
-**小寫 = 游標這一列,大寫 = 整個 panel**(§6.2)。而且 bracket 印的那個大小寫
-**就是唯一按得動的鍵**(§4.4)—— `c` 不會觸發 `[C]lear marks`。
-
-### tab [3] ssh
-
-| Surface | 鍵 | 動作 |
-|---|---|---|
-| 全部 | `4` / `5` | 直達 sessions / pty |
-| 全部 | `Tab` | **只有從 `[5]` 出來**(`[4]` 是唯一的清單 panel,不跨 tab) |
-| `[4]` | `j`/`k`/`u`/`d` · `Enter` · `C` · `D` | 移動 / 進入或切換並把 focus 給 `[5]`(不確認) / Close(確認) / Duplicate(確認) |
-| `[4]` | **`H`** | **History popup** —— 已結束的 session(view,沒有游標) |
-| `[5]` | 所有鍵 | 送給遠端 |
-| `[5]` | **`Alt+Esc`** | **收回鍵盤、focus 回 `[4]`** |
 
 ### 全域
 
 | 鍵 | 動作 |
 |---|---|
 | `?` | help popup |
-| `q` | 離開(無浮層時才生效) |
-| `Ctrl+C` | 強制離開 |
+| `q` | 離開(無浮層時才生效;有活的 session / 傳輸會先問) |
+| `Ctrl+C` | 強制離開(子行程一併帶走) |

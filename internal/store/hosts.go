@@ -107,7 +107,7 @@ const currentVersion = 1
 // header is prepended to every write. The warning is not decoration: the file
 // can hold plaintext passwords, and 0600 does not survive being copied into a
 // synced folder or a git repo.
-const header = `# sshu hosts — managed by the [1] hosts tab. Hand-editing is fine.
+const header = `# sshu hosts — managed by preference → hosts. Hand-editing is fine.
 #
 # WARNING: this file may contain plaintext passwords (hosts with auth: password).
 # It is kept at mode 0600, but that does not protect a copy: keep it out of

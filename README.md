@@ -16,26 +16,27 @@ sshu is a member of the `u`-family and an ssh-domain implementation of [Vulcan's
 
 | Key | Behavior |
 |---|---|
-| **`Tab`** | Move focus to the next panel of this tab (`1`–`3` switch tab, `4`–`7` jump to a panel) |
+| **`Tab`** | Move focus to the next panel of this tab (on the ssh tab it toggles a session's cell instead) |
 | **`Enter`** | Connect / enter a directory / commit a choice |
 | **`Space`** | *What can I do here?* — the contextual menu for whatever has focus. Also closes any popup |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
 | **`?`** | Global help — every app-wide action in one list |
-| **`!`** | The app log — what happened while you were not looking |
+
+Tabs are switched with **`Alt+P` / `Alt+F` / `Alt+S`** — chords, so they still work while a remote holds the keyboard — and every bare digit `1`–`9` addresses a panel of the current tab.
 
 When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of them is also a row in the `Space` menu — so there is nothing you have to memorize unless you want to.
 
 ## The three tabs
 
 ```
- ([1] hosts)  ([2] sftp)  ([3] ssh)
+ [Alt-P]reference ❯ [Alt-F]ileTransfer ❯ [Alt-S]sh
 ```
 
-**`[1]` hosts** — a table over `hosts.yaml`: name, user, host, port and auth method, one row each, shedding columns as the terminal narrows. `[A]dd` / `[E]dit` open a form with live validation; `Tab` on the IdentityFile field opens a fuzzy file picker that shows permissions and flags a key other people can read. `Enter` connects.
+**`[Alt-P]reference`** — sshu's own data under one nav: **hosts**, **credentials** and the **app log**. Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk.
 
-**`[2]` sftp** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
+**`[Alt-F]ileTransfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
-**`[3]` ssh** — many concurrent sessions, each a real `ssh` in an embedded terminal, one shown at a time. `[5]` takes the whole tab while the remote has the keyboard; `Alt+Esc` takes it back.
+**`[Alt-S]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom columns × rows.
 
 ## Install
 
@@ -66,11 +67,11 @@ A `Makefile` wraps the common tasks — `make build`, `make install` (→ `$GOBI
 sshu
 ```
 
-Opens on `[1]` hosts. Press `[A]` to add your first host, `Enter` to connect, `2` for the file browser. If you have never used sshu before, press `Space` on any panel and read the menu — it lists exactly what that panel can do.
+Opens on the hosts table. Press `[A]` to add your first host, `Enter` to connect, `Alt+F` for the file browser. If you have never used sshu before, press `Space` on any panel and read the menu — it lists exactly what that panel can do.
 
 ## Where your data lives
 
-One file, `hosts.yaml`, resolved in this order:
+A few YAML files in one directory, resolved in this order:
 
 | | |
 |---|---|
@@ -78,7 +79,7 @@ One file, `hosts.yaml`, resolved in this order:
 | `$XDG_CONFIG_HOME/sshu` | when set — on macOS too, so you can opt out of `~/Library/Application Support` |
 | otherwise | `os.UserConfigDir()/sshu` |
 
-It is hand-editable YAML and sshu says so in the file's own header. Writes are atomic (temp file + rename) and re-assert mode `0600` every time.
+`hosts.yaml` holds the hosts; `credentials.yaml` holds reusable identities — a name, a user and how that user authenticates — which a host can take wholesale with `auth: credential` + `credential: <name>`, so "who does this connection run as" is written in exactly one place. `applogs.yaml` is the app log's spine on disk. All three are hand-editable YAML, and every write is atomic (temp file + rename) and re-asserts mode `0600`.
 
 ### Settings — `config.yaml`
 
@@ -86,7 +87,7 @@ Optional, in the same directory, and **sshu never writes it**: a file you have e
 
 ```yaml
 # How long one connection attempt gets, in seconds. Default 15.
-# Tab [3] hands it to ssh as -o ConnectTimeout; tab [2] uses it to bound its dial.
+# The ssh tab hands it to ssh as -o ConnectTimeout; the sftp side uses it to bound its dial.
 connect_timeout: 15
 ```
 
@@ -94,7 +95,7 @@ A value outside 1–600 is treated as a slipped decimal and the default is used 
 
 ### Passwords are stored in plaintext — read this
 
-A host with `auth: password` keeps its password in `hosts.yaml` **in the clear**. That is a deliberate trade, and these are the mitigations:
+A host with `auth: password` keeps its password in `hosts.yaml` **in the clear**, and a credential with `auth: password` does the same in `credentials.yaml`. That is a deliberate trade, and these are the mitigations:
 
 - the file is kept at `0600`, re-asserted on every write, and carries a warning header
 - the password is never rendered — the form shows `••••`
@@ -104,9 +105,9 @@ A host with `auth: password` keeps its password in `hosts.yaml` **in the clear**
 
 ### Host keys
 
-The `[3]` ssh tab shells out to the real `ssh` binary, so host-key handling there is OpenSSH's, with your `~/.ssh/config` and `known_hosts`.
+The ssh tab shells out to the real `ssh` binary, so host-key handling there is OpenSSH's, with your `~/.ssh/config` and `known_hosts`.
 
-The `[2]` sftp tab speaks the protocol itself, and its policy is stricter: an **unknown** host is refused rather than waved through, and a **changed** key is refused outright and never offered as a question. To accept a new host, connect to it once through `[3]` — that is OpenSSH's prompt, with OpenSSH's fingerprint.
+The file-transfer tab speaks the protocol itself, and its policy is stricter: an **unknown** host is refused rather than waved through, and a **changed** key is refused outright and never offered as a question. To accept a new host, connect to it once through the ssh tab — that is OpenSSH's prompt, with OpenSSH's fingerprint.
 
 ## Key bindings
 
@@ -115,28 +116,31 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 ### Everywhere
 
 ```
- tabs      1 2 3                      panels    4 5 6 7  ·  Tab (this tab only)
+ tabs      Alt+P / Alt+F / Alt+S     (they work inside a pty too)
+ panels    1–9 of the current tab  ·  Tab (ssh tab: display toggle)
  cursor    j k    u d (half page)     gg G      arrows are synonyms
  global    Space menu    ? help    q quit    Ctrl+C force quit
 ```
 
-### `[1]` hosts
+### `[Alt-P]reference`
+
+The left nav (`1`) picks a section — **hosts**, **credentials**, **logs** — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content.
 
 | Key | Action |
 |---|---|
-| `Enter` | Connect (asks first) |
-| `A` | Add a host |
+| `Enter` | hosts: Connect (asks first; a credential host is resolved right here) · credentials: Edit |
+| `A` | Add a host / a credential |
 | `E` | Edit the host under the cursor |
-| `D` | Delete it (asks first) |
-| `/` | Search — name, user, host and port at once (**not** the auth column), ranked best-first |
+| `D` | Delete it (asks first — deleting a credential counts the hosts that still reference it) |
+| `/` | hosts: Search — name, user, host and port at once, ranked best-first |
 
-In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` switch the Auth field, **`Tab` on IdentityFile opens the file picker**, `Enter` submits, `Esc` cancels.
+In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). On the two pick-a-value fields — IdentityFile and Credential — **`Enter` on the empty field opens the chooser, `Enter` on a filled one moves on, and `Backspace` clears the whole line**. Choosing `credential` darkens the User row: the credential supplies the user.
 
-### `[2]` sftp — lower case is the row, upper case is the panel
+### `[Alt-F]ileTransfer` — lower case is the row, upper case is the panel
 
 | Key | Action |
 |---|---|
-| `h` `l` | Cross to the other half, keeping the row (`[5]`↔`[7]`) |
+| `h` `l` | Cross to the other half, keeping the row (`[2]`↔`[4]`) |
 | `Enter` | Enter the directory under the cursor — or go to whatever the search found |
 | `m` | Mark / unmark it (on a marks panel, `m` unmarks) |
 | `r` | Rename it, in place |
@@ -152,24 +156,27 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | `S` | Select host — `local` is first, and it opens **the directory you launched sshu in** |
 | `P` | Progress — running transfers, with per-job cancel |
 
-### `[3]` ssh
+### `[Alt-S]sh`
 
 | Key | Action |
 |---|---|
-| `Enter` | Show this session in `[5]` (no confirmation — switching costs nothing) |
+| **`Tab`** | **Toggle this session's cell** on the grid — any number can be up at once |
+| `Enter` | Show this session **and hand it the keyboard** (the side column folds away) |
 | `C` | Close this session (asks first) |
 | `D` | Duplicate — a second session to the same host (asks first) |
-| **`Alt+Esc`** | **Take the keyboard back from the remote** |
+| **`Alt+1`–`9`** | Jump to the Nth cell — from the list, the layout strip, or another cell |
+| **`Alt+Esc`** | **Take the keyboard back from the remote** — back to the list, side column returns |
 
-Rows read `<user>@<host>` with the port at the right edge — what the connection is, not what it is called — and the one `[5]` is showing is green.
+The layout strip (`2`) arranges the grid: `h`/`l` walk **horizontal / vertical / custom** and apply as you move; `Enter` on custom asks for columns × rows (any two digits 1–9). Rows read `<user>@<host>` with the port at the right edge, and lead with a display column — a monitor glyph for a session with a cell on the grid, a struck-through one without.
 
-`Alt+Esc` is sshu's own key and exists for exactly one situation: `[5]` hands every keystroke to the remote, so something has to be able to take it back. Everywhere else, plain `Esc` is enough.
+`Alt+Esc` is sshu's own key and exists for exactly one situation: a grid cell hands every keystroke to the remote, so something has to be able to take it back. Everywhere else, plain `Esc` is enough.
 
 ## Features
 
 - **Zero learning curve** — every action surfaces through the `Space` menu, in context, on every panel. The menu and the letter hotkey are generated from one table, so a hotkey that is not in the menu cannot exist.
 - **Menus in two regions** — `item` (what happens to the row under the cursor, named by that row) and `panel` (what happens to this side). A menu with only one region stays flat.
-- **Many concurrent ssh sessions** — each a real `ssh` in an embedded PTY. `[5]` takes the whole tab while focused; ended sessions release their terminal emulator immediately rather than freezing on a dead screen.
+- **A grid of concurrent ssh sessions** — each a real `ssh` in an embedded PTY, any number on screen at once, arranged horizontally, vertically or in a custom columns × rows. Each cell's remote is told its own size, and only when it actually changes. Ended sessions leave the grid and release their emulator immediately; the keyboard never silently lands in another remote.
+- **Reusable credentials** — a user plus how that user authenticates, saved once in `credentials.yaml` and referenced by any number of hosts with `auth: credential`. Resolution happens at the doors: the connect confirmation shows who the session will actually run as, and a dangling reference fails there with a sentence, not inside ssh.
 - **Two-sided sftp** — local ↔ remote ↔ remote through one `FS` interface. Marks are per side; a mark is an absolute path, so it follows a rename and is dropped when the file is deleted.
 - **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**. `Enter` takes you to a result with the cursor already on it, so from there marking and transferring it needs nothing new.
 - **Read before you fetch** — `v` shows the item under the cursor: text syntax-highlighted with line numbers (chroma, catppuccin-mocha — the same as filu), a binary as an xxd-style hex dump, a directory as one level of its listing. It reads at most 64 KiB, because on a remote side every byte of that crosses the network. Escape sequences in the file are stripped: those bytes come off someone else's machine and would otherwise repaint your terminal.
@@ -177,21 +184,22 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 - **A real transfer engine** — the whole plan is computed before anything is written, so the progress bar's denominator is right from the first frame and overwrites are asked about once, up front. Per-job cancel; a cancelled or failed file is removed rather than left looking complete.
 - **Directories that stay current, cheaply** — SFTP has no change notification, so sshu stats the directory and compares its mtime, and re-lists only when that moves. One small round trip every couple of seconds instead of a full listing, and only while the tab is on screen.
 - **A connection that has not answered yet says so** — `[5]` draws the PTY, and ssh prints nothing at all while it waits for TCP, so an unreachable host used to leave an empty box for as long as the OS took to give up. The test is whether the far end has sent a byte, not whether the grid is empty: until it does, the panel names the host and counts the seconds.
-- **Nothing dies silently, and nothing is only said once** — a session that ends badly raises a toast naming the host and **what ssh itself said** (`Connection refused`, not `disconnected`), `[5]` keeps showing it instead of going blank, and `!` holds **the whole final screen** — a refused connection is one line, but a host key mismatch is fifteen and the fingerprint you need is in the middle of them. The footer counts the errors you have not read yet. A clean `exit` says nothing, because that is what you asked for.
+- **Nothing dies silently, and nothing is only said once** — a session that ends badly raises a toast naming the host and **what ssh itself said** (`Connection refused`, not `disconnected`), the grid keeps saying it instead of going blank, and the app log holds **the whole final screen** — a refused connection is one line, but a host key mismatch is fifteen and the fingerprint you need is in the middle of them. The log lives at preference → logs, **persisted to `applogs.yaml`** so it survives the process, and it records more than failures: hosts and credentials changing, connections opening and closing, transfers ending, edits written back. The nav and the footer count the errors you have not read until you look.
+- **No exit leaves an orphan** — every child ssh runs on its own PTY session, where no signal would reach it on its own. A registry knows them all, and every way out — `q`, `Ctrl+C`, an outside SIGINT/SIGTERM, even the terminal window closing (SIGHUP) — kills them on the way.
 - **Frame stability** — every rendered line is exactly the terminal width, at every size, with any content. Wide characters from a remote, Nerd Font glyphs that measure differently, and CJK filenames are all handled by measuring rather than assuming; there is a test that checks it across sizes, focus states and data.
 - **unix-first, static binary** — macOS + Linux; `CGO_ENABLED=0`.
 
 ## Status
 
-**0.1.0** — the first release. All three tabs work end to end, 247 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**Unreleased, heading for 0.2.0** — 0.1.0's three tabs plus the big rework: Alt-chord tabs, the preference nav, credentials, the persistent app log, and the ssh terminal grid. 280+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 
 - no release binary, Homebrew tap or install script — build from source for now
-- **interactive host-key confirmation for `[2]`** — today an unknown host is refused and you accept it through `[3]`
-- **encrypted private keys** for `[2]` — reported plainly, but not usable; agent support is the likely answer
+- **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab
+- **encrypted private keys** for the sftp side — reported plainly, but not usable; agent support is the likely answer
 - content search on a remote (it would mean running a command on the far end, which this tab deliberately does not do)
-- an `[S]ftp` shortcut on `[1]`, to send the host under the cursor straight to the focused side of `[2]`
+- an `[S]ftp` shortcut on the hosts table, to send the host under the cursor straight to the focused side of the file browser
 - mouse support, `fsnotify` reload of `hosts.yaml`, session persistence, keychain-backed password storage
 
 ## Built with
