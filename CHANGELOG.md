@@ -2,6 +2,63 @@
 
 ## [Unreleased]
 
+The big rework. Three sections of it were specified together and land
+together: the tab system, the ssh tab, and process cleanup.
+
+### Changed
+
+- **Tabs live on Alt chords now** — `[Alt-P]reference` / `[Alt-F]ileTransfer`
+  / `[Alt-S]sh`, and the bracket still prints the key as pressed (the capital
+  means shift). The chords work from inside a PTY — the whole reason they
+  moved off the digits — and outside one the unshifted chord answers too.
+  Every bare digit `1`–`9` now addresses a panel of the current tab, numbered
+  from 1, so the sftp panels are `[1]`–`[4]` and nothing starts at 4 any more.
+  Minimum width rises to 32 columns (the short strip).
+- **The hosts tab became `[Alt-P]reference`** — a side nav over three
+  sections: hosts (the old table, exactly where it was), **credentials**, and
+  **logs**. The nav cursor IS the choice; Enter moves the keyboard over; the
+  tab still opens on the hosts table.
+- **The ssh tab became a grid.** Any number of sessions can hold a cell at
+  once: `Tab` on the list toggles a session's cell, `Enter` shows one and
+  hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` comes
+  back. A layout strip arranges the grid — horizontal, vertical, or a custom
+  columns × rows (Enter asks; overflow grows rows rather than losing a cell).
+  Each cell's remote is told its own size, only when it actually changes; a
+  dead cell leaves the grid and the keyboard never silently lands in another
+  remote. List rows lead with a display column: a monitor glyph for a session
+  with a cell, a struck-through one without.
+- **The `!` popup is gone.** The app log is the third preference section;
+  landing it on screen is what marks its errors read, and the nav row and
+  footer carry the unread count until then.
+- **The pick-a-value form fields changed hands.** On IdentityFile (and the
+  new Credential field): Enter on the empty field opens the chooser, Enter on
+  a filled one moves on, Backspace clears the whole line. Tab is "next" on
+  every field again.
+
+### Added
+
+- **Credentials** — reusable identities in `credentials.yaml` (same 0600 +
+  warning-header treatment as hosts.yaml). A credential is user + auth as ONE
+  package; a host says `auth: credential` and takes it wholesale, its own
+  User row going dark. Resolution happens at the doors: the connect
+  confirmation shows who the session will run as and a dangling reference
+  fails right there; the hosts table shows the credential's user (`?` when
+  it is gone) and the credential's name in the auth column. Deleting or
+  renaming a credential counts the hosts still naming it.
+- **The app log persists** to `applogs.yaml` — a bare YAML list, appended one
+  entry at a time, self-trimming past 1 MiB, 0600 with a warning header
+  (failed connections put other machines' words in it). The tail is loaded
+  back on start, shown but not unread. This reverses 0.1.0's "nothing about
+  a session is written to disk", by explicit decision, with those mitigations
+  in its place. And it records more than failures now: host/credential
+  changes, connections opening and ending, sftp dials, transfer endings,
+  edit write-backs.
+- **No exit leaves an orphan.** Every child ssh leads its own PTY session,
+  so no signal reaches it on its own. A process registry knows them all, and
+  every way out — including outside SIGINT/SIGTERM (which end the loop
+  without the model's quit path) and SIGHUP (the terminal window closing) —
+  kills them on the way. Verified end to end against the demo container.
+
 ## [0.1.0] — 2026-09-01
 
 First release. sshu is a terminal front end for ssh and sftp, and the third
