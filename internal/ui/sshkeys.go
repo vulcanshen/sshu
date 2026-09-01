@@ -27,9 +27,6 @@ var sshActions = []sshAction{
 	{key: "enter", label: "Open", hint: "Enter . show in [5]", panel: panelSessions, run: AppModel.openSession},
 	{key: "C", label: "Close", hint: "end this session", panel: panelSessions, run: AppModel.askClose},
 	{key: "D", label: "Duplicate", hint: "another to this host", panel: panelSessions, run: AppModel.askDuplicate},
-
-	// panel — the tab
-	{key: "H", label: "History", hint: "sessions that have ended", panel: panelSessions, panelOp: true, run: AppModel.sshHistory},
 }
 
 // sshKey dispatches one key inside tab [3].
@@ -69,7 +66,7 @@ func (m AppModel) openSession() (tea.Model, tea.Cmd) {
 	if s == nil {
 		return m, nil
 	}
-	m.ssh.current = s.id
+	m.ssh.current, m.ssh.failed = s.id, nil
 	m.ssh.setFocus(panelPty) // also re-applies the geometry for the new session
 	return m, m.closeStack()
 }
@@ -169,10 +166,4 @@ func (m AppModel) sshMenuItems() []menuItem {
 		out = append(out, a)
 	}
 	return out
-}
-
-// sshHistory opens the list of sessions that have ended. It is a popup, not a
-// panel: occasional information belongs in a float, the way transfers do.
-func (m AppModel) sshHistory() (tea.Model, tea.Cmd) {
-	return m, m.historyUI.open(m.layer())
 }

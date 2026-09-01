@@ -115,6 +115,34 @@ func (p *ptyTerm) exitReason() string {
 	return "failed"
 }
 
+// lastWords is the last non-blank line on the grid.
+//
+// It exists because ssh's failures are printed and then thrown away: the reaper
+// drops the emulator when a session ends, and exitReason can only say "exited
+// 255" — while the line ssh actually wrote says "Connection refused" or
+// "Permission denied" or which host key changed. That line is the whole of what
+// a person needs, and it was being discarded a tick after it arrived.
+func (p *ptyTerm) lastWords() string {
+	if p == nil || p.term == nil {
+		return ""
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	cols, rows := p.term.Size()
+	for y := rows - 1; y >= 0; y-- {
+		var b strings.Builder
+		for x := range cols {
+			if c := p.term.Cell(x, y).Char; c != 0 {
+				b.WriteRune(c)
+			}
+		}
+		if line := strings.TrimSpace(b.String()); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
 // write forwards a keystroke to the subprocess as the bytes a real terminal
 // would have sent.
 func (p *ptyTerm) write(msg tea.KeyMsg) {

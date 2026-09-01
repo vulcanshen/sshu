@@ -49,6 +49,12 @@ type sshTickMsg struct{}
 const sshTickEvery = 50 * time.Millisecond
 
 type sshModel struct {
+	// failed is the session that was ON SCREEN when it ended badly. [5] keeps
+	// showing it: the panel that was watching a connection is the right place to
+	// say how it turned out, and going blank was the thing that made a failure
+	// indistinguishable from nothing having happened.
+	failed *session
+
 	// spinAt is the connecting spinner's frame. It counts ticks rather than
 	// reading the clock, so the animation does not depend on when a frame is
 	// drawn — the same as the sftp tab's.
@@ -147,13 +153,14 @@ func (m sshModel) liveCount() int { return len(m.sessions) }
 // lands in history with the reason, rather than vanishing.
 func (m *sshModel) connect(h store.Host) (*session, error) {
 	cols, rows := m.ptyInner()
+	m.failed = nil
 	s := &session{id: m.nextID, host: h, started: time.Now(), state: sessLive}
 	m.nextID++
 
 	p, err := startPty(buildSSHCmd(h, selfPath()), cols, rows)
 	if err != nil {
 		s.state, s.ended, s.reason = sessEnded, time.Now(), "failed to start: "+err.Error()
-		m.history = append([]*session{s}, m.history...)
+		m.failed = s
 		return s, err
 	}
 	s.pty = p
@@ -198,14 +205,25 @@ func (m *sshModel) reap() []*session {
 		s.state, s.ended, s.reason = sessEnded, time.Now(), s.pty.exitReason()
 		s.ordinal = 0
 		s.ok = s.reason == "exited 0"
+		// What ssh SAID beats what its exit code implies: "exited 255" is the
+		// same for a refused connection, a wrong key and a changed host key,
+		// and the line on the screen tells them apart. Read it before the
+		// emulator goes.
+		if !s.ok {
+			if w := s.pty.lastWords(); w != "" {
+				s.reason = w
+			}
+		}
 		// The screen is not kept, so neither is the emulator behind it: a whole
 		// terminal grid per past session, for something nothing renders.
 		s.pty.stop()
 		s.pty = nil
 		if s.id == m.current {
 			m.current = 0
+			if !s.ok {
+				m.failed = s
+			}
 		}
-		m.history = append([]*session{s}, m.history...)
 		ended = append(ended, s)
 	}
 	if len(ended) == 0 {
@@ -213,9 +231,6 @@ func (m *sshModel) reap() []*session {
 	}
 	m.sessions = live
 	m.renumber()
-	if len(m.history) > sshHistoryCap {
-		m.history = m.history[:sshHistoryCap]
-	}
 	// A session that dies while focused would otherwise trap the keyboard in a
 	// PTY nobody is driving.
 	if m.focus == panelPty && m.currentSession() == nil {
@@ -278,10 +293,23 @@ func (m *sshModel) handleListKey(k string) {
 
 // status fills the capsule row's right-hand slot.
 func (m sshModel) status() string {
-	if len(m.sessions) == 0 && len(m.history) == 0 {
+	if len(m.sessions) == 0 {
 		return "no sessions"
 	}
-	return itoa(len(m.sessions)) + " live · " + itoa(len(m.history)) + " past"
+	return plural(len(m.sessions), "live session")
+}
+
+// endedBadlyToast is the immediate half of the news. The log keeps the detail;
+// this only has to be enough to make somebody press `!`.
+func endedBadlyToast(bad []*session) string {
+	switch len(bad) {
+	case 0:
+		return ""
+	case 1:
+		return bad[0].host.Name + " · " + bad[0].reason
+	default:
+		return plural(len(bad), "session") + " ended badly · press ! for the log"
+	}
 }
 
 // plural renders a count with its noun, so a message reads as English rather
@@ -355,6 +383,8 @@ func (m sshModel) ptyPanel(w, h int) string {
 
 	rows := m.ptyEmpty(innerW, innerH)
 	switch {
+	case s == nil && m.failed != nil:
+		rows = m.failedBody(m.failed, innerW, innerH)
 	case s == nil:
 	case s.state == sessLive && !s.pty.hasSpoken():
 		rows = m.connectingBody(s, innerW, innerH)
@@ -395,6 +425,16 @@ func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
 func (m sshModel) ptyEmpty(innerW, innerH int) []string {
 	return emptyBody(innerW, innerH, "No session on screen",
 		emptyHint("Select a session in [4], or open one from [1]", "[4]", "[1]"))
+}
+
+// failedBody is how a connection ends when it ends badly: the host, what the
+// far end actually said, and where the record is. It stays until something else
+// takes the panel — a failure that erases itself after two seconds is a failure
+// you cannot read.
+func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
+	who := s.host.User + "@" + s.host.Host
+	return emptyBody(innerW, innerH, who+" · "+s.reason,
+		emptyHint("Press ! for the app log, or [1] to try another host", "!", "[1]"))
 }
 
 // listBody lays out [4]. Each entry is a block, because a long address wraps.

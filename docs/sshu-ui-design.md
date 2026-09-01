@@ -556,7 +556,7 @@ menu、host picker、file picker、Transfers)。
 **`u`/`d` 不繞**,`gg`/`G` 更不用說。半頁是「瞄準」的移動,一個會無聲傳送到清單
 另一端的瞄準比停下來更糟。
 
-**沒有游標的東西也不繞**(`moveScroll`):`[H]istory` 與 `?` help 是 viewport,
+**沒有游標的東西也不繞**(`moveScroll`):`!` app log 與 `?` help 是 viewport,
 捲到底又跳回頂端會讀成故障 —— 因為根本沒有游標可以「繞回去」。
 
 **`u`/`d` 這兩個字母是有代價的**,而且代價落在別人身上 —— 見 §4.4 的保留規則:
@@ -747,7 +747,7 @@ mapping、不引入新語意。
 |---|---|---|
 | **menu** | Space menu、**Identity file picker** | 分 region / 清單、cursor-first、選一個執行 |
 | **message** | Connect 確認、Delete 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、**`[H]istory`** | 可捲、沒有游標 |
+| **viewport** | `?` help、**`!` app log**、`[v]iew` | 可捲、沒有游標 |
 | **form** ← **新** | Add host / Edit host | 多欄位、逐欄位 focus、一次提交 |
 | **input** ← **新** | tab [2] 的 Rename | **一行**文字、一個問題、Enter 送出 |
 | **pty** | **tab [3] 的 panel [5]**(ssh session) | 外部程式在 sshu 內 render |
@@ -1061,10 +1061,10 @@ Space menu 選了 Search、緊接著按 `Esc` 想退出搜尋,第一下沒有反
 |---|---|
 | `[1]` 上 `Enter` → 確認 | 開新 session、切到 tab [3]、focus 直接進 `[5]` |
 | `[4]` 上 `Enter`(任何 session) | **不確認**,`[5]` 換到它 + resize + focus 進去 |
-| `[4]` 上 `C` | 確認 → Close,下一個 tick 移進 history |
+| `[4]` 上 `C` | 確認 → Close,下一個 tick 收掉並記進 app log |
 | `[4]` 上 `d` | 確認 → **Duplicate**:對同一台 host 再開一條,不必回 `[1]` |
-| ssh 自己結束 / 斷線 | 移進 history 帶著結束原因;**`[5]` 立刻回到空狀態**;失敗會跳 error toast |
-| `[H]istory` | **不能選取,只能捲動** —— 它是視圖,不是清單(§7.1.4) |
+| ssh 自己結束 / 斷線 | 記進 app log 帶著**遠端自己說的那句話**;失敗時 `[5]` 顯示它並留著;同時跳 error toast |
+| `!` app log | **不能選取,只能捲動** —— 它是視圖,不是清單(§7.1.5) |
 | `q` 時還有活 session | 紅字確認,列出會被關掉幾條 |
 
 **移動游標不會切 `[5]`。** 切 session 要 resize + 讓遠端重畫,把它綁在游標上
@@ -1137,32 +1137,31 @@ ordinal(`#1` / `#2`)跟著位址走、不佔獨立版位:它是**唯一**能分�
 glyph —— 顏色自己就說得完,那個 glyph 是第二次說。
 
 兩者真的相遇時(游標就壓在那一列),**bar 贏,那一列的綠看不到**。這是可以接受的
-代價:游標就在上面,而旁邊 `[5]` 的標題正寫著那條 session 的名字。history 的列一直
-是同樣的處理方式。
+代價:游標就在上面,而旁邊 `[5]` 的標題正寫著那條 session 的名字。
 
 > **改過一次**:原本 inverse 是為了「一列只能有一個背景」而設計的妥協。把
 > on-screen 換成純前景之後,那個前提就不存在了 —— 兩個訊號本來就不必搶同一個通道。
 
-#### history 用顏色 —— 另一個問題
+#### 結束原因用顏色 —— 另一個問題
 
-`[4]` 回答「**哪一個正顯示在 `[5]`**」,history 回答「**每一個是怎麼結束的**」。
+`[4]` 回答「**哪一個正顯示在 `[5]`**」,app log 回答「**每一件事是怎麼結束的**」。
 兩個問題各佔一個通道:
 
-| Panel | 訊號 | 內容 |
+| 面 | 訊號 | 內容 |
 |---|---|---|
 | `[4]` | **前景色** | 綠 = 這個 session 正顯示於 `[5]`(原本另有一個 glyph 說同一件事,已移除) |
-| history | **顏色,只上在 reason 那一段字** | 綠 = `exited 0`;紅 = 其他(`disconnected` / 非零 / 起不來) |
+| app log | **顏色,只上在 level 那一段字** | `ERR` 上警示色;`INFO` 保持 dim |
 
-history 的顏色**只染 reason、不染名字、更不染整列背景** —— 「怎麼結束的」是那次
-結束的屬性,不是那台 host 的屬性,整列上色會把話講得太滿。
+log 的顏色**只染 level、不染時間、更不染整列背景** —— 「這是一則錯誤」是那一則的
+屬性,整列上色會把話講得太滿,而一份紀錄裡多數行都不是錯誤。
 
-#### `[6]` 是視圖,不是清單
+#### app log 是視圖,不是清單
 
 `[6]` **沒有游標、沒有可執行的動作**,`j`/`k` 捲的是視圖而不是選取。它回答
 「發生過什麼」,不是「要對哪一筆做事」。
 
 代價說清楚:原本掛在 `[6]` 上的 **Reconnect 與 Remove 一起沒了**。重新連線改從
-`[1] hosts` 走(host 記錄本來就在那裡);history 沒有手動移除,滿 200 筆自然
+`[1] hosts` 走(host 記錄本來就在那裡);app log 沒有手動清除,滿 500 筆自然
 汰舊。`Space` 在 `[6]` 仍然會回應 —— 它直說這裡是視圖、並指向 `[1]`,因為
 入口不能按下去沒反應(§A.1 衍生規則)。
 
@@ -1193,13 +1192,15 @@ port 不吃這套色 —— 它在非游標列一律 `dimColor`。使用者要�
 
 ### 7.1.2 session 完全不落地
 
-session 與 history **只活在記憶體裡**,關掉 sshu 就沒了。沒有 `history.yaml`。
+session 與 app log **只活在記憶體裡**,關掉 sshu 就沒了。沒有 `history.yaml`。
 
 理由不只是省事:最後一屏可能含遠端印出的任何東西(token、金鑰、客戶資料),
 把它寫進磁碟等於憑空造出一個新的外洩面,而 vt10x 本來就只有一屏、稱不上
 「log」。想要真正的連線記錄,那是遠端 / `tmux` 的工作,不是 sshu 的。
 
-history 上限 **200 筆**(每筆帶一整個終端機 grid,這是記憶體上限而非整潔考量),
+app log 上限 **500 行**。session 結束時 emulator 就被放掉(整個 grid,留給沒有人畫
+的東西),所以那個上限是關於文字、不是關於記憶體 —— 讀走最後一行、記進 log、grid 走
+人。
 超過砍最舊的並釋放它的 pty。
 
 ### 7.1.3 遠端的寬字元不能撞破邊框
@@ -1211,33 +1212,78 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成**兩格**。所
 一兩欄;不切的代價是整個框壞掉。`TestWideRemoteOutputCannotBreakTheFrame` 用真
 的 pty 印 emoji 來釘住(拿掉 clip 就會量到 92 欄的終端機出現 94 欄的行)。
 
-### 7.1.4 `[6]` history 為什麼不再是 panel
+### 7.1.4 history:先從 panel 變成 popup,再整個變成 app log
 
-它**不能被操作**(沒有游標是刻意的:重連在 `[1]`,host 在那裡)、**大部分時間是
-空的**,卻**永久佔掉左欄三分之一**。開了四五條 session 的時候,擠的是還在用的
-那個清單。
+**第一次(panel → popup)**:`[6]` 不能被操作、大部分時間是空的,卻永久佔掉左欄
+三分之一。開了四五條 session 的時候,擠的是還在用的那個清單。真正有價值的從來不是
+那個 panel,而是「**哪一條斷了、為什麼**」。
 
-真正有價值的從來不是那個 panel,而是**「哪一條斷了、為什麼」**。而那件事以前是
-**完全靜默**的:session 結束就離開 `[4]`、`[5]` 換頁,如果 `[6]` 剛好不在畫面上
-(窄寬會收掉左欄),就什麼都沒有。
+**第二次(popup → app log)**:`[H]istory` 答的問題其實是「它們怎麼結束的」,而那
+個問題**不是 tab [3] 專屬的** —— 傳輸失敗、寫回失敗、host key 被拒是同一種消息,而
+它們原本唯一的去處是一個兩秒就消失的 toast。所以清單本身也拿掉了,留下的是理由,
+放進一份全 app 的紀錄(§7.1.5)。
 
-所以資訊留下、panel 拿掉,搬到 tab [2] 已經在用的那個形狀:
+兩次是同一個判斷推到底:**要留下的一直是原因,不是那份清單**。
 
 | | 管道 |
 |---|---|
-| 常駐 | tab 列右側 `3 live · 1 past`(本來就有) |
-| 隨手看 | `[H]istory` popup —— 跟 `[P]rogress` 同一類 |
-| 出事當下 | **error toast**:`prod-web-01 · exited 255` |
+| 常駐 | tab 列右側 `3 live sessions` |
+| 出事當下 | **error toast**:`prod-web-01 · ssh: connect to ... Connection refused` |
+| 事後 | **`!` app log**,footer 報未讀錯誤數 |
+| 失敗那一刻的 `[5]` | 顯示原因並**留著**,不是變回空框 |
 
-**乾淨離開不出聲**:`exited 0` 是你打 `exit` 要的結果。只有失敗才講,因為那才是
-你事後得回頭去找的東西。多條同時失敗就講數量並指向 `H`。
+**乾淨離開不出聲**:`exited 0` 是你打 `exit` 要的結果 —— 它只進 log,不跳 toast。
 
-**popup 一列裝得下三件事**(名字、原因、結束時間),因為浮層比 26 欄的左欄寬。
-`[6]` 時代時間只好擠在名字那列、原因另起一行,兩列都沒填滿 —— 那個「時間放哪一
-列」的老問題跟著 panel 一起消失了。
+### 7.1.5 app log —— 一則消息只出現兩秒,等於沒出現過
 
-**它仍然是 view**:沒有游標、不能選、`j`/`k` 捲動而且不繞(§4.2)。搬家沒有把它
-變成清單。
+原本是 `[H]istory`:一份「結束過的 session」清單。它答的問題其實不是「有哪些
+session」,而是「**它們怎麼結束的**」—— 而那個問題不是 tab [3] 專屬的。傳輸失敗、
+寫回失敗、host key 被拒,是同一種消息,而它們原本唯一的去處是一個兩秒就消失的 toast。
+
+所以 history 換成 **app log**:`!` 開、`!` 關(跟 `?` 同一個約定),viewport 類
+—— 最新的在最上面、沒有游標、裡面沒有東西可以被選取或操作。
+
+**toast 和 log 是兩個職務,不是兩個選項。** toast 是「剛剛發生了」,而它會消失是它
+的功能不是缺陷;log 是「後來你想再看一次」。session 死掉原本只有前者,那表示**移開
+視線一下,等於從來沒被通知過**。
+
+**footer 會說有幾則沒讀過的錯誤**:平常是 `! log`,有未讀時變成 `! 2 errors`。一把
+沒人按的鍵和一份沒人開的紀錄是同一回事,所以那個數字是這條紀錄唯一的入口。
+
+**log 裡的訊息是折行、不是截斷。** 那些是別人機器寫的錯誤訊息,而它們把原因放在
+**句尾** —— `…port 22: Connection refused`。截掉尾巴,等於截掉唯一有人想讀的那個字。
+
+#### 連不上的時候要說**它說了什麼**,不是「disconnected」
+
+`exitReason` 只看得到 exit code,而 ssh 的 255 對「連線被拒」「金鑰不對」「host key
+變了」是同一個數字。真正有用的那句話 ssh **印在畫面上**,而 reaper 在下一個 tick 就
+把 emulator 丟掉了 —— 那句話比它出現得還快地被扔掉。
+
+所以 reaper 在丟掉 emulator 之前先讀走最後一行非空白的內容(`ptyTerm.lastWords`),
+只在**不是乾淨結束**的時候拿它取代 reason。`[5]` 接著用它:
+
+```
+        nobody@127.0.0.1 · ssh: connect to host 127.0.0.1 port 1: Connection refused
+                    Press ! for the app log, or [1] to try another host
+```
+
+**而且它會留在那裡**,直到有別的東西接管那個 panel。一個兩秒後把自己擦掉的錯誤訊息
+是一個讀不到的錯誤訊息。
+
+#### 連線中不接受打字
+
+`[5]` 有 focus,但**還沒接通的時候按鍵不會送出去**。ssh 在等連線時根本沒有在讀
+stdin,所以那些 bytes 會留在緩衝區,等連上之後**才送進遠端的 shell** —— 一個原本要
+給 sshu 的 `q`,幾分鐘後在別人的機器上執行。
+
+所以 `inPty`(鍵盤屬於某個**遠端**)跟 `ptyFocused`(panel 拿著鍵盤)分家了:前者
+多要求一個條件,就是對面已經說過話。中間那段時間按鍵被**吃掉**,而不是被轉送,也不
+是落回 panel 去觸發 `q` 離開 —— panel 確實拿著鍵盤,只是還沒有人可以聽。出口是
+footer 一直在講的那個 `Alt+Esc`。
+
+> **代價,講清楚**:判準是「對面有沒有送出過 byte」,所以一台**接通了但完全不說話**
+> 的遠端會被顯示成「連線中」,而且在它說話之前不能對它打字。實務上 ssh 一接上就會有
+> prompt 或 banner,但這個代價是真的;出口一樣是 `Alt+Esc`。
 
 ### 7.2 hosts.yaml 外部變更
 
@@ -1716,7 +1762,6 @@ sshu/
 │   │   ├── filepicker.go   identity file picker(menu 類)
 │   │   ├── sshtab.go       [3] 版面、session 清單、折行
 │   │   ├── sshkeys.go      [3] 的動作表與 Space menu
-│   │   ├── sshhistory.go   [3] 已結束的 session:popup + 失敗 toast
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
@@ -1731,6 +1776,7 @@ sshu/
 │   │   ├── editorcmd.go    $VISUAL/$EDITOR/vi 解析、環境剝除
 │   │   ├── inputpopup.go   一行文字的問句(Rename / Add)
 │   │   ├── confirm.go      破壞性動作與離開的確認
+│   │   ├── applog.go       `!` 全 app 事件紀錄(viewport,最新在上)
 │   │   ├── empty.go        沒有 item 時的統一空狀態(事實 + 可折行提示)
 │   │   ├── nav.go          清單導覽詞彙:繞回、半頁、保留字母
 │   │   ├── crumb.go        cwd 純文字麵包屑(lavender + dim 斜線)
@@ -1875,7 +1921,7 @@ X 回到 ~1.0。
 | `4`/`5`/`6` 直達 panel | `TestDigitsAddressPanels` |
 | 移動游標**不會**切換 `[5]` 顯示的 session | `TestCursorDoesNotSwitchTheSession` |
 | 游標已在當前 session 時 `Enter` 不跳確認 | `TestEnterOnCurrentSessionAttachesDirectly` |
-| 結束的 session 帶著原因進 history、focus 不留在死掉的 pty | `TestExitedSessionMovesToHistory` |
+| 結束的 session 帶著原因退場、focus 不留在死掉的 pty | `TestExitedSessionLeavesWithItsReason` |
 | `#N` 只在同 host 多 session 時出現 | `TestOrdinalOnlyWhenDuplicated` |
 | `q` 只在有活 session 時才確認,且數字正確 | `TestQuitWarnsOnlyWithLiveSessions` |
 | Space menu 只列**當前 focus panel** 的動作,不外洩 | `TestSSHMenuListsFocusedPanelActions` |
@@ -1883,9 +1929,9 @@ X 回到 ~1.0。
 | ssh 參數(port / `-i` / `IdentitiesOnly` / `~` 展開) | `TestBuildSSHCmdArgs` |
 | 折行優先斷在分隔符、不掉字 | `TestWrapText` |
 | 結束的 session 立刻離開 `[5]`、emulator 被釋放 | `TestEndedSessionLeavesThePanel` |
-| `[6]` 只染 reason 那段字、名字與背景不動 | `TestHistoryColoursTheReasonNotTheRow` |
-| `[6]` 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | `TestHistoryIsAViewNotAList` |
-| `[6]` 帶結束時刻、只有時間沒有日期、任何寬度都不被截掉 | `TestHistoryRowShowsEndTime` |
+| app log 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | `TestTheAppLogIsAViewNotAList` |
+| **失敗會被說出來、留在 `[5]`、也進 log**;footer 報未讀 | `TestAFailedConnectionIsSaidAndKept` |
+| **還沒接通就不接受打字**,而 `Alt+Esc` 仍然出得去 | `TestKeysAreNotSentToAConnectionThatHasNotAnswered` |
 | panel title 是純文字,膠囊只留給 tab row | `TestPanelTitlesAreNotCapsules` |
 | `[6]` 不帶 on-screen glyph | `TestHistoryHasNoOnScreenMarker` |
 | tab [3] 只剩兩個 panel,`6` 不再定址任何東西 | `TestTabThreeHasTwoPanels` |

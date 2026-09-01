@@ -24,10 +24,12 @@ const (
 
 // session is one ssh connection: a host, a PTY running ssh, and how it ended.
 //
-// Ended sessions move to the history panel but keep their ptyTerm, so the last
-// screen — which is where the error message is — stays readable until sshu
-// quits. Nothing about a session is written to disk: the final screen can hold
-// anything the remote printed, and a connection log is not worth the leak.
+// An ended session releases its ptyTerm immediately — a whole terminal grid kept
+// for something nothing draws — but not before its last line is read out, which
+// is where ssh puts the reason it gave up. That line goes to the app log.
+//
+// Nothing is written to disk: the final screen can hold anything the remote
+// printed, and a connection log on disk is not worth the leak.
 type session struct {
 	id      int
 	host    store.Host
