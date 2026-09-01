@@ -86,7 +86,7 @@ func appWith(hosts []store.Host, saved *[]store.Host) AppModel {
 	if saved != nil {
 		save = func(list []store.Host) error { *saved = list; return nil }
 	}
-	m := New(hosts, save)
+	m := New(hosts, save, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	return next.(AppModel)
 }
@@ -108,7 +108,7 @@ func TestPopupPreservesFrame(t *testing.T) {
 	for name, keys := range opens {
 		for _, sz := range sizes {
 			w, h := sz[0], sz[1]
-			m := New(sample(), nil)
+			m := New(sample(), nil, store.DefaultConfig())
 			next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 			got := pressA(settle(next.(AppModel)), keys...).View()
 
@@ -411,7 +411,7 @@ func TestDeleteRemovesAndSaves(t *testing.T) {
 func TestDeleteCancelledChangesNothing(t *testing.T) {
 	saved := []store.Host(nil)
 	touched := false
-	m := New(sample(), func(list []store.Host) error { touched = true; saved = list; return nil })
+	m := New(sample(), func(list []store.Host) error { touched = true; saved = list; return nil }, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m = pressA(settle(next.(AppModel)), "d", "esc")
 
@@ -496,7 +496,7 @@ func TestDumpPopups(t *testing.T) {
 		{"delete confirm", []string{"d"}},
 		{"toast", []string{"enter", "enter"}},
 	} {
-		m := New(sample(), nil)
+		m := New(sample(), nil, store.DefaultConfig())
 		next, _ := m.Update(tea.WindowSizeMsg{Width: 78, Height: 22})
 		t.Logf("\n=== %s ===\n%s", tc.name, pressA(settle(next.(AppModel)), tc.keys...).View())
 	}

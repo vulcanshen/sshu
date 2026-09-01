@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // regions splits a menu into its labelled groups, so a test can talk about
@@ -69,7 +70,7 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 // One region stays flat: a header over a single group is noise, and the no-host
 // menu is one row that needs no explaining.
 func TestSFTPMenuStaysFlatWithOneRegion(t *testing.T) {
-	m := New(sample(), nil)
+	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	m = settle(next.(AppModel))
 	m.tab = tabSFTP

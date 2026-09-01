@@ -42,7 +42,7 @@ func silentSSH(t *testing.T) { fakeSSH(t, "exec cat") }
 
 func sshApp(t *testing.T, hosts []store.Host) AppModel {
 	t.Helper()
-	m := New(hosts, nil)
+	m := New(hosts, nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	return settle(next.(AppModel))
 }
@@ -90,7 +90,7 @@ func TestSSHTabPreservesFrame(t *testing.T) {
 	for _, sz := range [][2]int{{100, 30}, {92, 24}, {78, 24}, {60, 30}, {55, 30},
 		{54, 30}, {53, 30}, {54, 16}, {40, 12}, {24, 9}} {
 		w, h := sz[0], sz[1]
-		m := New(sample(), nil)
+		m := New(sample(), nil, store.DefaultConfig())
 		next, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 		m = pressA(settle(next.(AppModel)), "enter", "enter")
 
@@ -174,6 +174,61 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 	// Opening it is reading it.
 	if m.log.unreadErrors() != 0 {
 		t.Errorf("%d errors still unread after opening the log", m.log.unreadErrors())
+	}
+}
+
+// The timeout reaches ssh as its OWN option, which is what lets ssh produce the
+// message. sshu killing the process would have produced a corpse with no
+// explanation attached.
+func TestTheTimeoutIsHandedToSSH(t *testing.T) {
+	m := New(sample(), nil, store.Config{ConnectTimeout: 3})
+	if got := m.ssh.timeoutSecs(); got != 3 {
+		t.Errorf("the model carries %ds, want 3", got)
+	}
+	args := strings.Join(buildSSHCmd(sample()[0], "", m.ssh.timeoutSecs()).Args, " ")
+	if !strings.Contains(args, "ConnectTimeout=3") {
+		t.Errorf("ssh was not told: %s", args)
+	}
+}
+
+// ssh's own ConnectTimeout covers the TCP connect. It does NOT cover a host
+// that completes the connection and then says nothing — and from the outside
+// that is indistinguishable from a connection still being made, so it would
+// spin until the user gave up on the app rather than on the host.
+func TestAStalledConnectionIsGivenUpOn(t *testing.T) {
+	silentSSH(t)
+	m := New(sample(), nil, store.Config{ConnectTimeout: 1})
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = settle(next.(AppModel))
+	m = pressA(m, "enter", "enter")
+	s := m.ssh.sessions[0]
+	t.Cleanup(func() { m.ssh.stopAll() })
+
+	// Before the deadline it is still trying — the sweep must not be trigger
+	// happy, because a slow link is not a broken one.
+	m.ssh.sweepStalled()
+	if s.timedOut {
+		t.Fatal("gave up before the budget was spent")
+	}
+
+	// ssh gets its own timeout plus the grace before sshu reaches for the plug.
+	s.started = time.Now().Add(-(1*time.Second + stallGrace + time.Second))
+	m.ssh.sweepStalled()
+	if !s.timedOut {
+		t.Fatal("a connection that never answered was never given up on")
+	}
+
+	waitFor(t, "the stopped session to be reaped", func() bool { return s.pty.exited() })
+	ended := m.ssh.reap()
+	if len(ended) != 1 {
+		t.Fatalf("%d sessions retired", len(ended))
+	}
+	// And it says the budget it actually spent, not an exit code nobody can read.
+	if !strings.Contains(ended[0].reason, "no answer after 1s") {
+		t.Errorf("reason is %q", ended[0].reason)
+	}
+	if ended[0].ok {
+		t.Error("a timeout is not a clean exit")
 	}
 }
 
@@ -667,8 +722,9 @@ func TestWrapText(t *testing.T) {
 func TestBuildSSHCmdArgs(t *testing.T) {
 	h := store.Host{Name: "a", Host: "h.example.com", Port: 2222, User: "root",
 		Auth: store.AuthPrivateKey, IdentityFile: "~/.ssh/id_ed25519"}
-	got := strings.Join(buildSSHCmd(h, "").Args[1:], " ")
-	for _, want := range []string{"-p 2222", "-i ", "IdentitiesOnly=yes", "root@h.example.com"} {
+	got := strings.Join(buildSSHCmd(h, "", 9).Args[1:], " ")
+	for _, want := range []string{"-p 2222", "-o ConnectTimeout=9", "-i ",
+		"IdentitiesOnly=yes", "root@h.example.com"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("args %q missing %q", got, want)
 		}
@@ -1020,7 +1076,7 @@ func TestDumpSSH(t *testing.T) {
 		{Name: "prod-web-01", Host: "10.0.3.14", Port: 22, User: "deploy", Auth: store.AuthPrivateKey},
 		{Name: "db-replica-tokyo-ap-northeast-1", Host: "db.internal.corp", Port: 2222,
 			User: "postgres", Auth: store.AuthPassword},
-	}, nil)
+	}, nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 92, Height: 24})
 	m = settle(next.(AppModel))
 	m.ssh.setSize(92, 22)
