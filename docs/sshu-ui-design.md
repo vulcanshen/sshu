@@ -138,7 +138,8 @@ peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專�
 ### 1.1 版面 grid
 
 固定 chrome **3 行**:頂部 1 行膠囊 tab bar(獨立 content row,**不是**
-panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間全部給 panel。
+panel border title)、其下 1 行整寬分隔線(傳輸進行時兼職進度條,見
+11.9)、底部 1 行 footer。中間全部給 panel。
 
 **tab bar 是一條連起來的 powerline 帶**,不是三顆各自獨立的膠囊:一個圓帽開頭、
 中間用**三角**分段、一個圓帽收尾。開頭是**固定亮的 `[Alt]` 鏈頭**,其後三段
@@ -2320,6 +2321,26 @@ divider 語彙不動 —— 哪些三角是實心的,本身就把「兩段亮」
 印證。鍵盤真的進到網格後,回聲讓位給 keyboard focus(cellLit 先看
 panelPty);focus 在 `[2]` layout 上時也沒有回聲 —— 那裡沒有游標指著任何
 session。
+
+### 11.9 分隔線兼職進度條;傳輸 summary 不再 dim
+
+使用者自己標註「過分的 fancy 要求」,落地之後其實一點都不過分 —— 兩個
+channel 都是本來就在的元素,一個換 ink、一個換色,不佔任何新空間。
+
+**右上 summary 改 liveColor**。`<done>/<files> · <pct>%` 是進行中的動作,
+不是靜止事實 —— summary 的程式註解本來就引著 §7.2「information arriving
+is not dimmed」,render 端卻一直把它染成 dim;這一筆是把畫面拉回 app
+自己寫下的規則。只有 file transfer tab 的 summary 是「動作」;其他 tab
+的 status(no sessions、n marks)仍是靜止事實、照舊 dim。
+
+**分隔線從左往右變綠**。tab 帶與 workspace 之間那條整寬分隔線,傳輸時
+ink 從左緣起依 blended percent 換成 liveColor,其餘維持 borderDim;沒
+東西在動的瞬間整條恢復。分隔的本職完全不動 —— 同樣的字形、同一行 ——
+所以這條進度條不花任何版面。兩個 channel 讀同一個
+`transferModel.progress()`(running jobs 的平均,也是 summary 印的那個
+數),數字不可能吵架。**分隔線在每個 tab 都報**:傳輸不因你切去看別的
+tab 就停,而這條線是三個 tab 唯一共用的 chrome —— 在 ssh tab 盯著遠端,
+眼角那條綠線仍在報進度。
 
 ---
 

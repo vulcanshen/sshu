@@ -62,3 +62,83 @@ func TestCustomLabelReadsRowsThenColumns(t *testing.T) {
 		t.Fatalf("the strip should read rows × columns (3×2):\n%s", view)
 	}
 }
+
+// runningJob is a transfer frozen mid-flight at done/total bytes.
+func runningJob(id int, done, total int64) *transferJob {
+	j := &transferJob{id: id, label: "job", total: total, files: 1, cancel: func() {}}
+	j.done.Store(done)
+	return j
+}
+
+// progress blends only the RUNNING jobs; a finished one stops weighing in,
+// which is also what returns the rule to a plain line at the end.
+func TestProgressBlendsRunningJobsOnly(t *testing.T) {
+	var m transferModel
+	if _, moving := m.progress(); moving {
+		t.Fatal("nothing running, nothing moving")
+	}
+	m.jobs = append(m.jobs, runningJob(1, 30, 100), runningJob(2, 50, 100))
+	finished := runningJob(3, 100, 100)
+	finished.state.Store(int32(xferDone))
+	m.jobs = append(m.jobs, finished)
+
+	if pct, moving := m.progress(); !moving || pct != 40 {
+		t.Fatalf("pct=%d moving=%v, want the running pair's blend 40", pct, moving)
+	}
+}
+
+// greenRun counts the rule cells inked liveColor: the run opened by the green
+// SGR, up to the next escape.
+func greenRun(row, green string) int {
+	at := strings.Index(row, green)
+	if at < 0 {
+		return 0
+	}
+	seg := row[at:]
+	if m := strings.Index(seg, "m"); m >= 0 {
+		seg = seg[m+1:]
+	}
+	if e := strings.Index(seg, "\x1b"); e >= 0 {
+		seg = seg[:e]
+	}
+	return strings.Count(seg, "─")
+}
+
+// While bytes move, the rule under the tab row doubles as a progress bar:
+// liveColor ink from the left for the blended percent, borderDim past it —
+// on EVERY tab — and a plain line again the moment the transfer ends.
+func TestTheRuleTurnsGreenWithTheTransfer(t *testing.T) {
+	withColour(t)
+	m := sized(sample(), 100, 26)
+	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
+	green := ansiOf(t, liveColor)
+
+	for _, key := range []string{"alt+P", "alt+S"} {
+		rule := strings.Split(pressA(m, key).View(), "\n")[1]
+		if got := greenRun(rule, green); got != 50 {
+			t.Errorf("%s: green run is %d cells, want 50 of 100", key, got)
+		}
+	}
+
+	m.transfers.jobs[0].state.Store(int32(xferDone))
+	if strings.Contains(strings.Split(m.View(), "\n")[1], green) {
+		t.Error("the rule must return to plain when nothing is moving")
+	}
+}
+
+// The transfer summary is an action in FLIGHT, not a resting fact — §7.2,
+// information arriving is not dimmed: it reports in liveColor. Statuses that
+// merely describe state stay dim.
+func TestTransferStatusIsGreenNotDim(t *testing.T) {
+	withColour(t)
+	m := pressA(sized(sample(), 100, 26), "alt+F")
+	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
+	green := ansiOf(t, liveColor)
+
+	if row := strings.Split(m.View(), "\n")[0]; !strings.Contains(row, green) {
+		t.Error("the running summary should be liveColor")
+	}
+	if row := strings.Split(pressA(m, "alt+S").View(), "\n")[0]; strings.Contains(row, green) {
+		t.Error("a resting status must stay dim; green belongs to the moving one")
+	}
+}

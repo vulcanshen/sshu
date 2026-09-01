@@ -21,9 +21,12 @@ func (m AppModel) View() string {
 		return "terminal too small"
 	}
 
+	// The rule carries the transfer bar on every tab; the green status only
+	// where the summary itself lives (the file-transfer tab).
+	pct, moving := m.transfers.progress()
 	out := strings.Join([]string{
-		tabRow(m.w, tabLabels, int(m.tab), m.status()),
-		tabRule(m.w),
+		tabRow(m.w, tabLabels, int(m.tab), m.status(), moving && m.tab == tabFT),
+		tabRule(m.w, pct, moving),
 		m.panel(),
 		m.footer(),
 	}, "\n")

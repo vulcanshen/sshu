@@ -132,6 +132,11 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 頂部 1 行膠囊 tab bar(獨立 content row,**不是** panel border title)、其下 1 行
 整寬分隔線、底部 1 行 footer。中間全部給 panel。`chromeRows = 3`,**選定即鎖死**。
 
+傳輸進行時那條分隔線**兼職進度條**:ink 從左緣起依 blended percent 換成
+liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
+都報,沒東西在動就整條恢復 borderDim;summary 本身同時改 liveColor(進行
+中的動作不 dim),其他 tab 的靜止 status 照舊 dim。
+
 那條分隔線是**把膠囊還給 panel title 的前提**:tab 帶與 panel 膠囊上下相鄰時,
 兩排填色形狀會讀成同一條 chrome。
 
