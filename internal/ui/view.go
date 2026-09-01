@@ -36,9 +36,6 @@ func (m AppModel) View() string {
 	if m.hostPicker.isActive() {
 		out = overlay.Composite(m.hostPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
-	if m.credPicker.isActive() {
-		out = overlay.Composite(m.credPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
 	if m.transfersUI.isActive() {
 		out = overlay.Composite(m.transfersUI.view(m.transfers.jobs), out,
 			overlay.Center, overlay.Center, 0, 0)
@@ -63,6 +60,13 @@ func (m AppModel) View() string {
 	}
 	if m.credFormUI.isActive() {
 		out = overlay.Composite(m.credFormUI.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
+	// Above both forms: this menu is OPENED FROM the host form, and a popup
+	// painted under the surface that launched it is a popup that never opened
+	// — which is exactly how it shipped the first time. isActive tests cannot
+	// catch a z-order bug; only a rendered frame can.
+	if m.credPicker.isActive() {
+		out = overlay.Composite(m.credPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
 	if m.picker.isActive() {
 		out = overlay.Composite(m.picker.view(), out, overlay.Center, overlay.Center, 0, 0)

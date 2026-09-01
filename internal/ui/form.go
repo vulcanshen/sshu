@@ -52,15 +52,16 @@ type formField struct {
 	sel         int
 }
 
-// Field order. Identity and Password both always exist; exactly one is live at
-// a time, decided by Auth.
+// Field order. Auth comes BEFORE the fields it decides: choosing credential
+// makes User (and the other concrete rows) irrelevant, and a form that asks
+// for a user first and then greys it out asked a question it had to unask.
 const (
 	fName = iota
 	fHost
 	fPort
-	fUser
 	fAuth
 	fCredential
+	fUser
 	fIdentity
 	fPassword
 	fCount

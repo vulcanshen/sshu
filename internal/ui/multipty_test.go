@@ -149,10 +149,10 @@ func TestLayoutStripDrivesTheGrid(t *testing.T) {
 	for range 8 {
 		m = pressA(m, "backspace")
 	}
-	m = typeText(m, "3x2")
+	m = typeText(m, "3x2") // rows × columns
 	m = pressA(m, "enter")
-	if m.ssh.gridC != 3 || m.ssh.gridR != 2 {
-		t.Fatalf("the answer should land, got %d×%d", m.ssh.gridC, m.ssh.gridR)
+	if m.ssh.gridR != 3 || m.ssh.gridC != 2 {
+		t.Fatalf("3x2 means 3 rows × 2 columns, got R=%d C=%d", m.ssh.gridR, m.ssh.gridC)
 	}
 
 	// Nonsense is refused and does not change the shape.
@@ -163,8 +163,8 @@ func TestLayoutStripDrivesTheGrid(t *testing.T) {
 	}
 	m = typeText(m, "0x40")
 	m = pressA(m, "enter")
-	if m.ssh.gridC != 3 || m.ssh.gridR != 2 {
-		t.Fatalf("a refused shape must change nothing, got %d×%d", m.ssh.gridC, m.ssh.gridR)
+	if m.ssh.gridR != 3 || m.ssh.gridC != 2 {
+		t.Fatalf("a refused shape must change nothing, got R=%d C=%d", m.ssh.gridR, m.ssh.gridC)
 	}
 }
 
