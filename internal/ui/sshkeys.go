@@ -112,8 +112,15 @@ func (m AppModel) askDuplicate() (tea.Model, tea.Cmd) {
 	}, m.layer())
 }
 
-// startSession is the one place a connection is actually opened.
+// startSession is the one place a connection is actually opened, so it is the
+// one place a credential is resolved into the concrete user and auth.
 func (m AppModel) startSession(h store.Host) (tea.Model, tea.Cmd) {
+	rh, err := store.Resolve(h, m.creds.creds)
+	if err != nil {
+		m.log.errorf(err.Error())
+		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
+	}
+	h = rh
 	cmd := m.closeStack()
 	m.tab = tabSSH
 	m.sftp.onScreen = false // same rule switchTab keeps: hidden tabs do not poll

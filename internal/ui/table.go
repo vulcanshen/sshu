@@ -113,12 +113,17 @@ func tableRowText(c tableCols, name, user, host, port, auth, authGlyph string) s
 // renderHostRow draws one host. The cursor is a filled bar — the same cursor
 // form as every other list in the app, which a table can finally use because a
 // row is one line tall (a six-row card could not, §2.3).
-func renderHostRow(h store.Host, c tableCols, selected bool, w int) string {
+func renderHostRow(h store.Host, user string, c tableCols, selected bool, w int) string {
 	authGlyph, authText := glyphLock, string(store.AuthPassword)
-	if h.Auth == store.AuthPrivateKey {
+	switch h.Auth {
+	case store.AuthPrivateKey:
 		authGlyph, authText = glyphKey, string(store.AuthPrivateKey)
+	case store.AuthCredential:
+		// The NAME is the information — which credential, not just that one is
+		// in play. The glyph carries the kind.
+		authGlyph, authText = glyphCred, truncate(h.Credential, colAuthW-2)
 	}
-	plain := " " + tableRowText(c, h.Name, h.User, h.Host,
+	plain := " " + tableRowText(c, h.Name, user, h.Host,
 		strconv.Itoa(h.Port), authText, authGlyph)
 
 	if selected {
@@ -131,7 +136,7 @@ func renderHostRow(h store.Host, c tableCols, selected bool, w int) string {
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	rest := tableRowText(tableCols{user: c.user, host: c.host, port: c.port, auth: c.auth},
-		"", h.User, h.Host, strconv.Itoa(h.Port), authText, authGlyph)
+		"", user, h.Host, strconv.Itoa(h.Port), authText, authGlyph)
 	styled := " " + txt.Render(padRight(h.Name, c.name)) + dim.Render(rest)
 	return styled + strings.Repeat(" ", max(0, w-1-c.name-dispW(rest)))
 }

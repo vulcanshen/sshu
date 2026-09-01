@@ -28,6 +28,9 @@ const (
 	formNone formResult = iota
 	formSubmit
 	formBrowse
+	// formPickCred asks the caller to open the credential picker — only the
+	// caller knows the saved credentials.
+	formPickCred
 )
 
 type fieldKind int
@@ -57,6 +60,7 @@ const (
 	fPort
 	fUser
 	fAuth
+	fCredential
 	fIdentity
 	fPassword
 	fCount
@@ -93,9 +97,12 @@ func blankFields() []formField {
 	f[fPort] = formField{label: "Port", value: strconv.Itoa(store.DefaultPort), digits: true}
 	f[fUser] = formField{label: "User"}
 	f[fAuth] = formField{label: "Auth", kind: fieldToggle,
-		options: []string{string(store.AuthPassword), string(store.AuthPrivateKey)}}
+		options: []string{string(store.AuthPassword), string(store.AuthPrivateKey),
+			string(store.AuthCredential)}}
+	f[fCredential] = formField{label: "Credential",
+		placeholder: "enter to choose a saved credential"}
 	f[fIdentity] = formField{label: "IdentityFile",
-		placeholder: "tab to browse " + store.FoldHome(identityRoot())}
+		placeholder: "enter to browse " + store.FoldHome(identityRoot())}
 	f[fPassword] = formField{label: "Password", mask: true}
 	for i := range f {
 		f[i].caret = len([]rune(f[i].value))
@@ -118,10 +125,14 @@ func (m *hostForm) openEdit(h store.Host, layer int) tea.Cmd {
 	f[fHost].value = h.Host
 	f[fPort].value = strconv.Itoa(h.Port)
 	f[fUser].value = h.User
+	f[fCredential].value = h.Credential
 	f[fIdentity].value = h.IdentityFile
 	f[fPassword].value = h.Password
-	if h.Auth == store.AuthPrivateKey {
+	switch h.Auth {
+	case store.AuthPrivateKey:
 		f[fAuth].sel = 1
+	case store.AuthCredential:
+		f[fAuth].sel = 2
 	}
 	for i := range f {
 		f[i].caret = len([]rune(f[i].value))
@@ -136,11 +147,17 @@ func (m hostForm) auth() store.AuthMethod {
 	return store.AuthMethod(m.fields[fAuth].options[m.fields[fAuth].sel])
 }
 
-// enabled decides whether a field takes part at all. The disabled one of the
-// Identity / Password pair still occupies its row: the popup keeps a constant
-// height as Auth flips, and the user can see that the other option exists.
+// enabled decides whether a field takes part at all. The disabled rows still
+// occupy their lines: the popup keeps a constant height as Auth flips, and
+// the user can see what the other choices would offer. User goes dark on a
+// credential host because the credential supplies it — one package, and the
+// form saying otherwise would be the form lying about who connects.
 func (m hostForm) enabled(i int) bool {
 	switch i {
+	case fUser:
+		return m.auth() != store.AuthCredential
+	case fCredential:
+		return m.auth() == store.AuthCredential
 	case fIdentity:
 		return m.auth() == store.AuthPrivateKey
 	case fPassword:
@@ -172,24 +189,42 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 	}
 
 	switch msg.Type {
-	case tea.KeyTab:
-		// Tab on a path field opens the picker, the way Tab on a path completes
-		// in a shell. It is the one field where Tab is not "next", and the border
-		// hint says so on that field and only there — which is the whole reason a
-		// text-entry surface is allowed a key of its own (§4.5).
-		//
-		// The cost is real: you cannot Tab OFF this field. The arrow keys and
-		// Shift+Tab still move, and the hint lists them.
-		if m.focus == fIdentity {
-			return m, formBrowse
-		}
+	case tea.KeyTab, tea.KeyDown:
+		// Tab is "next" on every field now. It used to open the picker on the
+		// path row, which cost the one thing Tab does everywhere else; the
+		// picker moved to Enter, where the empty field has nothing else for
+		// Enter to mean.
 		m.moveFocus(1)
-	case tea.KeyDown:
-		m.moveFocus(1)
+		return m, formNone
 	case tea.KeyShiftTab, tea.KeyUp:
 		m.moveFocus(-1)
+		return m, formNone
 	case tea.KeyEnter:
+		// The two pick-a-value fields: Enter on the empty field opens the
+		// chooser, Enter on a filled one moves on. The exchange is enter →
+		// pick → enter → next field, and replacing a value is Backspace (the
+		// whole line) then Enter again.
+		switch m.focus {
+		case fIdentity:
+			if strings.TrimSpace(f.value) == "" {
+				return m, formBrowse
+			}
+			m.moveFocus(1)
+			return m, formNone
+		case fCredential:
+			if strings.TrimSpace(f.value) == "" {
+				return m, formPickCred
+			}
+			m.moveFocus(1)
+			return m, formNone
+		}
 		return m, formSubmit
+	case tea.KeyBackspace:
+		// A picked value is replaced, not shaved letter by letter.
+		if m.focus == fIdentity || m.focus == fCredential {
+			f.value, f.caret = "", 0
+			return m, formNone
+		}
 	}
 	if editField(f, msg) && f.kind == fieldToggle {
 		m.syncFocus() // the toggle may have disabled the focused row
@@ -270,9 +305,15 @@ func (m hostForm) host() store.Host {
 		User: strings.TrimSpace(m.fields[fUser].value),
 		Auth: m.auth(),
 	}
-	if h.Auth == store.AuthPrivateKey {
+	switch h.Auth {
+	case store.AuthPrivateKey:
 		h.IdentityFile = strings.TrimSpace(m.fields[fIdentity].value)
-	} else {
+	case store.AuthCredential:
+		// The credential supplies the user — writing a stale one beside it
+		// would put two answers to "who connects" in the same record.
+		h.Credential = strings.TrimSpace(m.fields[fCredential].value)
+		h.User = ""
+	default:
 		h.Password = m.fields[fPassword].value
 	}
 	return h
@@ -302,7 +343,9 @@ func (m hostForm) view() string {
 	for _, f := range m.fields {
 		labelW = max(labelW, dispW(f.label))
 	}
-	innerW := popupInnerW(m.screenW, labelW+38)
+	// Wide enough that the three-way Auth toggle shows all its options on a
+	// normal terminal; narrow ones still fall back to the selected-only form.
+	innerW := popupInnerW(m.screenW, labelW+52)
 	// On a narrow terminal the label column yields rather than squeezing the
 	// value out of existence — a truncated label still reads, an empty value does
 	// not.
@@ -318,16 +361,21 @@ func (m hostForm) view() string {
 	// The hint is contextual: it names what THIS field can do. That is the
 	// standing disclosure a text-entry surface trades the Space entry key for
 	// (§4.5), so it has to be accurate per field, not generic.
-	pairs := [][2]string{{"Tab", "next"}}
+	// The hint names what THIS field does with Enter — on the two pick-a-value
+	// rows Enter is not "save", and saying so is the standing disclosure (§4.5).
+	var pairs [][2]string
 	switch {
+	case m.focus == fIdentity && strings.TrimSpace(m.fields[fIdentity].value) == "":
+		pairs = [][2]string{{"Enter", "browse"}, {"Tab", "next"}, {"Esc", "cancel"}}
+	case m.focus == fCredential && strings.TrimSpace(m.fields[fCredential].value) == "":
+		pairs = [][2]string{{"Enter", "choose"}, {"Tab", "next"}, {"Esc", "cancel"}}
+	case m.focus == fIdentity || m.focus == fCredential:
+		pairs = [][2]string{{"Enter", "next"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
 	case m.fields[m.focus].kind == fieldToggle:
-		pairs = append(pairs, [2]string{arrowGlyphs, "switch"})
-	case m.focus == fIdentity:
-		// Tab means something else here, so the hint leads with that and names
-		// what moves on instead.
-		pairs = [][2]string{{"Tab", "browse"}, {arrowUpDown, "next"}}
+		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", "save"}, {"Esc", "cancel"}}
+	default:
+		pairs = [][2]string{{"Tab", "next"}, {"Enter", "save"}, {"Esc", "cancel"}}
 	}
-	pairs = append(pairs, [2]string{"Enter", "save"}, [2]string{"Esc", "cancel"})
 
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+title+" ", hintLegend(pairs),
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)

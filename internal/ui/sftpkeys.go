@@ -241,7 +241,12 @@ func (m AppModel) hostPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if i < 0 {
 		return m, tea.Batch(m.hostPicker.close(), m.toast.show("No such host: "+name, toastError))
 	}
-	dial := m.sftp.startDial(sd, m.hosts.hosts[i])
+	h, err := store.Resolve(m.hosts.hosts[i], m.creds.creds)
+	if err != nil {
+		m.log.errorf(err.Error())
+		return m, tea.Batch(m.hostPicker.close(), m.toast.show(err.Error(), toastError))
+	}
+	dial := m.sftp.startDial(sd, h)
 	return m, tea.Batch(m.closeStack(), m.hostPicker.close(), dial)
 }
 

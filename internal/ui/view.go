@@ -36,6 +36,9 @@ func (m AppModel) View() string {
 	if m.hostPicker.isActive() {
 		out = overlay.Composite(m.hostPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.credPicker.isActive() {
+		out = overlay.Composite(m.credPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.transfersUI.isActive() {
 		out = overlay.Composite(m.transfersUI.view(m.transfers.jobs), out,
 			overlay.Center, overlay.Center, 0, 0)

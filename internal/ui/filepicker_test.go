@@ -31,22 +31,25 @@ func fixtureKeys(t *testing.T) string {
 	return dir
 }
 
-// Tab only means "browse" on the field that holds a file path.
-func TestBrowseOpensOnlyOnTheIdentityField(t *testing.T) {
+// Enter browses, and only on the EMPTY path field: a filled one moves on,
+// and Tab is "next" everywhere. (Tab used to open the picker here; that cost
+// the one thing Tab does on every other field.)
+func TestEnterBrowsesOnlyOnTheEmptyIdentityField(t *testing.T) {
 	fixtureKeys(t)
 	m := pressA(appWith(sample(), nil), "A") // create form, auth = privatekey
 
-	m.form.focus = fName
+	m.form.focus = fIdentity
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
-	if settle(next.(AppModel)).picker.isActive() {
-		t.Error("Tab on Name should move to the next field, not open a picker")
+	m = settle(next.(AppModel))
+	if m.picker.isActive() {
+		t.Fatal("Tab is next-field now, it must not open the picker")
 	}
 
 	m.form.focus = fIdentity
-	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = settle(next.(AppModel))
 	if !m.picker.isActive() {
-		t.Fatal("Tab on IdentityFile should open the picker")
+		t.Fatal("Enter on the empty IdentityFile should open the picker")
 	}
 	if m.picker.layer != m.form.layer+1 {
 		t.Errorf("the picker should stack above the form: picker=%d form=%d",
@@ -55,6 +58,24 @@ func TestBrowseOpensOnlyOnTheIdentityField(t *testing.T) {
 	if len(m.picker.matches) != 5 {
 		t.Errorf("expected the 5 fixture files, got %d", len(m.picker.matches))
 	}
+
+	// Filled: Enter moves on, and Backspace clears the whole line.
+	m = pressA(m, "esc")
+	m.form.fields[fIdentity].value = "~/.ssh/id_ed25519"
+	m.form.fields[fIdentity].caret = 3
+	m.form.focus = fIdentity
+	m = pressA(m, "enter")
+	if m.picker.isActive() {
+		t.Fatal("Enter on a filled path field must not browse")
+	}
+	if m.form.focus == fIdentity {
+		t.Fatal("Enter on a filled path field should move to the next field")
+	}
+	m.form.focus = fIdentity
+	m = pressA(m, "backspace")
+	if got := m.form.fields[fIdentity].value; got != "" {
+		t.Fatalf("Backspace should clear the whole line, left %q", got)
+	}
 }
 
 func openPicker(t *testing.T) AppModel {
@@ -62,7 +83,7 @@ func openPicker(t *testing.T) AppModel {
 	fixtureKeys(t)
 	m := pressA(appWith(sample(), nil), "A")
 	m.form.focus = fIdentity
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	return settle(next.(AppModel))
 }
 
@@ -180,7 +201,7 @@ func TestIdentityFieldHasAPlaceholder(t *testing.T) {
 	fixtureKeys(t)
 	m := pressA(appWith(sample(), nil), "A")
 	m.form.focus = fName // so the field renders unfocused, as a user first sees it
-	if !strings.Contains(m.form.view(), "tab to browse") {
+	if !strings.Contains(m.form.view(), "enter to browse") {
 		t.Error("an empty IdentityFile should tell the user how to fill it")
 	}
 }
@@ -215,7 +236,7 @@ func TestPickerWithNoRootExplainsItself(t *testing.T) {
 
 	m := pressA(appWith(sample(), nil), "A")
 	m.form.focus = fIdentity
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = settle(next.(AppModel))
 
 	if m.picker.note == "" {
@@ -226,7 +247,7 @@ func TestPickerWithNoRootExplainsItself(t *testing.T) {
 	}
 }
 
-func TestTabBrowsesOnlyOnThePathField(t *testing.T) {
+func TestTabIsNextOnEveryField(t *testing.T) {
 	fixtureKeys(t)
 	m := pressA(appWith(sample(), nil), "A")
 
@@ -242,25 +263,25 @@ func TestTabBrowsesOnlyOnThePathField(t *testing.T) {
 		t.Error("Tab must never type into a field")
 	}
 
+	// Tab is next on the path field too — the picker moved to Enter.
 	m.form.focus = fIdentity
 	m = pressA(m, "tab")
-	if !m.picker.isActive() {
-		t.Fatal("Tab on IdentityFile should open the picker")
+	if m.picker.isActive() {
+		t.Fatal("Tab on IdentityFile must not open the picker any more")
 	}
-	if m.form.fields[fIdentity].value != "" {
-		t.Error("opening the picker must not write into the field")
+	if m.form.focus == fIdentity {
+		t.Error("Tab on IdentityFile should have moved on")
 	}
 
 	// An Alt combination is swallowed, never typed.
-	m = pressA(m, "esc")
+	m.form.focus = fIdentity
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}, Alt: true})
 	if got := settle(next.(AppModel)).form.fields[fIdentity].value; got != "" {
 		t.Errorf("an Alt key typed %q into the field", got)
 	}
 }
 
-// Shift+Tab and the arrows still move off the path field — Tab is the only key
-// that changed meaning there.
+// Shift+Tab and the arrows still move off the path field.
 func TestPathFieldCanStillBeLeft(t *testing.T) {
 	fixtureKeys(t)
 	m := pressA(appWith(sample(), nil), "A")
