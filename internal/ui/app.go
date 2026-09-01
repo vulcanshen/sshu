@@ -20,13 +20,13 @@ const (
 	tabCount
 )
 
-// Strip labels. The bracket is still the hotkey disclosure, and it still
-// prints the key exactly as pressed: the capital letter means shift, so
-// [Alt-P] is alt+shift+p. The tabs moved OFF the bare digits so that every
-// digit could address a panel of the current tab instead — and so that
-// switching tab works even while a remote holds the keyboard, which no bare
-// key could survive.
-var tabLabels = []string{"[Alt-P]reference", "[Alt-F]ileTransfer", "[Alt-S]sh"}
+// Strip labels. Two brackets, one chord: [Alt][p] disclosed in lowercase —
+// the everyday, unshifted spelling. The tabs moved OFF the bare digits so
+// that every digit could address a panel of the current tab instead — and so
+// that switching tab works even while a remote holds the keyboard, which no
+// bare key could survive. (Inside a pty only the SHIFTED chord is
+// intercepted; see tabForChord.)
+var tabLabels = []string{"[Alt][p]reference", "[Alt][f]ile transfer", "[Alt][s]sh"}
 
 // chromeRows is the fixed chrome the panels do NOT get: the capsule row, the
 // rule under it, and the footer. Locked at 3 — none of them ever reflows (§1.3).
@@ -594,12 +594,11 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // tabForChord resolves a tab-switch chord. The disclosed spelling is the
-// shifted one — [Alt-P] prints the key as pressed, capital meaning shift — but
-// OUTSIDE a pty the unshifted chord answers too: alt+p is a dead key there,
-// and a dead key one shift away from a live one is a trap with no payoff.
-// INSIDE a pty the unshifted chords are not sshu's to take — M-f is
-// forward-word in every readline and emacs on the far end — so only the
-// shifted spelling is intercepted where a remote holds the keyboard.
+// lowercase one — [Alt][p] — and outside a pty both cases answer: a dead key
+// one shift away from a live one is a trap with no payoff. INSIDE a pty the
+// unshifted chords are not sshu's to take — M-f is forward-word in every
+// readline and emacs on the far end — so only the shifted spelling is
+// intercepted where a remote holds the keyboard.
 func tabForChord(k string, remoteHasKeys bool) (tabID, bool) {
 	switch k {
 	case "alt+P":
@@ -877,7 +876,7 @@ func (m AppModel) menuItems() []menuItem {
 	}
 	if m.pref.focus == panelPrefNav {
 		return []menuItem{
-			{label: "preference", header: true},
+			{label: "resources", header: true},
 			{label: "j/k choose a section — Enter opens it", header: true},
 		}
 	}

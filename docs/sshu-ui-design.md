@@ -30,13 +30,13 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[Alt-P]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
-| **[Alt-F]ileTransfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
-| **[Alt-S]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子以 `Alt+1..9` 直達 | 已落地 |
+| **[Alt][p]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
+| **[Alt][f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
+| **[Alt][s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子以 `Alt+1..9` 直達 | 已落地 |
 
 三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),以 **Alt 和絃**
-切換:`Alt+Shift+P/F/S`(bracket 印的就是按的 —— 大寫即 shift);pty 之外
-小寫和絃也通。裸數字整組讓給「當前 tab 的 panel」。v0.2 之前 tab 掛在
+切換:標籤印的就是按的 —— `[Alt][p]` 兩個括號、一個和絃,小寫是日常拼法;
+pty 內只攔 shift 加大寫(小寫屬於遠端)。裸數字整組讓給「當前 tab 的 panel」。v0.2 之前 tab 掛在
 `1`/`2`/`3` 上 —— 換掉的理由與整輪大改的紀錄見 §11。
 
 ---
@@ -54,7 +54,7 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 ### §A.0.Y core-key 集合(5 個,跨 surface 不變)
 
-> **v0.2**:tab 切換移到 `Alt+P/F/S` 和絃,`1`-`9` 全數改為「當前 tab 的
+> **v0.2**:tab 切換移到 `Alt+p/f/s` 和絃,`1`-`9` 全數改為「當前 tab 的
 > panel 直達」;ssh tab 的 `Tab` 改為顯示開關(§11.一、§11.六)。下表的
 > 「`1`/`2`/`3` 直達 alias」是 v0.1 的形狀,保留當時推理。
 
@@ -705,7 +705,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 
 > **v0.2**:`[5]` 已成**網格**。`Alt+Esc` 的語意不變(把鍵盤收回來),落點
 > 是 `[1]` sessions,side 欄同時回來;格子之間用 `Alt+1..9`,tab 和絃
-> `Alt+P/F/S` 在 pty 內也通。見 §11.六。
+> `Alt+p/f/s` 在 pty 內也通。見 §11.六。
 
 **這條不是 VTP core key,也不計入 §A.0.Y 的 5 個 role。** 理由:panel [5] 把
 鍵盤整個交給遠端程式,五個 core key 在那裡全部失效(`Tab` `Enter` `Esc`
@@ -1874,7 +1874,7 @@ sshu/
 │   │   ├── view.go         compose、浮層疊放次序、footer legend
 │   │   ├── theme.go        色彩錨點與 glyph 常數
 │   │   ├── chrome.go       powerline tab 帶(自 filu 改)
-│   │   ├── preftab.go      [Alt-P] nav + 內容切換 + 版面(v0.2)
+│   │   ├── preftab.go      [Alt][p] nav + 內容切換 + 版面(v0.2)
 │   │   ├── hosts.go        hosts 表格 model:cursor、捲動、跨欄 fuzzy 搜尋
 │   │   ├── credlist.go     credentials 表格(v0.2)
 │   │   ├── credform.go     credential form(v0.2;與 host form 共用欄位引擎)
@@ -1882,8 +1882,8 @@ sshu/
 │   │   ├── table.go        hosts 表格:欄寬推導、列 render
 │   │   ├── form.go         host form popup(form 類)
 │   │   ├── filepicker.go   identity file picker(menu 類)
-│   │   ├── sshtab.go       [Alt-S] 終端網格、layout strip、session 清單(v0.2 重寫)
-│   │   ├── sshkeys.go      [Alt-S] 的動作表、layout 鍵、R×C 解析
+│   │   ├── sshtab.go       [Alt][s] 終端網格、layout strip、session 清單(v0.2 重寫)
+│   │   ├── sshkeys.go      [Alt][s] 的動作表、layout 鍵、R×C 解析
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
@@ -2201,7 +2201,9 @@ sshu 攔下。
 
 大小寫的分工是後來補的裁定:**pty 外**小寫 `alt+p/f/s` 也通(那裡它是
 死鍵,離活鍵一個 shift 的死鍵是沒有回報的陷阱);**pty 內**只認大寫
-(`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。
+(`M-f` 是每一個 readline 的 forward-word,不是 sshu 的)。標籤最終拼成
+`[Alt][p]reference` —— 小寫、兩個括號 —— 同批把 nav 面板改名
+`[1] Resources`(使用者裁定;各節內的舊拼法屬歷史紀錄,不回改)。
 
 **VHS 送不出任何 Alt**(`Alt+F` 只送裸字元、`Alt+Esc` 更是把 "Esc" 三個
 字母打出來,cat -v 實證)。和絃由單元測試覆蓋;tape 要壓 Alt 得繞
@@ -2300,7 +2302,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | `Space` | contextual 入口(Space menu);**在浮層上按 = 關掉它** |
 | `?` | non-contextual 入口(help);**再按一次關掉** |
 
-### [Alt-P]reference
+### [Alt][p]reference
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -2320,7 +2322,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄) · `Esc` | 送出 / 取消 |
 
-### [Alt-F]ileTransfer
+### [Alt][f]ile transfer
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -2329,7 +2331,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | 全部 | `S` · `P` · `R` · `x`/`X` · `C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear marks / 傳輸(項/marks) |
 | 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / 標記 / 搜尋子樹 / Add / Rename / View / Edit |
 
-### [Alt-S]sh
+### [Alt][s]sh
 
 | Surface | 鍵 | 動作 |
 |---|---|---|

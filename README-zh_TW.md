@@ -22,21 +22,21 @@ sshu 是 `u`-family 的成員,也是 [Vulcan's TUI Design Principle](https://git
 | **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
 | **`?`** | 全域說明 —— 所有跨 surface 的動作列在一起 |
 
-tab 用 **`Alt+P` / `Alt+F` / `Alt+S`** 和絃切換 —— 是和絃,所以遠端拿著鍵盤時照樣有效 —— 而裸數字 `1`–`9` 全部用來直達**當前 tab** 的 panel。
+tab 用 **`Alt+p` / `Alt+f` / `Alt+s`** 和絃切換 —— 是和絃,所以遠端拿著鍵盤時照樣有效(在 pty 裡用 shift 加大寫)—— 而裸數字 `1`–`9` 全部用來直達**當前 tab** 的 panel。
 
 不確定就按 `Space`。字母快捷鍵是給熟了之後求快用的,而**每一個都同時是 `Space` menu 裡的一列** —— 所以除非你想背,否則沒有任何東西需要背。
 
 ## 三個 tab
 
 ```
- [Alt-P]reference ❯ [Alt-F]ileTransfer ❯ [Alt-S]sh
+ [Alt][p]reference ❯ [Alt][f]ile transfer ❯ [Alt][s]sh
 ```
 
-**`[Alt-P]reference`** —— sshu 自己的資料在同一個 nav 底下:**hosts**、**credentials**、**app log**。hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟。
+**`[Alt][p]reference`** —— sshu 自己的資料在同一個 nav 底下:**hosts**、**credentials**、**app log**。hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟。
 
-**`[Alt-F]ileTransfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
+**`[Alt][f]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
 
-**`[Alt-S]sh`** —— 一個**活終端機的網格**,每一格都是自己 PTY 上的真 `ssh`。session 清單上 `Tab` 切換格子上下網格、`Enter` 顯示並把鍵盤交過去、`Alt+1`–`9` 在格子之間跳、`Alt+Esc` 把鍵盤收回來。layout 條紋決定排列:水平、垂直,或自訂的列 × 行。
+**`[Alt][s]sh`** —— 一個**活終端機的網格**,每一格都是自己 PTY 上的真 `ssh`。session 清單上 `Tab` 切換格子上下網格、`Enter` 顯示並把鍵盤交過去、`Alt+1`–`9` 在格子之間跳、`Alt+Esc` 把鍵盤收回來。layout 條紋決定排列:水平、垂直,或自訂的列 × 行。
 
 ## 安裝
 
@@ -116,13 +116,13 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 ### 到處都通
 
 ```
- tab       Alt+P / Alt+F / Alt+S(pty 裡也有效)
+ tab       Alt+p / Alt+f / Alt+s(pty 裡:shift 加大寫)
  panel     當前 tab 的 1–9  ·  Tab(ssh tab:顯示開關)
  游標      j k    u d(半頁)          gg G      方向鍵同義
  全域      Space menu    ? help    q 離開    Ctrl+C 強制離開
 ```
 
-### `[Alt-P]reference`
+### `[Alt][p]reference`
 
 左側 nav(`1`)選區 —— **hosts**、**credentials**、**logs** —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。
 
@@ -136,7 +136,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 
 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。兩個「選值欄位」—— IdentityFile 與 Credential —— **空欄按 `Enter` 開選單、有值按 `Enter` 跳下一欄、`Backspace` 整行清除**。選了 `credential`,User 列會變暗:user 由 credential 供應。
 
-### `[Alt-F]ileTransfer` —— 小寫是游標那一列,大寫是整個 panel
+### `[Alt][f]ile transfer` —— 小寫是游標那一列,大寫是整個 panel
 
 | 鍵 | 動作 |
 |---|---|
@@ -156,7 +156,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `S` | 選 host —— `local` 排第一,而且開在**你啟動 sshu 的那個目錄** |
 | `P` | 進度 —— 進行中的傳輸,可逐條取消 |
 
-### `[Alt-S]sh`
+### `[Alt][s]sh`
 
 | 鍵 | 動作 |
 |---|---|

@@ -75,7 +75,7 @@ func (m *prefModel) navKey(k string) {
 
 func (m prefModel) panelTitle(p prefPanel) string {
 	if p == panelPrefNav {
-		return "[1] preference"
+		return "[1] Resources"
 	}
 	return "[2] " + m.item.label()
 }

@@ -6,9 +6,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// minAppW is the narrowest terminal sshu draws in: the width of the
-// short-label strip ("[Alt-P] [Alt-F] [Alt-S]" as one chain). Below it the tab
-// row cannot be honest about which tab is lit.
+// minAppW is the narrowest terminal sshu draws in. The letter-tier strip
+// ("[p] [f] [s]") fits well below this; 32 is where the panels under it are
+// still worth drawing at all.
 const minAppW = 32
 
 // statusMinRoom is how much slack the tab row needs before it shows the status
@@ -105,17 +105,41 @@ func tabChain(labels []string, active int) string {
 	return b.String()
 }
 
-// shortLabels drops each capsule to its "[N]" prefix. This is the narrow-width
-// degradation for the tab row: the label is the content signal and losing it
-// hurts, but a capsule strip wider than the terminal breaks the frame outright
-// (§1.1 — narrow must stay usable).
+// shortLabels drops each segment to its bracket prefix — "[Alt][p]" — the
+// first narrow-width degradation. The label is the content signal and losing
+// it hurts, but a strip wider than the terminal breaks the frame outright
+// (§1.1 — narrow must stay usable). It cuts after the SECOND bracket when
+// there is one: cutting at the first would leave three identical "[Alt]"s,
+// a strip that can no longer say which tab is lit.
 func shortLabels(labels []string) []string {
 	out := make([]string, len(labels))
 	for i, l := range labels {
-		if k := strings.Index(l, "]"); k >= 0 {
+		k := strings.Index(l, "]")
+		if k >= 0 {
+			if k2 := strings.Index(l[k+1:], "]"); k2 >= 0 {
+				k += 1 + k2
+			}
 			out[i] = l[:k+1]
 		} else {
 			out[i] = l
+		}
+	}
+	return out
+}
+
+// letterLabels is the last tier: just the letter bracket — "[p]" — for
+// terminals where even the short strip cannot fit.
+func letterLabels(labels []string) []string {
+	out := make([]string, len(labels))
+	for i, l := range labels {
+		out[i] = l
+		if k := strings.Index(l, "]"); k >= 0 {
+			rest := l[k+1:]
+			if o := strings.Index(rest, "["); o >= 0 {
+				if c := strings.Index(rest[o:], "]"); c >= 0 {
+					out[i] = rest[o : o+c+1]
+				}
+			}
 		}
 	}
 	return out
@@ -130,6 +154,9 @@ func shortLabels(labels []string) []string {
 func tabRow(w int, labels []string, active int, status string) string {
 	if tabChainW(labels)+1 > w {
 		labels = shortLabels(labels)
+	}
+	if tabChainW(labels)+1 > w {
+		labels = letterLabels(labels)
 	}
 
 	var b strings.Builder

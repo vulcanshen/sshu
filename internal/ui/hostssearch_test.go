@@ -186,7 +186,7 @@ func TestSearchNeedsHostsToSearch(t *testing.T) {
 // moment a side nav moved in next to it.)
 func TestPrefPanelsWearTheirTitles(t *testing.T) {
 	view := ansi.Strip(sized(sample(), 100, 24).View())
-	for _, want := range []string{"[1] preference", "[2] hosts"} {
+	for _, want := range []string{"[1] Resources", "[2] hosts"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("%q is not on screen:\n%s", want, view)
 		}

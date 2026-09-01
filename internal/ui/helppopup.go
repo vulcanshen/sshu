@@ -34,7 +34,7 @@ type helpEntry struct{ key, desc string }
 // because they are the five a user has to hold to walk the app (§A.0.Y).
 var helpContent = []helpEntry{
 	{"", "Core keys"},
-	{"Alt+P/F/S", "switch tab"},
+	{"Alt+p/f/s", "switch tab"},
 	{"1-9", "panel of this tab"},
 	{"Tab", "next panel in this tab"},
 	{"Enter", "confirm / connect"},
