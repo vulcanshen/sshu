@@ -28,8 +28,17 @@ func fakeSSH(t *testing.T, body string) {
 	t.Cleanup(func() { sshBinary = old })
 }
 
-// aliveSSH stays up until its PTY is closed, standing in for a connected host.
-func aliveSSH(t *testing.T) { fakeSSH(t, "exec cat") }
+// aliveSSH stands in for a CONNECTED host: it says something and then stays up
+// until its PTY is closed. The greeting is not decoration — a real ssh session
+// prints a prompt the moment it is through, and that first byte is what tells
+// sshu the wait is over (ptyTerm.spoke). A stand-in that never speaks is a
+// stand-in for a connection still being made, which is silentSSH below.
+func aliveSSH(t *testing.T) { fakeSSH(t, "printf '$ '; exec cat") }
+
+// silentSSH stands in for a connection that has not been made yet: it holds the
+// PTY open and says nothing, which is exactly what ssh does while it waits for
+// TCP on an address that never answers.
+func silentSSH(t *testing.T) { fakeSSH(t, "exec cat") }
 
 func sshApp(t *testing.T, hosts []store.Host) AppModel {
 	t.Helper()
@@ -50,6 +59,13 @@ func openOne(t *testing.T) AppModel {
 		t.Fatalf("expected one live session, got %d", len(m.ssh.sessions))
 	}
 	t.Cleanup(func() { m.ssh.stopAll() })
+	// Wait for the greeting, because "connected" now means the far end answered
+	// rather than "a process started". A test that skipped this would be holding
+	// a session sshu still considers to be connecting — which is a real state,
+	// just not this one.
+	waitFor(t, "the stand-in to answer", func() bool {
+		return m.ssh.sessions[0].pty.hasSpoken()
+	})
 	return m
 }
 
@@ -112,6 +128,85 @@ func TestNarrowDropsTheLists(t *testing.T) {
 
 // ------------------------------------------------------------------ the PTY
 
+// A connection that fails leaves TWO marks: the panel that was watching it says
+// what happened, and the log keeps it. The toast is the third, and it is the one
+// that disappears — which is why the other two exist.
+func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
+	fakeSSH(t, "printf 'ssh: connect to host db.internal.corp port 22: Connection refused\\n' >&2; exit 255")
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	s := m.ssh.sessions[0]
+	waitFor(t, "ssh to give up", func() bool { return s.pty.exited() })
+
+	next, _ := m.Update(sshTickMsg{})
+	m = settle(next.(AppModel))
+
+	// What ssh SAID, not what its exit code implied.
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "Connection refused") {
+		t.Errorf("[5] does not say why it failed:\n%s", view)
+	}
+	if strings.Contains(view, "No session on screen") {
+		t.Errorf("[5] went blank instead of reporting:\n%s", view)
+	}
+
+	// The footer stops being quiet about it.
+	if !strings.Contains(view, "1 error") {
+		t.Errorf("the footer does not say there is something to read:\n%s", view)
+	}
+
+	// And the log kept it, in the words the remote used.
+	m = pressA(m, "!")
+	if !m.log.isActive() {
+		t.Fatal("! did not open the log")
+	}
+	if n := len(m.log.entries); n != 1 {
+		t.Fatalf("%d entries, want the one failure", n)
+	}
+	if !strings.Contains(m.log.entries[0].msg, "Connection refused") {
+		t.Errorf("the entry lost the reason: %q", m.log.entries[0].msg)
+	}
+	// And it is WRAPPED onto the screen, not truncated: the word that says why
+	// is at the end of the line, which is exactly what a cut tail would eat.
+	log := ansi.Strip(m.log.view())
+	if !strings.Contains(log, "refused") {
+		t.Errorf("the rendered log dropped the tail of the reason:\n%s", log)
+	}
+	// Opening it is reading it.
+	if m.log.unreadErrors() != 0 {
+		t.Errorf("%d errors still unread after opening the log", m.log.unreadErrors())
+	}
+}
+
+// Keys typed at a connection that has not answered are NOT sent. ssh is not
+// reading its stdin while it waits, so they would be delivered to the remote
+// shell whenever it finally arrives — a `q` meant for sshu, run minutes later on
+// somebody else's machine.
+func TestKeysAreNotSentToAConnectionThatHasNotAnswered(t *testing.T) {
+	silentSSH(t)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+
+	if m.inPty() {
+		t.Fatal("a connection that has not answered is not a remote to type at")
+	}
+	if !m.ptyFocused() {
+		t.Fatal("the panel should still hold the keyboard")
+	}
+	// And q does not quit sshu either: the panel has the keyboard, so it eats it.
+	next, cmd := m.Update(keyMsg("q"))
+	if cmd != nil {
+		t.Error("q while connecting should do nothing at all")
+	}
+	if next.(AppModel).confirm.isActive() {
+		t.Error("q while connecting should not raise the quit confirm")
+	}
+	// Alt+Esc still works, because being stuck needs a way out.
+	next, _ = m.Update(keyMsg("alt+esc"))
+	if next.(AppModel).ssh.focus == panelPty {
+		t.Error("alt+esc must leave a connecting pty")
+	}
+}
+
 // A live session that has said NOTHING yet is not an empty terminal, it is a
 // wait — and the two look identical: an empty bordered box.
 //
@@ -120,7 +215,9 @@ func TestNarrowDropsTheLists(t *testing.T) {
 // up, which can run past a minute. `cat` stands in here for exactly that
 // property: it says nothing until it is spoken to.
 func TestAConnectingSessionSaysSo(t *testing.T) {
-	m := openOne(t)
+	silentSSH(t)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
 	view := ansi.Strip(m.View())
 
 	if !strings.Contains(view, "connecting to") {
@@ -338,28 +435,29 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 	}
 }
 
-// A dead session moves to history carrying the reason it ended.
-func TestExitedSessionMovesToHistory(t *testing.T) {
+// A dead session leaves the live list carrying the reason it ended, and that
+// reason is what reaches the log.
+func TestExitedSessionLeavesWithItsReason(t *testing.T) {
 	fakeSSH(t, "exit 7")
 	m := pressA(sshApp(t, sample()), "enter", "enter")
 	s := m.ssh.sessions[0]
 
 	waitFor(t, "the subprocess to exit", func() bool { return s.pty.exited() })
-	if len(m.ssh.reap()) != 1 {
-		t.Fatal("reap should have moved the finished session")
+	ended := m.ssh.reap()
+	if len(ended) != 1 {
+		t.Fatal("reap should have retired the finished session")
 	}
-	if len(m.ssh.sessions) != 0 || len(m.ssh.history) != 1 {
-		t.Fatalf("live=%d history=%d, want 0 and 1", len(m.ssh.sessions), len(m.ssh.history))
+	if len(m.ssh.sessions) != 0 {
+		t.Fatalf("%d sessions still live", len(m.ssh.sessions))
 	}
-	if got := m.ssh.history[0].reason; got != "exited 7" {
+	if got := ended[0].reason; got != "exited 7" {
 		t.Errorf("reason %q, want %q", got, "exited 7")
+	}
+	if ended[0].state != sessEnded {
+		t.Error("the session should be marked ended")
 	}
 	if m.ssh.focus == panelPty {
 		t.Error("focus must not stay in a PTY nobody is driving")
-	}
-	// ssh's own 255 means the connection failed, which is worth naming apart.
-	if m.ssh.history[0].state != sessEnded {
-		t.Error("the session should be marked ended")
 	}
 }
 
@@ -797,57 +895,40 @@ func TestPanelTitlesAreCapsulesUnderTheRule(t *testing.T) {
 	}
 }
 
-// History is a view. Nothing in it can be selected, so nothing in it can be
-// acted on — and j/k scroll it rather than moving a cursor that does not exist.
-// It kept that character when it stopped being a panel.
-func TestHistoryIsAViewNotAList(t *testing.T) {
+// The app log is a view. Nothing in it can be selected, so nothing in it can be
+// acted on — j/k scroll it rather than moving a cursor that does not exist.
+func TestTheAppLogIsAViewNotAList(t *testing.T) {
 	withColour(t)
 	m := sshApp(t, sample())
-	m.ssh.setSize(100, 28)
-	m.historyUI.setSize(100, 12) // shorter than the list, so it can scroll
-	for i := range 8 {
-		m.ssh.history = append(m.ssh.history, &session{
-			id: i + 1, host: sample()[i%len(sample())], state: sessEnded,
-			reason: "exited 0", ok: true,
-		})
+	m.log.setSize(100, 14) // shorter than the entries, so it can scroll
+	for i := range 12 {
+		m.log.errorf("prod-web-0" + itoa(i%9+1) + " · Connection refused")
 	}
 
 	// No row is ever painted as a cursor.
-	m.historyUI.anim.phase = animOpen
-	box := m.historyUI.view(m.ssh.history)
+	m.log.anim.phase = animOpen
+	box := m.log.view()
 	for name, bg := range map[string]string{
 		"cursor": ansiBgOf(t, handColor), "green": ansiBgOf(t, liveColor),
 	} {
 		if strings.Contains(box, bg) {
-			t.Errorf("history must not paint a %s bar — it has no cursor", name)
+			t.Errorf("the log must not paint a %s bar — it has no cursor", name)
 		}
 	}
 
 	// j/k scroll the view, and it does not wrap.
-	before := m.historyUI.top
-	m.historyUI.update(keyMsg("j"), len(m.ssh.history))
-	if m.historyUI.top != before+1 {
-		t.Errorf("j should scroll, top=%d want %d", m.historyUI.top, before+1)
+	before := m.log.top
+	m.log.update(keyMsg("j"))
+	if m.log.top != before+1 {
+		t.Errorf("j should scroll, top=%d want %d", m.log.top, before+1)
 	}
-	m.historyUI.update(keyMsg("k"), len(m.ssh.history))
-	m.historyUI.update(keyMsg("k"), len(m.ssh.history))
-	if m.historyUI.top != 0 {
-		t.Errorf("k should scroll back and clamp, top=%d", m.historyUI.top)
-	}
-
-	// And it is reachable: [H] is a panel action on [4], not a lost feature.
-	found := false
-	for _, it := range m.sshMenuItems() {
-		if it.key == "H" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("the Space menu should offer History")
+	m.log.update(keyMsg("k"))
+	m.log.update(keyMsg("k"))
+	if m.log.top != 0 {
+		t.Errorf("k should scroll back and clamp, top=%d", m.log.top)
 	}
 }
 
-// TestDumpSSH is not an assertion — run with -v to eyeball tab [3].
 func TestDumpSSH(t *testing.T) {
 	if !testing.Verbose() {
 		t.Skip("run with -v to print tab [3]")
@@ -976,10 +1057,9 @@ func TestSSHMenuRowsRunTheirOwnActions(t *testing.T) {
 		"Close":     confirmClose,
 		"Duplicate": confirmDuplicate,
 	}
-	// Open lands in the pty and History opens a popup; the rest ask first.
+	// Open lands in the pty; the rest ask first.
 	opens := map[string]func(AppModel) bool{
-		"Open":    func(m AppModel) bool { return m.ssh.focus == panelPty },
-		"History": func(m AppModel) bool { return m.historyUI.isActive() },
+		"Open": func(m AppModel) bool { return m.ssh.focus == panelPty },
 	}
 	for _, a := range sshActions {
 		if a.panel != panelSessions {

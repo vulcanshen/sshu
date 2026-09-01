@@ -112,15 +112,15 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 | **blue `#89b4fa`** | panel border、tab 帶上亮著那段的底、hosts 表格選中列的 bar | 不拿去表達 user state |
 | **subtext1 `#bac2de`** | 清單游標 bar(menu / picker / session) | 不當 panel chrome |
 | **lavender `#b4befe`** | **正在編輯的東西**:form 的當前欄位、sftp 的 cwd、Rename 輸入框 | 不當 popup border |
-| **green `#a6e3a1`** | 正在進行 / 成功:`[5]` 顯示中的 session、sftp marks、history 的 `exited 0` | 不當裝飾 |
+| **green `#a6e3a1`** | 正在進行 / 成功:`[5]` 顯示中的 session、sftp marks | 不當裝飾 |
 | **red / peach** | warning / error | **不拿去標 auth method** |
 | **glyph** | 型別訊號(auth 方式、檔案 vs 目錄、mark) | 不拿去表達狀態 |
 | **`[4]` 的前景 / 背景** | 前景 = 正在 `[5]` 顯示;背景 = 游標 | 兩條獨立通道,不互相代替 |
 | **大小寫**(tab [2]) | 作用範圍:小寫 = 游標那一列、大寫 = 整個 panel | 其他 tab 不用它表達範圍 |
 
 **auth method 用 glyph 不用顏色**(鑰匙 / 鎖),因為紅與桃色留給警告。
-**history 的顏色只染 reason 那一段字**,不染名字、更不染整列 —— 「怎麼結束的」是
-那次結束的屬性,不是那台 host 的屬性。
+**app log 的顏色只染 level 那一段字**,不染時間、更不染整列 —— 「這是一則錯誤」是
+那一則的屬性,而一份紀錄裡多數行都不是錯誤。
 
 ---
 
@@ -256,7 +256,7 @@ sftp 的檔案與 marks),所以往詞彙裡加一個鍵是一次加到所有清�
 - **`j`/`k` 繞**:最後一列離第一列只有一個鍵。短清單上最有感 —— 不繞的話替代方案
   是按著 `k` 看畫面完全沒反應。**所有有游標的面都繞**,panel 與 popup 一視同仁。
 - **`u`/`d` 不繞**:半頁是「瞄準」的移動,會無聲傳送到另一端的瞄準比停下來更糟。
-- **沒有游標的東西也不繞**(`moveScroll`):`[H]istory` 與 `?` help 是 viewport,
+- **沒有游標的東西也不繞**(`moveScroll`):`!` app log 與 `?` help 是 viewport,
   捲到底又跳回頂端會讀成故障 —— 根本沒有游標可以繞回去。
 - **導覽字母不被任何動作佔用**,一條例外都沒有(`navKeys`,由
   `TestNoActionClaimsANavigationKey` 擋)。所以 `[D]elete host` / `[D]uplicate` /
@@ -321,7 +321,7 @@ panel `[5]` 把整個鍵盤交給遠端(`Esc`、`Tab`、`q` 都是遠端的)。�
 |---|---|---|
 | **menu** | Space menu、host picker、identity file picker | 分 region / 清單、cursor-first、選一個執行 |
 | **message** | Connect / Delete / Quit 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、`[H]istory`、**`[v]iew`** | 可捲、沒有游標 |
+| **viewport** | `?` help、**`!` app log**、`[v]iew` | 可捲、沒有游標 |
 | **form** | Add / Edit host | 多欄位、逐欄位 focus、一次提交 |
 | **input** | Rename、**Add** | **一行**文字、一個問題、Enter 送出;Add 的 Enter 動詞跟著輸入變 |
 | **pty** | **tab [3] 的 panel `[5]`**、tab [2] 的 **`[e]dit`** | 外部程式在 sshu 內 render,鍵盤整個交出去 |
@@ -363,7 +363,7 @@ sftp 傳輸。
 
 ### 7.2 session 完全不落地
 
-`[3]` 的 session 與 history **只存在記憶體**,沒有 `history.yaml`。最後一個畫面
+`[3]` 的 session 與 app log **只存在記憶體**,沒有 `history.yaml`。最後一個畫面
 可能有遠端印出來的任何東西 —— 那不是可以隨手寫進磁碟的資料。
 
 ### 7.3 資訊在需要的時候出現,不常駐
@@ -373,9 +373,9 @@ sftp 傳輸。
 | | 常駐 | 隨手看 | 事件當下 |
 |---|---|---|---|
 | 傳輸 | tab 列 `󰕒 3/12 · 42%` | `[P]rogress` popup | — |
-| session 結束 | tab 列 `3 live · 1 past` | `[H]istory` popup | **error toast** |
+| session 結束 | tab 列 `3 live sessions` | **`!` app log**(footer 報未讀數) | **error toast** |
 
-`[6]` history 曾經是常駐 panel,佔掉左欄三分之一、不能操作、大部分時間是空的。
+`[6]` 曾經是常駐的 history panel,佔掉左欄三分之一、不能操作、大部分時間是空的。
 真正有價值的是「哪一條斷了、為什麼」,而那件事以前是**完全靜默**的。詳見設計稿
 §7.1.4。
 
@@ -474,7 +474,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | `[3]` 多 session、embedded pty、`Alt+Esc` | `ui/sshtab.go` `ui/pty_unix.go` |
-| `[3]` history popup + 失敗 toast | `ui/sshhistory.go` |
+| `[3]` 連線中 spinner、失敗顯示遠端原話、app log + 失敗 toast | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go lastWords` |
 | `[3]` 連線中 spinner:判準是 PTY 有沒有說過話,不是網格空不空 | `ui/sshtab.go connectingBody` `ui/pty_unix.go spoke` |
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
@@ -549,7 +549,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|---|
 | 全部 | `4` / `5` | 直達 sessions / pty |
 | `[4]` | `Enter` | 進入或切換並把 focus 給 `[5]`(不確認) |
-| `[4]` | `C` · `D` · `H` | Close(先問)/ Duplicate(先問)/ History popup |
+| `[4]` | `C` · `D` | Close(先問)/ Duplicate(先問) |
 | `[5]` | 所有鍵 | 送給遠端 |
 | `[5]` | **`Alt+Esc`** | **收回鍵盤** |
 

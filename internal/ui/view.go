@@ -39,9 +39,8 @@ func (m AppModel) View() string {
 		out = overlay.Composite(m.transfersUI.view(m.transfers.jobs), out,
 			overlay.Center, overlay.Center, 0, 0)
 	}
-	if m.historyUI.isActive() {
-		out = overlay.Composite(m.historyUI.view(m.ssh.history), out,
-			overlay.Center, overlay.Center, 0, 0)
+	if m.log.isActive() {
+		out = overlay.Composite(m.log.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
 	if m.viewer.isActive() {
 		out = overlay.Composite(m.viewer.view(), out, overlay.Center, overlay.Center, 0, 0)
@@ -117,7 +116,14 @@ func (m AppModel) footer() string {
 	case tabSSH:
 		nav = [2]string{"1-5", "surfaces"}
 	}
+	// `!` is disclosed like every other entry key, and when the log holds errors
+	// nobody has read it says HOW MANY instead of just "log". A record nobody is
+	// told about is a record nobody opens.
+	log := [2]string{"!", "log"}
+	if n := m.log.unreadErrors(); n > 0 {
+		log[1] = plural(n, "error")
+	}
 	return keyLegend([][2]string{
-		{"space", "menu"}, {"?", "help"}, nav, {"q", "quit"},
+		{"space", "menu"}, {"?", "help"}, nav, log, {"q", "quit"},
 	}, m.w)
 }

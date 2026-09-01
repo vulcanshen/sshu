@@ -51,7 +51,7 @@ type AppModel struct {
 	spaceMenu   spaceMenu
 	hostPicker  spaceMenu
 	transfersUI transfersPopup
-	historyUI   historyPopup
+	log         appLog
 	viewer      viewerPopup
 	editorUI    editorPopup
 	help        helpPopup
@@ -72,7 +72,7 @@ func New(hosts []store.Host, save SaveFunc) AppModel {
 		ssh:         newSSHModel(),
 		sftp:        newSFTPModel(),
 		transfersUI: newTransfersPopup(),
-		historyUI:   newHistoryPopup(),
+		log:         newAppLog(),
 		viewer:      newViewerPopup(),
 		editorUI:    newEditorPopup(),
 		hostPicker:  newHostPicker(),
@@ -109,7 +109,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sftp.setSize(m.w, m.panelHeight())
 		m.hostPicker.setSize(m.w, m.h)
 		m.transfersUI.setSize(m.w, m.h)
-		m.historyUI.setSize(m.w, m.h)
+		m.log.setSize(m.w, m.h)
 		m.viewer.setSize(m.w, m.h)
 		m.editorUI.setSize(m.w, m.h)
 		m.spaceMenu.setSize(m.w, m.h)
@@ -128,7 +128,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.spaceMenu.anim.tick(msg),
 			m.hostPicker.anim.tick(msg),
 			m.transfersUI.anim.tick(msg),
-			m.historyUI.anim.tick(msg),
+			m.log.anim.tick(msg),
 			m.viewer.anim.tick(msg),
 			m.editorUI.anim.tick(msg),
 			m.help.anim.tick(msg),
@@ -148,9 +148,21 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(ended) > 0 {
 			m.ssh.setSize(m.w, m.panelHeight())
 		}
-		// A session dying used to be completely silent. Say so, at the moment it
-		// happens — that is the whole of what the history panel was for.
-		if msg := endedBadly(ended); msg != "" {
+		// Two channels, two jobs: the toast is "this just happened" and is gone
+		// in two seconds; the log is the record you can still read afterwards.
+		// A session dying used to have only the first, which meant looking away
+		// for a moment was the same as never being told.
+		var bad []*session
+		for _, s := range ended {
+			line := s.host.Name + " · " + s.reason
+			if s.ok {
+				m.log.info(line)
+				continue
+			}
+			m.log.errorf(line)
+			bad = append(bad, s)
+		}
+		if msg := endedBadlyToast(bad); msg != "" {
 			return m, tea.Batch(m.ssh.tick(), m.toast.show(msg, toastError))
 		}
 		return m, m.ssh.tick()
@@ -240,7 +252,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// just Esc, so it is never a dead key. Disclosed in the footer whenever the
 	// PTY holds focus, which is the only place it means anything.
 	if msg.Type == tea.KeyEscape && msg.Alt {
-		if m.inPty() {
+		if m.ptyFocused() {
 			m.ssh.setFocus(panelSessions)
 			return m, nil
 		}
@@ -285,6 +297,15 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.ssh.currentSession().pty.write(msg)
 		return m, nil
 	}
+	// Focused, but the far end has not spoken yet. The keys are NOT forwarded:
+	// ssh is not reading its stdin while it waits for a connection, so they
+	// would sit in a buffer and be delivered to the remote shell minutes later —
+	// a `q` meant for sshu, run on somebody else's machine. They are swallowed
+	// instead, because the panel does have the keyboard; the way out is the
+	// Alt+Esc the footer is already advertising.
+	if m.ptyFocused() {
+		return m, nil
+	}
 
 	// Space and ? close what they open (§A.1 / §A.2). An entry key that only
 	// works one way is a trap: the user reaches for the same key to get out,
@@ -296,6 +317,13 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// question mark is a question mark (§4.5).
 	if msg.Type == tea.KeySpace && m.popupOpen() && !m.textFloat() {
 		return m.closeTop()
+	}
+	// `!` is the app log's entry key, and like `?` it closes what it opened. It
+	// works from on top of another float for the same reason: the moment you most
+	// want to know what went wrong is while you are standing on the thing that
+	// went wrong.
+	if msg.String() == "!" && !m.textFloat() && !m.ptyFocused() {
+		return m, m.log.toggle(m.layer())
 	}
 	if msg.String() == "?" && !m.textFloat() && !m.inPty() {
 		if m.help.anim.owns() {
@@ -325,8 +353,8 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.transfers.cancelJob(i)
 		}
 		return m, nil
-	case m.historyUI.anim.owns():
-		m.historyUI.update(msg, len(m.ssh.history))
+	case m.log.anim.owns():
+		m.log.update(msg)
 		return m, nil
 	case m.viewer.anim.owns():
 		m.viewer.update(msg)
@@ -378,8 +406,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.toast.close()
 	case m.transfersUI.isActive():
 		return m, m.transfersUI.close()
-	case m.historyUI.isActive():
-		return m, m.historyUI.close()
+	case m.log.isActive():
+		return m, m.log.close()
 	case m.viewer.isActive():
 		return m, m.viewer.close()
 	case m.hostPicker.isActive():
@@ -410,7 +438,7 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.confirm.close(),
 		m.input.close(), m.help.close(), m.hostPicker.close(),
-		m.transfersUI.close(), m.historyUI.close(), m.viewer.close(),
+		m.transfersUI.close(), m.log.close(), m.viewer.close(),
 		m.editorUI.close(), m.spaceMenu.close())
 }
 
@@ -554,13 +582,22 @@ func (m AppModel) quit() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
-// inPty reports whether keystrokes belong to a remote right now.
-func (m AppModel) inPty() bool {
+// ptyFocused reports whether panel [5] holds the keyboard: there is a live
+// session on screen and no float over it.
+func (m AppModel) ptyFocused() bool {
 	if m.tab != tabSSH || m.ssh.focus != panelPty || m.popupOpen() {
 		return false
 	}
 	s := m.ssh.currentSession()
 	return s != nil && s.state == sessLive && s.pty != nil
+}
+
+// inPty is narrower: the keystrokes belong to a REMOTE, which is only true once
+// there is one to belong to. Until ssh has said something there is no session at
+// the far end to type into — only a socket being opened — so the two questions
+// stopped being the same question.
+func (m AppModel) inPty() bool {
+	return m.ptyFocused() && m.ssh.currentSession().pty.hasSpoken()
 }
 
 // textFloat reports whether a float that is being typed into owns the keyboard.
@@ -577,7 +614,7 @@ func (m AppModel) popupOpen() bool {
 	return m.form.anim.owns() || m.picker.anim.owns() || m.confirm.anim.owns() ||
 		m.input.anim.owns() || m.help.anim.owns() || m.spaceMenu.anim.owns() ||
 		m.hostPicker.anim.owns() || m.transfersUI.anim.owns() ||
-		m.historyUI.anim.owns() || m.viewer.anim.owns() || m.editorUI.anim.owns()
+		m.log.anim.owns() || m.viewer.anim.owns() || m.editorUI.anim.owns()
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -839,14 +876,14 @@ func (m AppModel) doClose(id string) (tea.Model, tea.Cmd) {
 	if s == nil {
 		return m, m.closeStack()
 	}
-	s.pty.stop() // the reaper moves it to history on the next tick
+	s.pty.stop() // the reaper notices on the next tick and logs it
 	m.ssh.setFocus(panelSessions)
 	return m, tea.Batch(m.closeStack(), m.ssh.tick(),
 		m.toast.show("Closed "+s.host.Name, toastInfo))
 }
 
 func (m AppModel) sessionByID(id string) *session {
-	for _, s := range append(append([]*session{}, m.ssh.sessions...), m.ssh.history...) {
+	for _, s := range m.ssh.sessions {
 		if itoa(s.id) == id {
 			return s
 		}

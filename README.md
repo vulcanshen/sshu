@@ -21,6 +21,7 @@ sshu is a member of the `u`-family and an ssh-domain implementation of [Vulcan's
 | **`Space`** | *What can I do here?* — the contextual menu for whatever has focus. Also closes any popup |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
 | **`?`** | Global help — every app-wide action in one list |
+| **`!`** | The app log — what happened while you were not looking |
 
 When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of them is also a row in the `Space` menu — so there is nothing you have to memorize unless you want to.
 
@@ -146,7 +147,6 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | `Enter` | Show this session in `[5]` (no confirmation — switching costs nothing) |
 | `C` | Close this session (asks first) |
 | `D` | Duplicate — a second session to the same host (asks first) |
-| `H` | History — sessions that have ended, and why |
 | **`Alt+Esc`** | **Take the keyboard back from the remote** |
 
 Rows read `<user>@<host>` with the port at the right edge — what the connection is, not what it is called — and the one `[5]` is showing is green.
@@ -165,13 +165,13 @@ Rows read `<user>@<host>` with the port at the right edge — what the connectio
 - **A real transfer engine** — the whole plan is computed before anything is written, so the progress bar's denominator is right from the first frame and overwrites are asked about once, up front. Per-job cancel; a cancelled or failed file is removed rather than left looking complete.
 - **Directories that stay current, cheaply** — SFTP has no change notification, so sshu stats the directory and compares its mtime, and re-lists only when that moves. One small round trip every couple of seconds instead of a full listing, and only while the tab is on screen.
 - **A connection that has not answered yet says so** — `[5]` draws the PTY, and ssh prints nothing at all while it waits for TCP, so an unreachable host used to leave an empty box for as long as the OS took to give up. The test is whether the far end has sent a byte, not whether the grid is empty: until it does, the panel names the host and counts the seconds.
-- **Nothing dies silently** — a session that ends badly raises a toast naming the host and the reason; a clean `exit` says nothing, because that is what you asked for.
+- **Nothing dies silently, and nothing is only said once** — a session that ends badly raises a toast naming the host and **what ssh itself said** (`Connection refused`, not `disconnected`), `[5]` keeps showing it instead of going blank, and `!` holds the record. The footer counts the errors you have not read yet. A clean `exit` says nothing, because that is what you asked for.
 - **Frame stability** — every rendered line is exactly the terminal width, at every size, with any content. Wide characters from a remote, Nerd Font glyphs that measure differently, and CJK filenames are all handled by measuring rather than assuming; there is a test that checks it across sizes, focus states and data.
 - **unix-first, static binary** — macOS + Linux; `CGO_ENABLED=0`.
 
 ## Status
 
-**0.1.0** — the first release. All three tabs work end to end, 244 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**0.1.0** — the first release. All three tabs work end to end, 239 tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 
