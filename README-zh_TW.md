@@ -170,7 +170,7 @@ sshu
 
 ## 現況
 
-**0.1.0** —— 第一個 release。三個 tab 都能端到端運作,241 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**0.1.0** —— 第一個 release。三個 tab 都能端到端運作,242 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
 

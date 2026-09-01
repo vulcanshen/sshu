@@ -38,7 +38,13 @@ const statusMinRoom = 6
 // three co-existing surfaces of ONE app is exactly what the strip draws, and the
 // separation that matters (chrome above, surface below) is the rule's job.
 //
-// The dividers slant "/", forward, in the direction the eye reads.
+// The dividers are filled triangles pointing right, the direction the strip is
+// read in. The unlit segments are filled with the CANVAS colour: crust and
+// surface0 were both tried as a visible trough behind them, and both were worse
+// — surface0 too light to be recessed, crust a muddy band that added weight
+// without adding information. With the arrows doing the structural work, the
+// unlit segments do not need a fill of their own; what makes the strip legible
+// is the lit one having a shape, not the others having a background.
 
 // tabChainW is the strip's width: two caps, a space either side of every label,
 // and one divider between neighbours.
@@ -53,11 +59,25 @@ func tabChainW(labels []string) int {
 	return w
 }
 
-// tabChain renders the strip. The solid divider is drawn in the RIGHT segment's
-// fill over the LEFT segment's, which is what makes the colour change land on
-// the slant instead of on a cell boundary.
+// divider picks the glyph and its two colours for the seam between two segments.
+//
+// The arrow belongs to the segment on its LEFT, pushing into the one on its
+// right, so its INK is the left fill and its background is the right one. Get
+// that backwards and the transition still draws — same glyph, same width, same
+// everything a rendered-string test can see — but the colour change points the
+// wrong way and the seam reads as a notch cut out of the wrong tab. It is a
+// decision rather than a detail, so it is a function rather than a literal.
+func divider(prev, cur lipgloss.Color) (glyph string, fg, bg lipgloss.Color) {
+	if prev == cur {
+		// Same fill on both sides: a line, not a transition.
+		return dividerSoft, borderDim, cur
+	}
+	return dividerHard, prev, cur
+}
+
+// tabChain renders the strip.
 func tabChain(labels []string, active int) string {
-	lit, unlit := focusColor, lipgloss.Color(surface0Hex)
+	lit, unlit := focusColor, lipgloss.Color(baseHex)
 	fill := func(i int) lipgloss.Color {
 		if i == active {
 			return lit
@@ -69,15 +89,8 @@ func tabChain(labels []string, active int) string {
 	b.WriteString(lipgloss.NewStyle().Foreground(fill(0)).Render(capLeft))
 	for i, lab := range labels {
 		if i > 0 {
-			prev, cur := fill(i-1), fill(i)
-			st := lipgloss.NewStyle().Foreground(cur).Background(prev)
-			div := slantSolid
-			if prev == cur {
-				// Same fill on both sides: a line, not a transition.
-				st = lipgloss.NewStyle().Foreground(borderDim).Background(cur)
-				div = slantThin
-			}
-			b.WriteString(st.Render(div))
+			div, fg, bg := divider(fill(i-1), fill(i))
+			b.WriteString(lipgloss.NewStyle().Foreground(fg).Background(bg).Render(div))
 		}
 		seg := " " + lab + " "
 		if i == active {

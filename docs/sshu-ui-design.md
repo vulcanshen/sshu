@@ -112,8 +112,7 @@ sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
 | **surface2 `#585b70`** | unfocus 的 panel border、inactive 膠囊前景 | — |
 | **subtext1 `#bac2de`**(`handColor`) | Space menu / file picker / session 清單的游標 bar | 不當 panel chrome、不當 form 編輯列、不當 hosts 表格游標(那是 blue) |
 | **lavender `#b4befe`**(`editColor`) | **正在編輯的 form 列**(label + value + caret 一起) | list cursor(那是 `handColor`)、popup border、panel border |
-| **crust `#11111b`** | (不再用於 tab bar,見 §1.1) | — |
-| **surface0 `#313244`** | tab 帶上沒亮的那幾段的底色 | — |
+| **crust `#11111b`** | (不再使用 —— tab bar 沒亮的段用 base,見 §1.1) | — |
 | **overlay0 `#6c7086`**(`dimColor`) | 次要文字、region header、停用欄位 | — |
 | **Peach / Red** | warning / error override | 不參與 popup layer scale;**不拿去標 auth method** |
 | popup border 色 | popup layer 明度(`popupLayerColor`) | 不 hardcode |
@@ -136,10 +135,15 @@ peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專�
 panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間全部給 panel。
 
 **tab bar 是一條連起來的 powerline 帶**,不是三顆各自獨立的膠囊:一個圓帽開頭、
-中間用斜線分段、一個圓帽收尾,恰好一段是亮的。斜線一律 `/`(右上左下,順著讀的
-方向):`ple-lower_right_triangle`(U+E0BA)承載**顏色改變**,
-`ple-forwardslash_separator`(U+E0BB)只在兩側同色時畫一條線。沒亮的段用
-**surface0 `#313244`** 填底。
+中間用**三角**分段、一個圓帽收尾,恰好一段是亮的。三角一律朝右(讀的方向):
+`pl-left_hard_divider`(U+E0B0)是實心的,承載**顏色改變**;
+`pl-left_soft_divider`(U+E0B1)是同一個形狀的外框,只在兩側同色時畫一條線。
+
+**沒亮的段就用畫布色(base)填底,不另外給底色。** 先試 `crust`、再試
+`surface0`,兩個都是想在沒亮的段後面墊一條「凹槽」,而兩個都更差 —— surface0 淺到
+不像凹陷、crust 是一條混濁的帶子,加了重量沒加資訊。三角把結構的工作做完之後,沒亮
+的段**不需要自己的底色**:讓這條帶子讀得懂的是「亮的那一段有形狀」,不是「其他段
+有背景」。
 
 原本是三顆獨立膠囊,而且沒亮的那兩顆用 `borderDim` 前景配 **`crust`** 底 —— crust
 跟畫布只差一階,所以**沒亮的 tab 根本沒有形狀**;而同一個 app 裡沒 focus 的
@@ -171,7 +175,7 @@ panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間
 > sshu 留著它是因為 sshu 下方有膠囊要分隔、filu 沒有 —— 但這條仍待實機複核。
 
 ```
-  [1] hosts / [2] sftp / [3] ssh                                   1/5 hosts
+  [1] hosts  [2] sftp  [3] ssh                                    1/5 hosts
 ──────────────────────────────────────────────────────────────────────────────
 ╭(hosts)─────────────────────────────────────────────────────────────────────╮
 │ Name               User           Host                  Port  Auth         │
@@ -1952,7 +1956,8 @@ X 回到 ~1.0。
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
 | **搜尋找到的檔案,`Enter` 會帶你過去,然後它就是普通的列** | `TestEnterGoesToWhatTheSearchFound` / `TestEnterOnADirectoryResultOpensIt` |
-| tab bar 是**一條帶子**,恰好一段亮著(斜線種類就是證據) | `TestTheTabRowIsOneStripWithOneLitSegment` |
+| tab bar 是**一條帶子**,恰好一段亮著(三角種類就是證據) | `TestTheTabRowIsOneStripWithOneLitSegment` |
+| 接縫屬於**左邊**那一段(顏色方向,render 出來的字串看不出來) | `TestTheSeamBelongsToTheTabOnItsLeft` |
 | 本機側開在**啟動目錄**,而 `home` 仍是家目錄 | `TestTheLocalSideOpensWhereSshuWasLaunched` |
 | viewer 不戴 `/` 的放大鏡 —— 一個 glyph 就是一個詞 | `TestTheViewerDoesNotWearTheSearchGlyph` |
 | **沒有東西會「晃」進 `[5]`**(`l` 不再是入口) | `TestNothingWandersIntoThePty` |

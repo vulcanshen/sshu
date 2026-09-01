@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/store"
 )
@@ -665,11 +666,38 @@ func TestQuitFromSessionsAsksAndThenStops(t *testing.T) {
 	waitFor(t, "the session to be killed", func() bool { return s.pty.exited() })
 }
 
-// The tab row is ONE strip: two round caps for the whole thing, and a slanted
-// divider between neighbours. Which divider says where the lit segment is — a
-// SOLID slant carries a colour change, a THIN one only draws a line where the
-// fill is the same on both sides. So the counts pin down the shape and the
-// lit position together.
+// Which way the seam points. Both orders draw the same glyph at the same width,
+// so the rendered row cannot tell them apart — but one of them cuts the notch
+// out of the wrong tab.
+func TestTheSeamBelongsToTheTabOnItsLeft(t *testing.T) {
+	lit, unlit := focusColor, lipgloss.Color(baseHex)
+
+	glyph, fg, bg := divider(lit, unlit)
+	if glyph != dividerHard {
+		t.Error("a lit-to-unlit seam needs the filled arrow")
+	}
+	if fg != lit || bg != unlit {
+		t.Errorf("seam is fg=%v bg=%v, want the LEFT fill as ink", fg, bg)
+	}
+
+	glyph, fg, bg = divider(unlit, lit)
+	if glyph != dividerHard {
+		t.Error("an unlit-to-lit seam needs the filled arrow too")
+	}
+	if fg != unlit || bg != lit {
+		t.Errorf("seam is fg=%v bg=%v, want the LEFT fill as ink", fg, bg)
+	}
+
+	if glyph, _, _ = divider(unlit, unlit); glyph != dividerSoft {
+		t.Error("no colour change means the outlined arrow, not the filled one")
+	}
+}
+
+// The tab row is ONE strip: two round caps for the whole thing, and an arrow
+// between neighbours. WHICH arrow says where the lit segment is — a filled one
+// carries a colour change, an outlined one only draws a line where the fill is
+// the same on both sides. So the counts pin down the shape and the lit position
+// together.
 func TestTheTabRowIsOneStripWithOneLitSegment(t *testing.T) {
 	for _, tc := range []struct {
 		key         string
@@ -688,11 +716,11 @@ func TestTheTabRowIsOneStripWithOneLitSegment(t *testing.T) {
 		if got := strings.Count(row, capRight); got != 1 {
 			t.Errorf("%s: %d closing caps, want one strip", tc.key, got)
 		}
-		if got := strings.Count(row, slantSolid); got != tc.solid {
-			t.Errorf("%s: %d solid slants, want %d", tc.key, got, tc.solid)
+		if got := strings.Count(row, dividerHard); got != tc.solid {
+			t.Errorf("%s: %d filled arrows, want %d", tc.key, got, tc.solid)
 		}
-		if got := strings.Count(row, slantThin); got != tc.thin {
-			t.Errorf("%s: %d thin slants, want %d", tc.key, got, tc.thin)
+		if got := strings.Count(row, dividerSoft); got != tc.thin {
+			t.Errorf("%s: %d outlined arrows, want %d", tc.key, got, tc.thin)
 		}
 	}
 }
