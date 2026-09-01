@@ -133,7 +133,11 @@ func shortLabels(labels []string) []string {
 //
 // Always exactly one row of exactly w cells (§1.3): the status is truncated,
 // the labels shorten, nothing wraps.
-func tabRow(w int, labels []string, active int, status string) string {
+//
+// The status slot is dim — a resting fact — EXCEPT while it reports an
+// action in flight: a running transfer's summary comes in liveColor,
+// because information arriving is not dimmed (§7.2).
+func tabRow(w int, labels []string, active int, status string, live bool) string {
 	segs := append([]string{tabLead}, labels...)
 	if tabChainW(segs)+1 > w {
 		// "[Alt] [p] [f] [s]" fits well under minAppW, so one tier is the
@@ -154,7 +158,11 @@ func tabRow(w int, labels []string, active int, status string) string {
 	room := w - used - 1
 	if s := truncate(status, room-1); status != "" && room >= statusMinRoom && s != "" {
 		b.WriteString(strings.Repeat(" ", room-dispW(s)))
-		b.WriteString(lipgloss.NewStyle().Foreground(dimColor).Render(s))
+		sty := lipgloss.NewStyle().Foreground(dimColor)
+		if live {
+			sty = lipgloss.NewStyle().Foreground(liveColor)
+		}
+		b.WriteString(sty.Render(s))
 		b.WriteString(" ")
 	} else {
 		b.WriteString(strings.Repeat(" ", room+1))
@@ -201,8 +209,22 @@ func keyLegend(pairs [][2]string, w int) string {
 // directly against each other and read as one strip of buttons. The line splits
 // the screen into "which surface am I on" above and "the surface" below, which
 // is what lets the panels wear capsules of their own without competing.
-func tabRule(w int) string {
-	return lipgloss.NewStyle().Foreground(borderDim).Render(strings.Repeat("─", max(0, w)))
+//
+// While a transfer runs the line moonlights as the app's thinnest progress
+// bar: its ink turns liveColor from the left edge, proportional to the
+// blended percent, and goes back to borderDim the moment nothing is moving.
+// The separating job is untouched — same glyphs, same single row — which is
+// why the bar may live here without costing a line anywhere. It shows on
+// EVERY tab: the transfer keeps running while you look at something else,
+// and this is the one strip of chrome every tab shares.
+func tabRule(w, pct int, moving bool) string {
+	dim := lipgloss.NewStyle().Foreground(borderDim)
+	if !moving {
+		return dim.Render(strings.Repeat("─", max(0, w)))
+	}
+	filled := clamp(w*pct/100, 0, max(0, w))
+	return lipgloss.NewStyle().Foreground(liveColor).Render(strings.Repeat("─", filled)) +
+		dim.Render(strings.Repeat("─", max(0, w-filled)))
 }
 
 func borderColor(focused bool) lipgloss.Color {

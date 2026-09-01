@@ -47,6 +47,13 @@ together: the tab system, the ssh tab, and process cleanup.
 
 ### Added
 
+- **The chrome reports a running transfer.** The top-right summary
+  (`<done>/<files> · <pct>%`) turns green while bytes move — an action in
+  flight, not a resting fact — and the rule under the tab row doubles as the
+  thinnest possible progress bar: liveColor ink fills from the left edge
+  with the blended percent, on every tab, and snaps back to a plain line
+  the moment nothing is moving. Both read the same number, so they cannot
+  disagree.
 - **Credentials** — reusable identities in `credentials.yaml` (same 0600 +
   warning-header treatment as hosts.yaml). A credential is user + auth as ONE
   package; a host says `auth: credential` and takes it wholesale, its own

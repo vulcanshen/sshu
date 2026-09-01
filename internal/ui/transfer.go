@@ -162,24 +162,41 @@ func (m *transferModel) cancelJob(i int) {
 	}
 }
 
-// summary is the one line the tab row carries while anything is moving. It is
-// the ambient channel: always visible, never in the way (§7.2 — information
-// arriving is not dimmed).
-func (m transferModel) summary() string {
-	var files, doneFiles, pct, n int
+// progress is the running jobs' blended percent — the one number the two
+// ambient channels (the summary in the status slot, the rule under the tab
+// row) both read, so they can never disagree.
+func (m transferModel) progress() (pct int, moving bool) {
+	var n int
 	for _, j := range m.jobs {
 		if j.status() != xferRunning {
 			continue
 		}
 		n++
-		files += j.files
-		doneFiles += int(j.filesDone.Load())
 		pct += j.percent()
 	}
 	if n == 0 {
+		return 0, false
+	}
+	return pct / n, true
+}
+
+// summary is the one line the tab row carries while anything is moving. It is
+// the ambient channel: always visible, never in the way (§7.2 — information
+// arriving is not dimmed).
+func (m transferModel) summary() string {
+	pct, moving := m.progress()
+	if !moving {
 		return ""
 	}
-	return fmt.Sprintf("%s %d/%d · %d%%", glyphUpload, doneFiles, files, pct/n)
+	var files, doneFiles int
+	for _, j := range m.jobs {
+		if j.status() != xferRunning {
+			continue
+		}
+		files += j.files
+		doneFiles += int(j.filesDone.Load())
+	}
+	return fmt.Sprintf("%s %d/%d · %d%%", glyphUpload, doneFiles, files, pct)
 }
 
 // ------------------------------------------------------------------- popup
