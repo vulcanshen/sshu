@@ -311,14 +311,27 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Alt+N is the grid's own chord: the keyboard goes to the Nth cell, from
-	// the list, the layout strip or another cell alike — and from inside a
-	// pty, which costs the remote its M-digits the same way the tab chords
-	// cost it M-P. The grid is what this tab is for; the trade is the point.
-	if m.tab == tabSSH && !m.popupOpen() && msg.Alt && msg.Type == tea.KeyRunes &&
-		len(msg.Runes) == 1 && msg.Runes[0] >= '1' && msg.Runes[0] <= '9' {
-		m.ssh.focusPtyIndex(int(msg.Runes[0] - '1'))
-		return m, nil
+	// Hold Alt and steer: the arrows move the keyboard to the neighbouring
+	// cell in that direction. Spatial, so nothing has to be numbered and a
+	// reflow cannot invalidate what you memorised. (Alt+digits were tried and
+	// dropped: window managers own Alt+1..9 on the LOCAL side — AeroSpace,
+	// tiling tools — so the chords never even reached sshu.) Alt+arrows are
+	// dead keys in a bare terminal, which is what makes them takeable.
+	if m.tab == tabSSH && !m.popupOpen() && msg.Alt && m.ssh.focus == panelPty {
+		switch msg.Type {
+		case tea.KeyLeft:
+			m.ssh.moveCell(-1, 0)
+			return m, nil
+		case tea.KeyRight:
+			m.ssh.moveCell(1, 0)
+			return m, nil
+		case tea.KeyUp:
+			m.ssh.moveCell(0, -1)
+			return m, nil
+		case tea.KeyDown:
+			m.ssh.moveCell(0, 1)
+			return m, nil
+		}
 	}
 
 	// Alt+Esc is sshu's own key, not a VTP core key: it exists because panel [5]

@@ -32,8 +32,15 @@ func settle(m AppModel) AppModel {
 
 func keyMsg(k string) tea.KeyMsg {
 	// "alt+X" for a rune chord — how bubbletea reports ESC-prefixed keys, and
-	// how alt+shift+p arrives (the shifted rune, Alt set).
+	// how alt+shift+p arrives (the shifted rune, Alt set). Modified arrows
+	// (ESC[1;3D et al.) arrive as the arrow type with Alt set.
 	if r, ok := strings.CutPrefix(k, "alt+"); ok && k != "alt+esc" {
+		if t, isArrow := map[string]tea.KeyType{
+			"left": tea.KeyLeft, "right": tea.KeyRight,
+			"up": tea.KeyUp, "down": tea.KeyDown,
+		}[r]; isArrow {
+			return tea.KeyMsg{Type: t, Alt: true}
+		}
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r), Alt: true}
 	}
 	switch k {

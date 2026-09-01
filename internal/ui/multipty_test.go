@@ -46,26 +46,66 @@ func TestTabTogglesASessionsCell(t *testing.T) {
 	}
 }
 
-// Alt+N moves the keyboard between cells; a chord with no cell behind it does
-// nothing rather than something surprising.
-func TestAltDigitsSwitchCells(t *testing.T) {
-	m := twoOnGrid(t)
+// Hold Alt, steer with the arrows: the keyboard moves to the neighbouring
+// cell, edges clamp, and the off-axis of a one-row grid does nothing.
+func TestAltArrowsMoveBetweenCells(t *testing.T) {
+	m := twoOnGrid(t) // horizontal: two cells side by side, focus on the 2nd
 	first, second := m.ssh.shown[0], m.ssh.shown[1]
 
-	m = pressA(m, "alt+1")
+	m = pressA(m, "alt+left")
 	if cur := m.ssh.currentSession(); cur == nil || cur.id != first {
-		t.Fatalf("alt+1 should focus the first cell")
+		t.Fatalf("alt+left should reach the first cell")
 	}
-	m = pressA(m, "alt+2")
-	if cur := m.ssh.currentSession(); cur == nil || cur.id != second {
-		t.Fatalf("alt+2 should focus the second cell")
+	m = pressA(m, "alt+left")
+	if cur := m.ssh.currentSession(); cur == nil || cur.id != first {
+		t.Fatal("the edge must CLAMP — a spatial move never teleports")
 	}
-	m = pressA(m, "alt+9")
+	m = pressA(m, "alt+up", "alt+down")
+	if cur := m.ssh.currentSession(); cur == nil || cur.id != first {
+		t.Fatal("a one-row grid has no up or down")
+	}
+	m = pressA(m, "alt+right")
 	if cur := m.ssh.currentSession(); cur == nil || cur.id != second {
-		t.Fatal("alt+9 has no cell behind it and must change nothing")
+		t.Fatalf("alt+right should come back")
 	}
 	if m.ssh.focus != panelPty {
 		t.Fatal("the keyboard should still be in the grid")
+	}
+
+	// Vertical: the axes swap.
+	m.ssh.layout = layoutVertical
+	m.ssh.applyGeometry()
+	m = pressA(m, "alt+up")
+	if cur := m.ssh.currentSession(); cur == nil || cur.id != first {
+		t.Fatal("alt+up should climb a vertical grid")
+	}
+	m = pressA(m, "alt+left", "alt+right")
+	if cur := m.ssh.currentSession(); cur == nil || cur.id != first {
+		t.Fatal("a one-column grid has no left or right")
+	}
+}
+
+// A ragged custom grid: moving down past the last cell of a short bottom row
+// does nothing — the cell simply is not there.
+func TestAltArrowsRespectARaggedGrid(t *testing.T) {
+	m := twoOnGrid(t)
+	// A third session, custom 2×2: cells 0 1 / 2 _ — the bottom-right is empty.
+	if _, err := m.ssh.connect(sample()[2]); err != nil {
+		t.Fatal(err)
+	}
+	m.ssh.layout = layoutCustom
+	m.ssh.gridC, m.ssh.gridR = 2, 2
+	m.ssh.applyGeometry()
+
+	m.ssh.focusPty = 1 // top-right
+	m = pressA(m, "alt+down")
+	if m.ssh.focusPty != 1 {
+		t.Fatalf("below the top-right there is no cell, focusPty=%d", m.ssh.focusPty)
+	}
+	m.ssh.focusPty = 0
+	m = pressA(m, "alt+down")
+	if m.ssh.focusPty != 2 {
+		t.Fatalf("below the top-left there IS one, focusPty=%d", m.ssh.focusPty)
 	}
 }
 
@@ -172,7 +212,7 @@ func TestLayoutStripDrivesTheGrid(t *testing.T) {
 // it must never silently land in another remote.
 func TestDyingFocusedCellReturnsTheKeyboard(t *testing.T) {
 	m := twoOnGrid(t)
-	m = pressA(m, "alt+1")
+	m = pressA(m, "alt+left") // steer to the first cell
 	victim := m.ssh.currentSession()
 
 	victim.pty.stop()
@@ -190,8 +230,7 @@ func TestDyingFocusedCellReturnsTheKeyboard(t *testing.T) {
 // A NON-focused cell dying reflows the grid but leaves the keyboard where it
 // is — in the cell the user was typing at.
 func TestDyingOtherCellKeepsTheKeyboard(t *testing.T) {
-	m := twoOnGrid(t)
-	m = pressA(m, "alt+2")
+	m := twoOnGrid(t) // focus is already on the second cell
 	keeper := m.ssh.currentSession()
 	victim := m.ssh.byID(m.ssh.shown[0])
 

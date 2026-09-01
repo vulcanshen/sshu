@@ -55,7 +55,7 @@ func TestCredFormInvalidSubmitToastsAndStays(t *testing.T) {
 func TestCustomLabelReadsRowsThenColumns(t *testing.T) {
 	m := twoOnGrid(t)
 	m.ssh.layout = layoutCustom
-	m.ssh.gridR, m.ssh.gridC = 3, 2
+	m.ssh.gridR, m.ssh.gridC = 3, 2 // the strip label reads rows × columns
 	m.ssh.setFocus(panelSessions)
 	view := ansi.Strip(m.View())
 	if !strings.Contains(view, "custom 3×2") {
