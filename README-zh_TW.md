@@ -14,6 +14,8 @@
 
 sshu 是 `u`-family 的成員,也是 [Vulcan's TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/vtp.md) 在 ssh 領域的實作 —— 跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)同一套設計系統。逐條對照的紀錄在 [`docs/sshu-implementation.md`](docs/sshu-implementation.md),背後的判斷過程(**包含試過而被否決的做法**)在 [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md)。
 
+靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
+
 ## Demo
 
 ### preference tab —— hosts、credentials、logs,然後連上去

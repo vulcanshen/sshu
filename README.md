@@ -14,6 +14,8 @@
 
 sshu is a member of the `u`-family and an ssh-domain implementation of [Vulcan's TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/vtp.md) — the same design system as [kbu](https://github.com/vulcanshen/kbu) (Kubernetes) and [filu](https://github.com/vulcanshen/filu) (filesystem). See [`docs/sshu-implementation.md`](docs/sshu-implementation.md) for the clause-by-clause record, and [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md) for the reasoning behind it — including the approaches that were tried and rejected.
 
+The inspiration is [Termius](https://termius.com/) — a GUI SSH client, not another terminal tool. sshu borrows its spirit — hosts, sessions and transfers under one roof — not its feature list.
+
 ## Demo
 
 ### The preference tab — hosts, credentials, logs, and a connect
