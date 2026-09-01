@@ -7,14 +7,16 @@ together: the tab system, the ssh tab, and process cleanup.
 
 ### Changed
 
-- **Tabs live on Alt chords now** — `[Alt-P]reference` / `[Alt-F]ileTransfer`
-  / `[Alt-S]sh`, and the bracket still prints the key as pressed (the capital
-  means shift). The chords work from inside a PTY — the whole reason they
-  moved off the digits — and outside one the unshifted chord answers too.
+- **Tabs live on Alt chords now** — `[Alt][p]reference` / `[Alt][f]ile transfer`
+  / `[Alt][s]sh`: two brackets, one chord, disclosed in its everyday lowercase
+  spelling. The chords work from inside a PTY — the whole reason they moved
+  off the digits — where only the shifted spelling is intercepted (the
+  lowercase Alt keys belong to the remote's readline). The Resources nav
+  panel is titled `[1] Resources`.
   Every bare digit `1`–`9` now addresses a panel of the current tab, numbered
   from 1, so the sftp panels are `[1]`–`[4]` and nothing starts at 4 any more.
   Minimum width rises to 32 columns (the short strip).
-- **The hosts tab became `[Alt-P]reference`** — a side nav over three
+- **The hosts tab became `[Alt][p]reference`** — a side nav over three
   sections: hosts (the old table, exactly where it was), **credentials**, and
   **logs**. The nav cursor IS the choice; Enter moves the keyboard over; the
   tab still opens on the hosts table.

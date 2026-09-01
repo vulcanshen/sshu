@@ -15,8 +15,8 @@ func (m AppModel) View() string {
 	if m.w == 0 || m.h == 0 {
 		return "" // wait for the first WindowSizeMsg
 	}
-	// minAppW is where the short-label strip ([Alt-P] [Alt-F] [Alt-S]) still
-	// fits.
+	// minAppW is where the strip (at its letter tier) still fits and the
+	// panels are still worth drawing.
 	if m.w < minAppW || m.h < chromeRows+3 {
 		return "terminal too small"
 	}
@@ -117,9 +117,9 @@ func (m AppModel) footer() string {
 	}
 	// The digits offered are the ones the current tab actually shows (§4.4): a
 	// number the screen does not display is a number the keyboard ignores.
-	nav := [2]string{"1-2 alt+P/F/S", "panel tab"}
+	nav := [2]string{"1-2 alt+p/f/s", "panel tab"}
 	if m.tab == tabFT {
-		nav = [2]string{"1-4 alt+P/F/S", "panel tab"}
+		nav = [2]string{"1-4 alt+p/f/s", "panel tab"}
 	}
 	// Unread errors are disclosed against the chord that reaches them: the log
 	// lives at preference → logs now, and a record nobody is told about is a

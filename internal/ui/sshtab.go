@@ -530,7 +530,7 @@ func endedBadlyToast(bad []*session) string {
 	case 1:
 		return bad[0].host.Name + " · " + bad[0].reason
 	default:
-		return plural(len(bad), "session") + " ended badly · see [Alt-P] logs"
+		return plural(len(bad), "session") + " ended badly · see [Alt][p] logs"
 	}
 }
 
@@ -579,7 +579,7 @@ func (m sshModel) panelTitle(p sshPanel) string {
 		return "[2] layout"
 	}
 	if s := m.currentSession(); s != nil {
-		return "[Alt-" + itoa(m.focusPty+1) + "] " + s.host.Name
+		return "[Alt][" + itoa(m.focusPty+1) + "] " + s.host.Name
 	}
 	return "ssh"
 }
@@ -677,7 +677,7 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 
 // cellTitle names the cell by the chord that reaches it, then by what it is.
 func (m sshModel) cellTitle(s *session, i, innerW int) string {
-	t := "[Alt-" + itoa(i+1) + "] " + s.host.User + "@" + s.host.Host
+	t := "[Alt][" + itoa(i+1) + "] " + s.host.User + "@" + s.host.Host
 	if tag := s.ordinalTag(); tag != "" {
 		t += " " + tag
 	}
@@ -734,14 +734,14 @@ func (m sshModel) gridEmpty(innerW, innerH int) []string {
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 	who := s.host.User + "@" + s.host.Host
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
-		emptyHint("The detail is in [Alt-P] logs — or try another host", "[Alt-P]"))
+		emptyHint("The detail is in [Alt][p] logs — or try another host", "[Alt][p]"))
 }
 
 // listBody lays out [1]. Each entry is a block, because a long address wraps.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		return emptyBody(innerW, innerH, "No sessions",
-			emptyHint("Connect from [Alt-P] hosts", "[Alt-P]"))
+			emptyHint("Connect from [Alt][p] hosts", "[Alt][p]"))
 	}
 
 	out := make([]string, 0, max(0, innerH))

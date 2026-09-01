@@ -46,7 +46,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 | Core-key | sshu 語意 | 對應通用條款 |
 |---|---|---|
-| `Tab` | focus 切到**當前 tab** 的下個 panel(`1`-`9` 直達當前 tab 的 panel;tab 切換是 `Alt+P/F/S` 和絃;**ssh tab 的 `Tab` 是顯示開關**) | §4.1 |
+| `Tab` | focus 切到**當前 tab** 的下個 panel(`1`-`9` 直達當前 tab 的 panel;tab 切換是 `Alt+p/f/s` 和絃;**ssh tab 的 `Tab` 是顯示開關**) | §4.1 |
 | `Enter` | 連線 / 進入目錄 / popup 內確認 | §4.1 |
 | `Esc` | 關最上層浮層 / 退出搜尋 / 回上層目錄(LIFO back) | §4.3 |
 | `Space` | §A.1 contextual 入口(Space menu);**在浮層上按 = 關掉它** | §A.1 |
@@ -57,7 +57,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 理由(§4.3)—— 才不會有某一個浮層是「忘記做」的那個。唯一例外是**正在被打字的
 浮層**(host form、file picker、Rename 輸入框):那裡的空白就是空白。
 
-`Alt+Esc` 不計 core-key:它只在網格拿著鍵盤時有意義(§4.6)。`Alt+P/F/S`
+`Alt+Esc` 不計 core-key:它只在網格拿著鍵盤時有意義(§4.6)。`Alt+p/f/s`
 與 `Alt+1..9` 同理 —— 它們是「裸鍵活不下來的地方」的專用和絃,不佔 role。
 
 ### §A.1 Contextual track — Space menu
@@ -139,9 +139,9 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[Alt-P]reference` | `[1]` nav + `[2]` 內容(hosts / credentials / logs) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
-| `[Alt-F]ileTransfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
-| `[Alt-S]sh` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **26 欄**;strip 固定 3 行蓋在網格上方;網格依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬) |
+| `[Alt][p]reference` | `[1]` nav + `[2]` 內容(hosts / credentials / logs) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
+| `[Alt][f]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
+| `[Alt][s]sh` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **26 欄**;strip 固定 3 行蓋在網格上方;網格依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬) |
 
 **窄寬門檻是推導的,不是另一個會忘記同步的常數**:`sshNarrowW = sshLeftW + 28`
 (pty 至少留 28 欄才值得留 split)、`sftpNarrowW = 72`(1:1 分割低於此只畫 focus
@@ -308,11 +308,11 @@ form / file picker / Rename 輸入框裡,**空白就是空白、問號就是問�
 ssh `1`-`2`(格子走 `Alt+1..9`)。畫面上沒有那個編號,按下去就沒反應 ——
 規則直接從畫面讀得出來,不必記。pty 內裸數字屬於遠端。
 
-### 4.8 tab 切換 —— `Alt+P/F/S` 和絃
+### 4.8 tab 切換 —— `Alt+p/f/s` 和絃
 
-bracket 印的就是按的(大寫即 shift)。**pty 外**小寫 `alt+p/f/s` 也通
-(死鍵離活鍵一個 shift 是沒有回報的陷阱);**pty 內**只認大寫 —— `M-f` 是
-readline 的 forward-word,不是 sshu 的。popup 開著時和絃不作用:tab 在
+標籤 `[Alt][p]reference` 印的就是按的:小寫是日常拼法,pty 外大小寫皆通
+(死鍵離活鍵一個 shift 是沒有回報的陷阱);**pty 內**只認 shift 加大寫 ——
+`M-f` 是 readline 的 forward-word,不是 sshu 的。popup 開著時和絃不作用:tab 在
 form 底下換掉,form 就懸在一個它不認識的 surface 上。
 
 ---
@@ -531,7 +531,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `Tab` | 下個 panel;**ssh tab:顯示開關** |
 | `Enter` · `Esc` · `Space` · `?` | 確認 / 取消 / menu / help |
 
-### [Alt-P]reference
+### [Alt][p]reference
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -550,7 +550,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄)· `Esc` | 送出 / 取消 |
 
-### [Alt-F]ileTransfer(小寫=游標列,大寫=整個 panel)
+### [Alt][f]ile transfer(小寫=游標列,大寫=整個 panel)
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -558,7 +558,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `S` · `C` · `P` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Select host / Clear marks / Progress |
 | 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / 標記 / 搜尋子樹 / Add |
 
-### [Alt-S]sh
+### [Alt][s]sh
 
 | Surface | 鍵 | 動作 |
 |---|---|---|

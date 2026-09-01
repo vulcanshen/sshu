@@ -71,9 +71,11 @@ func TestAltChordsAreInertUnderAPopup(t *testing.T) {
 // on the panel and inside the pty alike.
 func TestFooterDisclosesTheTabChords(t *testing.T) {
 	m := appWith(sample(), nil)
-	if foot := m.footer(); !strings.Contains(foot, "alt+P/F/S") {
+	if foot := m.footer(); !strings.Contains(foot, "alt+p/f/s") {
 		t.Errorf("the panel footer must disclose the tab chords, got %q", foot)
 	}
+	// Inside a pty only the SHIFTED chords are intercepted, so that is what
+	// the footer says there.
 	pty := openOne(t)
 	if foot := pty.footer(); !strings.Contains(foot, "alt+P/F/S") {
 		t.Errorf("the pty footer must disclose the chords that still work, got %q", foot)

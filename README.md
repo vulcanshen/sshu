@@ -22,21 +22,21 @@ sshu is a member of the `u`-family and an ssh-domain implementation of [Vulcan's
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
 | **`?`** | Global help — every app-wide action in one list |
 
-Tabs are switched with **`Alt+P` / `Alt+F` / `Alt+S`** — chords, so they still work while a remote holds the keyboard — and every bare digit `1`–`9` addresses a panel of the current tab.
+Tabs are switched with **`Alt+p` / `Alt+f` / `Alt+s`** — chords, so they still work while a remote holds the keyboard (in there, the shifted spelling) — and every bare digit `1`–`9` addresses a panel of the current tab.
 
 When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of them is also a row in the `Space` menu — so there is nothing you have to memorize unless you want to.
 
 ## The three tabs
 
 ```
- [Alt-P]reference ❯ [Alt-F]ileTransfer ❯ [Alt-S]sh
+ [Alt][p]reference ❯ [Alt][f]ile transfer ❯ [Alt][s]sh
 ```
 
-**`[Alt-P]reference`** — sshu's own data under one nav: **hosts**, **credentials** and the **app log**. Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk.
+**`[Alt][p]reference`** — sshu's own data under one nav: **hosts**, **credentials** and the **app log**. Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk.
 
-**`[Alt-F]ileTransfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
+**`[Alt][f]ile transfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
-**`[Alt-S]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom rows × columns.
+**`[Alt][s]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom rows × columns.
 
 ## Install
 
@@ -116,13 +116,13 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 ### Everywhere
 
 ```
- tabs      Alt+P / Alt+F / Alt+S     (they work inside a pty too)
+ tabs      Alt+p / Alt+f / Alt+s     (inside a pty: the shifted spelling)
  panels    1–9 of the current tab  ·  Tab (ssh tab: display toggle)
  cursor    j k    u d (half page)     gg G      arrows are synonyms
  global    Space menu    ? help    q quit    Ctrl+C force quit
 ```
 
-### `[Alt-P]reference`
+### `[Alt][p]reference`
 
 The left nav (`1`) picks a section — **hosts**, **credentials**, **logs** — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content.
 
@@ -136,7 +136,7 @@ The left nav (`1`) picks a section — **hosts**, **credentials**, **logs** — 
 
 In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). On the two pick-a-value fields — IdentityFile and Credential — **`Enter` on the empty field opens the chooser, `Enter` on a filled one moves on, and `Backspace` clears the whole line**. Choosing `credential` darkens the User row: the credential supplies the user.
 
-### `[Alt-F]ileTransfer` — lower case is the row, upper case is the panel
+### `[Alt][f]ile transfer` — lower case is the row, upper case is the panel
 
 | Key | Action |
 |---|---|
@@ -156,7 +156,7 @@ In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→`
 | `S` | Select host — `local` is first, and it opens **the directory you launched sshu in** |
 | `P` | Progress — running transfers, with per-job cancel |
 
-### `[Alt-S]sh`
+### `[Alt][s]sh`
 
 | Key | Action |
 |---|---|
