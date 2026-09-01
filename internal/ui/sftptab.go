@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"path"
 	"time"
 
 	"github.com/vulcanshen/sshu/internal/remote"
@@ -328,12 +329,43 @@ func (s sftpSideModel) rowAt(i int) (remote.Entry, bool) {
 // enter descends into the entry under the cursor. Files are not opened: this is
 // a transfer tab, not a viewer. A search result carries its relative path, so
 // Enter on one lands in the directory it was found in, however deep that is.
+// enter opens what the cursor is on.
+//
+// While a SEARCH is showing, a row's name is a path relative to cwd, and Enter
+// is the one key the search does not swallow — every letter is a letter while a
+// query is being typed (§4.5). So Enter is what makes a result reachable: it
+// goes to where the thing lives and leaves the cursor on it, which is what every
+// other finder does and what the whole feature was promising.
+//
+// Without it a found FILE could be looked at and nothing else: m, t, v, e and x
+// all typed into the query, and Esc threw the results away — so the search could
+// tell you where something was and then make you walk there yourself.
 func (s *sftpSideModel) enter() {
 	e, ok := s.cursorEntry()
-	if !ok || !e.IsDir {
+	if !ok {
 		return
 	}
-	s.open(remote.Join(s.cwd, e.Name))
+	// open() drops the filter itself — a filter belongs to the directory it was
+	// typed in — so leaving the search is not something either branch has to do.
+	if e.IsDir {
+		s.open(remote.Join(s.cwd, e.Name))
+		return
+	}
+	// A file is only somewhere to GO when it was found somewhere else.
+	if !s.filtering {
+		return
+	}
+	dir, base := path.Dir(e.Name), path.Base(e.Name)
+	if dir == "." {
+		dir = ""
+	}
+	s.open(remote.Join(s.cwd, dir))
+	for i, en := range s.entries {
+		if en.Name == base {
+			s.cursor = i
+			break
+		}
+	}
 }
 
 // up goes to the parent, and remembers nothing: the cursor lands at the top,

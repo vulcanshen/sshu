@@ -665,6 +665,32 @@ func TestQuitFromSessionsAsksAndThenStops(t *testing.T) {
 	waitFor(t, "the session to be killed", func() bool { return s.pty.exited() })
 }
 
+// Filled means you are here; outlined means you can go here. The unlit tabs used
+// to be filled too, on a `crust` background a shade off the canvas — which gave
+// them no visible shape at all, while an unfocused PANEL chip was perfectly
+// legible. Shape now carries the state as well as colour, so selection does not
+// rest on one weak colour difference.
+func TestOnlyTheLitTabIsFilled(t *testing.T) {
+	m := sized(sample(), 100, 26)
+	row := strings.Split(m.View(), "\n")[0]
+
+	if strings.Count(row, capLeftThin) != 2 || strings.Count(row, capRightThin) != 2 {
+		t.Errorf("want two outlined tabs, got %d/%d thin caps:\n%q",
+			strings.Count(row, capLeftThin), strings.Count(row, capRightThin), row)
+	}
+	if strings.Count(row, capLeft) != 1 || strings.Count(row, capRight) != 1 {
+		t.Errorf("want exactly one filled tab, got %d/%d solid caps:\n%q",
+			strings.Count(row, capLeft), strings.Count(row, capRight), row)
+	}
+	// And the filled one is the tab you are actually on.
+	lit := strings.Index(row, capLeft)
+	for _, other := range []string{"[2] sftp", "[3] ssh"} {
+		if at := strings.Index(row, other); at >= 0 && at < lit {
+			t.Errorf("the filled capsule is not the first tab: %q", row)
+		}
+	}
+}
+
 // Panel titles wear capsules, and so does the tab row — which is only legible
 // because a rule separates the two zones. Without it the two strips of capsules
 // run together and read as one row of buttons, which is why the capsules came

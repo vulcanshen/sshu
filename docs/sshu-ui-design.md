@@ -112,7 +112,7 @@ sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
 | **surface2 `#585b70`** | unfocus 的 panel border、inactive 膠囊前景 | — |
 | **subtext1 `#bac2de`**(`handColor`) | Space menu / file picker / session 清單的游標 bar | 不當 panel chrome、不當 form 編輯列、不當 hosts 表格游標(那是 blue) |
 | **lavender `#b4befe`**(`editColor`) | **正在編輯的 form 列**(label + value + caret 一起) | list cursor(那是 `handColor`)、popup border、panel border |
-| **crust `#11111b`** | inactive 膠囊的凹陷底色 | — |
+| **crust `#11111b`** | (不再用於 tab 膠囊,見 §1.1) | — |
 | **overlay0 `#6c7086`**(`dimColor`) | 次要文字、region header、停用欄位 | — |
 | **Peach / Red** | warning / error override | 不參與 popup layer scale;**不拿去標 auth method** |
 | popup border 色 | popup layer 明度(`popupLayerColor`) | 不 hardcode |
@@ -133,6 +133,22 @@ peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專�
 
 固定 chrome **3 行**:頂部 1 行膠囊 tab bar(獨立 content row,**不是**
 panel border title)、其下 1 行整寬分隔線、底部 1 行 footer。中間全部給 panel。
+
+**實心 = 你在這裡,外框 = 你可以去**。lit 的 tab 是實心藍底深字;沒 lit 的用
+**細圓帽**(`ple-left/right_half_circle_thin`,U+E0B7 / U+E0B5)畫成外框、不填色。
+
+原本兩種狀態都是實心,差在顏色:lit 是藍,沒 lit 是 `borderDim` 前景配 `crust` 底。
+那個底色是問題所在 —— crust 跟畫布只差一階,所以**沒 lit 的 tab 根本沒有形狀**;
+而同一個 app 裡沒 focus 的 **panel chip**(深字配 `borderDim` 底)卻清楚得很。同一個
+「未選中」,兩個地方畫法相反,而看不見的那個是 tab。
+
+改成外框有兩個好處超過「把顏色調亮」:選中與否**不再只靠顏色**(形狀也講一次),
+而且它說出一件真的事 —— 三個 tab 是**三選一**,四個 panel 是**都在、其中一個有
+focus**。不同的關係用不同的形狀講,比用同一個形狀誠實。
+
+> **試過而被否決**:把沒 lit 的 tab 改成跟 panel chip 一樣的灰色實心。可見度一樣
+> 解決,而且全 app 只有一種膠囊形狀 —— 但三顆實心藥丸並排就是「一排按鈕」,而那
+> 正是下面這條分隔線當初要處理的問題。用形狀分開,比再加一條線便宜。
 
 分隔線是後補的,而且它是**把膠囊還給 panel title 的前提**:tab 膠囊與 panel
 膠囊上下相鄰時,兩排填色形狀會讀成同一條 chrome。中間夾一條線,上面那排才明確
@@ -1271,6 +1287,24 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成**兩格**。所
 **沒做**:遠端的內容搜尋(filu `f` 的 rg)。那要在對面跑一個 grep,是「在遠端
 執行指令」而不是「列目錄」,超出 SFTP 這條路徑該有的授權範圍。
 
+
+#### `Enter` 是搜尋結果唯一到得了 panel 的鍵,所以它就是「去那裡」
+
+搜尋中每一個可見字元都進 query(§4.5)—— 這是對的,不然打不出含 `m` 的檔名。
+但它有一個沒被看見的後果:**找到的檔案沒有任何一個鍵動得了它**。`m`、`t`、`v`、
+`e`、`x` 全部變成打字,而 `Esc` 把整批結果丟掉、游標回到當前目錄第一列。搜尋能告訴
+你東西在哪,然後要你自己走過去 —— 那正是它本來要省掉的事。
+
+`Enter` 是唯一不會被吞掉的鍵,所以它承擔這件事:**到那個東西所在的地方去,並把游標
+停在它上面**,順手退出搜尋。之後 `m`/`t`/`v`/`e`/`x` 全部是普通的列上動作,不需要
+新詞彙 —— 這正是「結果就是普通的列」原本承諾的那句話,現在才是真的。
+
+目錄結果本來就會被 `Enter` 打開;現在它也會一起退出搜尋,而不是留著一個已經不描述
+眼前這份清單的 query。
+
+> **這是實機 dogfood 才抓到的**。所有測試都綠,四份文件都寫著「結果是普通的列,
+> 所以 `m` / `t` / `x` 照樣能用」,而那句話是假的 —— 沒有任何一個測試去按過那些鍵。
+
 ### 7.3.1 目錄怎麼保持最新 —— SFTP 沒有 watch
 
 **協定裡沒有變更通知**,所以沒有東西可以訂閱。剩下的選擇是:在對面跑
@@ -1904,6 +1938,7 @@ X 回到 ~1.0。
 | **遠端檔案裡的 ESC 到不了終端機** | `TestViewStripsControlSequences` |
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
+| **搜尋找到的檔案,`Enter` 會帶你過去,然後它就是普通的列** | `TestEnterGoesToWhatTheSearchFound` / `TestEnterOnADirectoryResultOpensIt` |
 | 本機側開在**啟動目錄**,而 `home` 仍是家目錄 | `TestTheLocalSideOpensWhereSshuWasLaunched` |
 | viewer 不戴 `/` 的放大鏡 —— 一個 glyph 就是一個詞 | `TestTheViewerDoesNotWearTheSearchGlyph` |
 | **沒有東西會「晃」進 `[5]`**(`l` 不再是入口) | `TestNothingWandersIntoThePty` |
