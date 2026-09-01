@@ -473,14 +473,26 @@ func (m *sshModel) showAndFocus(id int) {
 	m.setFocus(panelPty)
 }
 
-// focusPtyIndex is Alt+N: the keyboard goes to the Nth cell, if there is one.
-func (m *sshModel) focusPtyIndex(i int) {
-	if i < 0 || i >= len(m.shown) {
+// moveCell steers the keyboard one cell in a direction — Alt+arrows. Edges
+// CLAMP rather than wrap: a spatial move that teleports to the far side is
+// the one thing a spatial move must never do (same rule as u/d in lists).
+// The bottom row of a ragged grid simply has no cell past its end.
+func (m *sshModel) moveCell(dx, dy int) {
+	n := len(m.shown)
+	if m.focus != panelPty || n == 0 {
+		return
+	}
+	cols, _ := m.gridDims(n)
+	r, c := m.focusPty/cols+dy, m.focusPty%cols+dx
+	if r < 0 || c < 0 || c >= cols {
+		return
+	}
+	i := r*cols + c
+	if i < 0 || i >= n {
 		return
 	}
 	m.failed = nil
 	m.focusPty = i
-	m.setFocus(panelPty)
 }
 
 // layoutKey drives the [2] strip: h/l walk the three modes and apply
@@ -579,7 +591,11 @@ func (m sshModel) panelTitle(p sshPanel) string {
 		return "[2] layout"
 	}
 	if s := m.currentSession(); s != nil {
-		return "[Alt][" + itoa(m.focusPty+1) + "] " + s.host.Name
+		t := s.host.Name
+		if tag := s.ordinalTag(); tag != "" {
+			t += " " + tag
+		}
+		return t
 	}
 	return "ssh"
 }
@@ -675,9 +691,11 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 		m.cellTitle(s, i, innerW), focused)
 }
 
-// cellTitle names the cell by the chord that reaches it, then by what it is.
+// cellTitle names the cell by what it is. It used to lead with an [Alt][N]
+// chord; the chord is spatial now (Alt+arrows), so there is no number to
+// disclose.
 func (m sshModel) cellTitle(s *session, i, innerW int) string {
-	t := "[Alt][" + itoa(i+1) + "] " + s.host.User + "@" + s.host.Host
+	t := s.host.User + "@" + s.host.Host
 	if tag := s.ordinalTag(); tag != "" {
 		t += " " + tag
 	}

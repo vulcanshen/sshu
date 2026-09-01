@@ -36,7 +36,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 
 **`[Alt][f]ile transfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
-**`[Alt][s]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom rows × columns.
+**`[Alt][s]sh`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, holding `Alt` the arrow keys steer between cells, `Alt+Esc` takes the keyboard back. A layout strip arranges the grid: horizontal, vertical, or a custom rows × columns.
 
 ## Install
 
@@ -164,7 +164,7 @@ In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→`
 | `Enter` | Show this session **and hand it the keyboard** (the side column folds away) |
 | `C` | Close this session (asks first) |
 | `D` | Duplicate — a second session to the same host (asks first) |
-| **`Alt+1`–`9`** | Jump to the Nth cell — from the list, the layout strip, or another cell |
+| **`Alt+arrows`** | Steer to the neighbouring cell — spatial, so nothing has to be numbered |
 | **`Alt+Esc`** | **Take the keyboard back from the remote** — back to the list, side column returns |
 
 The layout strip (`2`) arranges the grid: `h`/`l` walk **horizontal / vertical / custom** and apply as you move; `Enter` on custom asks for rows × columns (any two digits 1–9). Rows read `<user>@<host>` with the port at the right edge, and lead with a display column — a monitor glyph for a session with a cell on the grid, a struck-through one without.

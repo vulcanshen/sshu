@@ -32,7 +32,7 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 |---|---|---|
 | **[Alt][p]reference** | sshu 自己的資料:hosts(CRUD、發射台)、credentials、logs 三個區 —— 左側 nav `[1]` + 右側內容 `[2]` | 已落地 |
 | **[Alt][f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
-| **[Alt][s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子以 `Alt+1..9` 直達 | 已落地 |
+| **[Alt][s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
 
 三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),以 **Alt 和絃**
 切換:標籤印的就是按的 —— `[Alt][p]` 兩個括號、一個和絃,小寫是日常拼法;
@@ -704,7 +704,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 ### 4.6 `Alt+Esc` —— sshu 專屬、只在 panel [5]
 
 > **v0.2**:`[5]` 已成**網格**。`Alt+Esc` 的語意不變(把鍵盤收回來),落點
-> 是 `[1]` sessions,side 欄同時回來;格子之間用 `Alt+1..9`,tab 和絃
+> 是 `[1]` sessions,side 欄同時回來;格子之間按住 Alt 用方向鍵走,tab 和絃
 > `Alt+p/f/s` 在 pty 內也通。見 §11.六。
 
 **這條不是 VTP core key,也不計入 §A.0.Y 的 5 個 role。** 理由:panel [5] 把
@@ -2169,7 +2169,7 @@ X 回到 ~1.0。
 
 Alt 和絃 tab、preference(nav + hosts/credentials/logs)、credential 整包、
 applog 落地、host form 三選 auth 與「選值欄位」互動、ssh 終端網格
-(Tab 開關、Enter 進入、Alt+1..9、layout strip、custom R×C)、訊號清理。
+(Tab 開關、Enter 進入、Alt+方向鍵走格、layout strip、custom R×C)、訊號清理。
 決策紀錄見 §11。
 
 ### 之後
@@ -2255,8 +2255,17 @@ Credential 欄與 credForm 的 IdentityFile 欄同一套;兩張 form 共用同�
 單一 `[5]` 變成**網格**:每個 session 可以有一格,格與格等分。裁定的
 操作語彙:**清單上 `Tab` 開關格子**(該 tab 的 panel 輪詢本來就沒有地方
 可去 —— 網格不是 Tab 可以走進去的地方,鍵讓給清單整天做的事)、**Enter
-顯示並把鍵盤交過去**(side 欄同時收起)、**`Alt+1..9` 在格子間跳**、
-**`Alt+Esc` 收回鍵盤**(side 欄回來)。清單列開頭多一個顯示欄:有格子
+顯示並把鍵盤交過去**(side 欄同時收起)、**按住 Alt、方向鍵在格子間走**、
+**`Alt+Esc` 收回鍵盤**(side 欄回來)。
+
+格子間的移動一開始是 `Alt+1..9`,上線即拆:使用者指出它**跟本地的
+shortcut 與 window management 軟體衝突**(AeroSpace 等平鋪工具的
+workspace 鍵正是 Alt+數字,和絃在本地層就被吃掉、到不了 sshu),而且
+編號跟著顯示順序重排、肌肉記憶會抓錯格。換成**空間移動**:按住 Alt 用
+方向鍵往鄰格走 —— `Alt+方向鍵` 在裸終端裡本來就是無效輸入(使用者裁定),
+不用記編號、重排無感;邊緣 **clamp 不繞**(空間移動絕不瞬移,同 u/d 的
+規則),ragged 網格短列之外沒有格子就是不動。格子標題隨之拿掉
+`[Alt][N]` 前綴 —— 沒有編號好揭露,名字本身就是身分。清單列開頭多一個顯示欄:有格子
 的是 monitor、沒有的是劃線 monitor —— 兩個**形狀**,不是一個形狀兩種
 顏色,色弱也讀得出來(codepoint 照規矩查 cmap:f0379 / f0d90)。
 
@@ -2341,7 +2350,7 @@ SIGTERM(裸 QuitMsg,同樣不經 model)、SIGHUP(關終端視窗,根本沒人
 | `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認) |
 | `[2]` layout | `h`/`l` · `Enter` | 換排列(立刻生效)/ custom 上問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
-| 任何處 | **`Alt+1..9`** | 跳到第 N 格(pty 內也有效) |
+| 格子(pty) | 按住 **`Alt`+`←→↑↓`** | 往鄰格移動(邊緣 clamp,pty 內也有效) |
 | 格子(pty) | **`Alt+Esc`** | 收回鍵盤、回 `[1]`(side 欄回來) |
 
 ### 導覽(所有清單共用)

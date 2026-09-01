@@ -22,8 +22,9 @@ together: the tab system, the ssh tab, and process cleanup.
   tab still opens on the hosts table.
 - **The ssh tab became a grid.** Any number of sessions can hold a cell at
   once: `Tab` on the list toggles a session's cell, `Enter` shows one and
-  hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` comes
-  back. A layout strip arranges the grid — horizontal, vertical, or a custom
+  hands it the keyboard, holding `Alt` the arrows steer between cells
+  (spatial — Alt+digits were tried and dropped: local window managers own
+  them), `Alt+Esc` comes back. A layout strip arranges the grid — horizontal, vertical, or a custom
   rows × columns (Enter asks, rows first; overflow grows rows rather than
   losing a cell).
   Each cell's remote is told its own size, only when it actually changes; a

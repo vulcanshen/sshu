@@ -113,7 +113,7 @@ func (m AppModel) footer() string {
 	if m.inPty() {
 		// The chords still work in here — that is the point of them being
 		// chords — so they are the only other thing the row may honestly say.
-		return keyLegend([][2]string{{"alt+esc", "leave pty"}, {"alt+1-9", "cell"}, {"alt+P/F/S", "tab"}}, m.w)
+		return keyLegend([][2]string{{"alt+esc", "leave pty"}, {"alt+" + arrowGlyphs + arrowUpDown, "cell"}, {"alt+P/F/S", "tab"}}, m.w)
 	}
 	// The digits offered are the ones the current tab actually shows (§4.4): a
 	// number the screen does not display is a number the keyboard ignores.

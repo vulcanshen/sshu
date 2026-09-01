@@ -208,7 +208,7 @@ func (m AppModel) sshMenuItems() []menuItem {
 			{label: "session", header: true},
 			{label: "the remote has the keyboard", header: true},
 			{separator: true},
-			{label: "alt+esc comes back · alt+1-9 switch cells", header: true},
+			{label: "alt+esc comes back · hold alt, arrows switch cells", header: true},
 		}
 	}
 	if m.ssh.focus == panelLayout {

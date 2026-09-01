@@ -58,7 +58,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 浮層**(host form、file picker、Rename 輸入框):那裡的空白就是空白。
 
 `Alt+Esc` 不計 core-key:它只在網格拿著鍵盤時有意義(§4.6)。`Alt+p/f/s`
-與 `Alt+1..9` 同理 —— 它們是「裸鍵活不下來的地方」的專用和絃,不佔 role。
+與 `Alt+方向鍵` 同理 —— 它們是「裸鍵活不下來的地方」的專用和絃,不佔 role。
 
 ### §A.1 Contextual track — Space menu
 
@@ -295,17 +295,20 @@ tab [3] 也只剩一個(`[4]`),所以 `Tab` 在那裡唯一的作用是**從 pty
 form / file picker / Rename 輸入框裡,**空白就是空白、問號就是問號**。這是 §A.0.Y
 入口鍵規則的唯一例外,而且判斷收在一個 `m.textFloat()` 裡。
 
-### 4.6 `Alt+Esc` / `Alt+1..9` —— 網格的專用和絃
+### 4.6 `Alt+Esc` / 按住 Alt+方向鍵 —— 網格的專用和絃
 
 網格的格子把整個鍵盤交給遠端(`Esc`、`Tab`、`q` 都是遠端的)。`Alt+Esc`
-收回鍵盤、focus 回 `[1]`(side 欄同時回來);`Alt+1..9` 在格子之間跳,pty
-內也有效 —— 代價是遠端的 M-digits,這個 tab 存在的理由就是網格,交換成立。
-其他地方 `Alt+Esc` 就是普通的 `Esc`,不是死鍵。
+收回鍵盤、focus 回 `[1]`(side 欄同時回來);**按住 Alt、方向鍵往鄰格走**
+—— 空間移動,不用記編號、重排無感,邊緣 clamp 不繞(空間移動絕不瞬移),
+ragged 網格的短列之外沒有格子。pty 內也有效:`Alt+方向鍵` 在裸終端裡本來
+就是無效輸入,拿走沒有代價 ——(`Alt+1..9` 試過又拆掉:本地的 window
+manager 先把它吃了,和絃根本到不了 sshu。)其他地方 `Alt+Esc` 就是普通的
+`Esc`,不是死鍵。
 
 ### 4.7 數字只定址「當前 tab 裡看得見的 panel」
 
 每個 tab 的 panel 從 `1` 編號:preference `1`-`2`、file transfer `1`-`4`、
-ssh `1`-`2`(格子走 `Alt+1..9`)。畫面上沒有那個編號,按下去就沒反應 ——
+ssh `1`-`2`(格子走 Alt+方向鍵)。畫面上沒有那個編號,按下去就沒反應 ——
 規則直接從畫面讀得出來,不必記。pty 內裸數字屬於遠端。
 
 ### 4.8 tab 切換 —— `Alt+p/f/s` 和絃
@@ -490,7 +493,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
-| ssh **終端網格**:Tab 開關格子、Enter 進入、`Alt+1..9`、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
+| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
 | preference:nav + hosts / credentials / logs;logs 上畫面即已讀,nav 與 footer 掛未讀數 | `ui/preftab.go` `ui/applog.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
@@ -565,7 +568,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[1]` sessions | `Tab` · `Enter` · `C` · `D` | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問) |
 | `[2]` layout | `h`/`l` · `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
-| 任何處 | `Alt+1..9` | 跳到第 N 格 |
+| 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | `Alt+Esc` | 收回鍵盤、回 `[1]` |
 
 ### 全域
