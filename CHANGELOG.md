@@ -22,7 +22,8 @@ together: the tab system, the ssh tab, and process cleanup.
   once: `Tab` on the list toggles a session's cell, `Enter` shows one and
   hands it the keyboard, `Alt+1`–`9` jump between cells, `Alt+Esc` comes
   back. A layout strip arranges the grid — horizontal, vertical, or a custom
-  columns × rows (Enter asks; overflow grows rows rather than losing a cell).
+  rows × columns (Enter asks, rows first; overflow grows rows rather than
+  losing a cell).
   Each cell's remote is told its own size, only when it actually changes; a
   dead cell leaves the grid and the keyboard never silently lands in another
   remote. List rows lead with a display column: a monitor glyph for a session
@@ -33,7 +34,9 @@ together: the tab system, the ssh tab, and process cleanup.
 - **The pick-a-value form fields changed hands.** On IdentityFile (and the
   new Credential field): Enter on the empty field opens the chooser, Enter on
   a filled one moves on, Backspace clears the whole line. Tab is "next" on
-  every field again.
+  every field again. The host form asks Auth before User — Auth decides which
+  rows exist. An invalid credential submit toasts AND marks the field, with
+  the form staying up.
 
 ### Added
 

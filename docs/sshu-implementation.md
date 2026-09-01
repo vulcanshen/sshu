@@ -490,7 +490,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
-| ssh **終端網格**:Tab 開關格子、Enter 進入、`Alt+1..9`、layout strip(horizontal / vertical / custom C×R)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
+| ssh **終端網格**:Tab 開關格子、Enter 進入、`Alt+1..9`、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
 | preference:nav + hosts / credentials / logs;logs 上畫面即已讀,nav 與 footer 掛未讀數 | `ui/preftab.go` `ui/applog.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
@@ -563,7 +563,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` sessions | `Tab` · `Enter` · `C` · `D` | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問) |
-| `[2]` layout | `h`/`l` · `Enter` | 換排列(即生效)/ custom 問 C×R |
+| `[2]` layout | `h`/`l` · `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 任何處 | `Alt+1..9` | 跳到第 N 格 |
 | 格子(pty) | `Alt+Esc` | 收回鍵盤、回 `[1]` |
