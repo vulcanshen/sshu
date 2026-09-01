@@ -139,17 +139,16 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[Alt][p]reference` | `[1]` nav + `[2]` 內容(hosts / credentials / logs) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
-| `[Alt][f]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
-| `[Alt][s]sh` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **26 欄**;strip 固定 3 行蓋在網格上方;網格依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬) |
+| `[Alt+p]reference` | `[1]` nav + `[2]` 內容(hosts / credentials / logs) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
+| `[Alt+f]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
+| `[Alt+s]sh` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **26 欄**,strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬) |
 
 **窄寬門檻是推導的,不是另一個會忘記同步的常數**:`sshNarrowW = sshLeftW + 28`
 (pty 至少留 28 欄才值得留 split)、`sftpNarrowW = 72`(1:1 分割低於此只畫 focus
 的那一側)。
 
-**鍵盤在網格裡時 `[1]` 收起、網格佔滿整個 tab 寬**(layout strip 不動,
-高度才不會跟著 focus 跳):遠端拿著鍵盤時清單碰不到,把四分之一的寬度花在
-碰不到的東西上不划算。`panes()` 是**唯一**決定版面形狀的地方
+**鍵盤在網格裡時整個左欄(清單 + strip)收起、網格佔滿 tab**:遠端拿著
+鍵盤時它們都碰不到,把四分之一的寬度花在碰不到的東西上不划算。`panes()` 是**唯一**決定版面形狀的地方
 —— 這條是踩出來的:`view()` 自己重複了一次窄寬判斷,等 focus 變成第二個收合理由
 之後兩邊就不同步,結果是 `make([]string, 0, -2)` panic。
 
@@ -313,7 +312,7 @@ ssh `1`-`2`(格子走 Alt+方向鍵)。畫面上沒有那個編號,按下去就�
 
 ### 4.8 tab 切換 —— `Alt+p/f/s` 和絃
 
-標籤 `[Alt][p]reference` 印的就是按的:小寫是日常拼法,pty 外大小寫皆通
+標籤 `[Alt+p]reference` 印的就是按的:小寫是日常拼法,pty 外大小寫皆通
 (死鍵離活鍵一個 shift 是沒有回報的陷阱);**pty 內**只認 shift 加大寫 ——
 `M-f` 是 readline 的 forward-word,不是 sshu 的。popup 開著時和絃不作用:tab 在
 form 底下換掉,form 就懸在一個它不認識的 surface 上。
@@ -534,7 +533,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `Tab` | 下個 panel;**ssh tab:顯示開關** |
 | `Enter` · `Esc` · `Space` · `?` | 確認 / 取消 / menu / help |
 
-### [Alt][p]reference
+### [Alt+p]reference
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -553,7 +552,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄)· `Esc` | 送出 / 取消 |
 
-### [Alt][f]ile transfer(小寫=游標列,大寫=整個 panel)
+### [Alt+f]ile transfer(小寫=游標列,大寫=整個 panel)
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -561,12 +560,12 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `S` · `C` · `P` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Select host / Clear marks / Progress |
 | 檔案 panel | `Enter` · `Esc` · `m` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / 標記 / 搜尋子樹 / Add |
 
-### [Alt][s]sh
+### [Alt+s]sh
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` sessions | `Tab` · `Enter` · `C` · `D` | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問) |
-| `[2]` layout | `h`/`l` · `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
+| `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | `Alt+Esc` | 收回鍵盤、回 `[1]` |

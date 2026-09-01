@@ -105,20 +105,14 @@ func tabChain(labels []string, active int) string {
 	return b.String()
 }
 
-// shortLabels drops each segment to its bracket prefix — "[Alt][p]" — the
-// first narrow-width degradation. The label is the content signal and losing
-// it hurts, but a strip wider than the terminal breaks the frame outright
-// (§1.1 — narrow must stay usable). It cuts after the SECOND bracket when
-// there is one: cutting at the first would leave three identical "[Alt]"s,
-// a strip that can no longer say which tab is lit.
+// shortLabels drops each segment to its bracket — "[Alt+p]" — the first
+// narrow-width degradation. The label is the content signal and losing it
+// hurts, but a strip wider than the terminal breaks the frame outright
+// (§1.1 — narrow must stay usable).
 func shortLabels(labels []string) []string {
 	out := make([]string, len(labels))
 	for i, l := range labels {
-		k := strings.Index(l, "]")
-		if k >= 0 {
-			if k2 := strings.Index(l[k+1:], "]"); k2 >= 0 {
-				k += 1 + k2
-			}
+		if k := strings.Index(l, "]"); k >= 0 {
 			out[i] = l[:k+1]
 		} else {
 			out[i] = l
@@ -127,23 +121,6 @@ func shortLabels(labels []string) []string {
 	return out
 }
 
-// letterLabels is the last tier: just the letter bracket — "[p]" — for
-// terminals where even the short strip cannot fit.
-func letterLabels(labels []string) []string {
-	out := make([]string, len(labels))
-	for i, l := range labels {
-		out[i] = l
-		if k := strings.Index(l, "]"); k >= 0 {
-			rest := l[k+1:]
-			if o := strings.Index(rest, "["); o >= 0 {
-				if c := strings.Index(rest[o:], "]"); c >= 0 {
-					out[i] = rest[o : o+c+1]
-				}
-			}
-		}
-	}
-	return out
-}
 
 // tabRow is the top content row: capsules on the left, a per-tab status slot
 // right-aligned. This row replaces the panel border title entirely — the lit
@@ -153,10 +130,9 @@ func letterLabels(labels []string) []string {
 // the labels shorten, nothing wraps.
 func tabRow(w int, labels []string, active int, status string) string {
 	if tabChainW(labels)+1 > w {
+		// "[Alt+p] [Alt+f] [Alt+s]" fits exactly at minAppW, so one tier is
+		// the whole ladder.
 		labels = shortLabels(labels)
-	}
-	if tabChainW(labels)+1 > w {
-		labels = letterLabels(labels)
 	}
 
 	var b strings.Builder

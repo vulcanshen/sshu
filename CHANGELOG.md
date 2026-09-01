@@ -7,8 +7,8 @@ together: the tab system, the ssh tab, and process cleanup.
 
 ### Changed
 
-- **Tabs live on Alt chords now** — `[Alt][p]reference` / `[Alt][f]ile transfer`
-  / `[Alt][s]sh`: two brackets, one chord, disclosed in its everyday lowercase
+- **Tabs live on Alt chords now** — `[Alt+p]reference` / `[Alt+f]ile transfer`
+  / `[Alt+s]sh`: two brackets, one chord, disclosed in its everyday lowercase
   spelling. The chords work from inside a PTY — the whole reason they moved
   off the digits — where only the shifted spelling is intercepted (the
   lowercase Alt keys belong to the remote's readline). The Resources nav
@@ -16,7 +16,7 @@ together: the tab system, the ssh tab, and process cleanup.
   Every bare digit `1`–`9` now addresses a panel of the current tab, numbered
   from 1, so the sftp panels are `[1]`–`[4]` and nothing starts at 4 any more.
   Minimum width rises to 32 columns (the short strip).
-- **The hosts tab became `[Alt][p]reference`** — a side nav over three
+- **The hosts tab became `[Alt+p]reference`** — a side nav over three
   sections: hosts (the old table, exactly where it was), **credentials**, and
   **logs**. The nav cursor IS the choice; Enter moves the keyboard over; the
   tab still opens on the hosts table.
@@ -24,9 +24,11 @@ together: the tab system, the ssh tab, and process cleanup.
   once: `Tab` on the list toggles a session's cell, `Enter` shows one and
   hands it the keyboard, holding `Alt` the arrows steer between cells
   (spatial — Alt+digits were tried and dropped: local window managers own
-  them), `Alt+Esc` comes back. A layout strip arranges the grid — horizontal, vertical, or a custom
-  rows × columns (Enter asks, rows first; overflow grows rows rather than
-  losing a cell).
+  them), `Alt+Esc` comes back. A layout strip at the bottom of
+  the left column — the right side is nothing but terminals — arranges the
+  grid: horizontal, vertical, or a custom rows × columns (Enter asks, rows
+  first; overflow grows rows rather than losing a cell). Session rows read
+  one line, ssh-style: user@host:port.
   Each cell's remote is told its own size, only when it actually changes; a
   dead cell leaves the grid and the keyboard never silently lands in another
   remote. List rows lead with a display column: a monitor glyph for a session

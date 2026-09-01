@@ -52,10 +52,10 @@ const (
 	sshLeftW     = 26
 	sshNarrowW   = sshLeftW + 28
 	sshListLeadW = 1
-	sshPortW     = 5 // "65535"; the port is never truncated
-	// layoutRows is the layout strip's fixed height — border, one content row,
-	// border. Always on screen, so the grid's height never jumps with focus.
-	layoutRows = 3
+	// layoutRows is the layout strip's fixed height — border, one option row
+	// per mode, border. It lives at the BOTTOM OF THE LEFT COLUMN, so the
+	// right side is nothing but terminals.
+	layoutRows = 5
 )
 
 // sshTick polls the PTYs: it both reaps finished sessions and refreshes the
@@ -115,18 +115,16 @@ func (m sshModel) panes() (leftW, rightW int) {
 	return sshLeftW, m.w - sshLeftW
 }
 
-// stripVisible: the layout strip yields on a tab too short to hold it AND a
-// usable grid — three rows of chrome over a two-row terminal helps nobody.
-func (m sshModel) stripVisible() bool { return m.h >= layoutRows+3 }
+// stripVisible: the layout strip yields when the left column is too short to
+// hold it AND a usable sessions list.
+func (m sshModel) stripVisible() bool { return m.h >= layoutRows+5 }
 
-// gridArea is the box the terminal grid gets: the right column minus the
-// layout strip, when there is room for one.
+// gridArea is the box the terminal grid gets: the whole right column. The
+// layout strip lives at the bottom of the LEFT column, so the right side is
+// nothing but terminals.
 func (m sshModel) gridArea() (w, h int) {
 	_, rightW := m.panes()
-	if !m.stripVisible() {
-		return rightW, max(1, m.h)
-	}
-	return rightW, max(3, m.h-layoutRows)
+	return rightW, max(1, m.h)
 }
 
 // gridDims is how many columns and rows the grid uses for n cells. Custom
@@ -162,9 +160,18 @@ func splitEven(total, parts int) []int {
 	return out
 }
 
+// sessionsH is the sessions panel's share of the left column — what the
+// layout strip below it does not take.
+func (m sshModel) sessionsH() int {
+	if !m.stripVisible() {
+		return m.h
+	}
+	return m.h - layoutRows
+}
+
 // listRows is how many rows [1] shows, which is the page size u/d move by
 // half of.
-func (m sshModel) listRows() int { return max(1, m.h-2) }
+func (m sshModel) listRows() int { return max(1, m.sessionsH()-2) }
 
 func (m *sshModel) setSize(w, h int) {
 	m.w, m.h = w, h
@@ -495,14 +502,15 @@ func (m *sshModel) moveCell(dx, dy int) {
 	m.focusPty = i
 }
 
-// layoutKey drives the [2] strip: h/l walk the three modes and apply
-// immediately. It reports whether the caller should ask for custom's shape —
-// Enter on custom is the request to change it.
+// layoutKey drives the [2] strip: j/k (the options stack vertically now —
+// h/l still answer) walk the three modes and apply immediately. It reports
+// whether the caller should ask for custom's shape — Enter on custom is the
+// request to change it.
 func (m *sshModel) layoutKey(k string) (askDims bool) {
 	switch k {
-	case "h", "left":
+	case "k", "up", "h", "left":
 		m.layout = (m.layout + layoutModeCount - 1) % layoutModeCount
-	case "l", "right":
+	case "j", "down", "l", "right":
 		m.layout = (m.layout + 1) % layoutModeCount
 	case "enter":
 		return m.layout == layoutCustom
@@ -542,7 +550,7 @@ func endedBadlyToast(bad []*session) string {
 	case 1:
 		return bad[0].host.Name + " · " + bad[0].reason
 	default:
-		return plural(len(bad), "session") + " ended badly · see [Alt][p] logs"
+		return plural(len(bad), "session") + " ended badly · see [Alt+p] logs"
 	}
 }
 
@@ -570,15 +578,16 @@ func itoa(n int) string {
 // -------------------------------------------------------------------- view
 
 func (m sshModel) view() string {
-	leftW, rightW := m.panes()
+	leftW, _ := m.panes()
 	right := m.gridView()
-	if m.stripVisible() {
-		right = joinVertical(m.layoutPanel(rightW), right)
-	}
 	if leftW <= 0 {
 		return right
 	}
-	return joinHorizontal(m.sessionsPanel(leftW, m.h), right)
+	left := m.sessionsPanel(leftW, m.sessionsH())
+	if m.stripVisible() {
+		left = joinVertical(left, m.layoutPanel(leftW))
+	}
+	return joinHorizontal(left, right)
 }
 
 // panelTitle is what panel p's capsule says, and what the Space menu calls
@@ -606,7 +615,9 @@ func (m sshModel) sessionsPanel(w, h int) string {
 	return panelChrome(innerW, rows, m.panelTitle(panelSessions), m.focus == panelSessions)
 }
 
-// layoutPanel is the [2] strip: three radio choices, custom wearing its shape.
+// layoutPanel is the [2] strip at the bottom of the left column: one radio
+// row per mode, stacked — a 24-cell column cannot seat three choices side by
+// side, and a list reads naturally under a list.
 func (m sshModel) layoutPanel(w int) string {
 	innerW := w - 2
 	dim := lipgloss.NewStyle().Foreground(dimColor)
@@ -615,8 +626,7 @@ func (m sshModel) layoutPanel(w int) string {
 		on = lipgloss.NewStyle().Foreground(editColor).Bold(true)
 	}
 
-	parts := make([]string, 0, int(layoutModeCount))
-	plain := make([]string, 0, int(layoutModeCount))
+	rows := make([]string, 0, int(layoutModeCount))
 	for l := layoutMode(0); l < layoutModeCount; l++ {
 		glyph := glyphRadioOff
 		if l == m.layout {
@@ -627,20 +637,14 @@ func (m sshModel) layoutPanel(w int) string {
 			// Rows × columns — the same order the prompt asks in.
 			label += " " + itoa(clamp(m.gridR, 1, 9)) + "×" + itoa(clamp(m.gridC, 1, 9))
 		}
-		text := glyph + " " + label
-		plain = append(plain, text)
+		text := truncate(" "+glyph+" "+label, max(0, innerW))
 		if l == m.layout {
-			parts = append(parts, on.Render(text))
+			rows = append(rows, on.Render(text))
 		} else {
-			parts = append(parts, dim.Render(text))
+			rows = append(rows, dim.Render(text))
 		}
 	}
-	row := " " + strings.Join(parts, "  ")
-	if dispW(" "+strings.Join(plain, "  ")) > innerW {
-		// No room for the choir: show only the current choice.
-		row = " " + on.Render(plain[int(m.layout)])
-	}
-	return panelChrome(innerW, fitLines([]string{row}, innerW, 1),
+	return panelChrome(innerW, fitLines(rows, innerW, layoutRows-2),
 		m.panelTitle(panelLayout), m.focus == panelLayout)
 }
 
@@ -752,14 +756,14 @@ func (m sshModel) gridEmpty(innerW, innerH int) []string {
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 	who := s.host.User + "@" + s.host.Host
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
-		emptyHint("The detail is in [Alt][p] logs — or try another host", "[Alt][p]"))
+		emptyHint("The detail is in [Alt+p] logs — or try another host", "[Alt+p]"))
 }
 
 // listBody lays out [1]. Each entry is a block, because a long address wraps.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		return emptyBody(innerW, innerH, "No sessions",
-			emptyHint("Connect from [Alt][p] hosts", "[Alt][p]"))
+			emptyHint("Connect from [Alt+p] hosts", "[Alt+p]"))
 	}
 
 	out := make([]string, 0, max(0, innerH))
@@ -771,11 +775,13 @@ func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []
 
 // listItem lays out one row of [1]:
 //
-//	<space><display glyph> <user>@<host>…<port>
+//	<space><display glyph> <user>@<host>:<port>
 //
-// The leading glyph is the display column — a monitor when this session has a
-// cell on the grid, a struck-through one when it does not. Two shapes rather
-// than one shape in two colours, so the difference survives any palette.
+// One string, the way ssh itself would spell it — the port rides the address
+// instead of owning a right-aligned slot of its own. The leading glyph is
+// the display column — a monitor when this session has a cell on the grid, a
+// struck-through one when it does not. Two shapes rather than one shape in
+// two colours, so the difference survives any palette.
 //
 // Colour is still two independent channels: green foreground = on the grid,
 // background = the cursor bar. Where they meet the bar wins; the glyph is
@@ -790,39 +796,39 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 
 	body := lipgloss.NewStyle().Foreground(nameFG)
 	gStyle := lipgloss.NewStyle().Foreground(glyphFG)
-	dim := lipgloss.NewStyle().Foreground(dimColor)
 	if isCursor {
 		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
-		body, dim, gStyle = bar, bar, bar
+		body, gStyle = bar, bar
 	}
 
-	// tailCell is the gap AND the slot together — one number, so the gap
-	// cannot be counted twice.
-	tailCell := 0
-	if innerW >= sshListLeadW+sshPortW+4 {
-		tailCell = sshPortW + 1
-	}
-
-	label := s.host.User + "@" + s.host.Host
-	if tag := s.ordinalTag(); tag != "" {
-		label += " " + tag
-	}
 	const glyphCell = 2 // the glyph and its trailing space
-	nameW := max(1, innerW-sshListLeadW-glyphCell-tailCell)
-	lines := wrapText(label, nameW)
+	nameW := max(1, innerW-sshListLeadW-glyphCell)
+
+	// The address wraps; the ":port" (and the #N tag) ride as ONE unbreakable
+	// tail — a port split across lines ("…:2" / "222") is another number, not
+	// a shortened one. If the tail cannot share the last line it takes its
+	// own, intact.
+	tail := ":" + strconv.Itoa(s.host.Port)
+	if tag := s.ordinalTag(); tag != "" {
+		tail += " " + tag
+	}
+	lines := wrapText(s.host.User+"@"+s.host.Host, nameW)
+	if last := lines[len(lines)-1]; dispW(last)+dispW(tail) <= nameW {
+		lines[len(lines)-1] = last + tail
+	} else if dispW(tail) <= nameW {
+		lines = append(lines, tail)
+	} else {
+		lines = append(lines, wrapText(tail, nameW)...)
+	}
 
 	lead := strings.Repeat(" ", sshListLeadW)
 	out := make([]string, 0, len(lines))
 	for i, l := range lines {
-		tail := strings.Repeat(" ", tailCell)
-		if tailCell > 0 && i == len(lines)-1 {
-			tail = padLeft(strconv.Itoa(s.host.Port), tailCell)
-		}
 		g := glyph + " "
 		if i > 0 {
 			g = "  " // continuation lines indent under the name
 		}
-		out = append(out, gStyle.Render(lead+g)+body.Render(padRight(l, nameW))+dim.Render(tail))
+		out = append(out, gStyle.Render(lead+g)+body.Render(padRight(l, nameW)))
 	}
 	return out
 }

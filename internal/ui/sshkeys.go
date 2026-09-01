@@ -214,8 +214,8 @@ func (m AppModel) sshMenuItems() []menuItem {
 	if m.ssh.focus == panelLayout {
 		return []menuItem{
 			{label: "layout", header: true},
-			{label: "h/l choose an arrangement — it applies as you move", header: true},
-			{label: "Enter on custom asks for columns × rows", header: true},
+			{label: "j/k choose an arrangement — it applies as you move", header: true},
+			{label: "Enter on custom asks for rows × columns", header: true},
 		}
 	}
 
