@@ -1,5 +1,7 @@
 # sshu
 
+<p align="center"><img src="docs/icon.svg" width="128" alt="sshu icon" /></p>
+
 [![GitHub Release](https://img.shields.io/github/v/release/vulcanshen/sshu)](https://github.com/vulcanshen/sshu/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/vulcanshen/sshu)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
@@ -11,6 +13,17 @@
 > _不確定的時候,就按_ **`Space`**。
 
 sshu 是 `u`-family 的成員,也是 [Vulcan's TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/vtp.md) 在 ssh 領域的實作 —— 跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)同一套設計系統。逐條對照的紀錄在 [`docs/sshu-implementation.md`](docs/sshu-implementation.md),背後的判斷過程(**包含試過而被否決的做法**)在 [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md)。
+
+## Demo
+
+### preference tab —— hosts、credentials、logs,然後連上去
+![preference](docs/demo-preference.gif)
+
+### 雙側檔案傳輸 —— marks、真實傳輸、兼職進度條的分隔線
+![file transfer](docs/demo-transfer.gif)
+
+### ssh 網格 —— 格子、layout、按住 Alt 的方向鍵
+![ssh grid](docs/demo-grid.gif)
 
 ## 五個鍵就能驅動 sshu
 

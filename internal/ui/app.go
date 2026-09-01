@@ -60,6 +60,7 @@ type AppModel struct {
 	// Floats. At most one of form / confirm / help is up at a time, optionally
 	// over the Space menu; the toast rides on top of everything.
 	spaceMenu   spaceMenu
+	splash      splashModel
 	hostPicker  spaceMenu
 	credPicker  spaceMenu
 	transfersUI transfersPopup
@@ -98,6 +99,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		credPicker:  newCredPicker(),
 		save:        save,
 		spaceMenu:   newSpaceMenu(),
+		splash:      newSplashModel(),
 		help:        newHelpPopup(),
 		form:        newHostForm(),
 		credFormUI:  newCredForm(),
@@ -191,6 +193,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toast.anim.tick(msg),
 		)
 
+	case splashTickMsg, splashIdentityMsg, splashHintMsg:
+		var cmd tea.Cmd
+		m.splash, cmd = m.splash.update(msg)
+		return m, cmd
+
 	case sshTickMsg:
 		// One tick drives both jobs: reap what has finished and repaint what is
 		// still drawing. It only runs while something is live, so an idle sshu
@@ -282,6 +289,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// The easter-egg splash owns the keyboard until dismissed — any key closes
+	// it, and nothing underneath sees the press.
+	if m.splash.isActive() {
+		var cmd tea.Cmd
+		m.splash, cmd = m.splash.update(msg)
+		return m, cmd
+	}
+
 	// A running editor owns the keyboard completely, the way panel [5] does:
 	// Esc is vim's Esc, q is a letter, Space is a space. It is checked before
 	// everything else because every rule below would otherwise take a key the
@@ -417,6 +432,11 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// reachable from any surface, and the surface a lost user is most likely
 		// to be standing on is the menu they just opened.
 		return m, m.help.open(m.layer())
+	}
+	// V is the hidden u-family easter egg: the logo, revealed. Outside a pty
+	// only — in there V belongs to the remote.
+	if msg.String() == "V" && !m.textFloat() && !m.inPty() && !m.popupOpen() {
+		return m, m.splash.show()
 	}
 
 	// A filtering file list claims printable keys before the action table can:
