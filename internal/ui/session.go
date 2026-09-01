@@ -47,7 +47,10 @@ type session struct {
 	// timedOut marks a session sshu stopped itself, because ssh got past the
 	// part its own ConnectTimeout covers and then said nothing at all.
 	timedOut bool
-	pty      *ptyTerm
+	// appliedCols/Rows is the grid-cell geometry last pushed to the PTY, so a
+	// reflow only SIGWINCHes the sessions whose numbers actually changed.
+	appliedCols, appliedRows int
+	pty                      *ptyTerm
 }
 
 // ordinalTag is the #N shown only when a host has more than one live session.

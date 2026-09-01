@@ -120,9 +120,9 @@ func TestNarrowDropsTheLists(t *testing.T) {
 	if !m.ssh.narrow() {
 		t.Fatalf("%d columns should be narrow", sshNarrowW-1)
 	}
-	_, _, rightW, _ := m.ssh.panes()
+	_, rightW := m.ssh.panes()
 	if rightW != sshNarrowW-1 {
-		t.Errorf("the PTY should take the whole width, got %d", rightW)
+		t.Errorf("the grid should take the whole width, got %d", rightW)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 	if !strings.Contains(view, "Connection refused") {
 		t.Errorf("[5] does not say why it failed:\n%s", view)
 	}
-	if strings.Contains(view, "No session on screen") {
+	if strings.Contains(view, "Nothing on the grid") {
 		t.Errorf("[5] went blank instead of reporting:\n%s", view)
 	}
 
@@ -456,7 +456,7 @@ func TestDigitsAddressPanelsOfTheCurrentTab(t *testing.T) {
 	for _, tc := range []struct {
 		key  string
 		want sshPanel
-	}{{"1", panelSessions}, {"2", panelPty}} {
+	}{{"1", panelSessions}, {"2", panelLayout}} {
 		m := pressA(sshApp(t, sample()), "alt+S", tc.key)
 		if m.ssh.focus != tc.want {
 			t.Errorf("%s in the ssh tab should focus panel %d, got %d", tc.key, tc.want, m.ssh.focus)
@@ -478,9 +478,9 @@ func TestDigitsAddressPanelsOfTheCurrentTab(t *testing.T) {
 	}
 }
 
-// Tab must never walk into the PTY: it would swallow the key that got you there.
-// With [6] gone there is one list left, so Tab has nowhere to go — but it must
-// still be a way OUT of the pty, which costs nothing to offer.
+// Tab must never walk focus into the grid: it would swallow the key that got
+// you there. On this tab it is the display toggle instead, and with no
+// sessions it does nothing at all.
 func TestTabNeverEntersThePty(t *testing.T) {
 	m := pressA(sshApp(t, sample()), "alt+S")
 	for i := 0; i < 6; i++ {
@@ -491,11 +491,6 @@ func TestTabNeverEntersThePty(t *testing.T) {
 		if m.ssh.focus == panelPty {
 			t.Fatal("Tab reached the PTY — from there Tab belongs to the remote")
 		}
-	}
-	m.ssh.setFocus(panelPty)
-	m = pressA(m, "tab")
-	if m.ssh.focus != panelSessions {
-		t.Errorf("Tab out of the pty landed on %d", m.ssh.focus)
 	}
 }
 
@@ -514,12 +509,12 @@ func TestCursorDoesNotSwitchTheSession(t *testing.T) {
 	if len(m.ssh.sessions) != 2 {
 		t.Fatalf("expected two sessions, got %d", len(m.ssh.sessions))
 	}
-	shown := m.ssh.current
+	shown := append([]int(nil), m.ssh.shown...)
 	m.ssh.setFocus(panelSessions)
 	m = pressA(m, "k") // move the cursor off the shown session
 
-	if m.ssh.current != shown {
-		t.Error("moving the cursor must not change which session is displayed")
+	if len(m.ssh.shown) != len(shown) || m.ssh.shown[0] != shown[0] {
+		t.Error("moving the cursor must not change the grid")
 	}
 	if m.ssh.curSess == 1 {
 		t.Fatal("the cursor did not move; the rest of this test proves nothing")
@@ -542,18 +537,18 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 	m = settle(next.(AppModel))
-	second := m.ssh.current
 
-	// The row already showing: Enter just goes in.
+	// The row already on the grid: Enter just goes in.
 	m = pressA(m, "enter")
 	if m.confirm.isActive() {
-		t.Fatal("Enter on the current session must not open a dialog")
+		t.Fatal("Enter on a session must not open a dialog")
 	}
 	if m.ssh.focus != panelPty {
 		t.Errorf("Enter should take focus into the PTY, got %d", m.ssh.focus)
 	}
+	was := m.ssh.currentSession().id
 
-	// A different row: Enter switches, still without asking.
+	// A different row: Enter moves the keyboard, still without asking.
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 	m = settle(next.(AppModel))
 	m = pressA(m, "k")
@@ -561,8 +556,8 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 	if m.confirm.isActive() {
 		t.Fatal("Enter on another session must not open a dialog either")
 	}
-	if m.ssh.current == second {
-		t.Error("Enter should have switched which session [5] shows")
+	if m.ssh.currentSession().id == was {
+		t.Error("Enter should have moved the keyboard to the other session")
 	}
 	if m.ssh.focus != panelPty {
 		t.Errorf("Enter should land in the PTY, got %d", m.ssh.focus)
@@ -764,15 +759,15 @@ func TestEndedSessionLeavesThePanel(t *testing.T) {
 	fakeSSH(t, "exit 0")
 	m := pressA(sshApp(t, sample()), "enter", "enter")
 	s := m.ssh.sessions[0]
-	if m.ssh.current != s.id {
-		t.Fatal("the new session should be the one on screen")
+	if !m.ssh.isShown(s.id) {
+		t.Fatal("the new session should have a cell on the grid")
 	}
 
 	waitFor(t, "the subprocess to exit", func() bool { return s.pty.exited() })
 	m.ssh.reap()
 
-	if m.ssh.current != 0 {
-		t.Errorf("[5] should show nothing once its session ended, current=%d", m.ssh.current)
+	if len(m.ssh.shown) != 0 {
+		t.Errorf("the ended session's cell should leave the grid, shown=%v", m.ssh.shown)
 	}
 	if m.ssh.currentSession() != nil {
 		t.Error("currentSession must only ever be a live session")
@@ -782,8 +777,8 @@ func TestEndedSessionLeavesThePanel(t *testing.T) {
 	}
 
 	m.ssh.setFocus(panelSessions)
-	if !strings.Contains(m.ssh.view(), "Select a session") {
-		t.Error("[5] should be back to its empty state")
+	if !strings.Contains(m.ssh.view(), "Nothing on the grid") {
+		t.Error("the grid should be back to its empty state")
 	}
 }
 
@@ -792,25 +787,22 @@ func TestEndedSessionLeavesThePanel(t *testing.T) {
 // geometry.
 func TestFocusedPtyTakesTheWholeTab(t *testing.T) {
 	m := openOne(t)
-	full, _ := m.ssh.ptyInner()
-	leftW, _, rightW, _ := m.ssh.panes()
+	s := m.ssh.sessions[0]
+	leftW, rightW := m.ssh.panes()
 	if leftW != 0 || rightW != m.ssh.w {
 		t.Fatalf("a focused PTY should own the tab: left=%d right=%d w=%d", leftW, rightW, m.ssh.w)
 	}
+	full := s.appliedCols
 
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 	m = next.(AppModel)
-	split, _ := m.ssh.ptyInner()
-	leftW, _, _, _ = m.ssh.panes()
+	leftW, _ = m.ssh.panes()
 	if leftW != sshLeftW {
 		t.Fatalf("leaving the PTY should bring the lists back, left=%d", leftW)
 	}
-	if split >= full {
-		t.Errorf("the PTY should be narrower once the lists are back: %d -> %d", full, split)
-	}
-	if m.ssh.appliedCols != split {
-		t.Errorf("the remote was not resized on the way out: applied=%d want %d",
-			m.ssh.appliedCols, split)
+	if s.appliedCols >= full {
+		t.Errorf("the remote should be narrower once the lists are back: %d -> %d",
+			full, s.appliedCols)
 	}
 }
 
@@ -825,7 +817,7 @@ func TestSessionRowColourCases(t *testing.T) {
 	shown := &session{id: 1, host: sample()[0], state: sessLive}
 	other := &session{id: 2, host: sample()[1], state: sessLive}
 	m.ssh.sessions = []*session{shown, other}
-	m.ssh.current = 1
+	m.ssh.shown = []int{1}
 
 	green, hand := ansiOf(t, liveColor), ansiOf(t, handColor)
 	greenBG, handBG := ansiBgOf(t, liveColor), ansiBgOf(t, handColor)
@@ -1090,7 +1082,6 @@ func TestDumpSSH(t *testing.T) {
 	defer m.ssh.stopAll()
 
 	m.tab = tabSSH
-	m.ssh.current = m.ssh.sessions[0].id
 	m.ssh.setFocus(panelSessions)
 	t.Logf("\n=== tab [3], focus [4] ===\n%s", m.View())
 
@@ -1133,8 +1124,8 @@ func TestDuplicateOpensASecondSessionToTheSameHost(t *testing.T) {
 	if a, b := first.ordinalTag(), m.ssh.sessions[1].ordinalTag(); a == "" || b == "" || a == b {
 		t.Errorf("expected distinct ordinals, got %q and %q", a, b)
 	}
-	if m.ssh.current != m.ssh.sessions[1].id {
-		t.Error("the new session should be the one on screen")
+	if cur := m.ssh.currentSession(); cur == nil || cur.id != m.ssh.sessions[1].id {
+		t.Error("the new session's cell should hold the keyboard")
 	}
 	if first.pty.exited() {
 		t.Error("duplicating must not disturb the session it copied")
@@ -1193,9 +1184,11 @@ func TestSSHMenuRowsRunTheirOwnActions(t *testing.T) {
 		"Close":     confirmClose,
 		"Duplicate": confirmDuplicate,
 	}
-	// Open lands in the pty; the rest ask first.
+	// Open lands in the pty and Display toggles the cell off (openOne put it
+	// on); the rest ask first.
 	opens := map[string]func(AppModel) bool{
-		"Open": func(m AppModel) bool { return m.ssh.focus == panelPty },
+		"Open":    func(m AppModel) bool { return m.ssh.focus == panelPty },
+		"Display": func(m AppModel) bool { return len(m.ssh.shown) == 0 },
 	}
 	for _, a := range sshActions {
 		if a.panel != panelSessions {

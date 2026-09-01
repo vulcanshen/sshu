@@ -126,7 +126,7 @@ func TestSSHMenuTitleNamesTheFocusedPanel(t *testing.T) {
 		want string
 	}{
 		{panelSessions, "[1] sessions"},
-		{panelPty, "[2] ssh"},
+		{panelLayout, "[2] layout"},
 	} {
 		m.ssh.setFocus(tc.p)
 		if got := m.menuTitle(); got != tc.want {

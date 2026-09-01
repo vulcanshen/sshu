@@ -24,13 +24,29 @@ type sshAction struct {
 
 var sshActions = []sshAction{
 	// item — the session under the cursor
-	{key: "enter", label: "Open", hint: "Enter . show in [5]", panel: panelSessions, run: AppModel.openSession},
+	{key: "enter", label: "Open", hint: "Enter . show and take the keyboard", panel: panelSessions, run: AppModel.openSession},
+	{key: "tab", label: "Display", hint: "Tab . toggle this session's cell", panel: panelSessions, run: AppModel.toggleSessionDisplay},
 	{key: "C", label: "Close", hint: "end this session", panel: panelSessions, run: AppModel.askClose},
 	{key: "D", label: "Duplicate", hint: "another to this host", panel: panelSessions, run: AppModel.askDuplicate},
 }
 
-// sshKey dispatches one key inside tab [3].
+// sshKey dispatches one key inside the ssh tab.
 func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
+	if m.ssh.focus == panelLayout {
+		if m.ssh.layoutKey(k) {
+			// Enter on custom: ask for the shape. Prefilled with the current
+			// one, because most changes are one digit of it.
+			return m, m.input.ask(inputPopup{
+				title:  "Custom grid",
+				glyph:  glyphGrid,
+				prompt: "Columns x rows for the grid, e.g. 3x2",
+				value:  itoa(clamp(m.ssh.gridC, 1, 9)) + "x" + itoa(clamp(m.ssh.gridR, 1, 9)),
+				accept: "apply",
+				action: inputGridDims,
+			}, m.layer())
+		}
+		return m, nil
+	}
 	var keys []string
 	var acts []sshAction
 	for _, a := range sshActions {
@@ -45,6 +61,57 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// applyGridDims parses the custom grid's "CxR" answer. Any two numbers 1-9
+// separated by anything count; a shape that is not that is refused with the
+// example still on screen.
+func (m AppModel) applyGridDims(value string) (tea.Model, tea.Cmd) {
+	c, r, ok := parseGridDims(value)
+	if !ok {
+		return m, tea.Batch(m.closeStack(), m.input.close(),
+			m.toast.show("Grid must be columns x rows, each 1-9 — e.g. 3x2", toastError))
+	}
+	m.ssh.gridC, m.ssh.gridR = c, r
+	m.ssh.layout = layoutCustom
+	m.ssh.applyGeometry()
+	return m, tea.Batch(m.closeStack(), m.input.close(),
+		m.toast.show("Grid set to "+itoa(c)+"×"+itoa(r), toastInfo))
+}
+
+func parseGridDims(s string) (c, r int, ok bool) {
+	var nums []int
+	cur := -1
+	for _, ch := range s {
+		if ch >= '0' && ch <= '9' {
+			if cur < 0 {
+				cur = 0
+			}
+			cur = cur*10 + int(ch-'0')
+			continue
+		}
+		if cur >= 0 {
+			nums = append(nums, cur)
+			cur = -1
+		}
+	}
+	if cur >= 0 {
+		nums = append(nums, cur)
+	}
+	if len(nums) != 2 || nums[0] < 1 || nums[0] > 9 || nums[1] < 1 || nums[1] > 9 {
+		return 0, 0, false
+	}
+	return nums[0], nums[1], true
+}
+
+// toggleSessionDisplay is the menu's row for what Tab does on the list.
+func (m AppModel) toggleSessionDisplay() (tea.Model, tea.Cmd) {
+	s := m.cursorSession()
+	if s == nil {
+		return m, nil
+	}
+	m.ssh.toggleShown(s.id)
+	return m, m.closeStack()
+}
+
 // cursorSession is the session under the [4] cursor.
 func (m AppModel) cursorSession() *session {
 	if m.ssh.focus == panelSessions && m.ssh.curSess < len(m.ssh.sessions) {
@@ -53,21 +120,18 @@ func (m AppModel) cursorSession() *session {
 	return nil
 }
 
-// openSession is Enter on [4]. Moving the list cursor deliberately does NOT
-// change what [5] shows — switching redraws the remote, and browsing the list
-// should not do that — so this is the explicit act of switching.
+// openSession is Enter on [1]: the session's cell joins the grid (if it was
+// not already there), the keyboard goes to it, and the side column folds.
 //
-// It asks nothing. Switching opens no connection and closes none: the session
-// you leave keeps running, and Enter on the other row brings it straight back.
-// A confirmation for something that costs nothing and undoes itself is just a
-// keystroke in the way.
+// It asks nothing. Showing opens no connection and closes none: everything
+// else keeps running, and Alt+Esc undoes the whole move. A confirmation for
+// something that costs nothing and undoes itself is a keystroke in the way.
 func (m AppModel) openSession() (tea.Model, tea.Cmd) {
 	s := m.cursorSession()
 	if s == nil {
 		return m, nil
 	}
-	m.ssh.current, m.ssh.failed = s.id, nil
-	m.ssh.setFocus(panelPty) // also re-applies the geometry for the new session
+	m.ssh.showAndFocus(s.id)
 	return m, m.closeStack()
 }
 
@@ -131,6 +195,7 @@ func (m AppModel) startSession(h store.Host) (tea.Model, tea.Cmd) {
 	}
 	// Straight into the remote: connecting is the whole point, and stopping on
 	// the list first would just be a keystroke in the way (§7.1 context shift).
+	// connect() already put the new cell on the grid and pointed focusPty at it.
 	m.ssh.setFocus(panelPty)
 	return m, tea.Batch(cmd, m.ssh.tick())
 }
@@ -143,7 +208,14 @@ func (m AppModel) sshMenuItems() []menuItem {
 			{label: "session", header: true},
 			{label: "the remote has the keyboard", header: true},
 			{separator: true},
-			{label: "press alt+esc to come back", header: true},
+			{label: "alt+esc comes back · alt+1-9 switch cells", header: true},
+		}
+	}
+	if m.ssh.focus == panelLayout {
+		return []menuItem{
+			{label: "layout", header: true},
+			{label: "h/l choose an arrangement — it applies as you move", header: true},
+			{label: "Enter on custom asks for columns × rows", header: true},
 		}
 	}
 

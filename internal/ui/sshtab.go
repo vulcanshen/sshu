@@ -10,36 +10,52 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// The ssh tab holds two panels, numbered [1] [2]. Digits number the panels of
-// each tab from 1 now that the tabs themselves live on Alt chords — there is
-// no tab hotkey left to collide with.
+// The ssh tab is three surfaces: the sessions list [1], the layout strip [2],
+// and a GRID of live terminals. Any number of sessions can put a cell on the
+// grid at once — Tab on the list toggles a session's cell, Enter shows one
+// and hands it the keyboard, Alt+1..9 jump between cells, and Alt+Esc brings
+// the keyboard (and the side column) back.
 type sshPanel int
 
 const (
 	panelSessions sshPanel = iota // [1] live sessions
-	panelPty                      // [2] the session on screen
+	panelLayout                   // [2] how the grid is arranged
+	panelPty                      // the keyboard is inside a grid cell
 )
+
+// layoutMode is the grid's arrangement. Horizontal and vertical are the two
+// degenerate grids (one row / one column); custom is a fixed columns × rows.
+type layoutMode int
+
+const (
+	layoutHorizontal layoutMode = iota
+	layoutVertical
+	layoutCustom
+	layoutModeCount
+)
+
+func (l layoutMode) label() string {
+	switch l {
+	case layoutVertical:
+		return "vertical"
+	case layoutCustom:
+		return "custom"
+	}
+	return "horizontal"
+}
 
 // Geometry. The left column is fixed: a draggable split would put the panel
 // width back on the content, and every resize would have to be re-derived
-// (§1.2). Below sshNarrowW the columns cannot both be useful, so the PTY takes
-// the screen and the lists are reached with Alt+Esc.
-//
-// 26 is close to the floor. The list is name-only, so the column is the name
-// plus a 2-cell marker and a 4-cell ordinal slot — go much below this and the
-// overhead starts to dominate and ordinary hostnames begin to wrap.
+// (§1.2). Below sshNarrowW the columns cannot both be useful, so the grid
+// takes the screen and the list is reached with Alt+Esc.
 const (
-	sshLeftW = 26
-	// Derived, not a separate constant to forget: the split is worth keeping while
-	// the PTY still has enough columns to be a terminal. Narrowing the left column
-	// therefore also lets the split survive on narrower terminals.
+	sshLeftW     = 26
 	sshNarrowW   = sshLeftW + 28
-	sshListLeadW = 1 // one cell of breathing room before the name
-	// Both lists put an identifying detail at the right edge of the name line and
-	// let the name wrap against it. Neither is ever truncated: a port you cannot
-	// read does not identify a session, and a time you cannot read does not date
-	// one. ":65535" and "15:04:05" are the widest each gets.
-	sshPortW = 5 // "65535"; the port is never truncated
+	sshListLeadW = 1
+	sshPortW     = 5 // "65535"; the port is never truncated
+	// layoutRows is the layout strip's fixed height — border, one content row,
+	// border. Always on screen, so the grid's height never jumps with focus.
+	layoutRows = 3
 )
 
 // sshTick polls the PTYs: it both reaps finished sessions and refreshes the
@@ -52,125 +68,204 @@ type sshModel struct {
 	// timeout is one connection attempt's budget, from config.yaml.
 	timeout time.Duration
 
-	// failed is the session that was ON SCREEN when it ended badly. [5] keeps
-	// showing it: the panel that was watching a connection is the right place to
-	// say how it turned out, and going blank was the thing that made a failure
-	// indistinguishable from nothing having happened.
+	// failed is a session that ended badly while its cell was the last thing
+	// on the grid. The grid keeps saying what happened instead of going blank
+	// — a failure that erases itself is a failure you cannot read.
 	failed *session
 
-	// spinAt is the connecting spinner's frame. It counts ticks rather than
-	// reading the clock, so the animation does not depend on when a frame is
-	// drawn — the same as the sftp tab's.
+	// spinAt is the connecting spinner's frame, shared by every connecting
+	// cell. It counts ticks rather than reading the clock.
 	spinAt int
 
-	// applied* is the geometry last pushed to the PTY. Resizing is a SIGWINCH
-	// and makes the remote redraw, so it is only done when something changed —
-	// focus flips the layout on every Alt+Esc.
-	appliedCols, appliedRows, appliedID int
-
 	sessions []*session // live, oldest first
-	history  []*session // ended, newest first
 	nextID   int
-	current  int // id shown in [5]; 0 = nothing
-	focus    sshPanel
 
+	// shown is the grid, in display order: session ids, first toggled first.
+	// Alt+1 is shown[0]. A session not in here keeps running off screen.
+	shown []int
+	// focusPty is the cell holding the keyboard — an index into shown, only
+	// meaningful while focus == panelPty.
+	focusPty int
+
+	layout       layoutMode
+	gridC, gridR int // custom's columns × rows
+
+	focus   sshPanel
 	curSess int
 	topSess int
 	w, h    int
 }
 
-func newSSHModel() sshModel { return sshModel{focus: panelSessions, nextID: 1} }
+func newSSHModel() sshModel {
+	return sshModel{focus: panelSessions, nextID: 1, gridC: 2, gridR: 2}
+}
 
 // ------------------------------------------------------------------ geometry
 
 func (m sshModel) narrow() bool { return m.w < sshNarrowW }
 
-// panes returns the three panel boxes' outer sizes for the current terminal.
-//
-// A focused PTY gets the whole tab. While the remote has the keyboard the lists
-// are unreachable anyway — keeping them on screen spends a quarter of the width
-// on something you cannot touch — so they fold away and come back on Alt+Esc.
-// The left column is one panel now. It used to be split with a history list
-// underneath, which could not be acted on and was usually empty — see
-// sshhistory.go for where that went.
-func (m sshModel) panes() (leftW, leftH, rightW, rightH int) {
-	total := m.h
+// panes is the outer split. The side column folds away while the keyboard is
+// inside the grid — the list is unreachable then anyway, and a quarter of the
+// width should not be spent on something you cannot touch. Alt+Esc brings it
+// back.
+func (m sshModel) panes() (leftW, rightW int) {
 	if m.narrow() || m.focus == panelPty {
-		return 0, 0, m.w, total
+		return 0, m.w
 	}
-	return sshLeftW, total, m.w - sshLeftW, total
+	return sshLeftW, m.w - sshLeftW
 }
 
-// listRows is how many rows [4] shows, which is the page size u/d move by half
-// of. The pty is not a list.
-func (m sshModel) listRows() int {
-	_, leftH, _, _ := m.panes()
-	return max(1, leftH-2)
+// stripVisible: the layout strip yields on a tab too short to hold it AND a
+// usable grid — three rows of chrome over a two-row terminal helps nobody.
+func (m sshModel) stripVisible() bool { return m.h >= layoutRows+3 }
+
+// gridArea is the box the terminal grid gets: the right column minus the
+// layout strip, when there is room for one.
+func (m sshModel) gridArea() (w, h int) {
+	_, rightW := m.panes()
+	if !m.stripVisible() {
+		return rightW, max(1, m.h)
+	}
+	return rightW, max(3, m.h-layoutRows)
 }
 
-// ptyInner is the cell grid the remote is told it has.
-func (m sshModel) ptyInner() (cols, rows int) {
-	_, _, rightW, rightH := m.panes()
-	return max(1, rightW-2), max(1, rightH-2)
+// gridDims is how many columns and rows the grid uses for n cells. Custom
+// respects its stated shape and grows ROWS when overfilled — a cell must
+// never silently not exist.
+func (m sshModel) gridDims(n int) (cols, rows int) {
+	if n <= 0 {
+		return 0, 0
+	}
+	switch m.layout {
+	case layoutVertical:
+		return 1, n
+	case layoutCustom:
+		c := clamp(m.gridC, 1, 9)
+		r := clamp(m.gridR, 1, 9)
+		return c, max(r, (n+c-1)/c)
+	default:
+		return n, 1
+	}
 }
+
+// splitEven divides total cells among parts, spreading the remainder from the
+// left so the widths always sum EXACTLY to total — the frame invariant does
+// not tolerate a stray column.
+func splitEven(total, parts int) []int {
+	out := make([]int, max(0, parts))
+	for i := range out {
+		out[i] = total / parts
+		if i < total%parts {
+			out[i]++
+		}
+	}
+	return out
+}
+
+// listRows is how many rows [1] shows, which is the page size u/d move by
+// half of.
+func (m sshModel) listRows() int { return max(1, m.h-2) }
 
 func (m *sshModel) setSize(w, h int) {
 	m.w, m.h = w, h
-	// Only the displayed session is resized. A background session keeps the
-	// geometry it was started with until it comes on screen, which is what a
-	// terminal multiplexer does too — resizing an unwatched remote just makes it
-	// redraw for nobody.
-	cols, rows := m.ptyInner()
-	s := m.currentSession()
-	if s != nil && (cols != m.appliedCols || rows != m.appliedRows || s.id != m.appliedID) {
-		s.pty.resize(cols, rows)
-		m.appliedCols, m.appliedRows, m.appliedID = cols, rows, s.id
-	}
+	m.applyGeometry()
 	m.clampCursors()
 }
 
 // setFocus moves focus and re-applies the geometry, because focus changes the
-// layout: entering [5] gives it the whole tab, leaving gives the width back.
+// layout: the side column folds while the grid holds the keyboard.
 func (m *sshModel) setFocus(p sshPanel) {
 	m.focus = p
-	m.setSize(m.w, m.h)
+	m.applyGeometry()
+}
+
+// applyGeometry pushes each displayed session's cell size to its PTY. A
+// resize is a SIGWINCH and makes the remote redraw, so it only reaches a
+// session whose numbers actually changed — appliedCols/Rows on the session
+// remember what it was last told.
+func (m *sshModel) applyGeometry() {
+	shown := m.shownSessions()
+	n := len(shown)
+	if n == 0 {
+		return
+	}
+	gw, gh := m.gridArea()
+	cols, rows := m.gridDims(n)
+	ws, hs := splitEven(gw, cols), splitEven(gh, rows)
+	for i, s := range shown {
+		cellCols, cellRows := max(1, ws[i%cols]-2), max(1, hs[i/cols]-2)
+		if s.pty != nil && (cellCols != s.appliedCols || cellRows != s.appliedRows) {
+			s.pty.resize(cellCols, cellRows)
+			s.appliedCols, s.appliedRows = cellCols, cellRows
+		}
+	}
 }
 
 // ---------------------------------------------------------------- lifecycle
 
-// currentSession is only ever a LIVE session. A finished one is released the
-// moment it is reaped, so [5] falls back to its empty state instead of freezing
-// on a dead screen that still looks like a prompt.
-func (m sshModel) currentSession() *session {
+func (m sshModel) byID(id int) *session {
 	for _, s := range m.sessions {
-		if s.id == m.current {
+		if s.id == id {
 			return s
 		}
 	}
 	return nil
 }
 
+func (m sshModel) isShown(id int) bool {
+	for _, sid := range m.shown {
+		if sid == id {
+			return true
+		}
+	}
+	return false
+}
+
+// shownSessions resolves the grid to its live sessions, in display order.
+func (m sshModel) shownSessions() []*session {
+	out := make([]*session, 0, len(m.shown))
+	for _, id := range m.shown {
+		if s := m.byID(id); s != nil {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// currentSession is the session whose PTY holds the keyboard, which only
+// means something while focus is inside the grid.
+func (m sshModel) currentSession() *session {
+	if m.focus != panelPty || m.focusPty < 0 || m.focusPty >= len(m.shown) {
+		return nil
+	}
+	return m.byID(m.shown[m.focusPty])
+}
+
 func (m sshModel) liveCount() int { return len(m.sessions) }
 
-// connect starts a session and puts it on screen. A failure to even launch ssh
-// lands in history with the reason, rather than vanishing.
+// connect starts a session, puts its cell on the grid and points focusPty at
+// it (the caller decides whether to enter). A failure to even launch ssh
+// lands in failed with the reason, rather than vanishing.
 func (m *sshModel) connect(h store.Host) (*session, error) {
-	cols, rows := m.ptyInner()
 	m.failed = nil
 	s := &session{id: m.nextID, host: h, started: time.Now(), state: sessLive}
 	m.nextID++
 
-	p, err := startPty(buildSSHCmd(h, selfPath(), m.timeoutSecs()), cols, rows)
+	// A provisional size; applyGeometry corrects it to the real cell the
+	// moment the session joins the grid.
+	p, err := startPty(buildSSHCmd(h, selfPath(), m.timeoutSecs()), 80, 24)
 	if err != nil {
 		s.state, s.ended, s.reason = sessEnded, time.Now(), "failed to start: "+err.Error()
 		m.failed = s
 		return s, err
 	}
-	s.pty = p
+	s.pty, s.appliedCols, s.appliedRows = p, 80, 24
 	m.sessions = append(m.sessions, s)
 	m.renumber()
-	m.current = s.id
+	m.shown = append(m.shown, s.id)
+	m.focusPty = len(m.shown) - 1
 	m.curSess = len(m.sessions) - 1
+	m.applyGeometry()
 	m.clampCursors()
 	return s, nil
 }
@@ -188,14 +283,9 @@ func (m sshModel) timeoutSecs() int {
 //
 // ssh's own -o ConnectTimeout covers the TCP connect and covers it better than
 // this can, because ssh prints a real message when it fires. What it does not
-// cover is a host that completes the connection and then goes quiet — DNS that
-// stalls, a server that accepts and never sends its banner. From the outside
-// those are indistinguishable from a connection still being made, and without
-// this they would spin until the user gave up on the app rather than on the
-// host.
-//
-// The grace is what keeps the two from racing: ssh gets to fire its own timeout,
-// with its own words, before sshu reaches for the plug.
+// cover is a host that completes the connection and then goes quiet. The grace
+// is what keeps the two from racing: ssh gets to fire its own timeout, with
+// its own words, before sshu reaches for the plug.
 func (m *sshModel) sweepStalled() {
 	if len(m.sessions) == 0 {
 		return
@@ -219,7 +309,7 @@ func (m *sshModel) sweepStalled() {
 const stallGrace = 5 * time.Second
 
 // renumber assigns #N to hosts that have more than one live session, so the
-// name-only list can still tell them apart.
+// list and the cell titles can still tell them apart.
 func (m *sshModel) renumber() {
 	count := map[string]int{}
 	for _, s := range m.sessions {
@@ -236,13 +326,18 @@ func (m *sshModel) renumber() {
 	}
 }
 
-// reap moves finished sessions into history. Returns true if anything changed,
-// so the caller knows to keep ticking or not.
-// reap moves finished sessions to history and RETURNS them, because a session
-// ending used to be completely silent: it left [4], [5] switched away, and the
-// only trace was a panel that no longer exists. The caller says so.
+// reap moves finished sessions out and RETURNS them, because a session ending
+// used to be completely silent. Its cell leaves the grid; the keyboard must
+// never silently land in another remote, so if the FOCUSED cell died, focus
+// falls back to the list.
 func (m *sshModel) reap() []*session {
+	focusID := -1
+	if m.focus == panelPty && m.focusPty >= 0 && m.focusPty < len(m.shown) {
+		focusID = m.shown[m.focusPty]
+	}
+
 	var live, ended []*session
+	var lastBadShown *session
 	for _, s := range m.sessions {
 		if !s.pty.exited() {
 			live = append(live, s)
@@ -261,25 +356,18 @@ func (m *sshModel) reap() []*session {
 		// and the line on the screen tells them apart. Read it before the
 		// emulator goes.
 		if !s.ok {
-			// Two different jobs, so two different amounts of it: the headline
-			// is what a toast and a panel line can hold, the whole screen is
-			// what the log keeps. Both are read here because a tick later the
-			// emulator is gone.
 			if w := s.pty.lastWords(); w != "" {
 				s.reason = w
 			}
 			s.detail = s.pty.screenLines()
-		}
-		// The screen is not kept, so neither is the emulator behind it: a whole
-		// terminal grid per past session, for something nothing renders.
-		s.pty.stop()
-		s.pty = nil
-		if s.id == m.current {
-			m.current = 0
-			if !s.ok {
-				m.failed = s
+			if m.isShown(s.id) {
+				lastBadShown = s
 			}
 		}
+		// The screen is not kept, so neither is the emulator behind it.
+		s.pty.stop()
+		s.pty = nil
+		m.dropShown(s.id)
 		ended = append(ended, s)
 	}
 	if len(ended) == 0 {
@@ -287,18 +375,44 @@ func (m *sshModel) reap() []*session {
 	}
 	m.sessions = live
 	m.renumber()
-	// A session that dies while focused would otherwise trap the keyboard in a
-	// PTY nobody is driving.
-	if m.focus == panelPty && m.currentSession() == nil {
-		m.setFocus(panelSessions)
+
+	// A failure holds the grid only when it left the grid EMPTY — with other
+	// cells still live, the toast and the log carry it and the grid reflows.
+	if len(m.shown) == 0 && lastBadShown != nil {
+		m.failed = lastBadShown
 	}
+	if m.focus == panelPty {
+		if idx := indexOfID(m.shown, focusID); idx >= 0 {
+			m.focusPty = idx
+		} else {
+			m.setFocus(panelSessions)
+		}
+	}
+	m.applyGeometry()
 	m.clampCursors()
 	return ended
 }
 
-// sshHistoryCap bounds the in-memory history. Entries are metadata only once
-// reaped, so this is about a list staying readable, not about memory.
-const sshHistoryCap = 200
+func (m *sshModel) dropShown(id int) {
+	for i, sid := range m.shown {
+		if sid == id {
+			m.shown = append(m.shown[:i], m.shown[i+1:]...)
+			if m.focusPty >= len(m.shown) {
+				m.focusPty = max(0, len(m.shown)-1)
+			}
+			return
+		}
+	}
+}
+
+func indexOfID(ids []int, id int) int {
+	for i, v := range ids {
+		if v == id {
+			return i
+		}
+	}
+	return -1
+}
 
 // stopAll kills every subprocess. Called on quit.
 func (m *sshModel) stopAll() {
@@ -324,22 +438,70 @@ func (m sshModel) tick() tea.Cmd {
 	return tea.Tick(sshTickEvery, func(time.Time) tea.Msg { return sshTickMsg{} })
 }
 
-// cycleFocus has one place to go: [4]. Tab stays inside this tab and [5] is not
-// in the cycle — it hands the keyboard to a remote, so tabbing into it would
-// swallow the very key that got you there and leave no way forward. Entering the
-// PTY is a deliberate act (Enter on a session, the 5 key, or l) and leaving it
-// is Alt+Esc.
-//
-// So Tab is a no-op here unless you are in the PTY, where it is a way out that
-// costs nothing to offer.
-func (m *sshModel) cycleFocus(back bool) { m.setFocus(panelSessions) }
+// toggleShown flips one session's cell in and out of the grid.
+func (m *sshModel) toggleShown(id int) {
+	m.failed = nil
+	if m.isShown(id) {
+		m.dropShown(id)
+	} else {
+		m.shown = append(m.shown, id)
+	}
+	m.applyGeometry()
+}
+
+// toggleCursorShown is Tab on [1]: flip the cursor session's cell. Tab's
+// panel-cycling job is meaningless on this tab — the grid is not somewhere
+// Tab may wander (it would swallow the key) — so the key was free for the
+// thing the list actually does all day.
+func (m *sshModel) toggleCursorShown() {
+	if m.focus != panelSessions || m.curSess >= len(m.sessions) {
+		return
+	}
+	m.toggleShown(m.sessions[m.curSess].id)
+}
+
+// showAndFocus puts a session's cell on the grid (if it is not already there)
+// and hands it the keyboard. The side column folds on the way in.
+func (m *sshModel) showAndFocus(id int) {
+	m.failed = nil
+	if !m.isShown(id) {
+		m.shown = append(m.shown, id)
+	}
+	if idx := indexOfID(m.shown, id); idx >= 0 {
+		m.focusPty = idx
+	}
+	m.setFocus(panelPty)
+}
+
+// focusPtyIndex is Alt+N: the keyboard goes to the Nth cell, if there is one.
+func (m *sshModel) focusPtyIndex(i int) {
+	if i < 0 || i >= len(m.shown) {
+		return
+	}
+	m.failed = nil
+	m.focusPty = i
+	m.setFocus(panelPty)
+}
+
+// layoutKey drives the [2] strip: h/l walk the three modes and apply
+// immediately. It reports whether the caller should ask for custom's shape —
+// Enter on custom is the request to change it.
+func (m *sshModel) layoutKey(k string) (askDims bool) {
+	switch k {
+	case "h", "left":
+		m.layout = (m.layout + layoutModeCount - 1) % layoutModeCount
+	case "l", "right":
+		m.layout = (m.layout + 1) % layoutModeCount
+	case "enter":
+		return m.layout == layoutCustom
+	default:
+		return false
+	}
+	m.applyGeometry()
+	return false
+}
 
 func (m *sshModel) handleListKey(k string) {
-	// `l` used to cross into [5] as well. It was redundant: Enter on a session
-	// already shows it AND focuses it (openSession), so `l` was a second key for
-	// something one key already did — and every key that hands the keyboard to a
-	// remote is one more way to end up somewhere you need Alt+Esc to leave.
-	// Entering [2] is Enter, or the `2` that jumps to any panel.
 	switch m.focus {
 	case panelSessions:
 		m.curSess = moveCursor(m.curSess, len(m.sessions), k, m.listRows())
@@ -352,11 +514,15 @@ func (m sshModel) status() string {
 	if len(m.sessions) == 0 {
 		return "no sessions"
 	}
-	return plural(len(m.sessions), "live session")
+	out := plural(len(m.sessions), "live session")
+	if n := len(m.shown); n > 0 {
+		out += " · " + itoa(n) + " on grid"
+	}
+	return out
 }
 
 // endedBadlyToast is the immediate half of the news. The log keeps the detail;
-// this only has to be enough to make somebody press `!`.
+// this only has to be enough to make somebody open it.
 func endedBadlyToast(bad []*session) string {
 	switch len(bad) {
 	case 0:
@@ -392,27 +558,30 @@ func itoa(n int) string {
 // -------------------------------------------------------------------- view
 
 func (m sshModel) view() string {
-	// panes() is the only place that decides the shape. Repeating the narrow test
-	// here is how the two got out of step when focus became a second reason to
-	// collapse the split, and a zero-width panel is a crash, not a cosmetic bug.
-	leftW, leftH, rightW, rightH := m.panes()
-	if leftW <= 0 {
-		return m.ptyPanel(rightW, rightH)
+	leftW, rightW := m.panes()
+	right := m.gridView()
+	if m.stripVisible() {
+		right = joinVertical(m.layoutPanel(rightW), right)
 	}
-	return joinHorizontal(m.sessionsPanel(leftW, leftH), m.ptyPanel(rightW, rightH))
+	if leftW <= 0 {
+		return right
+	}
+	return joinHorizontal(m.sessionsPanel(leftW, m.h), right)
 }
 
-// panelTitle is what panel p's capsule says, and what the Space menu calls the
-// surface it was opened on — one function for both (see sftpModel.panelTitle).
+// panelTitle is what panel p's capsule says, and what the Space menu calls
+// the surface it was opened on — one function for both.
 func (m sshModel) panelTitle(p sshPanel) string {
 	switch p {
 	case panelSessions:
 		return "[1] sessions"
+	case panelLayout:
+		return "[2] layout"
 	}
 	if s := m.currentSession(); s != nil {
-		return "[2] " + s.host.Name
+		return "[Alt-" + itoa(m.focusPty+1) + "] " + s.host.Name
 	}
-	return "[2] ssh"
+	return "ssh"
 }
 
 func (m sshModel) sessionsPanel(w, h int) string {
@@ -421,38 +590,113 @@ func (m sshModel) sessionsPanel(w, h int) string {
 	return panelChrome(innerW, rows, m.panelTitle(panelSessions), m.focus == panelSessions)
 }
 
-// ptyPanel draws the session on screen, or says why there is nothing to draw.
-//
-// A live session that has not said ANYTHING yet gets the connecting body rather
-// than its own blank grid. Those two look identical — an empty bordered box —
-// and they are not the same thing at all: ssh prints nothing while it waits for
-// a TCP connection, and against an address that never answers that wait is the
-// operating system's, which can run past a minute. What the user saw was a tab
-// that did nothing, with no way to tell a slow host from a broken app.
-//
-// This is the same complaint the sftp dial spinner was built for, and this tab
-// did not get one because "the PTY shows whatever the remote sends" — which is
-// exactly wrong when the remote has not sent anything.
-func (m sshModel) ptyPanel(w, h int) string {
-	innerW, innerH := w-2, h-2
-	s := m.currentSession()
-
-	rows := m.ptyEmpty(innerW, innerH)
-	switch {
-	case s == nil && m.failed != nil:
-		rows = m.failedBody(m.failed, innerW, innerH)
-	case s == nil:
-	case s.state == sessLive && !s.pty.hasSpoken():
-		rows = m.connectingBody(s, innerW, innerH)
-	default:
-		rows = s.pty.render(innerW, innerH)
+// layoutPanel is the [2] strip: three radio choices, custom wearing its shape.
+func (m sshModel) layoutPanel(w int) string {
+	innerW := w - 2
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	on := lipgloss.NewStyle().Foreground(textColor)
+	if m.focus == panelLayout {
+		on = lipgloss.NewStyle().Foreground(editColor).Bold(true)
 	}
-	return panelChrome(innerW, fitLines(rows, innerW, innerH),
-		m.panelTitle(panelPty), m.focus == panelPty)
+
+	parts := make([]string, 0, int(layoutModeCount))
+	plain := make([]string, 0, int(layoutModeCount))
+	for l := layoutMode(0); l < layoutModeCount; l++ {
+		glyph := glyphRadioOff
+		if l == m.layout {
+			glyph = glyphRadioOn
+		}
+		label := l.label()
+		if l == layoutCustom {
+			label += " " + itoa(clamp(m.gridC, 1, 9)) + "×" + itoa(clamp(m.gridR, 1, 9))
+		}
+		text := glyph + " " + label
+		plain = append(plain, text)
+		if l == m.layout {
+			parts = append(parts, on.Render(text))
+		} else {
+			parts = append(parts, dim.Render(text))
+		}
+	}
+	row := " " + strings.Join(parts, "  ")
+	if dispW(" "+strings.Join(plain, "  ")) > innerW {
+		// No room for the choir: show only the current choice.
+		row = " " + on.Render(plain[int(m.layout)])
+	}
+	return panelChrome(innerW, fitLines([]string{row}, innerW, 1),
+		m.panelTitle(panelLayout), m.focus == panelLayout)
 }
 
-// connectingBody is the waiting state: it MOVES, because "is this thing stuck"
-// is the question being asked and a still frame is what stuck looks like.
+// gridView is the terminal grid — or, with nothing on it, one panel that says
+// what to do about that (and what just went wrong, if something did).
+func (m sshModel) gridView() string {
+	gw, gh := m.gridArea()
+	shown := m.shownSessions()
+	if len(shown) == 0 {
+		innerW, innerH := gw-2, gh-2
+		body := m.gridEmpty(innerW, innerH)
+		if m.failed != nil {
+			body = m.failedBody(m.failed, innerW, innerH)
+		}
+		return panelChrome(innerW, fitLines(body, innerW, innerH), "", false)
+	}
+
+	cols, rows := m.gridDims(len(shown))
+	ws, hs := splitEven(gw, cols), splitEven(gh, rows)
+	out := make([]string, 0, rows)
+	for r := 0; r < rows; r++ {
+		cells := make([]string, 0, cols)
+		for c := 0; c < cols; c++ {
+			i := r*cols + c
+			if i < len(shown) {
+				cells = append(cells, m.cellView(shown[i], i, ws[c], hs[r]))
+			} else {
+				cells = append(cells, blankBlock(ws[c], hs[r]))
+			}
+		}
+		out = append(out, joinHorizontal(cells...))
+	}
+	return joinVertical(out...)
+}
+
+// cellView is one grid cell: a bordered terminal wearing the chord that
+// focuses it.
+func (m sshModel) cellView(s *session, i, w, h int) string {
+	innerW, innerH := w-2, h-2
+	var rows []string
+	if s.state == sessLive && !s.pty.hasSpoken() {
+		rows = m.connectingBody(s, innerW, innerH)
+	} else {
+		rows = s.pty.render(innerW, innerH)
+	}
+	focused := m.focus == panelPty && i == m.focusPty
+	return panelChrome(innerW, fitLines(rows, innerW, innerH),
+		m.cellTitle(s, i, innerW), focused)
+}
+
+// cellTitle names the cell by the chord that reaches it, then by what it is.
+func (m sshModel) cellTitle(s *session, i, innerW int) string {
+	t := "[Alt-" + itoa(i+1) + "] " + s.host.User + "@" + s.host.Host
+	if tag := s.ordinalTag(); tag != "" {
+		t += " " + tag
+	}
+	return truncate(t, max(0, innerW-2))
+}
+
+// blankBlock fills a custom grid's unused cell with canvas, not with an empty
+// border — a frame around nothing reads as a broken terminal.
+func blankBlock(w, h int) string {
+	row := strings.Repeat(" ", max(0, w))
+	rows := make([]string, 0, max(0, h))
+	for i := 0; i < h; i++ {
+		rows = append(rows, row)
+	}
+	return strings.Join(rows, "\n")
+}
+
+// connectingBody is the waiting state: it MOVES, because "is this thing
+// stuck" is the question being asked and a still frame is what stuck looks
+// like.
 func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	hand := lipgloss.NewStyle().Foreground(handColor)
@@ -478,22 +722,21 @@ func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
 	return append(out, line)
 }
 
-func (m sshModel) ptyEmpty(innerW, innerH int) []string {
-	return emptyBody(innerW, innerH, "No session on screen",
-		emptyHint("Select a session in [1], or connect from [Alt-P] hosts", "[1]", "[Alt-P]"))
+func (m sshModel) gridEmpty(innerW, innerH int) []string {
+	return emptyBody(innerW, innerH, "Nothing on the grid",
+		emptyHint("Tab in [1] toggles a session's cell — Enter shows one and takes the keyboard", "[1]"))
 }
 
-// failedBody is how a connection ends when it ends badly: the host, what the
-// far end actually said, and where the record is. It stays until something else
-// takes the panel — a failure that erases itself after two seconds is a failure
-// you cannot read.
+// failedBody is how a connection ends when it ends badly and nothing else is
+// left on the grid: the host, what the far end actually said, and where the
+// record is. It stays until something else takes the space.
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 	who := s.host.User + "@" + s.host.Host
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
 		emptyHint("The detail is in [Alt-P] logs — or try another host", "[Alt-P]"))
 }
 
-// listBody lays out [4]. Each entry is a block, because a long address wraps.
+// listBody lays out [1]. Each entry is a block, because a long address wraps.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		return emptyBody(innerW, innerH, "No sessions",
@@ -507,57 +750,46 @@ func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []
 	return out
 }
 
-// listItem lays out one row of [4]:
+// listItem lays out one row of [1]:
 //
-//	<space><user>@<host>…<port>
+//	<space><display glyph> <user>@<host>…<port>
 //
-// The row says what the connection IS rather than what it is called: two saved
-// hosts can share a machine and a name is a label somebody chose, but
-// `deploy@10.0.3.14` is the thing ssh actually did. The port sits at the right
-// edge of the name line, which is where the empty space was, and never truncates.
+// The leading glyph is the display column — a monitor when this session has a
+// cell on the grid, a struck-through one when it does not. Two shapes rather
+// than one shape in two colours, so the difference survives any palette.
 //
-// Colour is TWO independent channels:
-//
-//	foreground  ->  green when this is the session [5] is showing
-//	background  ->  the cursor bar
-//
-// Because they are different channels there is no contention and no special
-// case — which is what removed both the old inverse (a green BACKGROUND when the
-// cursor landed on the on-screen row) and the terminal glyph that used to carry
-// the same signal a second time.
-//
-// Where the two do meet, the bar wins and that one row's green is not visible.
-// That is the trade, and it is a cheap one: the cursor is on the row, and [5]'s
-// own title beside it is naming that session.
+// Colour is still two independent channels: green foreground = on the grid,
+// background = the cursor bar. Where they meet the bar wins; the glyph is
+// what still tells the state there.
 func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 	nameFG := textColor
-	if s.id == m.current {
+	glyph, glyphFG := glyphMonitorOff, dimColor
+	if m.isShown(s.id) {
 		nameFG = liveColor
+		glyph, glyphFG = glyphMonitor, liveColor
 	}
 
 	body := lipgloss.NewStyle().Foreground(nameFG)
+	gStyle := lipgloss.NewStyle().Foreground(glyphFG)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	if isCursor {
 		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
-		body, dim = bar, bar
+		body, dim, gStyle = bar, bar, bar
 	}
 
-	// tailCell is the gap AND the slot together — one number, so the gap cannot be
-	// counted twice (subtracted from the name and again inside the slot), which is
-	// exactly how this row once came out a cell short.
+	// tailCell is the gap AND the slot together — one number, so the gap
+	// cannot be counted twice.
 	tailCell := 0
-	if innerW >= sshListLeadW+sshPortW+2 {
+	if innerW >= sshListLeadW+sshPortW+4 {
 		tailCell = sshPortW + 1
 	}
 
-	// The ordinal rides along with the address instead of owning a slot: it is
-	// the only thing separating two sessions to the same host, and neither the
-	// address nor the port can do that job.
 	label := s.host.User + "@" + s.host.Host
 	if tag := s.ordinalTag(); tag != "" {
 		label += " " + tag
 	}
-	nameW := max(1, innerW-sshListLeadW-tailCell)
+	const glyphCell = 2 // the glyph and its trailing space
+	nameW := max(1, innerW-sshListLeadW-glyphCell-tailCell)
 	lines := wrapText(label, nameW)
 
 	lead := strings.Repeat(" ", sshListLeadW)
@@ -567,7 +799,11 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 		if tailCell > 0 && i == len(lines)-1 {
 			tail = padLeft(strconv.Itoa(s.host.Port), tailCell)
 		}
-		out = append(out, body.Render(lead+padRight(l, nameW))+dim.Render(tail))
+		g := glyph + " "
+		if i > 0 {
+			g = "  " // continuation lines indent under the name
+		}
+		out = append(out, gStyle.Render(lead+g)+body.Render(padRight(l, nameW))+dim.Render(tail))
 	}
 	return out
 }
