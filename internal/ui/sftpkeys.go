@@ -84,7 +84,7 @@ var sftpActions = []sftpAction{
 	{key: "T", label: "Transfer all marks", hint: "to the other side", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSendMarks},
 	{key: "X", label: "Delete all marks", hint: "erase them, on this host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpDeleteMarks},
 	{key: "C", label: "Clear marks", hint: "forget them, change nothing", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpResetMarks},
-	{key: keySelectHost, label: "Select host", hint: "local or a saved host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSwitchHost},
+	{key: keySelectHost, label: "Select host", hint: "this directory, or a saved host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSwitchHost},
 	{key: "P", label: "Progress", hint: "transfers, and cancel", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpTransfers},
 }
 
@@ -208,7 +208,7 @@ func (m AppModel) sftpResetMarks() (tea.Model, tea.Cmd) {
 // thing a new user meets in this tab.
 func (m AppModel) sftpSwitchHost() (tea.Model, tea.Cmd) {
 	items := []menuItem{{label: "connect to", header: true},
-		{label: remote.LocalLabel, key: remote.LocalLabel, hint: "this machine"}}
+		{label: remote.LocalLabel, key: remote.LocalLabel, hint: "this directory"}}
 	// The picker's own keys are names, not letters, so hotkeyIndex never fires
 	// here — j/k and Enter are how it is driven.
 	for _, h := range m.hosts.hosts {

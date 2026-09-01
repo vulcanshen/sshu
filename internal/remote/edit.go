@@ -48,6 +48,25 @@ func LocalPath(f FS, p string) (string, bool) {
 	return "", false
 }
 
+// StartDir is where a side should open when it connects.
+//
+// A remote side opens at its home: there is nowhere else it could mean. THIS
+// machine opens where sshu was launched, because that is the directory you were
+// standing in when you decided you needed sshu — `cd ~/release && sshu` should
+// already be looking at the release, not at a home directory full of dotfiles
+// you then have to navigate out of.
+//
+// sshu never changes its own working directory, so asking for it here is the
+// same as having captured it at startup.
+func StartDir(f FS, home string) string {
+	if _, ok := f.(localFS); ok {
+		if wd, err := os.Getwd(); err == nil {
+			return filepath.ToSlash(wd)
+		}
+	}
+	return home
+}
+
 // Fetch copies p into dir under its own name and returns the local path.
 //
 // The name is kept because editors read it: syntax rules, filetype detection and

@@ -140,21 +140,23 @@ func TestDScrollsInEveryTab(t *testing.T) {
 	}
 }
 
-// l crosses into [5] from either list, the same way it crosses sides in tab [2].
-// Tab still refuses to go there, and that is the point of having both keys.
-func TestLEntersThePtyButTabStillWillNot(t *testing.T) {
+// Nothing WANDERS into [5]. Entering it is a decision, because every key after
+// it belongs to the remote and Alt+Esc is the only way back.
+//
+// `l` used to cross into it, mirroring tab [2]'s h/l. It was redundant — Enter
+// on a session already shows it and focuses it — and a navigation key that hands
+// the keyboard away is a navigation key you can trip over. The deliberate ways
+// in are Enter (TestDigitsAddressPanelsOfTheCurrentTab covers `5`, and the Space
+// menu's Open covers Enter); the ways that must NOT work are here.
+func TestNothingWandersIntoThePty(t *testing.T) {
 	m := appWith(sample(), nil)
 	m.tab = tabSSH
 
-	for _, from := range []sshPanel{panelSessions} {
-		m.ssh.setFocus(from)
-		m = press(m, "l")
-		if m.ssh.focus != panelPty {
-			t.Errorf("l from panel %d landed on %d, want the pty", from, m.ssh.focus)
-		}
-		m = press(m, "right")
-		if m.ssh.focus != panelPty {
-			t.Errorf("right from panel %d landed on %d, want the pty", from, m.ssh.focus)
+	for _, k := range []string{"l", "right", "h", "left", "j", "k", "G"} {
+		m.ssh.setFocus(panelSessions)
+		m = press(m, k)
+		if m.ssh.focus == panelPty {
+			t.Errorf("%q walked into the pty", k)
 		}
 	}
 

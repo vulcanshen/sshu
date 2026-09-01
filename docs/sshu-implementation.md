@@ -464,7 +464,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 膠囊 tab bar + 分隔線 + footer,`chromeRows` 鎖死 3 | `ui/chrome.go` `ui/view.go` |
 | `[1]` hosts 表格、responsive 收縮、form + 驗證、identity file picker | `ui/hosts.go` `ui/table.go` `ui/form.go` `ui/filepicker.go` |
 | `[1]` `/` 跨欄 fuzzy 搜尋(不含 auth)、依分數排序 | `ui/hosts.go refilter` |
-| `[2]` 四 panel、`remote.FS` 一介面兩實作、marks | `ui/sftptab.go` `remote/fs.go` |
+| `[2]` 四 panel、`remote.FS` 一介面兩實作、marks;本機側開在啟動目錄 | `ui/sftptab.go` `remote/fs.go` `remote/edit.go StartDir` |
 | `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限 | `remote/search.go` `ui/sftpsearch.go` |
 | `[2]` 傳輸:先 plan、進度、逐條 cancel、半檔清除 | `remote/copy.go` `ui/transfer.go` |
 | `[2]` rename / delete / **add**(結尾 `/` 建目錄,否則建空檔;遞迴刪除不跟隨 symlink) | `ui/sftpkeys.go` `remote/fs.go RemoveAll` |
@@ -513,7 +513,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `j` / `k` | 上 / 下一列(**繞**) |
 | `u` / `d`、`Ctrl+U` / `Ctrl+D` | 上 / 下半頁(不繞) |
 | `gg` / `G` | 第一 / 最後一列 |
-| `h` / `l` | tab [2] 切左右;tab [3] `l` 進 `[5]` |
+| `h` / `l` | tab [2] 切左右。**tab [3] 沒有** —— 進 `[5]` 是 Enter 或 `5`,把鍵盤交出去這件事該是決定,不是路過 |
 
 ### `[1]` hosts
 
@@ -545,7 +545,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | 全部 | `4` / `5` | 直達 sessions / pty |
-| `[4]` | `Enter` · `l` | 進入或切換(不確認)/ 進 `[5]` |
+| `[4]` | `Enter` | 進入或切換並把 focus 給 `[5]`(不確認) |
 | `[4]` | `C` · `D` · `H` | Close(先問)/ Duplicate(先問)/ History popup |
 | `[5]` | 所有鍵 | 送給遠端 |
 | `[5]` | **`Alt+Esc`** | **收回鍵盤** |

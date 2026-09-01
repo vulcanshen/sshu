@@ -32,7 +32,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 
 **`[1]` hosts** — a table over `hosts.yaml`: name, user, host, port and auth method, one row each, shedding columns as the terminal narrows. `[A]dd` / `[E]dit` open a form with live validation; `Tab` on the IdentityFile field opens a fuzzy file picker that shows permissions and flags a key other people can read. `Enter` connects.
 
-**`[2]` sftp** — two independent filesystems side by side, 1:1. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
+**`[2]` sftp** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
 **`[3]` ssh** — many concurrent sessions, each a real `ssh` in an embedded terminal, one shown at a time. `[5]` takes the whole tab while the remote has the keyboard; `Alt+Esc` takes it back.
 
@@ -136,7 +136,7 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | `T` | Transfer every mark on this side |
 | `X` | Delete every mark on this side (asks first) |
 | `C` | Clear the marks — forgets them, changes nothing on disk |
-| `S` | Select host (`local` is always the first choice) |
+| `S` | Select host — `local` is first, and it opens **the directory you launched sshu in** |
 | `P` | Progress — running transfers, with per-job cancel |
 
 ### `[3]` ssh
@@ -144,7 +144,6 @@ In the form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` 
 | Key | Action |
 |---|---|
 | `Enter` | Show this session in `[5]` (no confirmation — switching costs nothing) |
-| `l` | Cross into `[5]` |
 | `C` | Close this session (asks first) |
 | `D` | Duplicate — a second session to the same host (asks first) |
 | `H` | History — sessions that have ended, and why |

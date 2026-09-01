@@ -126,7 +126,7 @@ func (m viewerPopup) view() string {
 	if n := len(m.lines); n > m.rows() {
 		hint = append([][2]string{{itoa(m.top + 1), "of " + itoa(n)}}, hint...)
 	}
-	return drawPopupBox(popupLayerColor(m.layer), " "+glyphSearch+" "+m.title+" ",
+	return drawPopupBox(popupLayerColor(m.layer), " "+glyphEye+" "+m.title+" ",
 		hintLegend(hint), animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
 

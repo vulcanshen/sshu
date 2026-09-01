@@ -259,18 +259,11 @@ func (m sshModel) tick() tea.Cmd {
 func (m *sshModel) cycleFocus(back bool) { m.setFocus(panelSessions) }
 
 func (m *sshModel) handleListKey(k string) {
-	// l crosses into [5], spatially: [4] and [6] are the left column and the pty
-	// is the right one, the same "go right" h/l mean in tab [2].
-	//
-	// Tab deliberately does NOT do this (§4.4.1) and that is not a contradiction:
-	// Tab would be swallowed by the remote, so tabbing in locks the very key that
-	// got you there. `l` is not a way back OUT of anywhere, so lending it to the
-	// pty costs nothing — and the way out is the Alt+Esc it always was.
-	if k == "l" || k == "right" {
-		m.setFocus(panelPty)
-		return
-	}
-
+	// `l` used to cross into [5] as well. It was redundant: Enter on a session
+	// already shows it AND focuses it (openSession), so `l` was a second key for
+	// something one key already did — and every key that hands the keyboard to a
+	// remote is one more way to end up somewhere you need Alt+Esc to leave.
+	// Entering [5] is Enter, or the `5` that jumps to any panel.
 	switch m.focus {
 	case panelSessions:
 		m.curSess = moveCursor(m.curSess, len(m.sessions), k, m.listRows())

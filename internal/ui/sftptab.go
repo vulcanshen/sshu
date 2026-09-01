@@ -255,7 +255,9 @@ func (s *sftpSideModel) connect(fsys remote.FS) {
 		home = "/"
 	}
 	s.home = home
-	s.open(home)
+	// home is kept for the ~ folding in the crumb; where the side OPENS is a
+	// different question, and for this machine it is the launch directory.
+	s.open(remote.StartDir(fsys, home))
 }
 
 // open lists dir and puts the cursor at the top. A failure leaves the previous
