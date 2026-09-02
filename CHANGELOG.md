@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`[C]lear logs`** — the app log's Space menu had nothing to offer but its
+  own description; it now carries one action. It asks first, and clearing
+  takes `applogs.yaml` with it (the file goes first — a panel emptied while
+  the file survives fills straight back up on the next start). An empty log
+  offers neither the row nor the key.
+
+### Changed
+
+- **The `[1] sshu` nav dims while the content panel holds the keyboard** —
+  headers, items and the cursor bar all recede together, so the nav reads as
+  the legend it is rather than competing with the panel being used. The
+  cursor stays a bar, one register down, and the unread-error count is the
+  one thing that does not dim.
+
 ## [0.1.1] — 2026-09-01
 
 ### Added

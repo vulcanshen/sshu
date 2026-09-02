@@ -500,10 +500,10 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
-| preference:nav(分類 header)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數 | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
+| preference:nav(分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
 | 「選值欄位」互動:空欄 Enter 開選單、有值 Enter 下一欄、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
-| app log 落地 applogs.yaml(append-only、自我修剪、0600);tail 開機讀回 | `store/applog.go` `ui/applog.go` |
+| app log 落地 applogs.yaml(append-only、自我修剪、0600);tail 開機讀回;`[C]lear logs` 先清檔(留警告標頭)再清記憶體 | `store/applog.go` `ui/applog.go` `ui/preftab.go` |
 | 子行程 registry:任何退出路徑(含 SIGINT/SIGTERM/SIGHUP)不留孤兒 ssh | `ui/procreg.go` `cmd/sshu/main.go` |
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
@@ -546,7 +546,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
 | `[2]` Hosts | `Enter` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ Add / Edit / Delete / Search |
 | `[2]` Credentials | `Enter` · `A` · `D` | Edit / Add / Delete(先問,列出引用數) |
-| `[2]` Logs | 導覽鍵 | 捲動;上畫面即已讀 |
+| `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 
 ### form(host / credential 共通)

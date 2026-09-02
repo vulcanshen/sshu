@@ -155,11 +155,49 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 		// vocabulary ran; nothing is left to do here.
 		return m, nil
 	case prefLogs:
+		// The one thing a log can be told to do. No action table behind it:
+		// one action is not a registry, and the Space menu row beside it is
+		// this same condition spelled once more (§4.2).
+		if k == "C" && len(m.log.entries) > 0 {
+			return m.askClearLogs()
+		}
 		_, _, rightW, rightH := m.pref.panes()
 		m.log.scrollKey(k, max(1, rightW-2), max(1, rightH-2))
 		return m, nil
 	}
 	return m.hostsKey(k)
+}
+
+// askClearLogs asks first. The log is the only record of what happened while
+// nobody was looking, and clearing it takes applogs.yaml with it — the same
+// shape of question deleting a host asks, for the same reason.
+func (m AppModel) askClearLogs() (tea.Model, tea.Cmd) {
+	return m, m.confirm.ask(confirmPopup{
+		glyph: glyphWarn,
+		title: "Confirm",
+		lines: []string{
+			"Clear the app log?",
+			logEntries(len(m.log.entries)) + " erased, applogs.yaml too.",
+		},
+		accept: "clear",
+		warn:   true,
+		action: confirmClearLogs,
+	}, m.layer())
+}
+
+func (m AppModel) doClearLogs() (tea.Model, tea.Cmd) {
+	n := len(m.log.entries)
+	if err := m.log.clear(); err != nil {
+		// The file refused, so the panel keeps its entries: a log that says it
+		// was cleared and is full again after a restart is worse than one that
+		// says it could not be.
+		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
+	}
+	// Deliberately NOT logged. "app log cleared" as the first line of a log
+	// somebody just emptied reads as a clear that did not work; the toast is
+	// where that news belongs, and it is gone by the time you look again.
+	return m, tea.Batch(m.closeStack(),
+		m.toast.show("Cleared "+logEntries(n), toastInfo))
 }
 
 func (m AppModel) prefView() string {
@@ -173,29 +211,53 @@ func (m AppModel) prefView() string {
 	return joinHorizontal(m.prefNav(leftW, leftH), m.prefContent(rightW, rightH))
 }
 
+// The whole nav recedes while the keyboard is on the content: it is then a
+// legend for what [2] is showing, not a place anybody is working, and a list
+// at full contrast whose cursor cannot move is the loudest thing on screen
+// for no reason. Every row goes one register down together — headers, items
+// and the cursor bar — so the panel reads as a single unlit object rather
+// than as a lit list inside a dim frame.
 func (m AppModel) prefNav(w, h int) string {
 	innerW, innerH := w-2, h-2
+	focused := m.pref.focus == panelPrefNav
 	rows := make([]string, 0, max(0, innerH))
-	head := lipgloss.NewStyle().Foreground(focusColor)
 	for _, sec := range prefSections {
-		rows = append(rows, head.Render(padRight(" "+sec.header, innerW)))
+		rows = append(rows, prefNavHead(sec.header, innerW, focused))
 		for _, it := range sec.items {
-			rows = append(rows, m.prefNavRow(it, innerW))
+			rows = append(rows, m.prefNavRow(it, innerW, focused))
 		}
 	}
 	return panelChrome(innerW, fitLines(rows, innerW, innerH),
-		m.pref.panelTitle(panelPrefNav), m.pref.focus == panelPrefNav)
+		m.pref.panelTitle(panelPrefNav), focused)
+}
+
+// prefNavHead is one category header. It wears the panel's own structure
+// colour — borderColor, so blue while the nav holds the keyboard and the
+// border's dim once it does not — because a header belongs to the frame, not
+// to the list.
+func prefNavHead(text string, innerW int, focused bool) string {
+	return lipgloss.NewStyle().Foreground(borderColor(focused)).
+		Render(padRight(" "+text, innerW))
 }
 
 // prefNavRow is one section row. The current one wears the cursor bar; the
 // logs row carries the unread-error count, because news nobody is told about
 // is news that did not arrive.
-func (m AppModel) prefNavRow(it prefItem, innerW int) string {
-	body := lipgloss.NewStyle().Foreground(textColor)
+//
+// Unfocused, the cursor stays a BAR — it is what says which section [2] is
+// showing — in the quieter register the unfocused panel chip already uses
+// (dark on borderDim). The unread badge is the one thing that does NOT dim:
+// it is news, and news matters most while you are looking somewhere else.
+func (m AppModel) prefNavRow(it prefItem, innerW int, focused bool) string {
+	label, bar := textColor, handColor
+	if !focused {
+		label, bar = dimColor, borderDim
+	}
+	body := lipgloss.NewStyle().Foreground(label)
 	tail := lipgloss.NewStyle().Foreground(warnColor)
 	if it == m.pref.item {
-		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
-		body, tail = bar, bar
+		cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(bar)
+		body, tail = cur, cur
 	}
 	badge := ""
 	if it == prefLogs {
@@ -242,14 +304,10 @@ func (m AppModel) prefStatus() string {
 	case prefImport:
 		return "merge a " + store.BundleExt + " bundle"
 	case prefLogs:
-		switch n := len(m.log.entries); n {
-		case 0:
+		if len(m.log.entries) == 0 {
 			return "log empty"
-		case 1:
-			return "1 entry"
-		default:
-			return itoa(n) + " entries"
 		}
+		return logEntries(len(m.log.entries))
 	}
 	return m.hosts.status()
 }

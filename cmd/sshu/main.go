@@ -59,7 +59,7 @@ func main() {
 		return store.SaveCreds(store.CredsFile{Credentials: list})
 	}
 	app := ui.New(hosts.Hosts, save, cfg).
-		WithLog(logTail, store.AppendLog).
+		WithLog(logTail, store.AppendLog, store.ClearLog).
 		WithCredentials(credsFile.Credentials, saveCreds)
 	if cfgErr != nil {
 		app = app.WithStartupError("config.yaml: " + cfgErr.Error())

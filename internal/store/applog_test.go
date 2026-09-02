@@ -91,6 +91,51 @@ func TestTheLogTrimsItsOwnTail(t *testing.T) {
 	}
 }
 
+// Clearing empties the file without losing what the file IS: the warning
+// header stays, the permission stays, and the next append still lands.
+func TestClearLogEmptiesTheFileButKeepsItsHeader(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "applogs.yaml")
+	if err := AppendLogTo(path, LogEntry{At: time.Now(), Level: "info", Msg: "connected"}); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if err := ClearLogTo(path); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+
+	out, err := LoadLogFrom(path)
+	if err != nil || len(out) != 0 {
+		t.Fatalf("a cleared log should read back empty, got %v, %v", out, err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "WARNING:") {
+		t.Errorf("the warning is about the file, not about its entries:\n%s", raw)
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := st.Mode().Perm(); perm != 0o600 {
+		t.Errorf("a cleared log keeps its 0600, got %o", perm)
+	}
+
+	// Still the file the next event appends to.
+	if err := AppendLogTo(path, LogEntry{At: time.Now(), Level: "info", Msg: "after"}); err != nil {
+		t.Fatalf("append after clear: %v", err)
+	}
+	if out, _ := LoadLogFrom(path); len(out) != 1 || out[0].Msg != "after" {
+		t.Errorf("want just the new entry, got %+v", out)
+	}
+}
+
+func TestClearLogMissingFileIsNotAnError(t *testing.T) {
+	if err := ClearLogTo(filepath.Join(t.TempDir(), "nope.yaml")); err != nil {
+		t.Fatalf("nothing recorded, nothing to erase: %v", err)
+	}
+}
+
 func TestLoadLogMissingFileIsEmpty(t *testing.T) {
 	out, err := LoadLogFrom(filepath.Join(t.TempDir(), "nope.yaml"))
 	if err != nil || out != nil {

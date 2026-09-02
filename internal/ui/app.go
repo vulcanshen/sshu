@@ -125,11 +125,14 @@ func (m AppModel) WithCredentials(creds []store.Credential, save func([]store.Cr
 }
 
 // WithLog wires the app log to applogs.yaml: tail is what the file already
-// held (shown, all read), sink is where each new entry goes. Applied before
-// WithStartupError so a startup complaint lands after the tail and on disk.
-func (m AppModel) WithLog(tail []store.LogEntry, sink func(store.LogEntry) error) AppModel {
+// held (shown, all read), sink is where each new entry goes, clear is how
+// [C]lear logs empties the file. Applied before WithStartupError so a startup
+// complaint lands after the tail and on disk.
+func (m AppModel) WithLog(tail []store.LogEntry, sink func(store.LogEntry) error,
+	clear func() error) AppModel {
 	m.log.preload(tail)
 	m.log.sink = sink
+	m.log.clearSink = clear
 	return m
 }
 
@@ -938,9 +941,17 @@ func (m AppModel) menuItems() []menuItem {
 	case prefCreds:
 		return m.credsMenuItems()
 	case prefLogs:
+		if len(m.log.entries) == 0 {
+			return []menuItem{
+				{label: "app log", header: true},
+				{label: "nothing recorded yet", header: true},
+			}
+		}
 		return []menuItem{
 			{label: "app log", header: true},
-			{label: "newest first — j/k scroll, nothing to act on", header: true},
+			{label: "newest first — j/k scroll", header: true},
+			{separator: true},
+			{label: "Clear logs", key: "C", hint: "erase every entry"},
 		}
 	case prefExport, prefImport:
 		return []menuItem{
@@ -1073,6 +1084,8 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.launchEditor()
 	case confirmEditOverwrite:
 		return m.saveEditForced()
+	case confirmClearLogs:
+		return m.doClearLogs()
 	}
 	return m, m.closeStack()
 }
