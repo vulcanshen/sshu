@@ -2512,7 +2512,7 @@ menu)整份都是 header 列,而 `spaceMenu.view()` 量寬度時**跳過 header*
 
 ---
 
-## 附錄 — 按鍵全表(v0.1.0)
+## 附錄 — 按鍵全表(v1.0.0)
 
 ### Tab 與 panel
 
