@@ -1,6 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0] — 2026-09-02
+
+First stable release. The surface is settled: three Alt-chord tabs
+(preference / file transfer / ssh), the grouped `[1] sshu` nav, reusable
+credentials, an app log that survives the process, two-sided sftp with a
+transfer queue, and an ssh terminal grid — with no way out that leaves an
+orphan behind. 300+ tests, `make check` green and `-race` clean.
+
+Changes since 0.1.1:
 
 ### Added
 
