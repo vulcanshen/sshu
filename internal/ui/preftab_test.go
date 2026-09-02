@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -66,7 +67,7 @@ func TestUnreadErrorsAreDisclosedAndClearedByLooking(t *testing.T) {
 	if foot := ansi.Strip(m.footer()); !strings.Contains(foot, "1 unread error") {
 		t.Errorf("the footer must count unread errors, got %q", foot)
 	}
-	if row := ansi.Strip(m.prefNavRow(prefLogs, 16)); !strings.Contains(row, "1") {
+	if row := ansi.Strip(m.prefNavRow(prefLogs, 16, false)); !strings.Contains(row, "1") {
 		t.Errorf("the nav's logs row must carry the count, got %q", row)
 	}
 
@@ -105,36 +106,129 @@ func TestPrefTabPreservesFrame(t *testing.T) {
 	}
 }
 
-// The category headers are app structure — the panel-border blue, not the
-// dim of secondary text — and the items under them are not.
-func TestNavHeadersAreBlue(t *testing.T) {
+// The category headers are app structure — the panel-border blue while the
+// nav holds the keyboard — and the items under them are not. Hand the keyboard
+// to the content and the whole panel goes down one register together: no blue
+// left anywhere, dim items, and a cursor that is still a bar because it is
+// what says which section [2] is showing.
+//
+// The rows are sampled ONE AT A TIME rather than out of prefNav's output: the
+// border wears these same colours on every line and would answer for them.
+func TestNavDimsWhenTheContentHasTheKeyboard(t *testing.T) {
 	withColour(t)
 	const blueHex = "#89b4fa"
 	if string(focusColor) != blueHex {
 		t.Fatalf("the header accent must be the structure blue %s, got %s", blueHex, focusColor)
 	}
-	blue := ansiOf(t, focusColor)
+	blue, quiet := ansiOf(t, focusColor), ansiOf(t, borderDim)
 
-	// The nav is sampled UNFOCUSED (the tab opens on the content): a focused
-	// panel border wears the same blue, which would put it on every row.
+	if h := prefNavHead("Events", 16, true); !strings.Contains(h, blue) {
+		t.Errorf("a focused category header should wear the structure blue, got %q", h)
+	}
+	if h := prefNavHead("Events", 16, false); strings.Contains(h, blue) || !strings.Contains(h, quiet) {
+		t.Errorf("an unfocused header should recede to the border's dim, got %q", h)
+	}
+
+	m := appWith(sample(), nil) // the tab opens on the content: the nav is unfocused
+	if row := m.prefNavRow(prefCreds, 16, true); !strings.Contains(row, ansiOf(t, textColor)) {
+		t.Errorf("a focused item should be full text colour, got %q", row)
+	}
+	if row := m.prefNavRow(prefCreds, 16, false); !strings.Contains(row, ansiOf(t, dimColor)) {
+		t.Errorf("an unfocused item should be dim, got %q", row)
+	}
+	if row := m.prefNavRow(prefHosts, 16, false); !strings.Contains(row, ansiBgOf(t, borderDim)) {
+		t.Errorf("the unfocused cursor keeps its bar, one register down, got %q", row)
+	}
+	// And the panel as a whole, border included, has no blue left in it.
+	if nav := m.prefNav(prefLeftW, 20); strings.Contains(nav, blue) {
+		t.Error("nothing in an unfocused nav should wear the structure blue")
+	}
+}
+
+// The log's one action, both ways round: the Space menu row and the letter it
+// names. It asks first, then empties the panel AND the file — and it says so
+// in a toast rather than in the log it just cleared.
+func TestClearLogsAsksThenEmptiesPanelAndFile(t *testing.T) {
 	m := appWith(sample(), nil)
-	var header, item string
-	for _, row := range strings.Split(m.prefNav(prefLeftW, 20), "\n") {
-		if strings.Contains(row, "Events") {
-			header = row
+	cleared := 0
+	m.log.clearSink = func() error { cleared++; return nil }
+	m.log.errorf("something broke")
+	m.log.info("and then something else")
+
+	m = pressA(m, "1", "j", "j", "enter") // nav → logs → the content
+	if m.pref.item != prefLogs || m.pref.focus != panelPrefContent {
+		t.Fatal("setup: expected the logs content focused")
+	}
+
+	// The menu names the key, and the key is what the menu commits.
+	label := ""
+	for _, it := range m.menuItems() {
+		if it.key == "C" {
+			label = bracketHotkey(it.label, it.key)
 		}
-		if strings.Contains(row, "Credentials") {
-			item = row
+	}
+	if label == "" {
+		t.Fatal("the logs menu must offer a way to clear the log")
+	}
+	if label != "[C]lear logs" {
+		t.Errorf("the row should read [C]lear logs, got %q", label)
+	}
+
+	m = pressA(m, "C")
+	if !m.confirm.isActive() {
+		t.Fatal("C should ask first — the log is the only record of what happened")
+	}
+	if lines := strings.Join(m.confirm.lines, " "); !strings.Contains(lines, "2 entries") ||
+		!strings.Contains(lines, "applogs.yaml") {
+		t.Errorf("the confirm must count the cost and name the file, got %q", lines)
+	}
+
+	m = pressA(m, "enter")
+	if n := len(m.log.entries); n != 0 {
+		t.Errorf("the panel should be empty, %d entries left", n)
+	}
+	if cleared != 1 {
+		t.Errorf("applogs.yaml should have been emptied exactly once, got %d", cleared)
+	}
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "Cleared 2 entries") {
+		t.Errorf("the toast is where the news goes:\n%s", v)
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "Nothing has happened yet") {
+		t.Error("an emptied log should show its empty state")
+	}
+}
+
+// A file that refuses to be emptied keeps its entries: a log that says it was
+// cleared and is full again after a restart is the worse of the two lies.
+func TestClearLogsKeepsEverythingWhenTheFileRefuses(t *testing.T) {
+	m := appWith(sample(), nil)
+	m.log.clearSink = func() error { return errors.New("applogs.yaml: read-only") }
+	m.log.info("one thing happened")
+
+	m = pressA(m, "1", "j", "j", "enter", "C", "enter")
+	if len(m.log.entries) != 1 {
+		t.Fatalf("the entries must survive a refused clear, got %d", len(m.log.entries))
+	}
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "read-only") {
+		t.Errorf("the refusal must be said out loud:\n%s", v)
+	}
+}
+
+// Nothing recorded, nothing to clear: no menu row and no key. The same silence
+// the hosts table keeps where there is no row to delete.
+func TestAnEmptyLogOffersNothingToClear(t *testing.T) {
+	m := appWith(sample(), nil)
+	m = pressA(m, "1", "j", "j", "enter")
+	if len(m.log.entries) != 0 {
+		t.Fatalf("setup: the log should be empty, has %d", len(m.log.entries))
+	}
+	for _, it := range m.menuItems() {
+		if it.key == "C" {
+			t.Error("an empty log must not offer to be cleared")
 		}
 	}
-	if header == "" || item == "" {
-		t.Fatal("could not find the Events header / Credentials item rows")
-	}
-	if !strings.Contains(header, blue) {
-		t.Error("a category header should wear the structure blue")
-	}
-	if strings.Contains(item, blue) {
-		t.Error("an item row must not wear the header's blue")
+	if m = pressA(m, "C"); m.confirm.isActive() {
+		t.Error("C on an empty log must not ask anything")
 	}
 }
 

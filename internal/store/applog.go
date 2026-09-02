@@ -127,6 +127,25 @@ func trimLog(path string) error {
 	return writeFile0600(path, append([]byte(applogHeader), body...))
 }
 
+// ClearLog empties applogs.yaml. The HEADER stays: the warning above the
+// entries is about the file rather than about any one of them, and a cleared
+// log is still the file the next event appends to.
+func ClearLog() error {
+	path, err := LogPath()
+	if err != nil {
+		return err
+	}
+	return ClearLogTo(path)
+}
+
+// ClearLogTo is ClearLog against an explicit path (tests).
+func ClearLogTo(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil // never written, nothing to erase
+	}
+	return writeFile0600(path, []byte(applogHeader))
+}
+
 // LoadLog reads applogs.yaml back, oldest first. Missing is an empty log.
 func LoadLog() ([]LogEntry, error) {
 	path, err := LogPath()

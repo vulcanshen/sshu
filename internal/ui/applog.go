@@ -93,6 +93,9 @@ type appLog struct {
 	// exactly once instead of once per event.
 	sink       func(store.LogEntry) error
 	sinkBroken bool
+	// clearSink empties that same file. Nil in tests, where clearing is only
+	// ever the in-memory half.
+	clearSink func() error
 }
 
 func newAppLog() appLog { return appLog{} }
@@ -166,6 +169,29 @@ func (m *appLog) preload(tail []store.LogEntry) {
 		entries = append(entries, logEntry{at: e.At, level: levelNamed(e.Level), msg: e.Msg})
 	}
 	m.entries = append(entries, m.entries...)
+}
+
+// clear erases the log — the panel and the file both. The FILE goes first:
+// a panel wiped while applogs.yaml survives fills straight back up on the next
+// start, which is the one outcome "clear" must not have.
+func (m *appLog) clear() error {
+	if m.clearSink != nil {
+		if err := m.clearSink(); err != nil {
+			return err
+		}
+	}
+	m.entries, m.top, m.unread = nil, 0, 0
+	return nil
+}
+
+// logEntries counts entries in words. Three places say it — the status slot,
+// the confirmation and the toast that follows it — and a count worded three
+// ways reads as three different numbers.
+func logEntries(n int) string {
+	if n == 1 {
+		return "1 entry"
+	}
+	return itoa(n) + " entries"
 }
 
 func (m *appLog) info(msg string, more ...string)   { m.add(logInfo, msg, more...) }

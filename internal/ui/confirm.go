@@ -21,6 +21,7 @@ const (
 	confirmDeleteCred    // remove a credential from credentials.yaml
 	confirmEditBinary    // open something that does not look like text
 	confirmEditOverwrite // write back over a file that changed underneath
+	confirmClearLogs     // erase the app log, applogs.yaml and all
 )
 
 // confirmPopup is the message class (§6.1): a short question with one yes and

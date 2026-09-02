@@ -47,7 +47,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
  [Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh
 ```
 
-**`[Alt+p]reference`** — everything that is sshu's own, under one nav: **SSH** (Hosts, Credentials) and **Events** (Logs). Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk.
+**`[Alt+p]reference`** — everything that is sshu's own, under one nav: **SSH** (Hosts, Credentials) and **Events** (Logs). Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk — and `[C]lear logs` empties them, `applogs.yaml` included.
 
 **`[Alt+f]ile transfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. While bytes move, the `<done>/<files> · <pct>%` summary in the top right reports in green, and the rule under the tab row doubles as a progress bar — green ink filling from the left with the percentage, on every tab, snapping back to a plain line when the transfer ends. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
@@ -159,7 +159,7 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 
 ### `[Alt+p]reference`
 
-The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, grouped under SSH / Events headers the cursor skips over — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content.
+The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, grouped under SSH / Events headers the cursor skips over — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content. Hand the keyboard over and the whole nav dims to a legend for what `[2]` is showing; the only thing that stays lit is the unread-error count.
 
 | Key | Action |
 |---|---|
@@ -168,6 +168,7 @@ The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, gro
 | `E` | Edit the host under the cursor |
 | `D` | Delete it (asks first — deleting a credential counts the hosts that still reference it) |
 | `/` | hosts: Search — name, user, host and port at once, ranked best-first |
+| `C` | logs: Clear the log (asks first — it erases `applogs.yaml` too) |
 
 In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). On the two pick-a-value fields — IdentityFile and Credential — **`Enter` on the empty field opens the chooser, `Enter` on a filled one moves on, and `Backspace` clears the whole line**. Choosing `credential` darkens the User row: the credential supplies the user.
 

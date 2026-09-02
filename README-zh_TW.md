@@ -47,7 +47,7 @@ tab 用 **`Alt+p` / `Alt+f` / `Alt+s`** 和絃切換 —— 是和絃,所以遠�
  [Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh
 ```
 
-**`[Alt+p]reference`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類:**SSH**(Hosts、Credentials)、**Events**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟。
+**`[Alt+p]reference`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類:**SSH**(Hosts、Credentials)、**Events**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
 
 **`[Alt+f]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。傳輸進行時,右上角的 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線同時兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
 
@@ -159,7 +159,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 
 ### `[Alt+p]reference`
 
-左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Logs**,分在 SSH / Events 兩個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。
+左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Logs**,分在 SSH / Events 兩個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。鍵盤一交出去,整片 nav 就暗下來變成「`[2]` 在顯示什麼」的圖例;唯一還亮著的是未讀錯誤數。
 
 | 鍵 | 動作 |
 |---|---|
@@ -168,6 +168,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `E` | 編輯游標這一台 |
 | `D` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它) |
 | `/` | hosts:搜尋 —— name / user / host / port 一起比對,依分數排序 |
+| `C` | logs:清空 log(先問 —— 連 `applogs.yaml` 一起清) |
 
 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。兩個「選值欄位」—— IdentityFile 與 Credential —— **空欄按 `Enter` 開選單、有值按 `Enter` 跳下一欄、`Backspace` 整行清除**。選了 `credential`,User 列會變暗:user 由 credential 供應。
 

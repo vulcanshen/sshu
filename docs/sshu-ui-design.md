@@ -2439,6 +2439,57 @@ header 不畫、import 不落地、落款不顯示)。
 >    logs branch 補上 `fitLines`,跟其他 content body 同款。frame 測試
 >    的 `{"1","G","enter"}` 路徑現在守著它。
 
+### 11.13 nav 在鍵盤不在它身上時整個暗下來;Logs 的 [C]lear
+
+**nav dim**(使用者要求):focus 在 `[2]` 的時候,`[1]` 整片降一階 ——
+分類 header 從藍(focusColor)變成邊框的 dim、條目從 textColor 變 dimColor、
+游標 bar 從 handColor 換成 borderDim。理由:鍵盤不在它身上的時候,nav 是
+「`[2]` 現在在顯示什麼」的圖例,不是正在工作的地方;一片游標動不了的清單
+卻是畫面上最亮的東西,只會跟真正在用的 panel 搶。header 的顏色直接用
+`borderColor(focused)` —— 它跟 panel 邊框、title chip 是同一支筆,所以
+「分類是 app 結構」(§11.12 追記)在兩個狀態下都還成立,而不是只在亮的
+那個。
+
+**游標仍然是 bar**,只是換一階。被否決的做法是「沒 focus 就不畫 bar」——
+那樣就沒有東西說 `[2]` 在顯示哪一節了(panel title 說得出名字,但 nav 說
+的是它在清單裡的位置,以及上下還有什麼)。暗掉的 bar 用的是 **unfocused
+panel chip 同一組配色**(baseHex 字 + borderDim 底):app 裡「沒被選到的
+高亮」本來就長這樣,不是為這裡新發明的一階。
+
+**未讀錯誤數不 dim**:整片暗下來的 nav 裡唯一還亮著的是 logs 那列的紅色
+計數。它是消息不是裝飾,而且**你正在看別的地方**的時候才最需要它 —— 這正
+是這個計數存在的理由(§7.1.5)。
+
+**[C]lear logs**:logs 的 Space menu 以前只有兩列 header(「沒東西可以
+做」),現在底下多一個動作。它同時是選單列與字母鍵(§4.2:每個字母鍵都是
+一列,每一列都能不知道字母也跑得動);小寫 `c` 不接 —— hotkeyIndex 只精準
+比對,大小寫不折疊。一個動作不開 action table:一列不是註冊表,menu 那列
+與 panel 那個鍵各寫一次同一個條件就夠了。
+
+**先問**(confirm popup,跟刪 host 同一個形狀):log 是「你沒在看的時候
+發生了什麼」的唯一記錄,而且清掉會連 `applogs.yaml` 一起清。確認句把代價
+寫出來:`38 entries erased, applogs.yaml too.`。
+
+**先清檔案,再清記憶體**:順序反過來的話,檔案還在而畫面空了 —— 下次開
+app 全部回來,這是 clear 唯一不能有的結果。檔案拒絕(唯讀、權限)就整批
+不動,把錯誤原話說出來。
+
+**清完不寫 log**:「app log cleared」當作剛清空的 log 的第一列,看起來像
+沒清乾淨。這則消息歸 toast(`Cleared 38 entries`)。
+
+**空 log 沒有這一列、也沒有這個鍵**:跟 hosts 表格沒有列可刪時 `D` 不出現
+是同一條規則;menu 退回兩列 header(「nothing recorded yet」),按 `C` 是
+沉默 —— 已經空了,沒有話要說。
+
+**store 層**:`ClearLog` / `ClearLogTo` 把檔案寫回**只剩警告標頭** ——
+警告講的是這個檔案而不是某一則 entry,而且清空後它仍然是下一則 append 的
+目標(0600 照樣重新確立)。檔案不存在不算錯。注入方式跟 sink 同款
+(`WithLog(tail, sink, clear)`),測試裡 clear 是 nil = 只清記憶體。
+
+12 個 mutation 全數被抓(header 不 dim、條目不 dim、bar 不降階、不先問、
+空 log 仍收鍵 / 仍出列、不清檔、檔案失敗仍清記憶體、清完又寫一則 log、
+確認句不講代價、ClearLogTo 不清 / 清掉標頭)。
+
 ---
 
 ## 附錄 — 按鍵全表(v0.1.0)
@@ -2464,10 +2515,10 @@ header 不畫、import 不落地、落款不顯示)。
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events 分類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 |
+| `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events 分類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 —— 鍵盤在 `[2]` 時整片 dim(§11.13) |
 | `[2]` Hosts | `Enter` · `E` · `D` · `A` · `/` | Connect(確認)/ Edit / Delete(確認)/ Add / Search |
 | `[2]` Credentials | `Enter` · `D` · `A` | Edit / Delete(確認,列出引用數)/ Add |
-| `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` | 捲動(viewport,無游標;上畫面即已讀) |
+| `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 捲動(viewport,無游標;上畫面即已讀)/ Clear logs(先問;連 applogs.yaml,空 log 時不存在) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案,見 §11.12 追記 |
 
 ### Host / credential form
