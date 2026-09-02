@@ -735,3 +735,62 @@ func TestAuthFieldUsesRadioGlyphs(t *testing.T) {
 		t.Error("the ASCII radio buttons are still there")
 	}
 }
+
+// lastLine is a popup's bottom border — where the legend lives.
+func lastLine(s string) string {
+	lines := strings.Split(s, "\n")
+	return lines[len(lines)-1]
+}
+
+// A menu whose rows are all description — an empty log, the nav — is measured
+// by those rows like any other content. It used to measure zero and come out a
+// stub: its own words clipped ("nothing reco…") and its legend cut mid-key.
+// And with nothing to run, the legend offers only the key that still works.
+func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
+	m := pressA(appWith(sample(), nil), "1", "j", "j", "enter") // logs, empty
+	if len(m.log.entries) != 0 {
+		t.Fatalf("setup: the log should be empty, has %d", len(m.log.entries))
+	}
+	m = pressA(m, " ")
+	if !m.spaceMenu.isActive() {
+		t.Fatal("Space should open the menu")
+	}
+
+	view := ansi.Strip(m.spaceMenu.view())
+	if !strings.Contains(view, "nothing recorded yet") {
+		t.Errorf("the menu's own words must fit in its box:\n%s", view)
+	}
+	if legend := ansi.Strip(lastLine(view)); !strings.Contains(legend, "Esc close") ||
+		strings.Contains(legend, "j/k") || strings.Contains(legend, "run") {
+		t.Errorf("nothing to move to and nothing to run, legend is %q", legend)
+	}
+
+	// Same shape on the nav, whose menu is a sentence about j/k rather than a
+	// list of things to press.
+	m = pressA(m, "esc", "1", " ")
+	view = ansi.Strip(m.spaceMenu.view())
+	if !strings.Contains(view, "j/k choose a section — Enter opens it") {
+		t.Errorf("the nav menu's sentence must fit too:\n%s", view)
+	}
+
+	// A menu that DOES have something to run keeps the full legend. From the
+	// nav on Logs, j wraps round to Hosts — a section with actions in it.
+	m = pressA(m, "esc", "j", "enter", " ")
+	if legend := ansi.Strip(lastLine(m.spaceMenu.view())); !strings.Contains(legend, "j/k") ||
+		!strings.Contains(legend, "run") {
+		t.Errorf("a menu with actions still moves and runs, legend is %q", legend)
+	}
+}
+
+// The legend is content too: a menu narrower than its own bottom border would
+// print half a key.
+func TestTheLegendFitsEvenInTheNarrowestMenu(t *testing.T) {
+	sm := newSpaceMenu()
+	sm.anim.phase = animOpen
+	sm.setSize(100, 30)
+	sm.setItems([]menuItem{{label: "Go", key: "g"}}, "[1] x", 1)
+
+	if legend := ansi.Strip(lastLine(sm.view())); !strings.Contains(legend, "Esc close") {
+		t.Errorf("the box must be at least as wide as its legend, got %q", legend)
+	}
+}
