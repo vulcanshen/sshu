@@ -1,5 +1,67 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`[D]isconnect` on the file transfer tab's `[1]` / `[3]`** — `[S]elect host`
+  was one-way: you could point a side at a host but never let it go without
+  quitting sshu. `D` hands the side back the state it had before a host was
+  picked — no filesystem, no listing, no marks, all of which belonged to the
+  host that is leaving. It is refused while a transfer is running (both sides
+  are on every transfer, so closing either one breaks it) and says to stop it
+  in `[P]rogress` instead.
+
+- **`[R]efresh` on the file transfer tab's `[1]` / `[3]`** — re-reads the
+  directory now, unconditionally. The background watch re-lists every couple of
+  seconds but only when the directory's own timestamp moved, and a timestamp is
+  not a promise: a filesystem can change underneath one without touching it.
+  This is the key for the doubt the poll cannot settle. It stays live during a
+  transfer — reading is the one thing that is still safe while bytes move — and
+  it reports the count, because a refresh that changes nothing otherwise looks
+  exactly like a key that did nothing.
+- **A file still being written into shows a spinner in its mark column, and
+  cannot be marked** — a transfer creates the destination file and then fills
+  it, so the row is in the listing before the bytes are. Marking it would
+  promise the path is a thing you can act on; send that mark onward with `[T]`
+  and what lands at the far end is a truncation nobody was told about. The
+  spinner takes the mark cell rather than a column of its own — the cell is
+  free by construction, and a row that grew a column mid-transfer would shift
+  every name beside it. A directory the bytes are landing in counts too: copy a
+  whole tree and the directory is the row you can see. Both clear, and the
+  listing re-reads, the moment the job ends.
+- **A Space menu row can now be *disabled*** — dimmed in place instead of
+  removed. Leaving an action out is how the menu says "this does not apply
+  here"; dimming it says "this belongs here, but not this second". The cursor
+  still lands on a dimmed row, wearing the quieter bar, because that is how you
+  find out why it is dim.
+
+### Changed
+
+- **`Space` on a file transfer side with no host opens the host list itself** —
+  it used to draw a menu whose only row was `[S]elect host`, which answered
+  nothing and pushed the answer one keystroke further away. The condition is
+  the side having no host, so it holds on that side's marks panel too. (A menu
+  with *nothing* to run still opens — "nothing" is an answer that has to be
+  said out loud; one concrete action is an answer best given by doing it.)
+- **Changing a side's filesystem is frozen while a transfer is running** —
+  `[S]elect host` and `[D]isconnect` both swap out the filesystem under a side,
+  and every transfer in this tab has both sides on it, so either one would
+  break a copy in flight. Both rows dim, the keys refuse with a line pointing
+  at `[P]rogress`, and the refusal leaves the menu standing — the row it
+  refused is still on screen, still explaining itself.
+- **The transfer summary spins** — `⠋ 󰁥 3/7 · 42%`. A percentage can sit at
+  99% for a long time on a big file, and a number that is not moving is what
+  stuck looks like. It rides the 120 ms tick that already repaints the line.
+
+- **`Enter` on a filled IdentityFile or Credential field now saves** — it used
+  to step to the next field, so choosing a credential cost two more Enters and
+  a lap back round to Name before the host could be written. The empty field
+  still spends `Enter` on the chooser, because an empty field has nothing else
+  for `Enter` to mean; a filled one is just a field, and `Enter` means on it
+  what it means everywhere else on the form. `Backspace` still clears the whole
+  line, and `Tab` / `↓` are still how you go to the next field.
+
 ## [1.0.0] — 2026-09-02
 
 First stable release. The surface is settled: three Alt-chord tabs

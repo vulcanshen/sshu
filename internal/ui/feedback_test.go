@@ -142,3 +142,34 @@ func TestTransferStatusIsGreenNotDim(t *testing.T) {
 		t.Error("a resting status must stay dim; green belongs to the moving one")
 	}
 }
+
+// The summary is the ambient "something is happening" channel, so it has to
+// LOOK like it is happening. A percentage can sit at 99% for a long time on a
+// big file, and a number that does not move is what stuck looks like — the
+// dots turn on every tick, the way the dial's spinner does.
+func TestTheTransferSummarySpins(t *testing.T) {
+	m := pressA(sized(sample(), 100, 26), "alt+F")
+	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
+
+	first := m.transfers.summary()
+	if !strings.HasPrefix(first, spinnerFrames[0]) {
+		t.Fatalf("the summary should lead with the spinner, got %q", first)
+	}
+	if !strings.Contains(first, glyphUpload) {
+		t.Errorf("the transfer glyph still says which kind of work it is: %q", first)
+	}
+
+	// One tick of the loop that already repaints it must move the frame on.
+	next, _ := m.Update(xferTickMsg{})
+	m = next.(AppModel)
+	if got := m.transfers.summary(); got == first {
+		t.Errorf("the spinner did not advance on a tick: %q", got)
+	}
+
+	// And it stops with the transfer — a spinner over a finished job would say
+	// work is happening when none is.
+	m.transfers.jobs[0].state.Store(int32(xferDone))
+	if got := m.transfers.summary(); got != "" {
+		t.Errorf("nothing is moving, so the summary should be empty, got %q", got)
+	}
+}

@@ -37,10 +37,15 @@ func TestHostFormCredentialAuthSwapsTheRows(t *testing.T) {
 }
 
 // Enter on the empty Credential field lists the saved credentials; committing
-// one writes its name into the field.
-func TestCredentialPickerFillsTheField(t *testing.T) {
+// one writes its name into the field. This is the whole exchange the user
+// walks: enter → pick → enter → saved. It used to cost one Enter more, which
+// also threw the cursor back to Name.
+func TestCredentialPickerFillsTheFieldThenTheNextEnterSaves(t *testing.T) {
 	creds := []store.Credential{{Name: "ops", User: "root", Auth: store.AuthPassword, Password: "x"}}
 	m := pressA(credApp(sample(), creds), "A")
+	m = typeText(m, "box")
+	m.form.focus = fHost
+	m = typeText(m, "10.0.0.9")
 	m.form.fields[fAuth].sel = 2
 	m.form.focus = fCredential
 
@@ -59,16 +64,31 @@ func TestCredentialPickerFillsTheField(t *testing.T) {
 		t.Fatal("the form must still be standing under the pick")
 	}
 
-	// Filled: Enter moves on, Backspace clears the whole line.
-	m.form.focus = fCredential
-	m = pressA(m, "enter")
-	if m.form.focus == fCredential {
-		t.Error("Enter on a filled Credential field should move on")
-	}
-	m.form.focus = fCredential
+	// Backspace replaces the whole pick — it is not shaved letter by letter —
+	// and it leaves the form standing so the field can be filled again.
 	m = pressA(m, "backspace")
 	if m.form.fields[fCredential].value != "" {
 		t.Error("Backspace should clear the whole line")
+	}
+	if !m.form.isActive() {
+		t.Fatal("Backspace must not close the form")
+	}
+
+	// Empty again, so Enter still opens the list. Then ONE Enter saves.
+	m = pressA(m, "enter", "enter")
+	if got := m.form.fields[fCredential].value; got != "ops" {
+		t.Fatalf("re-picking should refill the field, got %q", got)
+	}
+	m = pressA(m, "enter")
+	if m.form.isActive() {
+		t.Fatalf("Enter on a filled Credential field should save, err=%q", m.form.err)
+	}
+	i := indexOfHost(m.hosts.hosts, "box")
+	if i < 0 {
+		t.Fatal("the host was never written")
+	}
+	if got := m.hosts.hosts[i].Credential; got != "ops" {
+		t.Errorf("the saved host should reference the credential, got %q", got)
 	}
 }
 

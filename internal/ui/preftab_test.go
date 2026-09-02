@@ -328,8 +328,8 @@ func TestDeleteCredentialWarnsAboutReferencingHosts(t *testing.T) {
 }
 
 // The credential form's path field: Enter on the empty field browses, Enter on
-// a filled one moves on, and Backspace clears the whole line — a picked path
-// is replaced, not shaved letter by letter.
+// a filled one saves like every other field, and Backspace clears the whole
+// line — a picked path is replaced, not shaved letter by letter.
 func TestCredIdentityFieldEnterAndBackspace(t *testing.T) {
 	m := appWith(nil, nil)
 	m = pressA(m, "1", "j", "enter", "A")
@@ -350,8 +350,11 @@ func TestCredIdentityFieldEnterAndBackspace(t *testing.T) {
 	if m.picker.isActive() {
 		t.Fatal("Enter on a filled path field must not browse")
 	}
-	if m.credFormUI.focus == cIdentity {
-		t.Fatal("Enter on a filled path field should move to the next field")
+	// The form is otherwise empty, so the submit shows as the refusal it earns
+	// — the point is that Enter reached the submit path rather than stepping on.
+	if !m.credFormUI.submitted || m.credFormUI.err == "" {
+		t.Fatalf("Enter on a filled path field should submit, submitted=%v err=%q",
+			m.credFormUI.submitted, m.credFormUI.err)
 	}
 
 	m.credFormUI.focus = cIdentity

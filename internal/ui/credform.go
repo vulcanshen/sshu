@@ -8,10 +8,10 @@ import (
 )
 
 // credForm creates and edits credentials. It is the host form's sibling, and
-// its IdentityFile row is where the newer field interaction lives: Enter on
-// the empty field opens the picker, Enter on a filled one moves on, and
-// Backspace clears the whole line — a picked path is replaced, not shaved
-// letter by letter.
+// its IdentityFile row carries the same pick-a-value interaction: Enter on the
+// empty field opens the picker, Enter on a filled one saves like Enter does
+// anywhere else on the form, and Backspace clears the whole line — a picked
+// path is replaced, not shaved letter by letter.
 
 // Field order.
 const (
@@ -128,15 +128,11 @@ func (m credForm) update(msg tea.KeyMsg) (credForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		// The path field's Enter: empty opens the picker, filled moves on. So
-		// the whole exchange is enter → pick → enter → next field, and
+		// The path field's Enter: only the EMPTY field opens the picker. Filled,
+		// it saves like every other field — enter → pick → enter → saved. And
 		// replacing a pick is Backspace (the whole line) then Enter again.
-		if m.focus == cIdentity {
-			if strings.TrimSpace(f.value) == "" {
-				return m, formBrowse
-			}
-			m.moveFocus(1)
-			return m, formNone
+		if m.focus == cIdentity && strings.TrimSpace(f.value) == "" {
+			return m, formBrowse
 		}
 		return m, formSubmit
 	case tea.KeyBackspace:
@@ -191,14 +187,15 @@ func (m credForm) view() string {
 	if m.editing != "" {
 		glyph, title = glyphPencil, "Edit credential"
 	}
-	// The hint names what THIS field does with Enter — on the path row Enter
-	// is not "save", and saying so is the standing disclosure (§4.5).
+	// The hint names what THIS field does with Enter — on the EMPTY path row
+	// Enter browses rather than saves, and saying so is the standing
+	// disclosure (§4.5).
 	var pairs [][2]string
 	switch {
 	case m.focus == cIdentity && strings.TrimSpace(m.fields[cIdentity].value) == "":
 		pairs = [][2]string{{"Enter", "browse"}, {"Tab", "next"}, {"Esc", "cancel"}}
 	case m.focus == cIdentity:
-		pairs = [][2]string{{"Enter", "next"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Enter", "save"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
 	case m.fields[m.focus].kind == fieldToggle:
 		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", "save"}, {"Esc", "cancel"}}
 	default:

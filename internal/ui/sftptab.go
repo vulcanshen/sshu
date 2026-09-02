@@ -265,6 +265,26 @@ func (s *sftpSideModel) connect(fsys remote.FS) {
 	s.open(remote.StartDir(fsys, home))
 }
 
+// disconnect is [S]elect host's undo: the side goes back to exactly the state
+// it had before a host was picked. Everything it drops belonged to the host
+// that is going away — a mark is a path on a filesystem, the cwd is a place on
+// one, and the listing is what one answered. Rebuilding the zero value rather
+// than clearing field by field is deliberate: a field added later is reset by
+// this too, and a half-reset side is the kind that shows one host's marks over
+// another host's files.
+//
+// dialGen survives, incremented: a dial still in flight must not be able to
+// land on the side after this, and a generation reset to zero would let the
+// NEXT dial collide with the one already out there.
+func (s *sftpSideModel) disconnect() {
+	s.clearFilter() // the walk holds the connection; stop it before closing
+	if s.fs != nil {
+		s.fs.Close()
+	}
+	gen := s.dialGen + 1
+	*s = sftpSideModel{markedSet: map[string]bool{}, dialGen: gen}
+}
+
 // open lists dir and puts the cursor at the top. A failure leaves the previous
 // listing on screen with the error beside it — an empty panel would look like an
 // empty directory.

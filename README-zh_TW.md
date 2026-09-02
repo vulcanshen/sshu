@@ -170,7 +170,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `/` | hosts:搜尋 —— name / user / host / port 一起比對,依分數排序 |
 | `C` | logs:清空 log(先問 —— 連 `applogs.yaml` 一起清) |
 
-表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。兩個「選值欄位」—— IdentityFile 與 Credential —— **空欄按 `Enter` 開選單、有值按 `Enter` 跳下一欄、`Backspace` 整行清除**。選了 `credential`,User 列會變暗:user 由 credential 供應。
+表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。兩個「選值欄位」—— IdentityFile 與 Credential —— **空欄按 `Enter` 開選單、有值按 `Enter` 直接送出(跟其他欄一樣)、`Backspace` 整行清除**。選了 `credential`,User 列會變暗:user 由 credential 供應。
 
 ### `[Alt+f]ile transfer` —— 小寫是游標那一列,大寫是整個 panel
 
@@ -178,7 +178,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 |---|---|
 | `h` `l` | 跨到另外半邊,保持同一列(`[2]`↔`[4]`) |
 | `Enter` | 進入游標所在的目錄 —— 或前往搜尋找到的那個東西 |
-| `a` | **Append to marks** —— 再按一次就把 mark 拿掉 |
+| `a` | **Append to marks** —— 再按一次就把 mark 拿掉。正在被寫入的檔案會被拒絕:mark 是「這個路徑可以拿來操作」的承諾,半個檔案不是 |
 | `r` | 就地改名 |
 | `v` | **讀它** —— 文字帶語法上色與行號,二進位轉 hex,目錄列出內容 |
 | `e` | 用 `$EDITOR` **編它** —— 抓下來、編、寫回去 |
@@ -186,11 +186,22 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `x` | 刪掉(先問) |
 | `/` | **搜尋整棵子樹** —— `Enter` 帶你到結果所在的位置、游標停在它上面,`a` / `t` / `v` / `e` / `x` 從那裡全部能用 |
 | `A` | **新增** —— `name` 建空檔,`name/` 建目錄 |
+| `R` | **重讀** —— 立刻重讀這個目錄。背景輪詢只在目錄 mtime 變動時才重列,而 mtime 不是承諾 |
 | `T` | 傳這一側全部的 marks |
 | `X` | 刪這一側全部的 marks(先問) |
 | `c` / `C` | 清一個 mark(在 marks panel 上)/ 清空全部 —— 只是忘記它們,磁碟上什麼都不動 |
-| `S` | 選 host —— `local` 排第一,而且開在**你啟動 sshu 的那個目錄** |
+| `S` | 選 host —— `local` 排第一,而且開在**你啟動 sshu 的那個目錄**。該側還沒有 host 時,`Space` 直接開這張清單:只有一列的 menu 不是答案 |
+| `D` | **斷線** —— 這一側回到完全沒有 host 的狀態 |
 | `P` | 進度 —— 進行中的傳輸,可逐條取消 |
+
+正在被寫入的檔案,**mark 欄會顯示 spinner** —— 它存在,但還沒到齊 —— 它正在
+落進去的那個目錄也一樣,因為傳一整棵樹的時候,你看得見的那一列就是目錄。兩者
+都在 job 結束的那一刻消失,清單同時重讀。
+
+**傳輸進行中,`S` 與 `D` 會凍結**:兩者都是把某一側底下的檔案系統抽掉,而每
+一筆傳輸都同時掛著兩側。那兩列**留在 Space menu 裡、整列暗掉**(不是消失 ——
+它們屬於這個 panel,只是此刻不能做),按下去會叫你先去 `P` 取消。右上角的
+summary 在傳輸期間會轉。
 
 ### `[Alt+s]sh`
 

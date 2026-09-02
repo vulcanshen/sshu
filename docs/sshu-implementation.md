@@ -64,6 +64,10 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 `Space` 在任何 panel 都開,內容是**那個 panel** 能做的事。
 
+**列有三種狀態。** 一般 / 不列出(`appliesTo`)/ `disabled`(暗、游標條改用
+`baseHex`+`borderDim`、按下去由 panel 說明原因)。`disabled` 不影響游標能不能
+停上去 —— 停得上去才問得到原因。
+
 **盒子量得出自己的內容。** 寬度取「動作列 + header 列 + 標題 + 底邊
 legend」的最大值。header 曾經被跳過不量,整份都是說明的 menu(空 log、
 nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行列時 legend
@@ -87,10 +91,12 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
  panel operation
  [/] Search                   everything under here
  [A]dd             a file, or name/ for a directory
+ [R]efresh              re-read this directory now
  [T]ransfer all marks             to the other side
  [X] Delete all marks      erase them, on this host
  [C]lear marks          forget them, change nothing
  [S]elect host                local or a saved host
+ [D]isconnect              close it, back to no host
  [P]rogress                   transfers, and cancel
 ```
 
@@ -100,6 +106,14 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
 - **沒有目標就沒有那一區**:空目錄沒有 item 動作、沒選 host 的那一側只剩
   `[S]elect host`,而且**字母跟著一起消失**(hotkey 與 menu 走同一個
   `sftpApplicable()`)
+- **一列的 menu 不開**:該側沒有 host 時 Space 直接開 host 清單,實作是
+  `app.go` 的 `" "` 分支轉呼 `sftpKey(keySelectHost)` —— 等同於按 `S`,連
+  §11.15 的守衛都同一條(design doc §11.16)
+- **正在被寫入的列**:`transferJob.cur`(atomic,寫在 `CopyItem` 前、defer
+  清掉)→ `transferModel.arrivals()` → `sftp.view(arrivals)` 一路傳進
+  `renderFileRow` 的 `landing` 參數,佔 mark 欄。`receiving()` 同時判祖先
+  目錄(前綴必須帶 `/`)。`a` 在這種列上被 `sftpToggleMark` 拒絕。刷新綁在
+  `logFinishedTransfers()` 回報的「剛結束」上,不綁畫格(design doc §11.17)
 
 ### §A.2 Non-contextual track — `?` help
 
@@ -560,7 +574,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|
 | `Tab`/`Shift+Tab`/`↑``↓` | 換欄(所有欄位一致) |
 | `←` `→`(Auth) | password / privatekey / credential(host form) |
-| `Enter`(IdentityFile / Credential 欄) | **空欄開選單、有值跳下一欄** |
+| `Enter`(IdentityFile / Credential 欄) | **空欄開選單、有值送出**(與其他欄一致) |
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄)· `Esc` | 送出 / 取消 |
 
@@ -570,6 +584,9 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|---|
 | 全部 | `1`-`4` · `h`/`l` | panel 直達 / 切左右半 |
 | 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `S` · `c`/`C` · `P` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Select host / Clear(marks 單項/全部)/ Progress |
+| 檔案 panel | `R` | **Refresh** —— `sftpRefresh` 直接叫 `reload()`,不看 mtime、不等 poll;成功報數量,失敗報 `s.err`(design doc §11.18) |
+| 檔案 panel | `D` | **Disconnect** —— 重建 side 的零值(保留並 +1 `dialGen`) |
+| 全部 | `S` · `D` 傳輸中 | `sftpAction.needsIdle` + `transferBusy()`:menu 列 `disabled`(暗)、`sftpKey` 擋下並 toast,**不關 menu** |
 | 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add |
 
 ### [Alt+s]sh
