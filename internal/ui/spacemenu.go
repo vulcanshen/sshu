@@ -118,16 +118,36 @@ func (m spaceMenu) update(msg tea.KeyMsg) (spaceMenu, string, tea.Cmd) {
 }
 
 func (m spaceMenu) view() string {
-	labelW, hintW := 0, 0
+	// Everything that has to fit inside the box gets measured: an action row
+	// (label column plus hint column), a header on a line of its own, the
+	// title, and the legend along the bottom border.
+	//
+	// Headers used to be skipped here, which measured a menu that is ALL
+	// description — "nothing recorded yet", "j/k choose a section" — at zero.
+	// It came out a stub with its own words clipped and its legend cut
+	// mid-key: a box that reads as breakage rather than as an answer.
+	labelW, hintW, headW, acts := 0, 0, 0, 0
 	for _, it := range m.items {
-		if it.header || it.separator {
-			continue
+		switch {
+		case it.separator:
+		case it.header:
+			headW = max(headW, dispW(it.label)+2)
+		default:
+			acts++
+			labelW = max(labelW, dispW(bracketHotkey(it.label, it.key)))
+			hintW = max(hintW, dispW(it.hint))
 		}
-		labelW = max(labelW, dispW(bracketHotkey(it.label, it.key)))
-		hintW = max(hintW, dispW(it.hint))
+	}
+	// A menu with nothing to run says so: j/k has nowhere to go and Enter has
+	// nothing to commit, so the legend names the one key that still works —
+	// the same honesty the pty footer keeps (§4.4).
+	legend := hintLegend([][2]string{{"j/k", "move"}, {"Enter", "run"}, {"Esc", "close"}})
+	if acts == 0 {
+		legend = hintLegend([][2]string{{"Esc", "close"}})
 	}
 	// " " + label + "  " + hint + " "
-	innerW := popupInnerW(m.screenW, max(dispW(m.title)+6, labelW+hintW+4))
+	innerW := popupInnerW(m.screenW,
+		max(dispW(m.title)+6, labelW+hintW+4, headW, dispW(legend)+1))
 	// When the box cannot hold both columns the hint yields: the label is what
 	// the action IS, the hint only elaborates on it.
 	hintW = max(0, min(hintW, innerW-labelW-3))
@@ -155,6 +175,5 @@ func (m spaceMenu) view() string {
 	}
 
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphMenu+" "+m.title+" ",
-		hintLegend([][2]string{{"j/k", "move"}, {"Enter", "run"}, {"Esc", "close"}}),
-		animRows(m.anim, capRows(rows, m.screenH)), innerW)
+		legend, animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

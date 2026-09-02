@@ -10,6 +10,14 @@
   the file survives fills straight back up on the next start). An empty log
   offers neither the row nor the key.
 
+### Fixed
+
+- **A Space menu with nothing to run drew a clipped stub** — a menu whose rows
+  are all description (an empty log, the nav) measured itself at zero, so the
+  box came out title-width with its own words cut (`nothing reco…`) and its
+  legend cut mid-key. Headers and the legend are measured like any other
+  content now, and a menu with nothing to run offers only `Esc close`.
+
 ### Changed
 
 - **The `[1] sshu` nav dims while the content panel holds the keyboard** —
