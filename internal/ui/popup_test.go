@@ -208,11 +208,20 @@ func TestMenuOnEmptyPanelStillOffersCreate(t *testing.T) {
 }
 
 // Space must answer on every surface, including the tabs that do not exist yet.
+// WHAT it opens is the tab's business — on a file transfer side with no host it
+// is the host list itself, because a menu of one row is not an answer — but
+// pressing it must never be a keystroke that does nothing.
 func TestSpaceRespondsOnUnbuiltTabs(t *testing.T) {
-	for _, tab := range []string{"alt+F", "alt+S"} {
-		m := pressA(appWith(sample(), nil), tab, " ")
-		if !m.spaceMenu.isActive() {
-			t.Errorf("tab %s: Space must open something, even if it only says there is nothing", tab)
+	for _, c := range []struct {
+		tab    string
+		opened func(AppModel) bool
+	}{
+		{"alt+F", func(m AppModel) bool { return m.hostPicker.isActive() }},
+		{"alt+S", func(m AppModel) bool { return m.spaceMenu.isActive() }},
+	} {
+		m := pressA(appWith(sample(), nil), c.tab, " ")
+		if !c.opened(m) {
+			t.Errorf("tab %s: Space must open something, even if it only says there is nothing", c.tab)
 		}
 	}
 }

@@ -33,20 +33,20 @@ func (m sftpModel) panelTitle(p sftpPanel) string {
 	return n + " no host"
 }
 
-func (m sftpModel) view() string {
+func (m sftpModel) view(a arrivals) string {
 	sideW, filesH, marksH := m.panes()
 
 	if m.narrow() {
 		// One side at a time; Tab is how the other one is reached.
-		return m.sideView(m.focus.side(), m.w, filesH, marksH)
+		return m.sideView(m.focus.side(), m.w, filesH, marksH, a)
 	}
-	left := m.sideView(sideLeft, sideW, filesH, marksH)
-	right := m.sideView(sideRight, m.w-sideW, filesH, marksH)
+	left := m.sideView(sideLeft, sideW, filesH, marksH, a)
+	right := m.sideView(sideRight, m.w-sideW, filesH, marksH, a)
 	return joinHorizontal(left, right)
 }
 
-func (m sftpModel) sideView(sd side, w, filesH, marksH int) string {
-	files := m.filesPanel(sd, w, filesH)
+func (m sftpModel) sideView(sd side, w, filesH, marksH int, a arrivals) string {
+	files := m.filesPanel(sd, w, filesH, a)
 	if marksH == 0 {
 		return files
 	}
@@ -56,7 +56,7 @@ func (m sftpModel) sideView(sd side, w, filesH, marksH int) string {
 // filesPanel is [4] / [6]. Its title carries the host — that is what tells the
 // two sides apart — and its bottom border carries the directory, which is the
 // other thing you need to know before pressing anything.
-func (m sftpModel) filesPanel(sd side, w, h int) string {
+func (m sftpModel) filesPanel(sd side, w, h int, a arrivals) string {
 	s := m.sides[sd]
 	innerW, innerH := w-2, h-2
 	focused := m.focus.side() == sd && !m.focus.isMarks()
@@ -90,12 +90,12 @@ func (m sftpModel) filesPanel(sd side, w, h int) string {
 			head = renderCrumb(foldHomePath(s.cwd, s.home), innerW-1)
 			head = " " + head + strings.Repeat(" ", max(0, innerW-1-dispW(head)))
 		}
-		rows = append([]string{head}, m.fileRows(s, innerW, innerH-sftpCwdRows)...)
+		rows = append([]string{head}, m.fileRows(s, innerW, innerH-sftpCwdRows, a)...)
 	}
 	return panelChrome(innerW, fitLines(rows, innerW, innerH), m.panelTitle(panel), focused)
 }
 
-func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int) []string {
+func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int, a arrivals) []string {
 	n := s.rowCount()
 	if n == 0 {
 		fact := "Empty directory"
@@ -118,7 +118,11 @@ func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int) []string {
 			break
 		}
 		p := remote.Join(s.cwd, e.Name)
-		out = append(out, renderFileRow(e, s.markedSet[p], row == s.cursor, innerW))
+		landing := ""
+		if a.receiving(p) {
+			landing = a.frame
+		}
+		out = append(out, renderFileRow(e, s.markedSet[p], landing, row == s.cursor, innerW))
 	}
 	return out
 }
@@ -187,13 +191,25 @@ const sftpSizeW = 8
 // a file icon can disagree by a cell — and a row built on the assumption comes
 // out a cell wide only for directories, which is exactly the kind of drift that
 // shows up as a bent border rather than as an obvious bug.
-func renderFileRow(e remote.Entry, marked, isCursor bool, w int) string {
+// landing is the spinner frame while this row is being written into, "" when
+// it is not. It takes the mark cell rather than a column of its own: the cell
+// is free by construction — a file that is still arriving cannot be marked —
+// and a row that grew a column while bytes moved would shift every name beside
+// it.
+func renderFileRow(e remote.Entry, marked bool, landing string, isCursor bool, w int) string {
 	glyph, glyphC := glyphFile, dimColor
 	if e.IsDir {
 		glyph, glyphC = glyphDir, focusColor
 	}
-	mark := " "
-	if marked {
+	// A mark is a footprint you left; an arrival is work happening to you. The
+	// arrival wins the cell when both are true (a marked file can be
+	// overwritten by a transfer), because "not all here yet" is the more
+	// urgent of the two facts.
+	mark, markC := " ", liveColor
+	switch {
+	case landing != "":
+		mark, markC = landing, handColor
+	case marked:
 		mark = glyphMark
 	}
 	size := humanSize(e.Size)
@@ -214,8 +230,7 @@ func renderFileRow(e remote.Entry, marked, isCursor bool, w int) string {
 		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(rowSelColor)
 		return bar.Render(lead + name + " " + sizeCell)
 	}
-	markStyle := lipgloss.NewStyle().Foreground(liveColor) // a mark is a footprint you left
-	return " " + markStyle.Render(mark) + " " +
+	return " " + lipgloss.NewStyle().Foreground(markC).Render(mark) + " " +
 		lipgloss.NewStyle().Foreground(glyphC).Render(glyph) + " " +
 		lipgloss.NewStyle().Foreground(textColor).Render(name) + " " +
 		lipgloss.NewStyle().Foreground(dimColor).Render(sizeCell)

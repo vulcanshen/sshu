@@ -17,6 +17,13 @@ type menuItem struct {
 	hint      string
 	header    bool // dim region label, not selectable
 	separator bool // horizontal rule, not selectable
+	// disabled: the action belongs here but cannot run right now. It is NOT
+	// the same as leaving the row out (which is what an action that does not
+	// apply gets, §sftpApplicable): a row that vanishes teaches that the
+	// action does not exist on this panel, and it will be looked for later.
+	// A dimmed row keeps the map honest and still answers when pressed — so
+	// the cursor lands on it like any other, and running it says why not.
+	disabled bool
 }
 
 // spaceMenu is the §A.1 contextual entry point: "what can I do, here, now".
@@ -155,6 +162,10 @@ func (m spaceMenu) view() string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
+	// The cursor still has to be visible on a row that cannot run, so it drops
+	// to the register the app already uses for "highlighted, but not live" —
+	// the same one an unfocused panel's chip and nav cursor wear.
+	curOff := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(borderDim)
 
 	rows := make([]string, 0, len(m.items))
 	for i, it := range m.items {
@@ -166,9 +177,14 @@ func (m spaceMenu) view() string {
 		default:
 			label := padRight(" "+bracketHotkey(it.label, it.key), innerW-hintW-1)
 			hint := padLeft(it.hint, hintW) + " "
-			if i == m.cursor {
+			switch {
+			case i == m.cursor && it.disabled:
+				rows = append(rows, curOff.Render(label+hint))
+			case i == m.cursor:
 				rows = append(rows, cur.Render(label+hint))
-			} else {
+			case it.disabled:
+				rows = append(rows, dim.Render(label+hint))
+			default:
 				rows = append(rows, txt.Render(label)+dim.Render(hint))
 			}
 		}

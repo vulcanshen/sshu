@@ -101,7 +101,7 @@ func (m AppModel) status() string {
 func (m AppModel) panel() string {
 	switch m.tab {
 	case tabFT:
-		return m.sftp.view()
+		return m.sftp.view(m.transfers.arrivals())
 	case tabSSH:
 		return m.ssh.view()
 	}

@@ -201,23 +201,17 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		// The two pick-a-value fields: Enter on the empty field opens the
-		// chooser, Enter on a filled one moves on. The exchange is enter →
-		// pick → enter → next field, and replacing a value is Backspace (the
-		// whole line) then Enter again.
-		switch m.focus {
-		case fIdentity:
-			if strings.TrimSpace(f.value) == "" {
-				return m, formBrowse
-			}
-			m.moveFocus(1)
-			return m, formNone
-		case fCredential:
-			if strings.TrimSpace(f.value) == "" {
-				return m, formPickCred
-			}
-			m.moveFocus(1)
-			return m, formNone
+		// The two pick-a-value fields spend Enter on the chooser ONLY while
+		// they are empty — an empty field has nothing else for Enter to mean.
+		// Once one holds a value, Enter is what it is on every other field:
+		// save. It used to step to the next field instead, which made choosing
+		// a credential cost two Enters and a lap back round to Name.
+		// Replacing a value is Backspace (the whole line) then Enter again.
+		switch {
+		case m.focus == fIdentity && strings.TrimSpace(f.value) == "":
+			return m, formBrowse
+		case m.focus == fCredential && strings.TrimSpace(f.value) == "":
+			return m, formPickCred
 		}
 		return m, formSubmit
 	case tea.KeyBackspace:
@@ -362,8 +356,9 @@ func (m hostForm) view() string {
 	// The hint is contextual: it names what THIS field can do. That is the
 	// standing disclosure a text-entry surface trades the Space entry key for
 	// (§4.5), so it has to be accurate per field, not generic.
-	// The hint names what THIS field does with Enter — on the two pick-a-value
-	// rows Enter is not "save", and saying so is the standing disclosure (§4.5).
+	// The hint names what THIS field does with Enter — on an EMPTY pick-a-value
+	// row Enter chooses rather than saves, and saying so is the standing
+	// disclosure (§4.5).
 	var pairs [][2]string
 	switch {
 	case m.focus == fIdentity && strings.TrimSpace(m.fields[fIdentity].value) == "":
@@ -371,7 +366,7 @@ func (m hostForm) view() string {
 	case m.focus == fCredential && strings.TrimSpace(m.fields[fCredential].value) == "":
 		pairs = [][2]string{{"Enter", "choose"}, {"Tab", "next"}, {"Esc", "cancel"}}
 	case m.focus == fIdentity || m.focus == fCredential:
-		pairs = [][2]string{{"Enter", "next"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Enter", "save"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
 	case m.fields[m.focus].kind == fieldToggle:
 		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", "save"}, {"Esc", "cancel"}}
 	default:

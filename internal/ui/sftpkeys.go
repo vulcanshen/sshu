@@ -38,7 +38,14 @@ type sftpAction struct {
 	// the row under the cursor. It is also what decides whether the action
 	// survives an EMPTY listing — with no row, the row actions have no subject.
 	panelOp bool
-	run     func(AppModel) (tea.Model, tea.Cmd)
+	// needsIdle: the action swaps out the filesystem under this side, and every
+	// transfer this tab runs has BOTH sides on it — one the source, the other
+	// the destination — so running it mid-flight breaks the copy as an
+	// unexplained EOF. Unlike an action that does not apply, this one belongs
+	// here; it is only unavailable this second. So it stays in the menu and
+	// dims, and pressing it says why rather than doing nothing.
+	needsIdle bool
+	run       func(AppModel) (tea.Model, tea.Cmd)
 }
 
 // keySelectHost is the one thing a side with no host can do, so it is named:
@@ -83,10 +90,18 @@ var sftpActions = []sftpAction{
 	// panel — this side as a whole
 	{key: "/", label: "Search", hint: "everything under here", onFiles: true, panelOp: true, run: AppModel.sftpStartFilter},
 	{key: "A", label: "Add", hint: "a file, or name/ for a directory", onFiles: true, panelOp: true, run: AppModel.sftpAdd},
+	// Refresh closes the "this directory" cluster before the mark actions
+	// start. It is NOT needsIdle: reading is the one thing that stays safe
+	// while bytes move, and mid-transfer is when you most want to look again.
+	{key: "R", label: "Refresh", hint: "re-read this directory now", onFiles: true, panelOp: true, run: AppModel.sftpRefresh},
 	{key: "T", label: "Transfer all marks", hint: "to the other side", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSendMarks},
 	{key: "X", label: "Delete all marks", hint: "erase them, on this host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpDeleteMarks},
 	{key: "C", label: "Clear marks", hint: "forget them, change nothing", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpResetMarks},
-	{key: keySelectHost, label: "Select host", hint: "this directory, or a saved host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSwitchHost},
+	{key: keySelectHost, label: "Select host", hint: "this directory, or a saved host", onFiles: true, onMarks: true, panelOp: true, needsIdle: true, run: AppModel.sftpSwitchHost},
+	// Next to Select host, because it is the same question answered the other
+	// way. Only on the files panels: it is the panel that shows the host, and a
+	// marks panel offering to erase itself reads as a mark action.
+	{key: "D", label: "Disconnect", hint: "close it, back to no host", onFiles: true, panelOp: true, needsIdle: true, run: AppModel.sftpDisconnect},
 	{key: "P", label: "Progress", hint: "transfers, and cancel", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpTransfers},
 }
 
@@ -136,10 +151,32 @@ func (m AppModel) sftpApplicable() ([]string, []sftpAction) {
 func (m AppModel) sftpKey(k string) (tea.Model, tea.Cmd) {
 	keys, acts := m.sftpApplicable()
 	if i := hotkeyIndex(keys, k); i >= 0 {
+		// The one guard both entry points share: the letter typed at the panel
+		// and the row committed in the menu arrive here alike, so neither can
+		// get past a running transfer while the other cannot (§4.2). The menu
+		// is deliberately NOT torn down — a refusal is not a commit, and the
+		// row it refused is still on screen, still dim, still explaining
+		// itself.
+		if acts[i].needsIdle {
+			if warn := m.transferBusy(); warn != "" {
+				return m, m.toast.show(warn, toastError)
+			}
+		}
 		return acts[i].run(m)
 	}
 	m.sftp.handleListKey(k)
 	return m, nil
+}
+
+// transferBusy is why the filesystem cannot be swapped right now, or "" when it
+// can. One sentence, one place: the dimmed row, the refused hotkey and the
+// refused menu commit all quote it, so they cannot come to disagree.
+func (m AppModel) transferBusy() string {
+	n := m.transfers.runningCount()
+	if n == 0 {
+		return ""
+	}
+	return plural(n, "transfer") + " still moving — cancel in [P]rogress first"
 }
 
 // sftpMenuItems is tab [2]'s §A.1 contents, in two labelled regions: what
@@ -154,9 +191,12 @@ func (m AppModel) sftpKey(k string) (tea.Model, tea.Cmd) {
 func (m AppModel) sftpMenuItems() []menuItem {
 	_, acts := m.sftpApplicable()
 
+	busy := m.transferBusy() != ""
+
 	var item, panel []menuItem
 	for _, a := range acts {
-		row := menuItem{label: a.label, key: a.key, hint: a.hint}
+		row := menuItem{label: a.label, key: a.key, hint: a.hint,
+			disabled: busy && a.needsIdle}
 		if a.panelOp {
 			panel = append(panel, row)
 			continue
@@ -185,12 +225,40 @@ func (m AppModel) sftpEnter() (tea.Model, tea.Cmd) {
 	return m, m.closeStack()
 }
 
+// sftpRefresh re-reads this directory now, unconditionally. The watch loop
+// already re-lists every couple of seconds — but only when the directory's own
+// timestamp moved, and that timestamp is not a promise: a filesystem can change
+// underneath one without touching it, and some servers round it to the second.
+// This is the key for "I know something changed, show me" — the answer to a
+// doubt the poll cannot settle.
+//
+// The count goes in the toast because a refresh that changes nothing looks
+// exactly like a key that did nothing, and this key is pressed precisely when
+// the user already suspects the screen is lying.
+func (m AppModel) sftpRefresh() (tea.Model, tea.Cmd) {
+	s := m.sftp.cur()
+	s.reload()
+	if s.err != "" {
+		return m, tea.Batch(m.closeStack(), m.toast.show(s.err, toastError))
+	}
+	return m, tea.Batch(m.closeStack(),
+		m.toast.show("Refreshed — "+plural(len(s.entries), "item"), toastInfo))
+}
+
 func (m AppModel) sftpStartFilter() (tea.Model, tea.Cmd) {
 	tick := m.sftp.cur().startFilter()
 	return m, tea.Batch(m.closeStack(), tick)
 }
 
+// sftpToggleMark refuses a file that is still being written into. A mark is a
+// promise that the path is a thing you can act on, and half a file is not that
+// thing: mark it, transfer it onward, and what lands at the far end is a
+// truncation nobody was told about.
 func (m AppModel) sftpToggleMark() (tea.Model, tea.Cmd) {
+	if p, ok := m.sftpCursorPath(); ok && m.transfers.arrivals().receiving(p) {
+		return m, tea.Batch(m.closeStack(),
+			m.toast.show("Still arriving — not all of it is here yet", toastError))
+	}
 	m.sftp.cur().toggleMark()
 	return m, m.closeStack()
 }
@@ -206,6 +274,19 @@ func (m AppModel) sftpUnmark() (tea.Model, tea.Cmd) {
 func (m AppModel) sftpResetMarks() (tea.Model, tea.Cmd) {
 	m.sftp.cur().resetMarks()
 	return m, m.closeStack()
+}
+
+// sftpDisconnect hands the side back to the no-host state. It never runs while
+// bytes are moving — needsIdle stops it at sftpKey, alongside Select host.
+func (m AppModel) sftpDisconnect() (tea.Model, tea.Cmd) {
+	s := m.sftp.cur()
+	host := s.host
+	s.disconnect()
+	// The matching event to "connected to": the log is where you go to find out
+	// what this side was pointed at before it was pointed at nothing.
+	m.log.info("sftp: disconnected from " + host)
+	return m, tea.Batch(m.closeStack(),
+		m.toast.show("Disconnected from "+host, toastInfo))
 }
 
 // sftpSwitchHost opens the host picker for the focused side. "local" is first

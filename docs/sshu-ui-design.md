@@ -816,16 +816,18 @@ panel-2 menu 同一個形狀:
  panel operation
  [/] Search                   everything under here
  [A]dd             a file, or name/ for a directory
+ [R]efresh              re-read this directory now
  [T]ransfer all marks             to the other side
  [X] Delete all marks      erase them, on this host
  [C]lear marks          forget them, change nothing
  [S]elect host                local or a saved host
+ [D]isconnect              close it, back to no host
  [P]rogress                   transfers, and cancel
 ```
 
 **大小寫本身就說明範圍**:**小寫作用在游標那一列,大寫作用在整個 panel。**
 `[a]ppend` / `[r]ename` / `[t]ransfer` / `[x]` 對著一列;`[A]` / `[T]` / `[X]` /
-`[C]` / `[S]` / `[P]` 對著這一側。tab [2] 是唯一需要這個區分的地方 —— 它是唯一
+`[C]` / `[R]` / `[S]` / `[D]` / `[P]` 對著這一側。tab [2] 是唯一需要這個區分的地方 —— 它是唯一
 兩種範圍並存、而且同一個動詞出現兩次的 tab(`[t]ransfer` / `[T]ransfer all
 marks`、`[x]` / `[X]`、`[c]lear mark` / `[C]lear marks`),讀的人必須不看 hint
 欄就分得出來。
@@ -854,9 +856,11 @@ it off」),marks 清單的移出是 `[c]lear mark` —— 跟 `[C]lear marks` �
 會整組消失 —— 連同它們的字母,因為 hotkey 與 menu 走同一個 `sftpApplicable()`。
 列出一堆按了沒反應的東西,跟沒有 host 時列出 Transfer 是同一個謊。
 
-**還沒選 host 的那一側,menu 裡只有 `[S]elect host` 一項。** 沒有 host 就沒有
-東西可以標記、傳送或清空,列出那些列只會教會使用者「這個 menu 說的不算數」。
-hotkey 與 menu 走同一個 `sftpApplicable()`,所以兩邊不可能各說各話(§4.2)。
+**還沒選 host 的那一側,能做的動作只有 `[S]elect host` 一個。** 沒有 host 就
+沒有東西可以標記、傳送或清空,列出那些列只會教會使用者「這個 menu 說的不算
+數」。hotkey 與 menu 走同一個 `sftpApplicable()`,所以兩邊不可能各說各話
+(§4.2)。而既然只剩一個答案,**Space 就直接給那個答案** —— 開 host 清單本身,
+不再繞一層只有一列的 menu(§11.16)。
 
 ```
         ╭─ ◆ [1] hosts ───────────────────────╮
@@ -884,11 +888,16 @@ entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
 **窄寬退化**:box 塞不下 label + hint 兩欄時,**hint 先讓位**(label 是動作
 本身、hint 只是補充),`ui/spacemenu.go`。
 
+**列有三種狀態**:能做(一般)、不適用(**整列不列出**,`appliesTo`)、
+**現在不能做(整列暗掉、游標條降階、按下去說明原因)**。第三種是給「屬於
+這個 panel、只是此刻被擋住」的動作用的 —— 讓它消失會被學成「這裡沒有這個
+動作」。見 §11.15。
+
 ### 6.3 Host form(form)—— Add / Edit 共用
 
 > **v0.2**:Auth 變三選(password / privatekey / **credential**),選
 > credential 時 User 欄整列變暗(credential 整包供應 user);IdentityFile 與
-> Credential 兩個「選值欄位」改為 **Enter 空欄開選單、Enter 有值跳下一欄、
+> Credential 兩個「選值欄位」改為 **Enter 空欄開選單、Enter 有值直接送出、
 > Backspace 整行清除**,`Tab` 回歸「下一欄」。見 §11.三、§11.五。
 
 ```
@@ -2100,7 +2109,7 @@ X 回到 ~1.0。
 | Space menu 分 item / panel 兩區,單一區時保持扁平 | `ui/sftpkeys.go sftpMenuItems` |
 | `t` / `T` 是兩個動作(游標這項 / 全部 marks),靠大小寫分 | `ui/sftpkeys.go` `ui/popup.go hotkeyIndex` |
 | Space menu 的標題是 focus 的那個 panel,與邊框膠囊同源 | `ui/app.go menuTitle` |
-| 沒有 host 的那一側只提供 `[S]elect host` | `ui/sftpkeys.go appliesTo` |
+| 沒有 host 的那一側只提供 `[S]elect host`,而且 Space 直接開 host 清單 | `ui/sftpkeys.go appliesTo` · `ui/app.go` |
 | **`/` 遞迴搜尋整棵子樹**,串流、廣度優先、可取消、上限 20000 | `remote/search.go` `ui/sftpsearch.go` |
 | 先 plan 再問覆寫,進度條分母從第一格就正確 | `remote/copy.go` `ui/transfer.go` |
 | 取消或失敗會刪掉半個檔案 | `remote/copy.go CopyItem` |
@@ -2243,12 +2252,33 @@ preference → logs 的內容 panel,**上了畫面就是已讀**;寫不進去的
 在 log 裡抱怨,而且只抱怨一次。事件面也放寬:不只失敗 —— host/credential
 的增刪改、連線的開始與結束、sftp 撥號、傳輸結果、edit 寫回,全都是事件。
 
-### 11.5 「選值欄位」:Enter 開、Enter 走、Backspace 整行
+### 11.5 「選值欄位」:Enter 開、Enter 存、Backspace 整行
 
 IdentityFile 的舊互動(`Tab` 開 picker)把 Tab 在唯一一個欄位上變成別的
 意思。host form 的欄位順序同時前移了 Auth(Name、Host、Port、**Auth**、
 Credential、User、IdentityFile、Password):Auth 決定後面哪些列存在,選了
 credential 就不必填 user —— 先問 user 再把它變暗,是問了一個得收回的問題。
+
+**「有值 Enter」後來從「跳下一欄」改成「直接送出」。** 上線後使用者實測:
+Auth 選 credential、Enter 開選單、選好 credential —— 然後還要再按兩次
+Enter 才存得下去,因為第一次只是跳到下一欄,而下一欄輪回 Name。選一個值
+的代價變成三次 Enter 加一圈迴轉,這不是「選值」該有的價錢。
+
+新規則其實是**少一條規則**:空欄 Enter 開選單(空欄的 Enter 本來就沒有別的
+意思可用),**有值就跟 form 上其他每一欄一樣 —— Enter 送出**。原本的
+「跳下一欄」是這兩欄自己發明的第三種 Enter,它讓使用者得先知道「這一欄的
+Enter 跟別欄不同」才按得對。border hint 跟著只說現在成立的:空欄
+`Enter browse` / `Enter choose`,有值 `Enter save`(§4.4、§4.5)。
+
+被否決的替代:(a) **picker 選完就直接存** —— 那會把「填完一欄」和「整張表
+送出」綁成同一個動作,使用者還沒看過 form 的其他欄就被存掉;(b) **Tab 才
+是下一欄、Enter 永遠送出,連空欄也是** —— 那空欄的 picker 就沒有鍵可以
+開,只剩 Tab 一條路,而 Tab 在全 form 都是「下一欄」,再拿它回去開 picker
+就是繞回 §11.5 一開始要修掉的那個問題。要「跳下一欄」的人本來就有
+`Tab` / `↓`,那是它們在全 form 一致的意思。
+
+8 個 mutation 全數被抓(有值仍跳欄 ×2 form、空欄不開選單 ×2 form、
+Backspace 不整行清、hint 仍寫 next)。
 
 **credential picker 曾經開在 form 底下**:composite 順序讓 form 蓋掉了它,
 而所有 isActive 斷言照樣綠 —— z-order bug 只有 render 出來的畫面抓得到,
@@ -2510,6 +2540,163 @@ menu)整份都是 header 列,而 `spaceMenu.view()` 量寬度時**跳過 header*
 4 個 mutation 全數被抓(header 不量、legend 不量、legend 不誠實、legend
 永遠只剩 Esc)。
 
+### 11.14 tab [2] 的 [D]isconnect
+
+`[S]elect host` 一直是單向的:選得進去、退不出來。要讓一側回到「還沒選
+host」,唯一的辦法是關掉整個 sshu。使用者要求補上反向的那一半 ——
+**`[D]isconnect`,選了之後 panel 回到未選擇 host 的狀態。**
+
+**它是重建零值,不是逐欄清空。** `*s = sftpSideModel{markedSet: …}` ——
+因為要丟掉的東西全部屬於那台正在離開的主機:mark 是某個檔案系統上的路徑、
+cwd 是它上面的一個位置、listing 是它回答過的話。逐欄清空的版本會在有人加
+新欄位時漏掉那一欄,而漏掉的樣子是「這台主機的 marks 疊在另一台主機的檔案
+上」。唯一被保留(且 +1)的是 `dialGen`:還在路上的 dial 不能在斷線之後才
+落到這一側,而歸零反而會讓**下一次** dial 跟那個還在路上的撞號。
+
+**傳輸進行中會被拒絕,而且說出去哪裡停。** 這個 tab 的每一筆傳輸都同時掛著
+兩側(一邊來源一邊目的),所以關掉任何一側都會弄斷它 —— 而且是以「沒人喊
+停的複製突然 EOF」的樣子弄斷。停傳輸的地方是 `[P]rogress`,所以拒絕的話直接
+講那件事,而不只是說不行。**`[S]elect host` 吃同一條規則**(見 §11.15):
+換 host 也是把這一側底下的檔案系統抽掉,對進行中的傳輸是一樣的傷害。
+
+**只放在 `[1]`/`[3]` 兩個檔案 panel**(使用者指定):host 是檔案 panel 在顯示
+的東西,marks panel 顯示的是 marks,在那裡放一個會把自己清空的動作會讀成
+mark 動作。沒有 host 的那一側則連這一列都不存在 —— 沒有東西可以斷(同
+`appliesTo` 的老規則,hotkey 跟著一起消失)。
+
+**字母 `D` 在 preference 的 `[1]`/`[2]` 是 Delete**,但 tab [2] 的刪除從來
+不掛在字母 `D` 上(它是 `x`/`X`),所以這裡的 `D` 沒有主人,讀起來也不會
+跟刪除搞混。`d` 仍然是半頁下捲 —— `hotkeyIndex` 精準比對大小寫,兩者不會
+互相搶(同 `t`/`T`、`c`/`C` 的老規矩)。
+
+7 個 mutation 全數被抓(掛到 marks panel、menu 少一列、marks 沒清、dialGen
+沒進位、順手把另一側也斷掉、傳輸中不拒絕、拒絕不講去哪裡停)。
+
+### 11.15 傳輸中凍結:menu 的第三種列,與會轉的 summary
+
+`[S]elect host` 與 `[D]isconnect` 做的是同一件事 —— **把這一側底下的檔案
+系統換掉**。而這個 tab 的每一筆傳輸都同時掛著兩側,所以傳輸進行中做這件事
+會把複製弄斷。使用者裁定:**傳輸中不允許換 host**。
+
+**menu 多了第三種列的狀態:`disabled`。** 在此之前 menu 只有兩種答案 ——
+列出來(能做)、不列出來(不適用,`appliesTo`)。這裡需要第三種:**這個
+動作屬於這個 panel,只是「現在」不能做**。不列出來會教錯事 —— 使用者會學
+成「這個 panel 沒有換 host 這件事」,以後就不會再來找;整列消失也讓「為什麼
+不見了」沒有地方可問。所以它**留在原位、整列暗掉**,按下去會說明原因。
+
+這跟 §11.13 的 nav dim 是同一個判斷:降一階代表「還在,只是不是現在」,消失
+代表「不存在」。兩者不可混用。
+
+**游標仍然可以停在暗掉的列上** —— 那正是你查明「為什麼是暗的」的方式。停上
+去時游標條改用 app 既有的「有反白但不是活的」那組色(`baseHex` + `borderDim`,
+就是 unfocused panel chip 與 §11.13 nav 游標用的那組),不用亮色條 —— 亮色條
+是在承諾「按下去會跑」。
+
+**拒絕不關 menu。** 拒絕不是 commit:被拒的那一列還在畫面上、還是暗的、還在
+解釋自己,把 menu 收掉等於把答案一起收掉。訊息由 `transferBusy()` 一個地方
+產出,所以裸熱鍵與 menu 裡的 Enter 講的是同一句話(§4.2 的老規矩:兩條路同一
+個真相)—— 而且守衛就放在 `sftpKey`,兩條路都會經過那裡,不可能只擋到一條。
+
+**summary 加了 spinner。** 凍結的原因必須在同一眼看得到,而右上角原本只有
+`󰁥 3/7 · 42%` —— 大檔案卡在 99% 很久的時候,不動的數字看起來就是當掉。改成
+**轉動的點在前、傳輸 glyph 在後**(`⠋ 󰁥 3/7 · 42%`),跟撥號那顆 spinner 同
+一套 frame 與同一個理由(§11.x dial)。它吃的是 `xferTickMsg` —— 本來就是為了
+重畫這一行而存在的 120ms tick,不新增計時器;傳輸結束、tick 停,summary 也
+一併消失。
+
+12 個 mutation 全數被抓(S/D 沒標 needsIdle、守衛不觸發、列沒標 disabled、
+全部列都暗、閒置也暗、拒絕不講 [P]rogress、render 不理 disabled、游標條沒
+降階、summary 沒 spinner、spinner 不前進、summary 掉了傳輸 glyph)。
+
+### 11.16 一列的 menu 不是 menu
+
+沒有 host 的那一側,Space 會開出一個**只有 `[S]elect host` 一列**的盒子。
+使用者裁定拿掉那一層:**Space 直接開 host 清單。**
+
+§A.1 對 Space 的承諾是「我在這裡能做什麼」。當答案只有一個的時候,先給一張
+只寫著那個答案的清單、再要求按第二次 Enter 才拿到它,那一層沒有回答任何問題
+—— 它只是把答案往後推了一格。(注意這跟 §11.13 的「沒事可做仍然開 menu」不
+衝突:那裡的答案是「沒有」,而「沒有」需要被說出來;這裡的答案是一個具體
+動作,說出來的方式就是做它。)
+
+**條件掛在「這一側沒有 host」,不是掛在 panel 編號上。** 使用者指名的是
+`[1]`/`[3]`,但沒有 host 的是那一**側**,它的 marks panel 同樣只有那一個動作
+可做 —— 只改檔案 panel 會讓 `[2]`/`[4]` 變成全 app 唯一還會開出一列 menu 的
+地方。
+
+**走 `sftpKey(keySelectHost)` 而不是直接呼叫 `sftpSwitchHost()`。** 兩者今天
+行為相同(沒有 host 的一側不可能有傳輸在跑,所以 §11.15 的守衛不會有差),
+但前者讓「Space 在這裡 == 按 `S`」是定義上的事實,而不是兩份會各自漂移的實作
+(§4.2 的老規矩)。這也是唯一一個沒被測試殺掉的 mutation —— 它殺不掉,因為
+今天兩者確實等價;留著的是明天的保險。
+
+4 / 5 mutation 被抓(捷徑不觸發、連上了也觸發、看錯側、每個 tab 都觸發;
+第五個見上)。
+
+### 11.17 還沒到齊的檔案:mark 欄的 spinner
+
+傳輸把目的檔案**先建起來、再慢慢寫**。所以在複製途中,target 目錄的清單裡
+已經看得到那一列了 —— 但它不是完整的檔案。使用者裁定:**這種列不能被
+mark,而且要在 mark 欄用 loading 圖示標出來,傳完消失並刷新 target 目錄。**
+
+**不能 mark 的理由不是「怕出錯」,是 mark 的語意。** mark 是「這個路徑是一個
+你可以拿來操作的東西」的承諾,而半個檔案不是那個東西 —— mark 它、`[T]` 送
+出去,遠端收到的是一個沒人告知過的截斷檔。所以是拒絕,而且說明原因
+(`Still arriving — not all of it is here yet`),不是靜靜地沒反應。
+
+**spinner 佔的是 mark 欄,不是新的一欄。** 那一格在這個狀態下**依定義是空
+的**(不能 mark 就不會有 mark 圖示),而且傳輸途中長出一欄會把旁邊每個檔名
+往右推 —— 一個「正在動」的提示不該讓不動的東西也跟著動。兩者同時成立時
+(已經 mark 的檔案被傳輸覆寫)**arrival 贏** —— 「還沒到齊」比「你標過它」
+急,而且那個 mark 現在也已經不能用了。
+
+**「正在寫」的集合是每個 running job 的當前那一項**(`transferJob.cur`,
+`atomic.Pointer[string]`,寫在 `CopyItem` 前、`defer` 清掉)。這個定義剛好
+就是「存在但不完整」的那一組:還沒開始的檔案根本還不存在,寫完的則是完整
+的。判定同時涵蓋**祖先目錄** —— 傳一整個目錄的時候,看得見的那一列是目錄
+本身,正在寫的檔案在它下面三層;只比對完整路徑的話,這個功能在大家實際
+用 marks 的場景裡是看不見的。前綴比對必須帶 `/`,否則 `/dst/blob` 會把
+`/dst/blobby` 一起吃掉。
+
+**view 是被「交」進去的,不是自己去拿的。** `sftp.view(arrivals)` —— sftp
+model 不認識 transfer engine,同 `status(xfer string)` 的老安排。
+
+**刷新綁在「job 結束」那一刻,不是綁在畫格上。** `logFinishedTransfers()`
+本來就用 `logged` 旗標精準抓到「這一輪剛結束」,現在讓它回傳這件事,結束時
+才 re-list ——「spinner 停」與「清單補上」是同一幀。綁在 tick 上會變成每
+120ms 對著正在忙的連線多送一次 `List`;watch loop 之所以是 2 秒一次、而且
+mtime 沒動就不重列,就是這個原因。
+
+13 個 mutation 全數被抓(engine 不公布 / 不清除當前項、結束了仍回報、只比對
+完整路徑、前綴少了 `/`、拒絕不觸發 / 擋掉全部、列不轉、spinner 用錯色、mark
+壓過 arrival、結束不刷新、每格都刷新、還在跑就回報結束)。
+
+### 11.18 [R]efresh —— 對 poll 的懷疑要有一個按鍵可以解
+
+watch loop 兩秒一次、而且**只有目錄自己的 mtime 動過才重列**。mtime 不是
+承諾:檔案系統可以在底下改了而不動它,有些 server 還把它捨進到秒。所以
+「我知道有東西變了,但畫面沒變」這個懷疑,poll 本身解不掉 —— 得有一個鍵
+無條件重讀。那就是 `[R]efresh`。
+
+**它是 panel op(大寫),不是 item op。** 它作用在整個目錄,不是游標那一列
+—— 大小寫在這個 tab 就是範圍的宣告(§6.2)。`r` 仍然是 Rename,
+`hotkeyIndex` 精準比對大小寫,兩者不會互搶。(附錄原本把 Rename 寫成大寫
+`R`,那是舊筆誤 —— 程式從來都是小寫 `r`;這次一併改正,否則同一張表裡 `R`
+會有兩個意思。)
+
+**它不吃 §11.15 的凍結。** 讀是傳輸進行中唯一仍然安全的事,而且傳輸中正是
+最想再看一眼清單的時候。凍結的是「換掉這一側底下的檔案系統」,不是「看它」。
+
+**toast 要報數量。** 重讀之後什麼都沒變的畫面,跟按鍵沒生效的畫面長得一模
+一樣 —— 而這個鍵被按下去的時機,正好就是使用者已經在懷疑畫面的時候。所以
+它說 `Refreshed — 12 items`,而不是默默地什麼都不說。
+
+**游標跟著名字走,不是跟著索引。** 重讀後有東西排到前面去,索引會指向別
+的檔案;`applyWatch` 記的是名字,所以你不會因為看一眼而失去位置。
+
+8 個 mutation 全數被抓(表裡沒有 R、掛到 marks panel、被傳輸凍結、沒真的
+重列、重列了另一側、成功不出聲、失敗仍報成功、游標沒跟著名字)。
+
 ---
 
 ## 附錄 — 按鍵全表(v1.0.0)
@@ -2548,7 +2735,7 @@ menu)整份都是 header 列,而 `spaceMenu.view()` 量寬度時**跳過 header*
 | `Tab` / `Shift+Tab` / `↑``↓` | 換欄(所有欄位一致) |
 | `←` `→`(Auth 欄) | password / privatekey / credential(host form 三選) |
 | `Enter`(IdentityFile / Credential 欄,**空**) | 開 picker / credential 選單 |
-| `Enter`(同上,**有值**) | 跳下一欄 |
+| `Enter`(同上,**有值**) | **送出**(與其他欄一致) |
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄) · `Esc` | 送出 / 取消 |
 
@@ -2558,7 +2745,12 @@ menu)整份都是 header 列,而 `spaceMenu.view()` 量寬度時**跳過 header*
 |---|---|---|
 | 全部 | `1` / `2` / `3` / `4` | 左檔案 / 左 marks / 右檔案 / 右 marks |
 | 全部 | `Tab` · `h`/`l` | 輪詢四個 panel / 切左右半 |
-| 全部 | `S` · `P` · `R` · `x`/`X` · `c`/`C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear(marks 單項/全部)/ 傳輸(項/marks) |
+| 全部 | `S` · `P` · `r` · `x`/`X` · `c`/`C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear(marks 單項/全部)/ 傳輸(項/marks) |
+| 檔案 panel | `R` | **Refresh** —— 立刻重讀這個目錄(傳輸中照樣可用) |
+| 檔案 panel | `D` | **Disconnect** —— 這一側回到未選 host |
+| 全部 | `S` · `D`(**傳輸進行中**) | 兩列在 menu 裡暗掉、按鍵不執行、跳出「先去 `[P]rogress` 取消」 |
+| 該側**沒有 host** | `Space` | 直接開 host 清單(不繞只有一列的 menu) |
+| 檔案 panel(**正在被寫入的列**) | `a` | 拒絕並說明;該列的 mark 欄改顯示 spinner,傳完消失並重列 |
 | 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add / Rename / View / Edit |
 
 ### [Alt+s]sh

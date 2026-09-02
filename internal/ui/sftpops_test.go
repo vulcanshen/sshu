@@ -346,3 +346,174 @@ func TestInputHintNamesItsAction(t *testing.T) {
 		}
 	}
 }
+
+// [D]isconnect is [S]elect host answered the other way, so it hands the side
+// back the state it had before a host was picked — no filesystem, no listing,
+// no marks. A mark is a path on a filesystem; keeping one across a disconnect
+// would leave the side holding a paper address for a house that is gone.
+func TestDisconnectReturnsTheSideToNoHost(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	m = pressA(m, "a", "j", "a") // two marks, so the reset has something to lose
+	if len(m.sftp.sides[sideLeft].marks) == 0 {
+		t.Fatal("setup: nothing marked")
+	}
+	gen := m.sftp.sides[sideLeft].dialGen
+
+	m = pressA(m, "D")
+	s := m.sftp.sides[sideLeft]
+	if s.fs != nil || s.host != "" || s.cwd != "" {
+		t.Errorf("the side should hold no host: fs=%v host=%q cwd=%q", s.fs != nil, s.host, s.cwd)
+	}
+	if len(s.entries) != 0 || len(s.marks) != 0 {
+		t.Errorf("listing and marks belonged to the host: %d entries, %d marks",
+			len(s.entries), len(s.marks))
+	}
+	if s.markedSet == nil {
+		t.Error("the mark set must be usable again without a nil map panic")
+	}
+	// A dial already in flight must not be able to land on the side afterwards.
+	if s.dialGen <= gen {
+		t.Errorf("dialGen should have moved past %d, got %d", gen, s.dialGen)
+	}
+	// The panel says what it now is, and the other side is untouched.
+	if !strings.Contains(ansi.Strip(m.View()), "select a host") {
+		t.Error("the panel should be back to the no-host prompt")
+	}
+	if m.sftp.sides[sideRight].fs == nil {
+		t.Error("disconnecting one side must not touch the other")
+	}
+}
+
+// The menu and the hotkey have to agree (§4.2), and both have to disappear
+// when there is no host — nothing to disconnect from.
+func TestDisconnectOnlyExistsWhereThereIsAHost(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	m = pressA(m, "D")
+
+	for _, it := range m.sftpMenuItems() {
+		if it.key == "D" {
+			t.Error("a side with no host is offering to disconnect")
+		}
+	}
+	// Pressing it anyway falls through to the list keys and changes nothing.
+	if before := m.sftp.sides[sideLeft]; pressA(m, "D").sftp.sides[sideLeft].host != before.host {
+		t.Error("D did something on a side that has no host")
+	}
+
+	// It is a files-panel action: the marks panel shows the marks, not the host.
+	m.sftp.focus = panelLeftMarks
+	m2 := sftpFixture(t, 100, 26)
+	m2.sftp.focus = panelLeftMarks
+	for _, it := range m2.sftpMenuItems() {
+		if it.key == "D" {
+			t.Error("Disconnect should not be offered on a marks panel")
+		}
+	}
+}
+
+// The watch loop re-lists on a two-second poll, and only when the directory's
+// own timestamp moved. [R]efresh is the key for the doubt that leaves: it
+// re-reads NOW, without waiting and without asking the timestamp's permission.
+func TestRefreshRereadsTheDirectoryWithoutTheWatch(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	before := len(m.sftp.sides[sideLeft].entries)
+
+	// Something appears behind sshu's back. No tick is delivered, so nothing
+	// but the key itself can bring it in.
+	made := filepath.Join(m.sftp.sides[sideLeft].cwd, "appeared.txt")
+	if err := os.WriteFile(made, []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(m.sftp.sides[sideLeft].entries); got != before {
+		t.Fatalf("setup: the listing changed on its own (%d → %d)", before, got)
+	}
+
+	m = pressA(m, "R")
+	if got := len(m.sftp.sides[sideLeft].entries); got != before+1 {
+		t.Errorf("R should have re-read the directory: %d entries, want %d", got, before+1)
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "Refreshed") {
+		t.Errorf("a refresh that changes nothing must still say it happened:\n%s",
+			ansi.Strip(m.View()))
+	}
+	// The other side is not this side.
+	if m.sftp.sides[sideRight].cwd == m.sftp.sides[sideLeft].cwd {
+		t.Fatal("setup: the two sides should be looking at different directories")
+	}
+}
+
+// A refresh must not move the cursor off what it was on — you press it to see
+// what changed, not to lose your place.
+func TestRefreshKeepsTheCursorWhereItWas(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	m.sftp.sides[sideLeft].cursor = 2
+	want, ok := m.sftp.sides[sideLeft].cursorEntry()
+	if !ok {
+		t.Fatal("setup: no row at the cursor")
+	}
+	// Something sorts in ahead of it, so holding the INDEX would not be enough.
+	if err := os.WriteFile(filepath.Join(m.sftp.sides[sideLeft].cwd, "AAA.txt"),
+		[]byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m = pressA(m, "R")
+	got, ok := m.sftp.sides[sideLeft].cursorEntry()
+	if !ok || got.Name != want.Name {
+		t.Errorf("the cursor landed on %q, want %q", got.Name, want.Name)
+	}
+}
+
+// Reading is the one thing that stays safe while bytes move, and mid-transfer
+// is exactly when a listing is worth looking at again — so R is not frozen the
+// way [S] and [D] are.
+func TestRefreshIsNotFrozenByARunningTransfer(t *testing.T) {
+	m := busy(sftpFixture(t, 100, 26))
+	m.sftp.focus = panelLeftFiles
+	for _, it := range m.sftpMenuItems() {
+		if it.key == "R" && it.disabled {
+			t.Error("Refresh should stay live while a transfer runs")
+		}
+	}
+	before := len(m.sftp.sides[sideLeft].entries)
+	if err := os.WriteFile(filepath.Join(m.sftp.sides[sideLeft].cwd, "mid.txt"),
+		[]byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := pressA(m, "R"); len(got.sftp.sides[sideLeft].entries) != before+1 {
+		t.Error("R did not re-read while a transfer was running")
+	}
+}
+
+// R belongs to the directory, and the marks panel is not showing one — the
+// same reason [D]isconnect is a files-panel action.
+func TestRefreshIsAFilesPanelAction(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftMarks
+	for _, it := range m.sftpMenuItems() {
+		if it.key == "R" {
+			t.Error("Refresh should not be offered on a marks panel")
+		}
+	}
+}
+
+// A directory that has gone away says so instead of leaving a stale listing
+// that looks current because it was just refreshed.
+func TestRefreshReportsAFailure(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	gone := filepath.Join(t.TempDir(), "not-there")
+	m.sftp.sides[sideLeft].cwd = gone
+
+	m = pressA(m, "R")
+	if m.sftp.sides[sideLeft].err == "" {
+		t.Error("a refresh that could not read must record why")
+	}
+	if strings.Contains(ansi.Strip(m.View()), "Refreshed") {
+		t.Error("a failed refresh must not report success")
+	}
+}

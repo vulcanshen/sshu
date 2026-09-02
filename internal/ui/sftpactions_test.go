@@ -1,7 +1,11 @@
 package ui
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -302,4 +306,287 @@ func TestQuitAsksAboutARunningTransfer(t *testing.T) {
 		!strings.Contains(lines[0], "transfer") {
 		t.Errorf("the confirmation should name the transfer, got %v", lines)
 	}
+}
+
+// arrivingAt parks a job whose current item is p, the way a real one looks
+// mid-copy. A real local copy is over before the next keystroke, so the state
+// under test has to be held still.
+func arrivingAt(m AppModel, p string) AppModel {
+	j := runningJob(1, 50, 100)
+	j.cur.Store(&p)
+	m.transfers.jobs = append(m.transfers.jobs, j)
+	return m
+}
+
+// A file still being written into is not a thing you can act on yet. Marking it
+// would promise otherwise — and a mark is what [T] sends onward, so the promise
+// would be kept by shipping a truncation nobody was told about.
+func TestAFileStillArrivingCannotBeMarked(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	p, ok := m.sftpCursorPath()
+	if !ok {
+		t.Fatal("setup: no row under the cursor")
+	}
+	m = arrivingAt(m, p)
+
+	after := pressA(m, "a")
+	if len(after.sftp.sides[sideLeft].marks) != 0 {
+		t.Errorf("marked a file that is still arriving: %v", after.sftp.sides[sideLeft].marks)
+	}
+	if !strings.Contains(ansi.Strip(after.View()), "Still arriving") {
+		t.Errorf("the refusal has to say why:\n%s", ansi.Strip(after.View()))
+	}
+
+	// The same key on a row that is NOT arriving still marks, so the refusal is
+	// about the file rather than about the transfer being on at all.
+	m.sftp.sides[sideLeft].cursor++
+	if got := pressA(m, "a"); len(got.sftp.sides[sideLeft].marks) != 1 {
+		t.Error("a settled file must still be markable while another one arrives")
+	}
+}
+
+// The mark cell carries the spinner while the row is being written into. It
+// takes that cell rather than a column of its own: the cell is free by
+// construction, and a row that grew a column mid-transfer would shift every
+// name beside it.
+func TestAnArrivingRowSpinsInTheMarkColumn(t *testing.T) {
+	withColour(t)
+	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	p, _ := m.sftpCursorPath()
+	m = arrivingAt(m, p)
+	m.sftp.sides[sideLeft].cursor = 999 // off this row, so the cursor bar is not what we read
+
+	body := m.sftp.fileRows(m.sftp.sides[sideLeft], 60, 10, m.transfers.arrivals())
+	if len(body) == 0 {
+		t.Fatal("no rows rendered")
+	}
+	row := body[0]
+	if !strings.Contains(row, spinnerFrames[0]) {
+		t.Errorf("the arriving row should carry the spinner:\n%q", ansi.Strip(row))
+	}
+	if !strings.Contains(row, ansiOf(t, handColor)) {
+		t.Errorf("the spinner is work happening, not a mark you left:\n%q", row)
+	}
+
+	// Every other row is untouched — and the frame is still exactly as wide.
+	if strings.Contains(body[1], spinnerFrames[0]) {
+		t.Error("a settled row must not spin")
+	}
+
+	// A file can be marked and THEN overwritten by a transfer. The arrival
+	// wins the cell: "not all here yet" is the more urgent of the two facts,
+	// and the mark it hides is one the user can no longer act on anyway.
+	side := m.sftp.sides[sideLeft]
+	side.markedSet = map[string]bool{p: true}
+	side.marks = []string{p}
+	row = m.sftp.fileRows(side, 60, 10, m.transfers.arrivals())[0]
+	if !strings.Contains(row, spinnerFrames[0]) {
+		t.Errorf("the arrival should take the cell from the mark:\n%q", ansi.Strip(row))
+	}
+	if strings.Contains(row, glyphMark) {
+		t.Errorf("both cannot be in one cell:\n%q", ansi.Strip(row))
+	}
+	for i, r := range body {
+		if got := dispW(ansi.Strip(r)); got != 60 {
+			t.Errorf("row %d is %d cells wide, want 60", i, got)
+		}
+	}
+}
+
+// Transfer a directory and the row you can SEE is the directory — the file
+// being written is three levels down inside it. So a directory the bytes are
+// landing in counts as arriving too; otherwise the whole thing is invisible in
+// the case people actually use marks for.
+func TestADirectoryBeingFilledCountsAsArriving(t *testing.T) {
+	a := arrivals{paths: []string{"/dst/blob/deep/f01.bin"}, frame: "x"}
+	for _, p := range []string{"/dst/blob/deep/f01.bin", "/dst/blob/deep", "/dst/blob", "/dst"} {
+		if !a.receiving(p) {
+			t.Errorf("%q should read as receiving", p)
+		}
+	}
+	for _, p := range []string{"/dst/blob/deep/f02.bin", "/dst/blobby", "/other", ""} {
+		if a.receiving(p) {
+			t.Errorf("%q is not being written into", p)
+		}
+	}
+	// The separator is what makes it "inside", not a shared spelling. Without
+	// it /dst/blob would swallow every sibling whose name merely starts the
+	// same way.
+	sibling := arrivals{paths: []string{"/dst/blobby/f01.bin"}, frame: "x"}
+	if sibling.receiving("/dst/blob") {
+		t.Error("/dst/blob is not the directory /dst/blobby is filling")
+	}
+	if !sibling.receiving("/dst/blobby") {
+		t.Error("/dst/blobby is")
+	}
+	if (arrivals{}).receiving("/dst/blob") {
+		t.Error("nothing is arriving when nothing is running")
+	}
+}
+
+// The spinner has to stop AND the listing has to catch up, together, at the
+// moment the job ends — not two seconds later when the watch poll notices.
+func TestTheEndOfAJobStopsTheSpinnerAndRelists(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	dst := m.sftp.sides[sideRight]
+	landed := filepath.Join(dst.cwd, "arrived.txt")
+	m = arrivingAt(m, landed)
+	if !m.transfers.arrivals().receiving(landed) {
+		t.Fatal("setup: the job should be reported as arriving")
+	}
+	before := len(m.sftp.sides[sideRight].entries)
+
+	// The file finishes, and so does the job.
+	if err := os.WriteFile(landed, []byte("here"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// cur is deliberately NOT cleared here. The copy goroutine stores the end
+	// state before its deferred clear runs, so "ended but cur still set" is a
+	// window that really happens — and a job that is over must stop reporting
+	// an arrival on the state alone.
+	m.transfers.jobs[0].state.Store(int32(xferDone))
+
+	next, _ := m.Update(xferTickMsg{})
+	m = next.(AppModel)
+
+	if m.transfers.arrivals().receiving(landed) {
+		t.Error("a finished job must stop reporting an arrival")
+	}
+	if got := len(m.sftp.sides[sideRight].entries); got != before+1 {
+		t.Errorf("the destination should have been re-listed: %d entries, want %d",
+			got, before+1)
+	}
+}
+
+// A second job still running must not make the first one's ending re-list —
+// and, more to the point, must not make a still-running job report an ending.
+func TestOnlyAnActualEndingTriggersTheRelist(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100), runningJob(2, 10, 100))
+	if m.logFinishedTransfers() {
+		t.Fatal("two running jobs, nothing has ended")
+	}
+	m.transfers.jobs[0].state.Store(int32(xferDone))
+	if !m.logFinishedTransfers() {
+		t.Error("one of them ended, in front of a job that is still going")
+	}
+	if m.logFinishedTransfers() {
+		t.Error("an ending is reported once, not on every pass")
+	}
+}
+
+// heldFS is the real filesystem with its reads held until the test lets go.
+// It is how a copy is caught MID-FLIGHT without a sleep: every other method is
+// the real one, so what runs is the real transfer path.
+type heldFS struct {
+	remote.FS
+	release <-chan struct{}
+}
+
+func (f heldFS) Open(p string) (io.ReadCloser, error) {
+	rc, err := f.FS.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	return &heldReader{ReadCloser: rc, release: f.release}, nil
+}
+
+type heldReader struct {
+	io.ReadCloser
+	release <-chan struct{}
+	waited  bool
+}
+
+func (r *heldReader) Read(p []byte) (int, error) {
+	if !r.waited {
+		r.waited = true
+		<-r.release
+	}
+	return r.ReadCloser.Read(p)
+}
+
+// The engine has to actually publish what it is writing, and stop publishing
+// when it stops writing. Everything else about arrivals is tested against a
+// parked job, which would keep passing with the wiring cut out entirely.
+func TestARunningJobPublishesTheFileItIsWriting(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	src, dst := m.sftp.sides[sideLeft], m.sftp.sides[sideRight]
+	e, ok := src.rowAt(1) // a file, not the directory
+	if !ok || e.IsDir {
+		t.Fatal("setup: wanted a file under row 1")
+	}
+	from := remote.Join(src.cwd, e.Name)
+	want := remote.Join(dst.cwd, e.Name)
+
+	items, total, err := remote.Plan(src.fs, []string{from}, dst.cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	release := make(chan struct{})
+	m.transfers.start(heldFS{FS: src.fs, release: release}, dst.fs, items, total, "one file")
+	j := m.transfers.jobs[0]
+
+	waitFor(t, "the job to name what it is writing", func() bool { return j.cur.Load() != nil })
+	if got := *j.cur.Load(); got != want {
+		t.Errorf("the job is writing %q, want %q", got, want)
+	}
+	if !m.transfers.arrivals().receiving(want) {
+		t.Error("a running job's file must read as arriving")
+	}
+
+	close(release)
+	waitJob(t, j)
+	if p := j.cur.Load(); p != nil {
+		t.Errorf("a finished job is writing nothing, got %q", *p)
+	}
+	if m.transfers.arrivals().receiving(want) {
+		t.Error("nothing is arriving once the job is over")
+	}
+}
+
+// countingFS is the real filesystem that says how many times it was listed.
+type countingFS struct {
+	remote.FS
+	lists *atomic.Int32
+}
+
+func (f countingFS) List(dir string) ([]remote.Entry, error) {
+	f.lists.Add(1)
+	return f.FS.List(dir)
+}
+
+// The re-list is tied to a job ENDING, not to the frame clock. The tick runs at
+// 120ms while bytes move; re-listing on each one would put a round trip per
+// frame on a link that is already busy carrying the transfer — which is why the
+// watch loop polls at two seconds and only re-lists when the mtime moved.
+func TestATransferInFlightDoesNotRelistOnEveryFrame(t *testing.T) {
+	m := sftpFixture(t, 100, 26)
+	var lists atomic.Int32
+	m.sftp.sides[sideRight].fs = countingFS{FS: m.sftp.sides[sideRight].fs, lists: &lists}
+	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
+
+	for i := 0; i < 8; i++ {
+		next, _ := m.Update(xferTickMsg{})
+		m = next.(AppModel)
+	}
+	if n := lists.Load(); n != 0 {
+		t.Errorf("a running transfer listed the destination %d times", n)
+	}
+
+	m.transfers.jobs[0].state.Store(int32(xferDone))
+	next, _ := m.Update(xferTickMsg{})
+	m = next.(AppModel)
+	if n := lists.Load(); n != 1 {
+		t.Errorf("the ending should have listed it exactly once, got %d", n)
+	}
+
+	// And it stays listed once: the ending is reported one time.
+	next, _ = m.Update(xferTickMsg{})
+	if n := lists.Load(); n != 1 {
+		t.Errorf("the ending re-listed again on the next frame, %d total", n)
+	}
+	_ = next
 }

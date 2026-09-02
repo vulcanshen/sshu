@@ -259,7 +259,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.sftp.onDialTick()
 
 	case xferTickMsg:
-		m.logFinishedTransfers()
+		if m.logFinishedTransfers() {
+			m.relistSides() // the spinner stops and the listing catches up together
+		}
+		m.transfers.spinAt++ // the summary's dots turn on the tick that repaints them
 		return m, m.transfers.tick()
 
 	case watchTickMsg:
@@ -277,13 +280,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case xferDoneMsg:
 		m.logFinishedTransfers()
-		// Re-list the destination so what just arrived is on screen without the
-		// user having to leave and come back.
-		for i := range m.sftp.sides {
-			if s := &m.sftp.sides[i]; s.fs != nil && s.cwd != "" {
-				s.reload()
-			}
-		}
+		m.relistSides()
 		return m, m.transfers.tick()
 
 	case toastExpireMsg:
@@ -640,6 +637,15 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case " ":
+		// A list of one is not a list. A side with no host can do exactly one
+		// thing, and Space's whole promise is "what can I do here" — so it
+		// answers with the thing rather than with a menu whose only row points
+		// at it. Routed through sftpKey rather than straight at the picker, so
+		// this shortcut is the letter `S` by definition and cannot drift from
+		// it — the running-transfer guard included (§4.2).
+		if m.tab == tabFT && m.sftp.cur().fs == nil {
+			return m.sftpKey(keySelectHost)
+		}
 		m.spaceMenu.setItems(m.menuItems(), m.menuTitle(), 1)
 		return m, m.spaceMenu.open()
 	case "g":
@@ -798,21 +804,41 @@ func (m AppModel) textFloat() bool {
 // logFinishedTransfers records each job's ending exactly once. Swept from the
 // transfer messages rather than hooked into the copy goroutine, so the log
 // write happens on the UI loop like every other entry.
-func (m *AppModel) logFinishedTransfers() {
+// logFinishedTransfers reports whether any job ENDED on this pass. The caller
+// re-lists on a true: the destination is only whole once the last byte is
+// written, and waiting for the two-second watch poll leaves a spinner turning
+// over a file that is already finished.
+func (m *AppModel) logFinishedTransfers() bool {
+	ended := false
 	for _, j := range m.transfers.jobs {
 		if j.logged {
 			continue
 		}
+		// ended rides along with logged: they mean the same thing — this job
+		// reached its end on THIS pass — and a separate flag set before the
+		// switch would be turned back off by the next job that is still
+		// running.
 		switch j.status() {
 		case xferDone:
-			j.logged = true
+			j.logged, ended = true, true
 			m.log.info("transfer done: " + j.label)
 		case xferCancelled:
-			j.logged = true
+			j.logged, ended = true, true
 			m.log.info("transfer cancelled: " + j.label)
 		case xferFailed:
-			j.logged = true
+			j.logged, ended = true, true
 			m.log.errorf("transfer failed: "+j.label, j.err())
+		}
+	}
+	return ended
+}
+
+// relistSides re-lists both connected sides in place. What arrived should show
+// up without the user navigating away and back.
+func (m *AppModel) relistSides() {
+	for i := range m.sftp.sides {
+		if s := &m.sftp.sides[i]; s.fs != nil && s.cwd != "" {
+			s.reload()
 		}
 	}
 }

@@ -37,6 +37,11 @@ type transferJob struct {
 
 	cancel context.CancelFunc
 
+	// cur is the DESTINATION path being written this instant, nil between
+	// items. It is the one file in the job that exists on the far side and is
+	// not all there yet — the rest either do not exist yet or are finished.
+	cur atomic.Pointer[string]
+
 	// logged: this job's ending has reached the app log. Touched only on the
 	// UI loop (logFinishedTransfers), never by the copy goroutine.
 	logged bool
@@ -66,6 +71,10 @@ func (j *transferJob) percent() int {
 type transferModel struct {
 	jobs   []*transferJob
 	nextID int
+	// spinAt is the summary spinner's frame. Like the dial's, it counts ticks
+	// rather than reading the clock, so the animation does not depend on when
+	// a frame happens to be drawn.
+	spinAt int
 }
 
 // xferTickMsg repaints while anything is moving.
@@ -120,7 +129,10 @@ func (m *transferModel) start(src, dst remote.FS, items []remote.Item, total int
 	m.jobs = append(m.jobs, j)
 
 	go func() {
+		defer j.cur.Store(nil)
 		for _, it := range items {
+			dstPath := it.Dst
+			j.cur.Store(&dstPath)
 			if err := remote.CopyItem(ctx, src, dst, it, func(n int64) {
 				j.done.Add(n)
 			}); err != nil {
@@ -196,7 +208,54 @@ func (m transferModel) summary() string {
 		files += j.files
 		doneFiles += int(j.filesDone.Load())
 	}
-	return fmt.Sprintf("%s %d/%d · %d%%", glyphUpload, doneFiles, files, pct)
+	// The spinner leads, the way the dial's does: a percentage can sit at 99%
+	// for a while on a big file, and a number that is not moving is what
+	// "stuck" looks like. The turning dots are the answer to that, and the
+	// transfer glyph behind them still says WHICH kind of work it is.
+	return fmt.Sprintf("%s %s %d/%d · %d%%",
+		spinnerFrames[m.spinAt%len(spinnerFrames)], glyphUpload, doneFiles, files, pct)
+}
+
+// arrivals is what is landing in the panels this instant: the destination
+// paths being written, and the spinner frame to draw beside them. The sftp
+// view is HANDED this rather than reaching into the transfer engine for it —
+// the same arrangement as status(), which is passed its summary.
+type arrivals struct {
+	paths []string
+	frame string
+}
+
+// receiving reports whether the row at p is being written into right now.
+// Either it IS the file arriving, or it is a directory the file is arriving
+// INSIDE — and the second case is the common one: transfer a directory and the
+// row you can see is the directory, not the file being written three levels
+// down inside it.
+func (a arrivals) receiving(p string) bool {
+	if p == "" {
+		return false
+	}
+	for _, dst := range a.paths {
+		if dst == p || strings.HasPrefix(dst, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func (m transferModel) arrivals() arrivals {
+	var paths []string
+	for _, j := range m.jobs {
+		if j.status() != xferRunning {
+			continue
+		}
+		if p := j.cur.Load(); p != nil {
+			paths = append(paths, *p)
+		}
+	}
+	if len(paths) == 0 {
+		return arrivals{}
+	}
+	return arrivals{paths: paths, frame: spinnerFrames[m.spinAt%len(spinnerFrames)]}
 }
 
 // ------------------------------------------------------------------- popup

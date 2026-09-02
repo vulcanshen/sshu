@@ -170,7 +170,7 @@ The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, gro
 | `/` | hosts: Search — name, user, host and port at once, ranked best-first |
 | `C` | logs: Clear the log (asks first — it erases `applogs.yaml` too) |
 
-In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). On the two pick-a-value fields — IdentityFile and Credential — **`Enter` on the empty field opens the chooser, `Enter` on a filled one moves on, and `Backspace` clears the whole line**. Choosing `credential` darkens the User row: the credential supplies the user.
+In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). On the two pick-a-value fields — IdentityFile and Credential — **`Enter` on the empty field opens the chooser, `Enter` on a filled one saves like it does anywhere else on the form, and `Backspace` clears the whole line**. Choosing `credential` darkens the User row: the credential supplies the user.
 
 ### `[Alt+f]ile transfer` — lower case is the row, upper case is the panel
 
@@ -178,7 +178,7 @@ In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→`
 |---|---|
 | `h` `l` | Cross to the other half, keeping the row (`[2]`↔`[4]`) |
 | `Enter` | Enter the directory under the cursor — or go to whatever the search found |
-| `a` | **Append to marks** — press it again to take the mark off |
+| `a` | **Append to marks** — press it again to take the mark off. Refused on a file that is still arriving: a mark says the path is a thing you can act on, and half a file is not |
 | `r` | Rename it, in place |
 | `v` | **View it** — text with syntax highlighting and line numbers, a binary as hex, a directory as its listing |
 | `e` | **Edit it** in `$EDITOR` — fetched, edited, written back |
@@ -186,11 +186,24 @@ In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→`
 | `x` | Delete it (asks first) |
 | `/` | **Search the whole subtree** — `Enter` goes to a result and leaves the cursor on it, where `a` / `t` / `v` / `e` / `x` all work |
 | `A` | **Add** here — `name` makes an empty file, `name/` makes a directory |
+| `R` | **Refresh** — re-read this directory now. The background poll only re-lists when the directory's timestamp moved, and a timestamp is not a promise |
 | `T` | Transfer every mark on this side |
 | `X` | Delete every mark on this side (asks first) |
 | `c` / `C` | Clear one mark (on a marks panel) / clear them all — forgets them, changes nothing on disk |
-| `S` | Select host — `local` is first, and it opens **the directory you launched sshu in** |
+| `S` | Select host — `local` is first, and it opens **the directory you launched sshu in**. On a side that has no host yet, `Space` opens this list directly: a menu of one row is not an answer |
+| `D` | **Disconnect** — this side goes back to having no host at all |
 | `P` | Progress — running transfers, with per-job cancel |
+
+A file being written into shows a spinner **in its mark column** — it exists but
+is not all there yet — and so does the directory it is landing in, since that is
+the row you can actually see when a whole tree is being copied. Both clear and
+the listing re-reads the moment the job ends.
+
+While bytes are moving, `S` and `D` are **frozen**: both swap the filesystem out
+from under a side, and every transfer has both sides on it. The two rows stay in
+the Space menu and dim rather than disappearing — they belong on this panel, they
+are just unavailable this second — and pressing either says to cancel in `P`
+first. The top-right summary spins while anything is in flight.
 
 ### `[Alt+s]sh`
 
