@@ -1,6 +1,16 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] — 2026-09-02
+
+The file transfer tab answers for itself while it works. A side can be let go
+of as well as picked (`[D]isconnect`), a directory can be re-read on demand
+(`[R]efresh`), and a transfer in flight is visible in three places at once: the
+summary spins, the file being written spins in its own mark column and refuses
+to be marked, and the two actions that would pull the filesystem out from under
+it dim rather than vanish. The host form also stops charging two extra Enters
+for choosing a credential.
+
+Changes since 1.0.0:
 
 ### Added
 
@@ -53,7 +63,6 @@
 - **The transfer summary spins** — `⠋ 󰁥 3/7 · 42%`. A percentage can sit at
   99% for a long time on a big file, and a number that is not moving is what
   stuck looks like. It rides the 120 ms tick that already repaints the line.
-
 - **`Enter` on a filled IdentityFile or Credential field now saves** — it used
   to step to the next field, so choosing a credential cost two more Enters and
   a lap back round to Name before the host could be written. The empty field

@@ -240,7 +240,7 @@ The layout strip (`2`, bottom of the left column — the right side is nothing b
 
 ## Status
 
-**v1.0.0.** Three Alt-chord tabs, the grouped `[1] sshu` nav, reusable credentials, the persistent app log, the ssh terminal grid, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v1.1.0.** Three Alt-chord tabs, the grouped `[1] sshu` nav, reusable credentials, the persistent app log, the ssh terminal grid, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 - **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab
