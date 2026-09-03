@@ -20,7 +20,7 @@ The inspiration is [Termius](https://termius.com/) — a GUI SSH client, not ano
 ## Demo
 
 ### The manage tab — hosts, credentials, logs, and a connect
-![manage](docs/demo-preference.gif)
+![manage](docs/demo-manage.gif)
 
 ### Two-sided file transfer — marks, a real transfer, the rule as its progress bar
 ![file transfer](docs/demo-transfer.gif)
@@ -45,7 +45,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 ## The three tabs
 
 ```
- [Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh
+ [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
 **`[M]anage`** — everything that is sshu's own, under one nav: **SSH** (Hosts, Credentials) and **Events** (Logs). Hosts are a table over `hosts.yaml`, one row each, shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. Logs are everything that happened while you were not looking, persisted to disk — and `[C]lear logs` empties them, `applogs.yaml` included.
@@ -201,10 +201,10 @@ is not all there yet — and so does the directory it is landing in, since that 
 the row you can actually see when a whole tree is being copied. Both clear and
 the listing re-reads the moment the job ends.
 
-While bytes are moving, `S` and `D` are **frozen**: both swap the filesystem out
+While bytes are moving, `H` and `D` are **frozen**: both swap the filesystem out
 from under a side, and every transfer has both sides on it. The two rows stay in
 the Space menu and dim rather than disappearing — they belong on this panel, they
-are just unavailable this second — and pressing either says to cancel in `P`
+are just unavailable this second — and pressing either says to cancel in `J`
 first. The top-right summary spins while anything is in flight.
 
 ### `[S]SH`
