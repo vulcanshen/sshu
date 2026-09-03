@@ -118,7 +118,10 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
 
 ### §A.2 Non-contextual track — `?` help
 
-全域動作一張表:core key、`q` / `Ctrl+C`、導覽詞彙。**可以疊在別的浮層上開** ——
+全域動作一張表:core key、`q` / `Ctrl+C`、導覽詞彙,外加 **ssh grid 那組只在
+`[5]` 有效的鍵**(`Alt+arrows` / `Alt+Enter` / `Alt+Esc` / `PgUp`·`PgDn`)——
+那個 panel 連 `?` 都送給遠端,從裡面打不開 help,所以只能在這裡先學到
+(design §A.2 追記)。**可以疊在別的浮層上開** ——
 §A.2 承諾 help 在任何 surface 都到得了,而一個迷路的使用者最可能站的地方,正是他
 剛打開的那個 menu。
 
@@ -571,7 +574,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 ---
 
-## 附錄 — sshu hotkey 全表(v0.2)
+## 附錄 — sshu hotkey 全表(v1.2.0)
 
 **bracket 印的那個大小寫就是唯一按得動的鍵**(§4.4)。
 
@@ -612,7 +615,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `H` · `c`/`C` · `J` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Host(切這一側)/ Clear(marks 單項/全部)/ Jobs |
 | 檔案 panel | `R` | **Refresh** —— `sftpRefresh` 直接叫 `reload()`,不看 mtime、不等 poll;成功報數量,失敗報 `s.err`(design doc §11.18) |
 | 檔案 panel | `D` | **Disconnect** —— 重建 side 的零值(保留並 +1 `dialGen`) |
-| 全部 | `S` · `D` 傳輸中 | `sftpAction.needsIdle` + `transferBusy()`:menu 列 `disabled`(暗)、`sftpKey` 擋下並 toast,**不關 menu** |
+| 全部 | `H` · `D` 傳輸中 | `sftpAction.needsIdle` + `transferBusy()`:menu 列 `disabled`(暗)、`sftpKey` 擋下並 toast,**不關 menu** |
 | 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add |
 
 ### [S]SH
@@ -624,7 +627,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 格子(pty) | `Alt+Enter` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25) |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
-| 格子(pty) | `Alt+Esc` | 收回鍵盤、回 `[1]` |
+| 格子(pty) | **`PgUp`/`PgDown`** | 遠端**不在** alt screen 時捲這一格的歷史(`scrollback`,10000 行上限;`readLoop` 存的是**進來的 bytes**,不是回頭讀 vt10x 的列 —— 那些列早就被清掉了);在 alt screen 時原封送給遠端,讓 vim / less 自己翻頁(design §11.19) |
+| 格子(pty) | `Alt+Esc` | **一次剝一層**:zoom 中先離開 zoom(鍵盤留在格子裡),再按才收回鍵盤、回 `[1]`(design §11.25) |
 
 ### 全域
 

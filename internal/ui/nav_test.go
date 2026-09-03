@@ -209,3 +209,20 @@ func TestHelpListsTheNavigationVocabulary(t *testing.T) {
 		}
 	}
 }
+
+// The grid's own keys are the ones a help popup is least able to skip: panel
+// [5] hands `?` to the remote like every other bare key, so help CANNOT be
+// opened from the place they work. The list opened from outside is the only
+// place to learn them (§A.2, §11.19).
+func TestHelpListsTheGridKeysYouCannotAskAboutFromInside(t *testing.T) {
+	var keys []string
+	for _, e := range helpContent {
+		keys = append(keys, e.key)
+	}
+	joined := strings.Join(keys, " | ")
+	for _, want := range []string{"Alt+arrows", "Alt+Enter", "Alt+Esc", "PgUp · PgDn"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("help does not mention %q (has %s)", want, joined)
+		}
+	}
+}

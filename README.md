@@ -36,7 +36,7 @@ The inspiration is [Termius](https://termius.com/) — a GUI SSH client, not ano
 | **`Enter`** | Connect / enter a directory / commit a choice |
 | **`Space`** | *What can I do here?* — the contextual menu for whatever has focus. Also closes any popup |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
-| **`?`** | Global help — every app-wide action in one list |
+| **`?`** | Global help — the whole key vocabulary in one list, including the grid keys you cannot ask about from inside a cell |
 
 Tabs are switched with a single shifted letter — **`M` / `F` / `S`** — and every bare digit `1`–`9` addresses a panel of the current tab. Inside a pty the letters belong to the remote like every other bare key: `Alt+Esc` takes the keyboard back first.
 

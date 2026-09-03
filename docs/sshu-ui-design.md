@@ -99,9 +99,15 @@ hosts 表格上。
 | 說明 | `?` |
 | 離開 | `q` |
 | 硬退 | `Ctrl+C` |
-| 切 tab | `Tab` / `1`-`3` |
+| 切 tab | `M` / `F` / `S`(§11.21) |
 
 sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
+
+**help popup 裡還有一組不全域的鍵**:網格格子的 `Alt+arrows` / `Alt+Enter` /
+`Alt+Esc` / `PgUp`·`PgDn`(§4.6、§11.19、§11.25)。它們只在 panel `[5]` 有效,
+照理不該進這張表 —— 但那個 panel 把 `?` 也送給遠端,**在裡面按不出 help**。
+唯一學得到它們的地方,就是從外面打開的這一份。§A.2 的承諾是「沒讀過 README
+的人在這裡找得到整套詞彙」,而一組進去就問不到的鍵,正是最需要先講的。
 
 ### contextual / non-contextual 邊界(audit 用)
 
@@ -2810,6 +2816,11 @@ marker 接在名字**被截斷之後**,不是之前:格子窄的時候,該活下
 footer 也只在**真的能捲**的時候才提供這兩個鍵(有 alt screen 或歷史還不滿一頁
 都不提)。一個按下去不會動的鍵,第一次按就會被讀成壞掉。
 
+**但 footer 那份是 contextual 的,而它出現的地方正好是問不到 help 的地方。**
+所以 `?` help 的 ssh grid 區塊也列這兩個鍵 —— 跟三個 `Alt` 和絃並排。那份清單
+不挑時機、不看 `canScroll()`:它回答的是「這個 app 有什麼」,不是「現在按下去
+會發生什麼」。兩種揭露問的是不同的問題,所以條件也不同(§A.2 追記)。
+
 16 個 mutation 全數被抓(readLoop 不 capture、alt screen 照捲、`3J` 不清、
 `2J` 也清、空白行也存、ring 不設上限、孤立 `\r` 當換行、`\r` 不重設、打字不回
 live、scrollPage 不 clamp、render 忽略 offset、render 不 re-clamp、alt screen
@@ -3389,7 +3400,7 @@ averylongusername@averylonghostname    (15 欄)  ->  averyl…@averyl…
 | `[1]` | `Enter` | 顯示**並把鍵盤交給那一格**(side 欄收起) |
 | `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認,**完成後留在清單**) |
 | `[1]` | (**只在 Space menu**,無熱鍵) | **Close all sessions** —— 一次關掉全部(確認,問題帶數量;§11.26) |
-| `[2]` layout | `h`/`l` · `Enter` | 換排列(立刻生效)/ custom 上問**列 × 行**(R×C) |
+| `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(立刻生效)/ custom 上問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 格子(pty) | **`PgUp`/`PgDown`**(遠端**不在** alt screen) | 捲這一格的歷史(一次一畫面);title 顯示 `󰋚 N` |
 | 格子(pty) | `PgUp`/`PgDown`(遠端**在** alt screen) | 送給遠端 —— vim / less 自己翻頁 |
