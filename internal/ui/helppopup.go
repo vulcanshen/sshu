@@ -49,6 +49,7 @@ var helpContent = []helpEntry{
 	{"Alt+arrows", "move between cells"},
 	{"Alt+Enter", "fill the screen with this cell"},
 	{"Alt+Esc", "leave the zoom, then the pty"},
+	{"PgUp · PgDn", "page this cell's history"},
 	{"", "Navigate"},
 	{"j · k", "move cursor"},
 	{"u · d", "half a page"},
