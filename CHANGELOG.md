@@ -1,5 +1,122 @@
 # Changelog
 
+## [1.2.0] — 2026-09-03
+
+The tabs come off their Alt chords: one shifted letter each, **`M` / `F` / `S`**.
+Three keys move out of the way to make room, and one of them was overdue for a
+rename anyway. Inside a pty the terminal now keeps a history you can page
+through, and two keys that were never sshu's to take have been handed back to
+the remote — starting with `Ctrl+C`, which used to quit the whole app from
+inside a session.
+
+Changes since 1.1.0:
+
+### Added
+
+- **Terminal history in the ssh grid — `PgUp` / `PgDown`** — the embedded
+  emulator is a fixed grid and clears the rows that leave the top, so anything
+  that scrolled past was not merely unreachable, it was gone. Every chunk read
+  from the PTY is now split into lines and filed as it goes in, colours and all,
+  up to 10 000 lines per session. A cell showing history says so in its title
+  (`󰋚` and how far back), because a cell showing the past and a cell whose
+  remote has gone quiet are otherwise the same still picture. Typing snaps back
+  to live.
+
+  The keys are **borrowed, not taken**: a full-screen program pages with them
+  itself and announces itself by switching to the alt screen, so while one is up
+  they go straight through to it. Nothing is captured during the alt screen
+  either — a program that repaints its whole window on every keystroke would
+  flush the shell history the buffer exists to hold. `\x1b[3J` (a remote
+  explicitly erasing its scrollback) drops the history, `\x1b[2J` does not, so
+  `clear` behaves here exactly as it does in your own terminal.
+
+- **`Close all sessions` on the ssh sessions list** — a panel operation in the
+  `Space` menu that ends every live session at once, asking first with the count
+  in the question. It has **no letter, on purpose**: closing everything is
+  destructive and rare, and a letter is what a hand finds by accident on a list
+  it was only scrolling. The menu is the slow path — open it, walk to the row,
+  press Enter — and slow is the correct speed for this one. (Every *letter*
+  hotkey is still a menu row; the containment simply does not run the other way.)
+- **`Alt+Enter` zooms a grid cell to fill the whole grid** — a screen of six
+  terminals is what the grid is for, and it is also too cramped to work in one
+  of them. `Enter` is "go in" all over sshu and a zoom is going further in,
+  which is why `Alt+Esc` — the key that comes back out — is what leaves it, one
+  layer at a time: the first press drops the zoom and keeps the keyboard in the
+  cell, the next hands it back to the list. Steering with `Alt+arrows` stays
+  zoomed, because the next terminal is usually one you want to read just as
+  closely. With a single cell on the grid there is nothing to zoom, so the chord
+  is not taken there — it goes to the remote like any other.
+
+### Changed
+
+- **Tabs are switched with `M` / `F` / `S`, not `Alt+p/f/s`** — the chord bought
+  one specific thing: switching tab while a remote held the keyboard. That is no
+  longer wanted — inside a pty every bare key belongs to the far end, and
+  `Alt+Esc` comes out first, which is a move you were making anyway. What the
+  chord cost was three of the app's most reachable keys, permanently. The `[Alt]`
+  lead segment at the head of the tab strip goes with it: it was there to spell
+  the other half of a chord, and there is no other half now.
+- **The preference tab is now `[M]anage`** — it holds hosts, credentials and
+  logs. Those are records, not settings, so the old name was answering for the
+  wrong thing; renaming it also settles which letter it wants.
+- **`[S]elect host` is now `[H]ost`** — `S` went to the SSH tab. The row was
+  always "this side's **host**"; the verb moved into the hint, which is where a
+  row explains itself.
+- **`[P]rogress` is now `[J]obs`** — that window lists individual pieces of work
+  and cancels them one at a time. It is not a progress bar, and `P` is free now
+  either way.
+- **`[D]uplicate` leaves the keyboard on the sessions list** — it used to open
+  the second session and drop you straight into it. The Enter that ran it was an
+  Enter on a *confirmation*, and a confirmation's Enter means "yes, do that" —
+  the thing being confirmed was copying a connection, not entering it. On `[1]`,
+  only Enter on a row hands the keyboard to a remote. Nothing is silent about
+  it: the cursor lands on the new session, its cell appears on the grid wearing
+  the cursor's echo, and the status slot counts one more. Connecting from the
+  hosts table still lands in the remote — reaching a remote is what that key is
+  for.
+- **The ssh grid's cursor echo is no longer the focus blue** — walking `[1]`
+  lights the matching cell on the grid, and it used to light it in exactly the
+  colour that means "the keyboard is here". Two identical blue frames, one on
+  the panel that has the keyboard and one on a cell that does not, is a question
+  where there should have been an answer. The echo now wears the cursor's own
+  colour — because that is what it is: the `[1]` cursor, drawn further away.
+  The cell holding the keyboard is still the only blue frame on the grid.
+
+### Fixed
+
+- **`Ctrl+C` inside a session no longer quits sshu** — it is the far end's
+  interrupt, and the most reflexive key a shell has. Reaching for it to kill a
+  runaway command and losing every open session instead — without even the
+  confirmation `q` asks for — was the app's most expensive misfire. The same
+  applies inside `[e]dit`'s editor. It is still the emergency exit everywhere
+  else, and nothing is stranded: `Alt+Esc` takes the keyboard back and `Ctrl+C`
+  is itself again on the other side of it. External SIGINT / SIGTERM / SIGHUP
+  are untouched and still leave no orphan.
+- **The ssh sessions list scrolls to follow its cursor** — it never did. The
+  viewport index was only ever clamped into range, so walking past the seventh
+  or eighth session took the cursor off the bottom of the panel and left it
+  there. `u` / `d` were wrong too, in the other direction: they were handed the
+  panel's height in LINES as a page size measured in SESSIONS, so a half page
+  moved a whole one. Rows are not a fixed height — a long address wraps and the
+  `:port #N` tail takes a line of its own rather than being split — so both the
+  page size and the scroll position are now counted against what each row
+  actually draws.
+- **The app log wraps to the full width of its panel** — it was breaking every
+  line early to land on a separator, a rule written for the sessions list where
+  hostnames read better broken after a dash. A remote's output is dense with
+  exactly those characters — an IP is three dots, a path is a run of slashes —
+  so every line lost up to a third of its width and the log read as text
+  squeezed through a narrow channel. Two more things went with it: the message
+  column had a floor that made every wrapped line wider than its own panel on
+  anything under 24 columns (the outer clip then ate the words, not the
+  layout), and the 15-column timestamp gutter now yields entirely on a panel too
+  narrow to spare it rather than leaving four columns for the message.
+- **Typing a filename no longer triggers hotkeys** — `V` opened the easter-egg
+  splash and `?` opened the help while a search query was being typed, because
+  each key carried its own list of exceptions and both lists missed the same
+  case (the two `/` filters are panel state, not floats). There is now one
+  question, asked in one place, and every bare global letter asks it.
+
 ## [1.1.0] — 2026-09-02
 
 The file transfer tab answers for itself while it works. A side can be let go
