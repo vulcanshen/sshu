@@ -265,7 +265,7 @@ func (s *sftpSideModel) connect(fsys remote.FS) {
 	s.open(remote.StartDir(fsys, home))
 }
 
-// disconnect is [S]elect host's undo: the side goes back to exactly the state
+// disconnect is [H]ost's undo: the side goes back to exactly the state
 // it had before a host was picked. Everything it drops belonged to the host
 // that is going away — a mark is a path on a filesystem, the cwd is a place on
 // one, and the listing is what one answered. Rebuilding the zero value rather

@@ -114,11 +114,11 @@ func TestWatchStopsWhenTheTabIsNotOnScreen(t *testing.T) {
 
 	// And leaving the tab through the digits is what turns it off.
 	m.sftp.onScreen = true
-	m = pressA(m, "alt+P")
+	m = pressA(m, "M")
 	if m.sftp.onScreen {
 		t.Error("leaving for tab [1] should stop the refresh loop")
 	}
-	m = pressA(m, "alt+F")
+	m = pressA(m, "F")
 	if !m.sftp.onScreen {
 		t.Error("coming back to tab [2] should start it again")
 	}

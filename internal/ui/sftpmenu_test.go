@@ -61,7 +61,7 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 				k, got[menuItemRegion])
 		}
 	}
-	for _, k := range []string{"/", "A", "R", "T", "X", "C", keySelectHost, "D", "P"} {
+	for _, k := range []string{"/", "A", "R", "T", "X", "C", keySelectHost, "D", "J"} {
 		if !hasKey(got[menuPanelRegion], k) {
 			t.Errorf("%q should be a panel action, region has %v",
 				k, got[menuPanelRegion])
@@ -288,7 +288,7 @@ func TestASideCannotChangeItsFilesystemMidTransfer(t *testing.T) {
 	m = pressA(m, " ")
 	view := m.spaceMenu.view()
 	live, text := ansiOf(t, dimColor), ansiOf(t, textColor)
-	if row := menuLine(t, view, "[S]elect host"); strings.Contains(row, text) ||
+	if row := menuLine(t, view, "[H]ost"); strings.Contains(row, text) ||
 		!strings.Contains(row, live) {
 		t.Errorf("the frozen row's label should be dim, not ordinary text:\n%q", row)
 	}
@@ -304,7 +304,7 @@ func TestASideCannotChangeItsFilesystemMidTransfer(t *testing.T) {
 			m.spaceMenu.cursor = i
 		}
 	}
-	row := menuLine(t, m.spaceMenu.view(), "[S]elect host")
+	row := menuLine(t, m.spaceMenu.view(), "[H]ost")
 	if !strings.Contains(row, ansiBgOf(t, borderDim)) {
 		t.Errorf("the cursor on a frozen row should wear the quiet bar:\n%q", row)
 	}
@@ -340,9 +340,9 @@ func TestTheFrozenActionRefusesFromBothTheKeyAndTheMenu(t *testing.T) {
 	// The bare letter, at the panel.
 	after := pressA(m, keySelectHost)
 	if after.hostPicker.isActive() {
-		t.Error("S opened the host picker while a transfer was running")
+		t.Error("H opened the host picker while a transfer was running")
 	}
-	if !strings.Contains(ansi.Strip(after.View()), "P]rogress") {
+	if !strings.Contains(ansi.Strip(after.View()), "J]obs") {
 		t.Errorf("the refusal must say where to stop it:\n%s", ansi.Strip(after.View()))
 	}
 
@@ -360,7 +360,7 @@ func TestTheFrozenActionRefusesFromBothTheKeyAndTheMenu(t *testing.T) {
 	if !inMenu.spaceMenu.isActive() {
 		t.Error("a refusal is not a commit — the menu should still be up")
 	}
-	if !strings.Contains(ansi.Strip(inMenu.View()), "P]rogress") {
+	if !strings.Contains(ansi.Strip(inMenu.View()), "J]obs") {
 		t.Error("the menu path must give the same reason as the key")
 	}
 
@@ -383,7 +383,7 @@ func TestDisconnectIsFrozenMidTransferToo(t *testing.T) {
 	if m.sftp.sides[sideLeft].host != host {
 		t.Fatal("D pulled the floor out from under a running transfer")
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "P]rogress") {
+	if !strings.Contains(ansi.Strip(m.View()), "J]obs") {
 		t.Errorf("the refusal should point at where a transfer is stopped:\n%s",
 			ansi.Strip(m.View()))
 	}

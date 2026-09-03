@@ -52,7 +52,7 @@ func TestViewLineWidths(t *testing.T) {
 		for _, sz := range sizes {
 			w, h := sz[0], sz[1]
 			m := sized(hosts, w, h)
-			for _, tab := range []string{"alt+P", "alt+F", "alt+S"} {
+			for _, tab := range []string{"M", "F", "S"} {
 				got := press(m, tab).View()
 				lines := strings.Split(got, "\n")
 				if len(lines) != h {
@@ -203,7 +203,7 @@ func TestTabSwitching(t *testing.T) {
 	if m.tab != tabPref {
 		t.Fatal("must start on hosts")
 	}
-	m = press(m, "alt+S")
+	m = press(m, "S")
 	if m.tab != tabSSH {
 		t.Fatalf("alt+S -> tab=%d want %d", m.tab, tabSSH)
 	}
@@ -213,7 +213,7 @@ func TestTabSwitching(t *testing.T) {
 		t.Fatalf("tab should stay on [1], got tab=%d focus=%d", m.tab, m.ssh.focus)
 	}
 	// Only an Alt chord changes tab — a bare digit addresses a panel.
-	m = press(m, "alt+P")
+	m = press(m, "M")
 	if m.tab != tabPref {
 		t.Fatalf("alt+P -> tab=%d want %d", m.tab, tabPref)
 	}

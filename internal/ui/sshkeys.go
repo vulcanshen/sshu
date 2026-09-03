@@ -22,12 +22,27 @@ type sshAction struct {
 	run     func(AppModel) (tea.Model, tea.Cmd)
 }
 
+// keyCloseAll is a menu-only action: it has no letter, and the key here exists
+// only so the menu can dispatch it like every other row. Two things fall out of
+// that on their own — bracketHotkey leaves a multi-character key unbracketed, so
+// the row draws as plain text, and hotkeyIndex can never match it from a
+// keystroke, because no keystroke is spelled "close-all".
+//
+// It is deliberate, not an oversight (§11.26): closing every session at once is
+// destructive and rare, and a letter for it is a letter somebody's hand finds by
+// accident on a list they were only scrolling. The menu is the slow path — open
+// it, walk to the row, press Enter — and slow is the correct speed here.
+const keyCloseAll = "close-all"
+
 var sshActions = []sshAction{
 	// item — the session under the cursor
 	{key: "enter", label: "Open", hint: "Enter . show and take the keyboard", panel: panelSessions, run: AppModel.openSession},
 	{key: "tab", label: "Display", hint: "Tab . toggle this session's cell", panel: panelSessions, run: AppModel.toggleSessionDisplay},
 	{key: "C", label: "Close", hint: "end this session", panel: panelSessions, run: AppModel.askClose},
 	{key: "D", label: "Duplicate", hint: "another to this host", panel: panelSessions, run: AppModel.askDuplicate},
+
+	// panel — the list as a whole
+	{key: keyCloseAll, label: "Close all sessions", hint: "end every one of them", panel: panelSessions, panelOp: true, run: AppModel.askCloseAll},
 }
 
 // sshKey dispatches one key inside the ssh tab.
@@ -135,6 +150,24 @@ func (m AppModel) openSession() (tea.Model, tea.Cmd) {
 	return m, m.closeStack()
 }
 
+// askCloseAll is the one action on this tab that is about the whole list. It
+// asks like Close does, and for a bigger reason — the count is in the question
+// because "close all" reads differently when the number is 1 than when it is 9.
+func (m AppModel) askCloseAll() (tea.Model, tea.Cmd) {
+	n := m.ssh.liveCount()
+	if n == 0 {
+		return m, nil
+	}
+	return m, m.confirm.ask(confirmPopup{
+		glyph:  glyphWarn,
+		title:  "Confirm",
+		lines:  []string{fmt.Sprintf("Close all %s?", plural(n, "session")), "Anything running on the remotes is killed."},
+		accept: "close all",
+		warn:   true,
+		action: confirmCloseAll,
+	}, m.layer())
+}
+
 func (m AppModel) askClose() (tea.Model, tea.Cmd) {
 	s := m.cursorSession()
 	if s == nil {
@@ -178,7 +211,14 @@ func (m AppModel) askDuplicate() (tea.Model, tea.Cmd) {
 
 // startSession is the one place a connection is actually opened, so it is the
 // one place a credential is resolved into the concrete user and auth.
-func (m AppModel) startSession(h store.Host) (tea.Model, tea.Cmd) {
+//
+// land says where the keyboard ends up, and every caller has to say it out loud.
+// Connecting from the hosts table lands IN the session: that is what "connect"
+// means there, and stopping on a list first would be a keystroke in the way
+// (§7.1 context shift). Duplicating from [1] lands back on [1] — see §11.23:
+// the Enter that ran it was an Enter on a CONFIRMATION, and a confirmation's
+// Enter is not an Enter on the row underneath it.
+func (m AppModel) startSession(h store.Host, land sshPanel) (tea.Model, tea.Cmd) {
 	rh, err := store.Resolve(h, m.creds.creds)
 	if err != nil {
 		m.log.errorf(err.Error())
@@ -193,10 +233,11 @@ func (m AppModel) startSession(h store.Host) (tea.Model, tea.Cmd) {
 	if _, err := m.ssh.connect(h); err != nil {
 		return m, tea.Batch(cmd, m.toast.show(err.Error(), toastError))
 	}
-	// Straight into the remote: connecting is the whole point, and stopping on
-	// the list first would just be a keystroke in the way (§7.1 context shift).
-	// connect() already put the new cell on the grid and pointed focusPty at it.
-	m.ssh.setFocus(panelPty)
+	// connect() already put the new cell on the grid, pointed focusPty at it AND
+	// moved the [1] cursor onto the new session — so landing on the list means
+	// landing on the row that was just created, with its cell echoing on the
+	// grid beside it.
+	m.ssh.setFocus(land)
 	return m, tea.Batch(cmd, m.ssh.tick())
 }
 
@@ -224,15 +265,17 @@ func (m AppModel) sshMenuItems() []menuItem {
 		if a.panel != m.ssh.focus {
 			continue
 		}
+		// With no sessions there is nothing for any of these to be about — not
+		// the row actions, and not "close all of them" either.
+		if len(m.ssh.sessions) == 0 {
+			continue
+		}
 		row := menuItem{label: a.label, key: a.key, hint: a.hint}
 		if a.panelOp {
 			panel = append(panel, row)
 			continue
 		}
-		// With no sessions there is nothing for a session action to be about.
-		if len(m.ssh.sessions) > 0 {
-			item = append(item, row)
-		}
+		item = append(item, row)
 	}
 	// One region stays flat — a header over a single group is noise (§6.2).
 	if len(item) == 0 {

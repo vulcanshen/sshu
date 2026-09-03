@@ -284,6 +284,51 @@ func TestEditRunsTheEditorAndSavesWhatItChanged(t *testing.T) {
 	}
 }
 
+// Inside an editor Ctrl+C is the editor's own key — cancel an insert, interrupt
+// something. It used to quit sshu instead, taking every session with it.
+func TestCtrlCInsideTheEditorDoesNotQuitSshu(t *testing.T) {
+	// The editor ignores SIGINT and holds the PTY, so it is still running when
+	// the assertion is made rather than having died from the key under test.
+	m := editFixture(t, `trap "" INT; cat >`, 110, 30)
+	m, _ = atFile(t, m, "notes.txt", "before\n")
+
+	next, cmd := m.Update(keyMsg("e"))
+	m = drive(t, next.(AppModel), cmd, func(m AppModel) bool { return m.editorUI.running() })
+	if !m.editorUI.running() {
+		t.Fatal("the editor never started")
+	}
+	t.Cleanup(func() { m.editorUI.stop() })
+
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd != nil {
+		if _, isQuit := cmd().(tea.QuitMsg); isQuit {
+			t.Fatal("Ctrl+C inside the editor must not quit sshu")
+		}
+	}
+	if !next.(AppModel).editorUI.running() {
+		t.Error("the editor should still have the keyboard")
+	}
+}
+
+// Alt+Esc is the way out, and it is the ONLY key the editor does not get.
+func TestAltEscStillAbandonsTheEdit(t *testing.T) {
+	m := editFixture(t, `trap "" INT; cat >`, 110, 30)
+	m, _ = atFile(t, m, "notes.txt", "before\n")
+
+	next, cmd := m.Update(keyMsg("e"))
+	m = drive(t, next.(AppModel), cmd, func(m AppModel) bool { return m.editorUI.running() })
+	if !m.editorUI.running() {
+		t.Fatal("the editor never started")
+	}
+
+	next, _ = m.Update(keyMsg("alt+esc"))
+	m = next.(AppModel)
+	t.Cleanup(func() { m.editorUI.stop() })
+	if m.editorUI.running() {
+		t.Error("alt+esc must abandon the edit")
+	}
+}
+
 // On this machine there is nothing to fetch. Editing in place keeps the inode,
 // so hard links and ownership survive — a copy and a rename would break both to
 // protect against a network that is not involved.

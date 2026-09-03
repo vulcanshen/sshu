@@ -10,7 +10,7 @@ import (
 )
 
 // A dial can take its full 15-second timeout, and for all of that time the panel
-// used to show "Press [S] to select a host" — the no-host prompt, because the
+// used to show "Press [H] to pick a host" — the no-host prompt, because the
 // side genuinely has no filesystem yet. So the app looked like it had ignored
 // the keypress, or hung.
 //

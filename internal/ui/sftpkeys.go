@@ -50,7 +50,12 @@ type sftpAction struct {
 
 // keySelectHost is the one thing a side with no host can do, so it is named:
 // appliesTo tests against it rather than against a position in the table.
-const keySelectHost = "S"
+//
+// It was `S` until the tabs came back off their Alt chords and took the bare
+// letter (§11.21). `H` is what it means anyway — the row picks this side's
+// HOST — and the verb it used to carry moved into the hint, which is where a
+// row explains itself.
+const keySelectHost = "H"
 
 // Every panel can start a transfer — that is the point of the tab: whatever you
 // are looking at, the thing under the cursor can be sent across without first
@@ -97,12 +102,12 @@ var sftpActions = []sftpAction{
 	{key: "T", label: "Transfer all marks", hint: "to the other side", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSendMarks},
 	{key: "X", label: "Delete all marks", hint: "erase them, on this host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpDeleteMarks},
 	{key: "C", label: "Clear marks", hint: "forget them, change nothing", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpResetMarks},
-	{key: keySelectHost, label: "Select host", hint: "this directory, or a saved host", onFiles: true, onMarks: true, panelOp: true, needsIdle: true, run: AppModel.sftpSwitchHost},
-	// Next to Select host, because it is the same question answered the other
+	{key: keySelectHost, label: "Host", hint: "switch this side — a directory, or a saved host", onFiles: true, onMarks: true, panelOp: true, needsIdle: true, run: AppModel.sftpSwitchHost},
+	// Next to [H]ost, because it is the same question answered the other
 	// way. Only on the files panels: it is the panel that shows the host, and a
 	// marks panel offering to erase itself reads as a mark action.
 	{key: "D", label: "Disconnect", hint: "close it, back to no host", onFiles: true, panelOp: true, needsIdle: true, run: AppModel.sftpDisconnect},
-	{key: "P", label: "Progress", hint: "transfers, and cancel", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpTransfers},
+	{key: "J", label: "Jobs", hint: "transfers in flight, and cancel", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpTransfers},
 }
 
 // Delete and Clear sit next to each other on purpose, and their hints say the
@@ -176,7 +181,7 @@ func (m AppModel) transferBusy() string {
 	if n == 0 {
 		return ""
 	}
-	return plural(n, "transfer") + " still moving — cancel in [P]rogress first"
+	return plural(n, "transfer") + " still moving — cancel in [J]obs first"
 }
 
 // sftpMenuItems is tab [2]'s §A.1 contents, in two labelled regions: what
@@ -277,7 +282,7 @@ func (m AppModel) sftpResetMarks() (tea.Model, tea.Cmd) {
 }
 
 // sftpDisconnect hands the side back to the no-host state. It never runs while
-// bytes are moving — needsIdle stops it at sftpKey, alongside Select host.
+// bytes are moving — needsIdle stops it at sftpKey, alongside [H]ost.
 func (m AppModel) sftpDisconnect() (tea.Model, tea.Cmd) {
 	s := m.sftp.cur()
 	host := s.host

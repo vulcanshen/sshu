@@ -33,7 +33,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 | 軸 / 結果 | sshu 值 | 計算 |
 |---|---|---|
 | **X. 揭露程度** | ~1.0 | Space menu 列出當前 focus panel 的 contextual 動作 100%、`?` help 列出全域動作 100%。**menu 與 hotkey 由同一張 action table 產生**,所以「有 hotkey 卻不在 menu」在結構上不可能發生 |
-| **Y. core-key role 數量** | 5 | `Tab` / `Enter` / `Esc` / `Space` / `?`。`Ctrl+C`(硬退)、`q`(離開)、`Alt+Esc`(從 pty 收回鍵盤)不另計 role —— 見 §A.0.Y |
+| **Y. core-key role 數量** | 5 | `Tab` / `Enter` / `Esc` / `Space` / `?`。`Ctrl+C`(硬退;pty / 編輯器內屬於遠端)、`q`(離開)、`Alt+Esc`(從 pty 收回鍵盤)不另計 role —— 見 §A.0.Y |
 | `min(1, 5/Y)` 係數 | 1.0 | Y = 5、無 penalty |
 | **Score** | `~1.0 × 1.0` = **~100%** | |
 
@@ -46,7 +46,7 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 | Core-key | sshu 語意 | 對應通用條款 |
 |---|---|---|
-| `Tab` | focus 切到**當前 tab** 的下個 panel(`1`-`9` 直達當前 tab 的 panel;tab 切換是 `Alt+p/f/s` 和絃;**ssh tab 的 `Tab` 是顯示開關**) | §4.1 |
+| `Tab` | focus 切到**當前 tab** 的下個 panel(`1`-`9` 直達當前 tab 的 panel;tab 切換是裸的 `M`/`F`/`S`;**ssh tab 的 `Tab` 是顯示開關**) | §4.1 |
 | `Enter` | 連線 / 進入目錄 / popup 內確認 | §4.1 |
 | `Esc` | 關最上層浮層 / 退出搜尋 / 回上層目錄(LIFO back) | §4.3 |
 | `Space` | §A.1 contextual 入口(Space menu);**在浮層上按 = 關掉它** | §A.1 |
@@ -57,8 +57,9 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 理由(§4.3)—— 才不會有某一個浮層是「忘記做」的那個。唯一例外是**正在被打字的
 浮層**(host form、file picker、Rename 輸入框):那裡的空白就是空白。
 
-`Alt+Esc` 不計 core-key:它只在網格拿著鍵盤時有意義(§4.6)。`Alt+p/f/s`
-與 `Alt+方向鍵` 同理 —— 它們是「裸鍵活不下來的地方」的專用和絃,不佔 role。
+`Alt+Esc` 不計 core-key:它只在網格拿著鍵盤時有意義(§4.6),`Alt+方向鍵`
+同理 —— 它們是「裸鍵活不下來的地方」的專用和絃,不佔 role。tab 鍵(`M`/`F`/`S`)
+是裸字母、是全域動作,一樣不佔 role。
 
 ### §A.1 Contextual track — Space menu
 
@@ -95,19 +96,19 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
  [T]ransfer all marks             to the other side
  [X] Delete all marks      erase them, on this host
  [C]lear marks          forget them, change nothing
- [S]elect host                local or a saved host
+ [H]ost      switch this side — a directory, or a host
  [D]isconnect              close it, back to no host
- [P]rogress                   transfers, and cancel
+ [J]obs             transfers in flight, and cancel
 ```
 
 - **兩個 region 的標題是 `item operation` / `panel operation`**,三個 tab 共用
   同兩個字串 —— 措辭不一樣的 menu 會讀成另一**種**選單
 - **只有一個 region 就保持扁平**:標題壓在單一群組上是雜訊
 - **沒有目標就沒有那一區**:空目錄沒有 item 動作、沒選 host 的那一側只剩
-  `[S]elect host`,而且**字母跟著一起消失**(hotkey 與 menu 走同一個
+  `[H]ost`,而且**字母跟著一起消失**(hotkey 與 menu 走同一個
   `sftpApplicable()`)
 - **一列的 menu 不開**:該側沒有 host 時 Space 直接開 host 清單,實作是
-  `app.go` 的 `" "` 分支轉呼 `sftpKey(keySelectHost)` —— 等同於按 `S`,連
+  `app.go` 的 `" "` 分支轉呼 `sftpKey(keySelectHost)` —— 等同於按 `H`,連
   §11.15 的守衛都同一條(design doc §11.16)
 - **正在被寫入的列**:`transferJob.cur`(atomic,寫在 `CopyItem` 前、defer
   清掉)→ `transferModel.arrivals()` → `sftp.view(arrivals)` 一路傳進
@@ -163,9 +164,9 @@ liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[Alt+p]reference` | `[1] sshu` nav(SSH / Events 分類)+ `[2]` 內容(Hosts / Credentials / Logs;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
-| `[Alt+f]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
-| `[Alt+s]sh` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **26 欄**,strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬) |
+| `[M]anage` | `[1] sshu` nav(SSH / Events 分類)+ `[2]` 內容(Hosts / Credentials / Logs;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
+| `[F]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
+| `[S]SH` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **30 欄**(一列要完整說出 `<glyph><user>@<host>:<port> #<N>`,design §11.28),strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬);**zoom 時焦點格獨佔整個網格區**,其餘不畫也不 resize |
 
 **窄寬門檻是推導的,不是另一個會忘記同步的常數**:`sshNarrowW = sshLeftW + 28`
 (pty 至少留 28 欄才值得留 split)、`sftpNarrowW = 72`(1:1 分割低於此只畫 focus
@@ -183,7 +184,7 @@ liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
 不是一個提示。文字不必統一,形狀必須一致。
 
 **提示會折行**,逐字做:換行之後那個鍵還是鍵,所以樣式跟著**字**走。原本不折,而
-`centerLine` 裝不下就截斷 —— 在 26 欄的 panel 上,那句告訴人該按什麼的話會被切掉。
+`centerLine` 裝不下就截斷 —— 在 30 欄的 panel 上,那句告訴人該按什麼的話會被切掉。
 
 **panel 太矮就依序讓步**:空行 → 提示行(從尾端)→ 事實留到最後。
 
@@ -241,6 +242,17 @@ folder 與 file 的 icon 可以差一格。所以列是**量自己的固定前�
 
 `nf-md-radiobox_blank` 在字型裡是以別名 `checkbox-blank-circle-outline` 登記的
 (MDI 本來就把兩者當同一個圖)—— 下一個去查 cmap 的人會看到另一個名字,那不是錯。
+
+### 3.2.5 兩種折行:自己的字 vs 別人的字
+
+`wrapText` 偏好在 `-._/` 斷(host 名的 `db-replica-tokyo-ap-` 該在破折號後
+斷);`wrapPlain` 填滿每一行,給 app log —— 遠端的輸出沒有結構可尊重,而它
+密集地由那些字元組成,偏好分隔符會把 `10.20.12.31` 斷成 `10.20.12.` 加 `31`
+並丟掉三分之一的行寬(design §11.27)。
+
+log 的 gutter(時間戳欄,15 欄)在 `msgW < prefixW` 時整個讓位:寧可不縮排,
+也不要 15 欄空白配 4 欄文字。`wrapAt` 對「字比整行還寬」的情況硬塞一個字並
+溢出一欄,由呼叫端 clip —— 取零個字會讓迴圈永遠不前進。
 
 ### 3.3 遠端的寬字元撞不破邊框
 
@@ -330,17 +342,24 @@ manager 先把它吃了,和絃根本到不了 sshu。)其他地方 `Alt+Esc` 就
 
 ### 4.7 數字只定址「當前 tab 裡看得見的 panel」
 
-每個 tab 的 panel 從 `1` 編號:preference `1`-`2`、file transfer `1`-`4`、
+每個 tab 的 panel 從 `1` 編號:manage `1`-`2`、file transfer `1`-`4`、
 ssh `1`-`2`(格子走 Alt+方向鍵)。畫面上沒有那個編號,按下去就沒反應 ——
 規則直接從畫面讀得出來,不必記。pty 內裸數字屬於遠端。
 
-### 4.8 tab 切換 —— `Alt+p/f/s` 和絃
+### 4.8 tab 切換 —— 裸的 `M` / `F` / `S`
 
-tab 帶開頭是**固定亮的 `[Alt]` 鏈頭**,標籤 `[p]reference` 亮起的字母段
-補上和絃的另一半 —— 亮著的兩段合起來就是按的:小寫是日常拼法,pty 外大小寫皆通
-(死鍵離活鍵一個 shift 是沒有回報的陷阱);**pty 內**只認 shift 加大寫 ——
-`M-f` 是 readline 的 forward-word,不是 sshu 的。popup 開著時和絃不作用:tab 在
-form 底下換掉,form 就懸在一個它不認識的 surface 上。
+一段標籤、一個鍵,shift 過的裸字母。小寫留給各 panel 的動作表,`hotkeyIndex`
+的精準大小寫比對讓兩者不互搶。tab 帶恰好一段亮 —— 你在的那一段。
+
+不作用的三種情況,都在 `handleKey` 裡讀得出來,因為分派點就排在它們後面:
+
+- **pty 內**:每個裸鍵都是遠端的。切 tab 先 `Alt+Esc`(design §11.21)
+- **浮層開著**:tab 在 form 底下換掉,form 就懸在一個它不認識的 surface 上
+- **正在打字**:`typing()` —— 兩個 `/` 搜尋、Operation 頁、被打字的浮層。
+  `V`(彩蛋)與 `?`(help)問同一個判準,它們原本各記一份例外清單、各漏同一塊
+
+v0.2 到 v1.1.0 這裡是 `Alt+p/f/s` 和絃,帶一個固定亮的 `[Alt]` 鏈頭。和絃買的是
+「pty 內也能切」,那件事現在不要了,鏈頭也跟著沒有第二段可拼。
 
 ---
 
@@ -348,6 +367,10 @@ form 底下換掉,form 就懸在一個它不認識的 surface 上。
 
 `(planned)` —— 沿用通用 §5 mapping(左鍵 focus + select、雙擊 = `Enter`、滾輪捲
 清單)。目前完全鍵盤驅動。
+
+開 mouse tracking 會讓 alt screen 下的終端機**原生選字複製**失效(要按住 Option
+才選得到)。對 ssh 工具而言那是高頻動作,所以 `[3]` 的 scrollback 走
+`PgUp`/`PgDown` 而不是滾輪(design §11.19)。
 
 ---
 
@@ -359,7 +382,7 @@ form 底下換掉,form 就懸在一個它不認識的 surface 上。
 |---|---|---|
 | **menu** | Space menu、host picker、identity file picker、credential picker | 分 region / 清單、cursor-first、選一個執行 |
 | **message** | Connect / Delete / Quit 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、`[v]iew`(app log 已從浮層變成 preference → logs 的**內容 panel**,同為 viewport 語彙) | 可捲、沒有游標 |
+| **viewport** | `?` help、`[v]iew`(app log 已從浮層變成 manage → logs 的**內容 panel**,同為 viewport 語彙) | 可捲、沒有游標 |
 | **form** | Add / Edit host、Add / Edit credential(共用 editField / formBody 欄位引擎) | 多欄位、逐欄位 focus、一次提交 |
 | **input** | Rename、**Add** | **一行**文字、一個問題、Enter 送出;Add 的 Enter 動詞跟著輸入變 |
 | **pty** | **tab [3] 的 panel `[5]`**、tab [2] 的 **`[e]dit`** | 外部程式在 sshu 內 render,鍵盤整個交出去 |
@@ -410,7 +433,7 @@ sftp 傳輸。
 
 | | 常駐 | 隨手看 | 事件當下 |
 |---|---|---|---|
-| 傳輸 | tab 列 `󰕒 3/12 · 42%` | `[P]rogress` popup | — |
+| 傳輸 | tab 列 `󰕒 3/12 · 42%` | `[J]obs` popup | — |
 | session 結束 | tab 列 `3 live sessions` | **`!` app log**(footer 報未讀數) | **error toast** |
 
 `[6]` 曾經是常駐的 history panel,佔掉左欄三分之一、不能操作、大部分時間是空的。
@@ -448,7 +471,9 @@ SFTP 每個目錄是一次 round trip,所以結果抵達的順序就是使用者
 ### 7.7 離開時三樣一起放掉 —— 而且沒有一扇門漏掉子行程
 
 ssh session、進行中的傳輸、sftp 連線。app 內的出口(`q`、quit 確認、
-`Ctrl+C`)走同一個 `AppModel.quit()`。app **外**的出口 —— 外部 SIGINT
+`Ctrl+C`)走同一個 `AppModel.quit()`。(`Ctrl+C` 只在鍵盤**不在**遠端或
+編輯器手上時才是出口 —— 在那裡它是它們的中斷鍵,design §11.20;`Alt+Esc`
+先收回鍵盤,出口一步之外。)app **外**的出口 —— 外部 SIGINT
 (bubbletea 以 ErrInterrupted 收場、不經 model)、外部 SIGTERM(裸
 QuitMsg)、SIGHUP(關終端視窗)—— 走 `ui.KillChildren()`:startPty 是所有
 子行程的出生地,registry 記在那裡,`KillChildren` 是 Run 返回後的下一行、
@@ -468,7 +493,7 @@ QuitMsg)、SIGHUP(關終端視窗)—— 走 `ui.KillChildren()`:startPty 是所
 - **active**:blue 底 + base 深字 + bold
 - **inactive**:**畫布色(base)**底 + surface2 字 —— crust 與 surface0 都試過當
   「凹槽」並且都被否決,理由與另外兩種被否決的形狀見設計稿 §1.1
-- 右端是**狀態 slot**:preference 依區(`1/5 hosts` / `2 credentials` /
+- 右端是**狀態 slot**:manage 依區(`1/5 hosts` / `2 credentials` /
   `13 entries`)、file transfer `2 marks` 或傳輸進度、ssh
   `2 live sessions · 2 on grid`
 
@@ -517,11 +542,12 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
-| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
+| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Enter zoom**(一格佔滿,Alt+Esc 一次剝一層)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
-| preference:nav(分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
+| pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
+| manage:nav(分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
-| 「選值欄位」互動:空欄 Enter 開選單、有值 Enter 下一欄、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
+| 「選值欄位」互動:空欄 Enter 開選單、**有值 Enter 送出**、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
 | app log 落地 applogs.yaml(append-only、自我修剪、0600);tail 開機讀回;`[C]lear logs` 先清檔(留警告標頭)再清記憶體 | `store/applog.go` `ui/applog.go` `ui/preftab.go` |
 | 子行程 registry:任何退出路徑(含 SIGINT/SIGTERM/SIGHUP)不留孤兒 ssh | `ui/procreg.go` `cmd/sshu/main.go` |
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
@@ -553,12 +579,12 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 | 鍵 | 語意 |
 |---|---|
-| `Alt+P` / `Alt+F` / `Alt+S`(pty 外小寫也通) | 切 tab —— pty 內也有效 |
+| `M` / `F` / `S` | 切 tab —— **pty 內無效**(先 `Alt+Esc`)、浮層與打字中也無效 |
 | `1`-`9` | 當前 tab 的 panel 直達(pty 內屬於遠端) |
 | `Tab` | 下個 panel;**ssh tab:顯示開關** |
 | `Enter` · `Esc` · `Space` · `?` | 確認 / 取消 / menu / help |
 
-### [Alt+p]reference
+### [M]anage
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -578,24 +604,25 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄)· `Esc` | 送出 / 取消 |
 
-### [Alt+f]ile transfer(小寫=游標列,大寫=整個 panel)
+### [F]ile transfer(小寫=游標列,大寫=整個 panel)
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | 全部 | `1`-`4` · `h`/`l` | panel 直達 / 切左右半 |
-| 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `S` · `c`/`C` · `P` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Select host / Clear(marks 單項/全部)/ Progress |
+| 全部 | `t`/`T` · `x`/`X` · `r` · `v` · `e` · `H` · `c`/`C` · `J` | 傳(項/marks)/ 刪(項/marks)/ Rename / View / Edit / Host(切這一側)/ Clear(marks 單項/全部)/ Jobs |
 | 檔案 panel | `R` | **Refresh** —— `sftpRefresh` 直接叫 `reload()`,不看 mtime、不等 poll;成功報數量,失敗報 `s.err`(design doc §11.18) |
 | 檔案 panel | `D` | **Disconnect** —— 重建 side 的零值(保留並 +1 `dialGen`) |
 | 全部 | `S` · `D` 傳輸中 | `sftpAction.needsIdle` + `transferBusy()`:menu 列 `disabled`(暗)、`sftpKey` 擋下並 toast,**不關 menu** |
 | 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` | 進目錄或去到搜尋結果 / 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add |
 
-### [Alt+s]sh
+### [S]SH
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` sessions | `Tab` · `Enter` · `C` · `D` | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問);j/k 掃過時,游標 session 的格子外框在網格上同步亮 |
+| `[1]` sessions(游標走出框就自己捲,§11.24;一列一行,所以 `listRows` 就是框高、`revealCursor` 就是 `scrollTo`,§11.28)| `Tab` · `Enter` · `C` · `D` · **(menu only)** | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問,**完成後留在清單、游標落在新的那條**,design §11.23)/ **Close all sessions**(只在 Space menu、刻意沒有熱鍵,先問且問題帶數量,design §11.26);j/k 掃過時,游標 session 的格子外框在網格上同步亮 —— 用 `handColor` 而非 focusColor,藍色只留給「鍵盤在這裡」(design §11.22) |
 | `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
+| 格子(pty) | `Alt+Enter` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25) |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | `Alt+Esc` | 收回鍵盤、回 `[1]` |
 
@@ -604,7 +631,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 鍵 | 動作 |
 |---|---|
 | `q` | 離開(有 live session 或進行中傳輸時先問) |
-| `Ctrl+C` | 強制離開(session / 傳輸 / sftp 連線 / 子行程一併帶走) |
+| `Ctrl+C` | 強制離開(session / 傳輸 / sftp 連線 / 子行程一併帶走)—— **鍵盤在遠端或編輯器手上時屬於它們**(design §11.20) |
 
 ---
 

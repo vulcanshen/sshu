@@ -88,6 +88,59 @@ func ansiOf(t *testing.T, c lipgloss.Color) string {
 	return sgrParams(t, lipgloss.NewStyle().Foreground(c).Render("x"), c)
 }
 
+// A panel frame carries focus, and that is the whole job of the colour: the
+// blue frame is where your keystrokes are going. Nothing tested it before —
+// breaking panelChrome's focus so every panel drew dim left the suite green.
+func TestAPanelFrameCarriesFocus(t *testing.T) {
+	withColour(t)
+	body := []string{strings.Repeat(" ", 20)}
+
+	for _, tc := range []struct {
+		name    string
+		focused bool
+		want    lipgloss.Color
+	}{
+		{"focused", true, focusColor},
+		{"not focused", false, borderDim},
+	} {
+		frames := frameSGRs(t, panelChrome(20, body, "title", tc.focused))
+		if len(frames) != 1 {
+			t.Fatalf("%s: expected one frame, got %d", tc.name, len(frames))
+		}
+		if frames[0] != ansiOf(t, tc.want) {
+			t.Errorf("%s: frame is not %s", tc.name, string(tc.want))
+		}
+	}
+}
+
+// The title capsule sits ON the frame, so it wears the frame's colour — in all
+// three states. A chip that stayed dim under a lit frame would read as a label
+// that belongs to something else.
+func TestTheTitleChipFollowsTheFrame(t *testing.T) {
+	withColour(t)
+	body := []string{strings.Repeat(" ", 20)}
+
+	for _, tc := range []struct {
+		name string
+		tone borderTone
+		want lipgloss.Color
+	}{
+		{"idle", toneIdle, borderDim},
+		{"echo", toneEcho, handColor},
+		{"focus", toneFocus, focusColor},
+	} {
+		out := panelChromeTone(20, body, "title", tc.tone)
+		frames := frameSGRs(t, out)
+		if len(frames) != 1 || frames[0] != ansiOf(t, tc.want) {
+			t.Fatalf("%s: the frame itself is wrong", tc.name)
+		}
+		// The chip body paints the same colour as a BACKGROUND.
+		if !strings.Contains(out, ansiBgOf(t, tc.want)) {
+			t.Errorf("%s: the title chip does not sit on the frame's colour", tc.name)
+		}
+	}
+}
+
 // ansiBgOf is ansiOf for a background, which is how a cursor bar paints.
 func ansiBgOf(t *testing.T, c lipgloss.Color) string {
 	t.Helper()
@@ -134,22 +187,32 @@ func TestSelectedHostRowIsBlue(t *testing.T) {
 	}
 }
 
-// The [Alt] lead never goes out: it is half of every chord, so the strip
-// keeps it on the lit fill no matter which tab is active.
-func TestTheAltLeadIsAlwaysLit(t *testing.T) {
+// Exactly the tab you are on is lit. There used to be a second permanently lit
+// segment — the [Alt] chord lead — and it went out with the chords: a lit thing
+// that names no surface only competes with the one that does.
+func TestOnlyTheActiveTabIsLit(t *testing.T) {
 	withColour(t)
 	bg := ansiBgOf(t, focusColor)
-	for _, key := range []string{"alt+P", "alt+F", "alt+S"} {
+	for i, key := range []string{"M", "F", "S"} {
 		m := pressA(sized(sample(), 100, 26), key)
 		row := strings.Split(m.View(), "\n")[0]
-		at := strings.Index(row, "[Alt]")
-		if at < 0 {
-			t.Fatalf("%s: no [Alt] lead in the strip", key)
+		if strings.Contains(row, "[Alt]") {
+			t.Fatalf("%s: the chord lead should be gone from the strip", key)
 		}
-		// The style run covering the lead opens at the last escape before it.
-		open := strings.LastIndex(row[:at], "\x1b[")
-		if open < 0 || !strings.Contains(row[open:at], bg) {
-			t.Errorf("%s: the [Alt] lead must sit on the lit fill", key)
+		for j, label := range tabLabels {
+			at := strings.Index(row, label)
+			if at < 0 {
+				t.Fatalf("%s: %q missing from the strip", key, label)
+			}
+			// The style run covering the label opens at the last escape before it.
+			open := strings.LastIndex(row[:at], "\x1b[")
+			if open < 0 {
+				t.Fatalf("%s: %q carries no style", key, label)
+			}
+			lit := strings.Contains(row[open:at], bg)
+			if want := i == j; lit != want {
+				t.Errorf("%s: %q lit = %v, want %v", key, label, lit, want)
+			}
 		}
 	}
 }

@@ -13,6 +13,7 @@ const (
 	confirmConnect
 	confirmDelete
 	confirmClose         // kill a live session
+	confirmCloseAll      // kill every live session at once
 	confirmDuplicate     // open a second session to the same host
 	confirmTransfer      // start a planned transfer, overwrites and all
 	confirmQuit          // leave sshu while sessions are live

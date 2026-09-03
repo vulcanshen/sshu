@@ -183,7 +183,7 @@ func TestTabStaysInsideTheCurrentTab(t *testing.T) {
 
 	// The ssh tab has one list panel, so Tab holds still there — and never
 	// walks into the pty.
-	m = press(m, "alt+S")
+	m = press(m, "S")
 	for i := 0; i < 6; i++ {
 		m = press(m, "tab")
 		if m.tab != tabSSH {

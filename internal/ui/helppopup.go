@@ -34,7 +34,7 @@ type helpEntry struct{ key, desc string }
 // because they are the five a user has to hold to walk the app (§A.0.Y).
 var helpContent = []helpEntry{
 	{"", "Core keys"},
-	{"Alt+p/f/s", "switch tab"},
+	{"M · F · S", "switch tab"},
 	{"1-9", "panel of this tab"},
 	{"Tab", "next panel in this tab"},
 	{"Enter", "confirm / connect"},
@@ -47,7 +47,8 @@ var helpContent = []helpEntry{
 	{"", "ssh grid"},
 	{"Tab", "toggle a session's cell (on [1])"},
 	{"Alt+arrows", "move between cells"},
-	{"Alt+Esc", "leave the pty, back to [1]"},
+	{"Alt+Enter", "fill the screen with this cell"},
+	{"Alt+Esc", "leave the zoom, then the pty"},
 	{"", "Navigate"},
 	{"j · k", "move cursor"},
 	{"u · d", "half a page"},

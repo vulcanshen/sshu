@@ -30,14 +30,16 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[Alt+p]reference** | sshu 自己的資料,nav 分類:SSH(Hosts、Credentials)、Events(Logs)—— 左側 nav `[1] sshu` + 右側內容 `[2]`(Operation 類已實作、遮罩中,見 §11.12) | 已落地 |
-| **[Alt+f]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
-| **[Alt+s]sh** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
+| **[M]anage** | sshu 自己的資料,nav 分類:SSH(Hosts、Credentials)、Events(Logs)—— 左側 nav `[1] sshu` + 右側內容 `[2]`(Operation 類已實作、遮罩中,見 §11.12) | 已落地 |
+| **[F]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
+| **[S]SH** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
 
-三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),以 **Alt 和絃**
-切換:標籤印的就是按的 —— `[Alt+p]` 一個括號、整個和絃,小寫是日常拼法;
-pty 內只攔 shift 加大寫(小寫屬於遠端)。裸數字整組讓給「當前 tab 的 panel」。v0.2 之前 tab 掛在
-`1`/`2`/`3` 上 —— 換掉的理由與整輪大改的紀錄見 §11。
+三個 tab 是**三個並存的 surface**(不是同一對象的三個視角),以**一個 shift
+過的裸字母**切換:標籤印的就是按的。裸數字整組讓給「當前 tab 的 panel」。
+
+tab 鍵走過三代:v0.2 之前掛在 `1`/`2`/`3`(換掉是為了把數字讓給 panel),
+v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是裸的
+`M`/`F`/`S` —— pty 內改為「先 `Alt+Esc` 出來」,理由見 §11.21。
 
 ---
 
@@ -68,8 +70,9 @@ pty 內只攔 shift 加大寫(小寫屬於遠端)。裸數字整組讓給「當�
 
 **`q` 與 `Ctrl+C` 不各記一個 role**(對齊 filu):`q` = 離開 app,是一個
 **全域動作**(列在 footer + `?` help),不是「取消」role;取消 role 由 `Esc`
-單獨承載。`Ctrl+C` 是逃生硬退。**`q` 在任何浮層開著時不生效**(浮層擁有
-鍵盤),避免半套 alias 汙染取消 role。
+單獨承載。`Ctrl+C` 是逃生硬退 —— **除了鍵盤在遠端或編輯器手上的時候,那裡它
+是它們的中斷鍵**(§11.20)。**`q` 在任何浮層開著時不生效**(浮層擁有鍵盤),
+避免半套 alias 汙染取消 role。
 
 **letter hotkey 不佔 core-key slot**:`e` / `d` / `c` / `s`、導覽 `h j k l`
 `gg` `G` 都是入口內動作的加速捷徑。
@@ -142,9 +145,10 @@ panel border title)、其下 1 行整寬分隔線(傳輸進行時兼職進度條
 11.9)、底部 1 行 footer。中間全部給 panel。
 
 **tab bar 是一條連起來的 powerline 帶**,不是三顆各自獨立的膠囊:一個圓帽開頭、
-中間用**三角**分段、一個圓帽收尾。開頭是**固定亮的 `[Alt]` 鏈頭**,其後三段
-`[p]reference / [f]ile transfer / [s]sh` 恰好一段亮 —— 亮著的兩段合起來就是
-按的和絃(見 11.8)。三角一律朝右(讀的方向):
+中間用**三角**分段、一個圓帽收尾。三段 `[M]anage / [F]ile transfer / [S]SH`
+**恰好一段亮** —— 就是你所在的那個。(v1.1.0 之前前面還有一個固定亮的 `[Alt]`
+鏈頭,兩段亮著合起來拼出和絃;裸鍵沒有和絃可拼,見 §11.21。)三角一律朝右
+(讀的方向):
 `pl-left_hard_divider`(U+E0B0)是實心的,承載**顏色改變**;
 `pl-left_soft_divider`(U+E0B1)是同一個形狀的外框,只在兩側同色時畫一條線。
 
@@ -234,9 +238,14 @@ tab [3] 是 sessions / pty,`4`-`7` 在 tab [2] 是左檔案 / 左 marks /
 跳到 tab [3] 並 focus sessions。看起來更一致,實際上是讓一個數字做了螢幕從未
 顯示過的事。
 
-**左欄固定 26 欄**(§1.2 的同一條理由:可調分割會讓 panel 寬度跟內容綁動),
-整欄給 `[4]`。26 已經接近下限 —— 清單是 name-only,那一欄裝的是「名字 + 2 格
-marker + 4 格 ordinal 版位」,再窄下去版位開銷就會蓋過名字、常見主機名開始折行。
+**左欄固定 30 欄**(§1.2 的同一條理由:可調分割會讓 panel 寬度跟內容綁動),
+整欄給 `[4]`。這個數字是 §11.28 定的:一列要完整說出
+`<glyph><user>@<host>:<port> #<N>`,而 30 給位址留 16 欄 —— 剛好裝得下
+`root@192.168.1.100`、`deploy@prod-web-01` 這類最常見的形狀。再寬也換不到
+別的典型案例,再窄則連 `demo@localhost` 都要縮。
+
+> 原本是 **26**,理由是「再窄版位開銷就會蓋過名字」。26 的問題不是太窄到不能
+> 用,是**剛好差一格**:`demo@localhost:2222 #2` 要 22 欄而它只給 21。
 
 **窄寬門檻是推導出來的**,不是另一個會忘記同步的常數:`sshNarrowW = sshLeftW + 28`
 —— 只要 `[5]` 還剩得下 28 欄、split 就值得留著。所以把左欄縮窄也順帶讓 split
@@ -399,7 +408,7 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 釘在左上角、一句沒有標題的置中句子、一個標題加一句。左上角那種還有另一個問題 ——
 它讀起來像「一個清單,而它的第一**筆**寫著 (empty)」,那正是空狀態最不該長成的樣子。
 
-**提示會折行。** 原本不會,而 `centerLine` 裝不下就截斷 —— 所以在 26 欄的 panel 上,
+**提示會折行。** 原本不會,而 `centerLine` 裝不下就截斷 —— 所以在 30 欄的 panel 上,
 那句告訴使用者該按什麼的話會被切掉,而那正是他最需要它的寬度。折行是**逐字**做的
 (`hintWord`),因為換行之後那個鍵還是鍵 —— 樣式必須跟著**字**走,不能套在整句上。
 
@@ -638,6 +647,11 @@ cursor 驅動,不另設 half-page)。
 **完整性 audit**:新增任何 contextual 動作,必須同步在 Space menu 加 entry。
 只綁 letter hotkey = VTP 破洞。
 
+**這個包含關係是單向的。** 「每一個 letter hotkey 都是 menu 的一列」不等於
+「每一列都有 letter hotkey」—— core key 的列(`Enter` / `Tab`)本來就沒有,
+而**刻意不給字母**也是一個合法的選擇:見 §11.26 的 `Close all sessions`。
+menu 是慢路徑,而有些動作的正確速度就是慢。
+
 ### 4.4 hotkey 揭露 = bracket `[X]label` + 「亮鍵暗述」
 
 **兩個層面、一套規則**:
@@ -709,6 +723,11 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 > **v0.2**:`[5]` 已成**網格**。`Alt+Esc` 的語意不變(把鍵盤收回來),落點
 > 是 `[1]` sessions,side 欄同時回來;格子之間按住 Alt 用方向鍵走,tab 和絃
 > `Alt+p/f/s` 在 pty 內也通。見 §11.六。
+>
+> **v1.2.0**:tab 鍵改成裸字母,**pty 內不再能切 tab** —— 這條路現在只有
+> `Alt+Esc` 一個入口,它的重要性因此更高(§11.21)。同一輪 `Ctrl+C` 也還給了
+> 遠端(§11.20),所以 pty 內屬於 sshu 的鍵只剩三組:`Alt+Esc`、`Alt+方向鍵`、
+> 以及非 alt-screen 時的 `PgUp`/`PgDn`(§11.19)。
 
 **這條不是 VTP core key,也不計入 §A.0.Y 的 5 個 role。** 理由:panel [5] 把
 鍵盤整個交給遠端程式,五個 core key 在那裡全部失效(`Tab` `Enter` `Esc`
@@ -754,6 +773,12 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 `(planned)` —— 沿用通用 §5 mapping(左鍵 focus+select 列、雙擊 =
 `Enter`、右鍵 = `Space`、滾輪 = 捲 card row)。mouse 必為 keyboard 的
 mapping、不引入新語意。
+
+**但這件事在 sshu 有一個別人沒有的代價**(§11.19):開 mouse tracking 之後,
+alt screen 下的滑鼠事件被程式攔走,終端機原生的**選字複製**就沒了 —— 要按住
+Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製走是高頻動作。
+所以 `[3]` 的捲動走 `PgUp`/`PgDown` 而不是滾輪,而整個 mouse 支援在還沒想清楚
+怎麼跟選字共存之前,不會只為了捲動而開。
 
 ---
 
@@ -820,9 +845,9 @@ panel-2 menu 同一個形狀:
  [T]ransfer all marks             to the other side
  [X] Delete all marks      erase them, on this host
  [C]lear marks          forget them, change nothing
- [S]elect host                local or a saved host
+ [H]ost      switch this side — a directory, or a host
  [D]isconnect              close it, back to no host
- [P]rogress                   transfers, and cancel
+ [J]obs             transfers in flight, and cancel
 ```
 
 **大小寫本身就說明範圍**:**小寫作用在游標那一列,大寫作用在整個 panel。**
@@ -856,7 +881,7 @@ it off」),marks 清單的移出是 `[c]lear mark` —— 跟 `[C]lear marks` �
 會整組消失 —— 連同它們的字母,因為 hotkey 與 menu 走同一個 `sftpApplicable()`。
 列出一堆按了沒反應的東西,跟沒有 host 時列出 Transfer 是同一個謊。
 
-**還沒選 host 的那一側,能做的動作只有 `[S]elect host` 一個。** 沒有 host 就
+**還沒選 host 的那一側,能做的動作只有 `[H]ost` 一個。** 沒有 host 就
 沒有東西可以標記、傳送或清空,列出那些列只會教會使用者「這個 menu 說的不算
 數」。hotkey 與 menu 走同一個 `sftpApplicable()`,所以兩邊不可能各說各話
 (§4.2)。而既然只剩一個答案,**Space 就直接給那個答案** —— 開 host 清單本身,
@@ -1002,6 +1027,10 @@ terminal 生態裡太滿(tmux prefix、readline forward-char、pager 搜尋),踩
 的人**根本按不到**(跟 `Alt+Esc` 同一個依賴)。`Tab` 兩個問題都沒有,而且
 **對著路徑按 Tab** 本來就是 shell 使用者最熟的那個動作。
 
+(v1.2.0 起裸的 `F` 是 file transfer tab 的鍵。它們不衝突:form 是浮層,而 tab
+鍵在浮層開著時整組不作用 —— 一個 form 底下的 tab 換掉,form 就懸在一個它不認識
+的 surface 上了。見 §11.21。)
+
 form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Alt+x` 會把 `x` 打進
 欄位(`TestTabBrowsesOnlyOnThePathField` 一併釘住)。
 
@@ -1103,7 +1132,7 @@ Space menu 選了 Search、緊接著按 `Esc` 想退出搜尋,第一下沒有反
 | `[1]` 上 `Enter` → 確認 | 開新 session、切到 tab [3]、focus 直接進 `[5]` |
 | `[4]` 上 `Enter`(任何 session) | **不確認**,`[5]` 換到它 + resize + focus 進去 |
 | `[4]` 上 `C` | 確認 → Close,下一個 tick 收掉並記進 app log |
-| `[4]` 上 `d` | 確認 → **Duplicate**:對同一台 host 再開一條,不必回 `[1]` |
+| `[4]` 上 `d` | 確認 → **Duplicate**:對同一台 host 再開一條,不必回 `[1]`;**焦點留在清單上**,游標落在新的那一條(§11.23) |
 | ssh 自己結束 / 斷線 | 記進 app log 帶著**遠端自己說的那句話**;失敗時 `[5]` 顯示它並留著;同時跳 error toast |
 | `!` app log | **不能選取,只能捲動** —— 它是視圖,不是清單(§7.1.5) |
 | `q` 時還有活 session | 紅字確認,列出會被關掉幾條 |
@@ -1131,8 +1160,11 @@ grid 留給沒有東西會 render 它的資料,是白佔記憶體。
 東西。`Alt+Esc` 出來時它們自動回來 —— 兩個方向都會重新 resize 遠端,否則遠端
 會照著錯的幾何畫。
 
-**沒有 scrollback。** vt10x 只有「當前這一屏」。要往前翻得靠遠端的 `tmux` /
-`less`。這是嵌入式 pty 的固有限制,不假裝有完整 log。
+**scrollback 是自己攢的,不是 emulator 給的。** vt10x 只有「當前這一屏」,
+離開頂端的列被它 `clear()` 掉。所以每一塊從 PTY 讀進來的 bytes 在寫進 emulator
+的同時也被切成行、存進一個 10000 行的 ring,`PgUp`/`PgDown` 捲的是那個 ring
+(§11.19)。上限之外、以及 alt screen 期間的畫面,仍然只有遠端自己的 `tmux` /
+`less` 找得回來 —— 這裡不假裝有完整 log。
 
 #### `[4]` 的列格式
 
@@ -1156,6 +1188,9 @@ ordinal(`#1` / `#2`)跟著位址走、不佔獨立版位:它是**唯一**能分�
 
 > **代價**:左欄 26 欄扣掉 glyph 版位與 port 版位,名字只剩 **15 格**,長名字
 > 會折成三列。要換的話把 `sshLeftW` 調到 30 就有 19 格。
+>
+> **v1.2.0:換了,而且連折行本身一起換掉。** `sshLeftW` 是 30;更重要的是位址
+> 現在**縮減而不折行**,所以「折成三列」這件事不再會發生 —— 見 §11.28。
 
 #### `[4]` 的一列:`<user>@<host>` + port
 
@@ -1646,11 +1681,14 @@ Latin-1 的設定檔過不了它、卻完全可以編輯。硬擋等於拿一個
 
 #### 它在跑的時候,鍵盤整個是它的
 
-跟 panel `[5]` 一樣:Esc 是 vim 的 Esc、`q` 是一個字母、Space 是一個空白。留下兩個
-鍵 —— `Alt+Esc` 放棄這次編輯(tab [3] 那邊它是「把鍵盤拿回來」,這裡沒有別的 panel
-可以拿回去,所以拿回來就是離開,box 底下的 hint 就這樣寫),`Ctrl+C` 仍然是它在
-sshu 到處都是的那個緊急出口 —— 讓它在這一個 PTY 裡意思不一樣,緊急出口就不再是緊
-急出口了。
+跟 panel `[5]` 一樣:Esc 是 vim 的 Esc、`q` 是一個字母、Space 是一個空白、
+**`Ctrl+C` 是編輯器自己的中斷鍵**。只留下一個鍵 —— `Alt+Esc` 放棄這次編輯
+(tab [3] 那邊它是「把鍵盤拿回來」,這裡沒有別的 panel 可以拿回去,所以拿回來
+就是離開,box 底下的 hint 就這樣寫)。
+
+`Ctrl+C` 原本也留著、當作 sshu 到處都是的那個緊急出口,理由是「讓它在這一個
+PTY 裡意思不一樣,緊急出口就不再是緊急出口了」。那個推論的方向反了,已經改掉
+—— 見 §11.20。
 
 **一次只准一個。** 兩個編輯器用沒人能推理的順序寫回去不是功能。box 開著的時候鍵盤
 在它手上,`e` 根本到不了動作表;而它**正在關**的那段動畫裡鍵盤已經還回來了
@@ -1739,7 +1777,7 @@ render 只讀,所以畫一格 frame 不會等在網路上(`ui/transfer.go`)。
 的東西拿到截斷資料,而且沒有任何東西說它被截斷過。
 
 **進度佔膠囊列右邊那個 slot**(`󰕒 3/12 · 42%`),marks 數退位 —— 進度是會一直
-瞄的東西,marks 在 `[5]`/`[7]` 本來就看得到。`[P]rogress` 開詳細清單、可逐條
+瞄的東西,marks 在 `[5]`/`[7]` 本來就看得到。`[J]obs` 開詳細清單、可逐條
 cancel。
 
 **離開時三樣一起放掉**:ssh session、進行中的傳輸、sftp 連線。三條出口
@@ -1755,10 +1793,13 @@ cancel。
 鍵優先」存在的原因。它們同時出現在四個 panel:游標在哪一個 panel 上,`t` 傳的就
 是那裡的那一項(檔案清單的一列,或 marks 清單的一列)。
 
-> **同一個字母的另一段歷史**:`[T]ransfers`(進度視窗)曾經跟 `[t]ransfer` 撞在
-> 一起、而且是**悄悄**被蓋掉的。當時的解法是改名 `[P]rogress`,現在仍然是
-> `[P]rogress` —— 因為 `T` 這個位置留給了「傳全部」,而進度視窗跟傳輸本來就不是
-> 同一件事,不該靠大小寫去分。
+> **同一個字母的兩段歷史**:`[T]ransfers`(進度視窗)曾經跟 `[t]ransfer` 撞在
+> 一起、而且是**悄悄**被蓋掉的。當時的解法是改名 `[P]rogress` —— 因為 `T` 這個
+> 位置留給了「傳全部」,而進度視窗跟傳輸本來就不是同一件事,不該靠大小寫去分。
+>
+> 它後來又讓了一次:v1.2.0 tab 鍵搬回裸字母,`P` 被 `[M]anage` 之外的第二個
+> 需求盯上前就先騰了出來,而 `[J]obs` 本來就比 `[P]rogress` 準 —— 那個視窗列的
+> 是一件件工作、可以逐條取消,不是一根進度條。見 §11.21。
 
 ---
 
@@ -1849,7 +1890,7 @@ TUI。
 ### 8.4 `credentials.yaml` —— 可重用的身分(v0.2)
 
 ```yaml
-# sshu credentials —— 由 preference → credentials 管理,手改也可以。
+# sshu credentials —— 由 manage → credentials 管理,手改也可以。
 version: 1
 credentials:
   - name: ops-pw          # host 以這個名字引用
@@ -1888,7 +1929,7 @@ sshu/
 │   │   ├── view.go         compose、浮層疊放次序、footer legend
 │   │   ├── theme.go        色彩錨點與 glyph 常數
 │   │   ├── chrome.go       powerline tab 帶(自 filu 改)
-│   │   ├── preftab.go      [Alt+p] nav + 內容切換 + 版面(v0.2)
+│   │   ├── preftab.go      [M]anage nav + 內容切換 + 版面(v0.2)
 │   │   ├── hosts.go        hosts 表格 model:cursor、捲動、跨欄 fuzzy 搜尋
 │   │   ├── credlist.go     credentials 表格(v0.2)
 │   │   ├── credform.go     credential form(v0.2;與 host form 共用欄位引擎)
@@ -1896,8 +1937,8 @@ sshu/
 │   │   ├── table.go        hosts 表格:欄寬推導、列 render
 │   │   ├── form.go         host form popup(form 類)
 │   │   ├── filepicker.go   identity file picker(menu 類)
-│   │   ├── sshtab.go       [Alt+s] 終端網格、layout strip、session 清單(v0.2 重寫)
-│   │   ├── sshkeys.go      [Alt+s] 的動作表、layout 鍵、R×C 解析
+│   │   ├── sshtab.go       [S]SH 終端網格、layout strip、session 清單(v0.2 重寫)
+│   │   ├── sshkeys.go      [S]SH 的動作表、layout 鍵、R×C 解析
 │   │   ├── session.go      session model、ssh 指令、askpass 環境
 │   │   ├── pty_unix.go     pty + vt10x + 按鍵轉 bytes(unix only)
 │   │   ├── sftptab.go      [2] 四 panel 版面、兩側 model、marks
@@ -1912,7 +1953,7 @@ sshu/
 │   │   ├── editorcmd.go    $VISUAL/$EDITOR/vi 解析、環境剝除
 │   │   ├── inputpopup.go   一行文字的問句(Rename / Add)
 │   │   ├── confirm.go      破壞性動作與離開的確認
-│   │   ├── applog.go       app log(preference → logs 的內容 panel;寫穿 applogs.yaml)
+│   │   ├── applog.go       app log([M]anage → logs 的內容 panel;寫穿 applogs.yaml)
 │   │   ├── procreg.go      子行程 registry + KillChildren(v0.2)
 │   │   ├── empty.go        沒有 item 時的統一空狀態(事實 + 可折行提示)
 │   │   ├── nav.go          清單導覽詞彙:繞回、半頁、保留字母
@@ -2031,7 +2072,7 @@ X 回到 ~1.0。
 
 | 項 | 落在哪 |
 |---|---|
-| 三 panel 版面 `[4]`/`[5]`/`[6]`、左欄固定 26、上下 2:1 | `ui/sshtab.go panes` |
+| 三 panel 版面 `[4]`/`[5]`/`[6]`、左欄固定 30、上下 2:1 | `ui/sshtab.go panes` |
 | `[5]` 取得 focus 時 `[4]`/`[6]` 收起、`[5]` 佔滿;`Alt+Esc` 還原 | `ui/sshtab.go panes` / `setFocus` |
 | 遠端寬字元(emoji/CJK)不會撞破邊框 | `ui/pty_unix.go render` |
 | `[4]` 列格式 `<glyph> <name…> <port>`、port 永不截斷 | `ui/sshtab.go listItem` |
@@ -2045,7 +2086,7 @@ X 回到 ~1.0。
 | `[4]` 用終端機 glyph 標「右邊現在是誰」;`[6]` 用綠/紅標結束方式 | `ui/sshtab.go listItem` |
 | 名字折行(優先斷在分隔符)、`#N` 預留欄位 | `ui/sshtab.go wrapText` |
 | session 結束 → history + 結束原因;`[5]` 立刻回空狀態並釋放 emulator | `ui/sshtab.go reap` |
-| Close / Duplicate 確認;`[4]` 的 `Enter` 直接切換不問 | `ui/sshkeys.go` |
+| Close / Duplicate 確認;`[4]` 的 `Enter` 直接切換不問;Duplicate 完成後焦點留在清單(§11.23)| `ui/sshkeys.go` |
 | `q` 時有活 session 走紅字確認、退出殺掉子行程 | `ui/app.go` |
 | `SSH_ASKPASS` 密碼路徑(密碼不進子行程環境) | `ui/session.go` / `cmd/sshu/main.go` |
 
@@ -2109,11 +2150,11 @@ X 回到 ~1.0。
 | Space menu 分 item / panel 兩區,單一區時保持扁平 | `ui/sftpkeys.go sftpMenuItems` |
 | `t` / `T` 是兩個動作(游標這項 / 全部 marks),靠大小寫分 | `ui/sftpkeys.go` `ui/popup.go hotkeyIndex` |
 | Space menu 的標題是 focus 的那個 panel,與邊框膠囊同源 | `ui/app.go menuTitle` |
-| 沒有 host 的那一側只提供 `[S]elect host`,而且 Space 直接開 host 清單 | `ui/sftpkeys.go appliesTo` · `ui/app.go` |
+| 沒有 host 的那一側只提供 `[H]ost`,而且 Space 直接開 host 清單 | `ui/sftpkeys.go appliesTo` · `ui/app.go` |
 | **`/` 遞迴搜尋整棵子樹**,串流、廣度優先、可取消、上限 20000 | `remote/search.go` `ui/sftpsearch.go` |
 | 先 plan 再問覆寫,進度條分母從第一格就正確 | `remote/copy.go` `ui/transfer.go` |
 | 取消或失敗會刪掉半個檔案 | `remote/copy.go CopyItem` |
-| 進度佔膠囊列右 slot,`[P]rogress` 可逐條 cancel | `ui/transfer.go` |
+| 進度佔膠囊列右 slot,`[J]obs` 可逐條 cancel | `ui/transfer.go` |
 
 | 不變量 | 釘它的測試 |
 |---|---|
@@ -2309,7 +2350,7 @@ workspace 鍵正是 Alt+數字,和絃在本地層就被吃掉、到不了 sshu),
 顏色,色弱也讀得出來(codepoint 照規矩查 cmap:f0379 / f0d90)。
 
 layout strip `[2]` 住在**左欄底部**、sessions 清單之下 —— 一開始蓋在網格
-上方,使用者裁定搬家:右側就該完整屬於 pty panel。三個選項直排(26 欄的
+上方,使用者裁定搬家:右側就該完整屬於 pty panel。三個選項直排(30 欄的
 左欄坐不下三個並排的選項,而且清單下面接一個清單讀起來自然),j/k 走、
 h/l 也還答應。horizontal / vertical 是兩個退化網格(一列 / 一欄),custom
 是指定的 R×C(**先列後行**,提示、解析、條紋標籤、toast 四處同一個順序 ——
@@ -2542,7 +2583,7 @@ menu)整份都是 header 列,而 `spaceMenu.view()` 量寬度時**跳過 header*
 
 ### 11.14 tab [2] 的 [D]isconnect
 
-`[S]elect host` 一直是單向的:選得進去、退不出來。要讓一側回到「還沒選
+`[H]ost`(當時叫 `[S]elect host`)一直是單向的:選得進去、退不出來。要讓一側回到「還沒選
 host」,唯一的辦法是關掉整個 sshu。使用者要求補上反向的那一半 ——
 **`[D]isconnect`,選了之後 panel 回到未選擇 host 的狀態。**
 
@@ -2555,8 +2596,8 @@ cwd 是它上面的一個位置、listing 是它回答過的話。逐欄清空�
 
 **傳輸進行中會被拒絕,而且說出去哪裡停。** 這個 tab 的每一筆傳輸都同時掛著
 兩側(一邊來源一邊目的),所以關掉任何一側都會弄斷它 —— 而且是以「沒人喊
-停的複製突然 EOF」的樣子弄斷。停傳輸的地方是 `[P]rogress`,所以拒絕的話直接
-講那件事,而不只是說不行。**`[S]elect host` 吃同一條規則**(見 §11.15):
+停的複製突然 EOF」的樣子弄斷。停傳輸的地方是 `[J]obs`,所以拒絕的話直接
+講那件事,而不只是說不行。**`[H]ost` 吃同一條規則**(見 §11.15):
 換 host 也是把這一側底下的檔案系統抽掉,對進行中的傳輸是一樣的傷害。
 
 **只放在 `[1]`/`[3]` 兩個檔案 panel**(使用者指定):host 是檔案 panel 在顯示
@@ -2564,7 +2605,7 @@ cwd 是它上面的一個位置、listing 是它回答過的話。逐欄清空�
 mark 動作。沒有 host 的那一側則連這一列都不存在 —— 沒有東西可以斷(同
 `appliesTo` 的老規則,hotkey 跟著一起消失)。
 
-**字母 `D` 在 preference 的 `[1]`/`[2]` 是 Delete**,但 tab [2] 的刪除從來
+**字母 `D` 在 `[M]anage` 的 `[1]`/`[2]` 是 Delete**,但 tab [2] 的刪除從來
 不掛在字母 `D` 上(它是 `x`/`X`),所以這裡的 `D` 沒有主人,讀起來也不會
 跟刪除搞混。`d` 仍然是半頁下捲 —— `hotkeyIndex` 精準比對大小寫,兩者不會
 互相搶(同 `t`/`T`、`c`/`C` 的老規矩)。
@@ -2574,7 +2615,7 @@ mark 動作。沒有 host 的那一側則連這一列都不存在 —— 沒有�
 
 ### 11.15 傳輸中凍結:menu 的第三種列,與會轉的 summary
 
-`[S]elect host` 與 `[D]isconnect` 做的是同一件事 —— **把這一側底下的檔案
+`[H]ost` 與 `[D]isconnect` 做的是同一件事 —— **把這一側底下的檔案
 系統換掉**。而這個 tab 的每一筆傳輸都同時掛著兩側,所以傳輸進行中做這件事
 會把複製弄斷。使用者裁定:**傳輸中不允許換 host**。
 
@@ -2605,12 +2646,12 @@ mark 動作。沒有 host 的那一側則連這一列都不存在 —— 沒有�
 一併消失。
 
 12 個 mutation 全數被抓(S/D 沒標 needsIdle、守衛不觸發、列沒標 disabled、
-全部列都暗、閒置也暗、拒絕不講 [P]rogress、render 不理 disabled、游標條沒
+全部列都暗、閒置也暗、拒絕不講 [J]obs、render 不理 disabled、游標條沒
 降階、summary 沒 spinner、spinner 不前進、summary 掉了傳輸 glyph)。
 
 ### 11.16 一列的 menu 不是 menu
 
-沒有 host 的那一側,Space 會開出一個**只有 `[S]elect host` 一列**的盒子。
+沒有 host 的那一側,Space 會開出一個**只有 `[H]ost` 一列**的盒子。
 使用者裁定拿掉那一層:**Space 直接開 host 清單。**
 
 §A.1 對 Space 的承諾是「我在這裡能做什麼」。當答案只有一個的時候,先給一張
@@ -2697,15 +2738,601 @@ watch loop 兩秒一次、而且**只有目錄自己的 mtime 動過才重列**�
 8 個 mutation 全數被抓(表裡沒有 R、掛到 marks panel、被傳輸凍結、沒真的
 重列、重列了另一側、成功不出聲、失敗仍報成功、游標沒跟著名字)。
 
+### 11.19 pty 的歷史 —— 捲不上去是因為從來沒存過
+
+`[3]` 的格子捲不動。看起來像「鍵沒接」,其實不是:**那些行已經不存在了。**
+
+vt10x 是一塊固定大小的 grid,它的 `scrollUp()` 把列往上搬、然後 `clear()` 掉
+頂端讓出來的那幾列。離開畫面的內容不是被收到某處,是被抹掉。`render()` 只是
+把當下的 grid 抄出來,所以無論接上什麼鍵,都沒有東西可以捲回去。
+
+要補的不是鍵,是**歷史本身**:唯一還來得及留下一行的時刻,是它進 emulator
+之前。`readLoop` 每讀到一塊 bytes,寫進 emulator 的同一個 mutex 區塊裡,也
+把它切成行存進一個 10000 行的 ring。
+
+**存 raw,不存 strip 過的。** 會想捲回去看的行,多半正是有顏色的那行 ——
+紅色的錯誤、highlight 過的 diff。把顏色洗掉的 scrollback 回答的是另一個問題。
+`ansi.Strip` 只用來**判斷**這行值不值得留(shell prompt 重繪是十幾個控制序列
+配零個字形,存進去只會得到一堆看起來空白的列),留下來的是原字串。
+
+**`\r` 要等下一個 byte 才知道它是什麼。** 遠端送的是 CRLF,而進度條用的是
+孤立的 `\r` 原地重畫。看到 `\r` 就當換行,每一行會被存兩次;看到 `\r` 就當
+重畫,CRLF 的機器上一行都存不到。所以掛一個 `pendingCR`,由下一個 byte 決定。
+
+#### PgUp / PgDown 是借來的,不是拿走的
+
+這兩個鍵原本整個轉送給遠端,`less`、`vim`、`man` 都靠它們翻頁。全域搶走會
+在最需要它們的地方把它們弄壞。
+
+判準是 **alt screen**:全螢幕程式進場時會切過去,而它切過去這件事本身就是
+「我自己會翻頁」的宣告。alt screen 亮著,鍵是遠端的;純 shell 輸出不會翻頁,
+那正好就是需要有人提供捲動的時候,而能提供的只有 sshu。
+
+**alt screen 期間也不 capture。** vim 每一次按鍵都重畫整個視窗,照單全收會
+把幾千格 vim 的畫面推過 ring、把真正值得捲回去的 shell 歷史沖掉。真實終端機
+在 alt screen 期間同樣凍結自己的 scrollback,理由一樣。(kbu 的 `PtyView` 有
+scrollback 但沒有這一條 —— 它的 Alterm 幾乎不開全螢幕程式,踩不到;sshu 是
+ssh 工具,vim 是日常。)
+
+**已知代價:**不切 alt screen 的 pager(busybox `less`、某些嵌入式環境)會
+被搶走 PgUp。判準只有一個信號可用,而這是最好的那一個;誤搶的後果也有出口
+—— 打任何一個字就回到 live。
+
+#### 三件被否決的事
+
+- **滑鼠滾輪。** 要開 `tea.WithMouseCellMotion()`,而 alt screen 下滑鼠事件
+  被程式攔走,終端機原生的**選字複製**就沒了(要按住 Option 才選得到)。對一個
+  ssh 工具來說「把畫面上的輸出複製走」是高頻動作,拿它換捲動是虧的。
+- **獨立的歷史檢視模式(tmux copy-mode 式)。** 語意零歧義、還能加搜尋,但
+  看一眼歷史要先進一個模式,比按一下 PgUp 慢一步。這個 tab 的動作是「瞄一眼
+  剛剛刷過去的東西」,不是「研讀」。(使用者當場定案。)
+- **`Home` / `End` 跳到兩端。** 在 shell 裡它們是**行首 / 行尾**,是正在打字時
+  的即時編輯手勢。拿它換「跳到歷史的兩端」是壞交易。回到 live 有兩條路:
+  `PgDown` 按到底,或直接打字。
+
+#### `clear` 之後還捲不捲得回去,由遠端決定
+
+`\x1b[3J`(明確要求清除 scrollback)和 `\x1bc`(RIS 全重置)清空歷史;
+`\x1b[2J`(清除**畫面**)不清 —— 捲過 `clear` 看到之前的東西,正是 scrollback
+存在的理由。macOS 的 `clear` 兩個都送,所以在 sshu 裡跟在使用者自己的終端機
+裡一樣會斷掉;Linux 的 `clear` 只送 `2J`,兩邊也一樣留著。**跟你的終端機同一個
+行為**,才是這裡要的答案。
+
+#### 正在看歷史,要看得出來
+
+格子的 title 補上 `󰋚 N`(nf-md-history + 往回幾行)。理由跟 `hasSpoken` 那條
+一模一樣:**一個在放歷史的格子,和一個遠端已經沒聲音的格子,是同一張靜止的
+畫面** —— 只有一個是問題。用往上的箭頭是第一個念頭也是錯的念頭:箭頭說的是
+「畫面往哪個方向動了」,而必須毫無疑義的是「現在螢幕上是什麼」——過去。
+
+marker 接在名字**被截斷之後**,不是之前:格子窄的時候,該活下來的是狀態。
+
+footer 也只在**真的能捲**的時候才提供這兩個鍵(有 alt screen 或歷史還不滿一頁
+都不提)。一個按下去不會動的鍵,第一次按就會被讀成壞掉。
+
+16 個 mutation 全數被抓(readLoop 不 capture、alt screen 照捲、`3J` 不清、
+`2J` 也清、空白行也存、ring 不設上限、孤立 `\r` 當換行、`\r` 不重設、打字不回
+live、scrollPage 不 clamp、render 忽略 offset、render 不 re-clamp、alt screen
+下搶鍵、鍵完全不接、title 不說、footer 無條件提供)。其中會捲的那半段是靠
+**真的 fakeSSH 吐 200 行、真的按鍵、真的讀 `View()`** 抓的 —— 只餵合成資料的
+測試,把 `readLoop` 裡那一行 `capture` 刪掉照樣全綠。
+
 ---
 
-## 附錄 — 按鍵全表(v1.1.0)
+### 11.20 `Ctrl+C` 在遠端手上時是遠端的
+
+在格子裡跑一個指令、想中斷它、按下 `Ctrl+C` —— **整個 sshu 沒了**,連同其他
+每一條 session,而且連 `q` 會問的那句確認都沒有。
+
+原本的理由寫在 §7 的 editor 那段:「讓它在這一個 PTY 裡意思不一樣,緊急出口
+就不再是緊急出口了」。這個推論的方向反了。`Ctrl+C` **在 shell 裡本來就有意思**
+—— 它是全世界最反射性的一個鍵,手比腦快。把它接到「殺掉整個 app」上,不是讓
+緊急出口保持一致,是**把最容易誤按的鍵接到最貴的動作**。
+
+所以在遠端手上時(session 的格子)和在編輯器手上時,`Ctrl+C` 原封不動送過去。
+其他每一個地方它仍然是硬退,連浮層底下都是。
+
+**沒有東西因此被困住:**
+
+- `Alt+Esc` 是 sshu 自己處理的,不會送給遠端,所以遠端再怎麼卡死它都有效 ——
+  收回鍵盤,`Ctrl+C` 在另一邊立刻又是它自己。footer 從頭到尾都在宣傳這個鍵。
+- app **外面**的出口沒動:外部的 SIGINT / SIGTERM / SIGHUP 仍然經過 procreg,
+  一個子行程都不留(§7)。
+- 編輯器那邊 `Alt+Esc` 本來就是「放棄這次編輯」,同一個鍵、同一個意思。
+
+代價是硬退在 pty 內變成兩個鍵。那正是它該有的距離:離開遠端這件事本身,本來就
+是一個動作。
+
+4 個 mutation 全數被抓(session 內改回硬退、硬退整個消失、editor 內改回硬退、
+editor 的 `Alt+Esc` 失效)。
+
+---
+
+### 11.21 tab 鍵搬回裸字母 —— 和絃買的東西已經不要了
+
+`Alt+p/f/s` 是 v0.2 的決定,它買的是**一件很具體的事**:鍵盤在遠端手上時也能切
+tab。裸鍵做不到 —— 在 pty 裡每一個裸鍵都屬於對面。
+
+現在不要那件事了(使用者裁定):**pty 內就先 `Alt+Esc` 出來,再做別的**。切 tab
+本來就是「離開這個遠端去看別的東西」,而離開這個遠端本身就是一個動作,它有自己
+的鍵。和絃於是只剩下成本 —— 三個 app 裡最好按的鍵,永遠得多壓一個修飾鍵。
+
+所以三個 tab 改成**一個 shift 過的裸字母**:`M` / `F` / `S`。
+
+#### 三件事一起動,因為它們是同一個約束的三面
+
+| | 之前 | 之後 | 為什麼 |
+|---|---|---|---|
+| tab | `Alt+p` `Alt+f` `Alt+s` | **`M` `F` `S`** | 裸鍵不必壓修飾鍵 |
+| `[Alt+p]reference` | Preference | **`[M]anage`** | 這個 tab 裝的是 hosts / credentials / logs —— **記錄,不是設定**。名字一直答錯了問題,順手改對;`P` 也因此不必再爭 |
+| `[S]elect host` | `S` | **`[H]ost`** | `S` 給了 SSH tab。而這一列本來就是「這一側的 **host**」,動詞搬進 hint(`switch this side — a directory, or a saved host`) |
+| `[P]rogress` | `P` | **`[J]obs`** | 那個視窗列的是一件件工作、可以逐條取消,不是一根進度條。`P` 就此完全空出來 |
+
+`S` 是死結,這點值得寫下來:ssh tab 不可能改名(它就叫 ssh),所以 `S` 要嘛給
+tab、要嘛給 Select host,**一定有一個要讓**。改 Preference 的名字解不掉它 ——
+那隻手解的是 `P`。
+
+改完之後全 app 已用的大寫是 `A C D E G H J R T V X` 加 tab 的 `M F S`,`P` 空著。
+
+#### 亮的兩段沒有第二段了
+
+tab 帶開頭那個**固定亮的 `[Alt]` 鏈頭**(§11.8)一起拿掉。它存在的理由是「亮著
+的兩段合起來就是你按的和絃」;裸鍵沒有和絃可拼,留著就只是一個**不指向任何
+surface 的亮塊**,跟真正在說「你在這裡」的那一段搶注意力。現在恰好一段亮。
+
+窄階退化跟著變好:`[M] [F] [S]` 比 `[Alt] [p] [f] [s]` 又短一截。
+
+#### 「有人在打字」必須是一個問題,問一次
+
+裸字母當全域鍵,踩到的第一件事是**打字**。而掃描的時候發現這件事**已經壞了**:
+
+```
+搜尋中按 V  →  query = ""，splash 跳出來
+搜尋中按 ?  →  query = ""，help 打開
+```
+
+`V`(彩蛋)和 `?`(help)各自帶著自己的守衛 `!m.textFloat() && !m.textPage()`,
+而 `textFloat()` **只涵蓋浮層** —— 兩個 `/` 搜尋是 panel 內的 `filtering` 旗標,
+不在裡面。每個鍵各記一份例外清單,結果就是每一份都漏了同一塊。
+
+改成一個判準:
+
+```go
+func (m AppModel) typing() bool {
+	if m.textFloat() || m.textPage() { return true }
+	if m.popupOpen() { return false } // 浮層拿著鍵盤,底下的 panel 不算在被打字
+	if m.tab == tabFT && m.sftp.cur().filtering { return true }
+	return m.tab == tabPref && m.pref.item == prefHosts && m.hosts.filtering
+}
+```
+
+tab 鍵、`V`、`?` 全部問它。新增一個全域鍵時只要記得問這一個問題,而不是記得補
+四個地方 —— 那正是原本失敗的方式。
+
+`popupOpen()` 那條 early-return 有順序意義:**它排在 `textFloat()` 後面**。form
+開著時 `?` 是字元(form 在被打字),confirm 開著時 `?` 開 help(§A.2 保證 help
+從任何 surface 都到得了)。
+
+#### 鍵的位置也搬了
+
+和絃的分派點在 `handleKey` 最上面 —— 它必須在那裡,才能搶在 pty 之前。裸鍵**不
+該**在那裡,而且不能只靠加一個 `!m.inPty()` 守衛:那是把「pty 優先」重寫成一句
+容易漏掉的條件。所以整段移到 **pty 分支下面**,跟 `?` / `V` 同一區。順序因此讀
+得出來:
+
+```
+遠端 > 浮層 > 全域裸鍵(問 typing()) > 正在打字的 panel > panel 動作表
+```
+
+#### footer 不再提它
+
+pty 內的 footer 拿掉了 `alt+P/F/S tab` 那一格 —— 那個鍵在那裡已經不作用,而**一個
+被宣傳在它不生效之處的鍵,比一個沒人提的鍵更糟**。Operation 頁的 footer 同理。
+其餘地方改成 `1-4 M/F/S panel tab`。
+
+13 個 mutation 全數被抓(小寫也切、鍵搬回 pty 之上、無視浮層、`typing()` 漏掉
+sftp 搜尋 / hosts 搜尋 / 浮層與 text page、`?` 與 `V` 不問 typing、鏈頭復活、
+`H` 改回 `S`、`J` 改回 `P`、pty footer 提供 tab 鍵、panel footer 不再揭露)。
+
+---
+
+### 11.23 確認框的 Enter,不是那一列的 Enter
+
+`[1]` 上按 `D` 開 Duplicate 的確認框,按 Enter 之後 —— 鍵盤直接跳進了新開的
+那一格 pty。
+
+問題不在「跳」,在**憑什麼跳**。使用者按下的兩個 Enter 意思不一樣:
+
+- **在一列上按 Enter** = 「帶我進去這條 session」。這是 `[1]` 的 `Enter` 動作
+  (`Open`),它就是為此存在的。
+- **在確認框上按 Enter** = 「對,做那件事」。那件事是**複製一條連線**,不是
+  「進去它」。
+
+把兩者接到同一個結果,等於讓確認框的 Enter 偷偷多做了一件沒被要求的事。使用者
+的裁定就是這句話:**popup 的 enter 不算對 item 按下 enter**。
+
+所以規則是:**在 `[1]` 上,只有直接對一列按 Enter 會把鍵盤交給遠端。** 其他
+每一個操作 —— Duplicate、Close、Display —— 做完都留在清單上。
+
+#### 留在清單上,不是什麼都沒發生
+
+`connect()` 本來就把新 session 接在清單末端、並把游標移過去。所以 Duplicate
+完成的那一刻,畫面同時有三件事在說它成功了:
+
+1. 游標**落在新的那一列**上(cursor bar 移動)
+2. 那一列對應的格子出現在網格上,外框是**游標的白色回聲**(§11.22)
+3. 膠囊列右側從 `1 live session` 變成 `2 live sessions · 2 on grid`
+
+沒有另外加 toast:螢幕已經用三個 channel 說完了,再加一句是重複。
+
+#### 從 hosts 表格連線**仍然**直接進去
+
+那不是同一件事,也不在 `[1]` 上。在 `[M]anage` 的 hosts 表格按 Enter,要的就是
+「到那台機器上」—— 中途停在一張清單只是路上多一個按鍵(§7.1 context shift)。
+
+實作上 `startSession` 因此多一個參數 `land sshPanel`,每個呼叫點都得把落點講
+出來,而不是由函式自己猜。兩個呼叫點,兩個不同的答案,都寫在呼叫的那一行。
+
+5 個 mutation 全數被抓(Duplicate 又跳進 pty、hosts 連線不再進 pty、
+`startSession` 忽略落點、`connect` 不再移動游標、列上的 Enter 不再進 pty)。
+
+---
+
+### 11.24 `[1]` 的清單自己會捲了
+
+§11.23 讓 Duplicate 把游標留在新的那一條上,並且**把「游標移過去」當成主要
+回饋**。然後就發現那個回饋在清單一長就看不見:`[1]` 的視窗 `topSess`
+**從來沒有跟著游標走過**。`clampCursors` 只把它夾進合法範圍,`handleListKey`
+只動 `curSess` —— 所以 j/k 走到第七、八條,游標就消失在框底下,再也不回來。
+
+同一段程式還藏著第二個 bug:
+
+```go
+func (m sshModel) listRows() int { return max(1, m.sessionsH()-2) }   // 行數
+m.curSess = moveCursor(m.curSess, len(m.sessions), k, m.listRows())    // 當成項數用
+```
+
+`listRows` 回的是**框的行數**,而 `moveCursor` 的 page 參數要的是**項數**。
+一項佔兩行,所以 `u`/`d` 名義上跳半頁、實際上跳了一整頁。
+
+#### 不能除,要數
+
+直覺的修法是 `innerH / 2`。那是錯的,因為**列高不固定**:
+
+```go
+lines := wrapText(s.host.User+"@"+s.host.Host, nameW)
+if last := …; dispW(last)+dispW(tail) <= nameW {
+    lines[len(lines)-1] = last + tail      // 一行
+} else if dispW(tail) <= nameW {
+    lines = append(lines, tail)            // 兩行,或更多
+}
+```
+
+位址長就 wrap,而 `:port #N` 的尾巴**不拆**(拆過的 port 是另一個號碼,不是
+一個縮短的號碼),所以它寧可自己佔一整行。同一個 `[1]` 裡,`root@jump:22` 是
+一行、`ec2-user@bastion.eu-west-1.compute.internal:22 #2` 是三行。
+
+所以 `listRows(top)` 改成**從 top 往下累加真實列高,數到裝不下為止**,而
+`revealCursor` 從**游標往回**累加 —— 往回走才找得到「讓游標整列完整留在畫面
+上的最高 top」。半截在框外的那一列,是一列讀不到 port 的列。
+
+行高的唯一真相是 `listItem` 自己,所以兩邊都呼叫它來數,而不是複製一份 wrap
+規則出來(複製出來的那份會分歧)。
+
+#### 跟隨掛在 `clampCursors` 上
+
+因為每一條會動到游標的路徑本來就都經過它:j/k/u/d/gg/G、resize、`connect`
+新增一條、`reap` 收掉一條。掛在那裡,「視窗跟著游標」就是一條規則、一個地方,
+而不是每個呼叫點要各自記得的事。
+
+側欄收起來的時候(鍵盤在 pty、或 narrow)什麼都不捲 —— `listInner` 回報寬度
+為 0,那不是「一個很窄的清單」,是**沒有清單**。
+
+7 個 mutation 全數被抓(不跟隨、只往下捲、只往上捲、容許半截列、折疊時照捲、
+`listRows` 改回除法、`listRows` 改回回傳行數)。
+
+> **v1.2.0 追記:一半的複雜度後來消失了。** 上面那套「往回量、不能除」的邏輯
+> 存在的唯一理由是**列高不固定**。§11.28 讓一列永遠是一列(位址縮減而不折行),
+> 於是 `listRows` 變回「框有幾行」、`revealCursor` 變回 sftp 清單也在用的
+> `scrollTo`。留下來的是**跟隨本身**:那才是這一節真正修好的東西。
+
+---
+
+### 11.25 zoom —— `Alt+Enter` 進去,`Alt+Esc` 一次剝一層
+
+session 一多,右側就擠。那本身是對的(網格就是要同時看得到),但**專心處理
+其中一格**的時候需要它整片。
+
+#### 鍵位:為什麼不是 `Alt+z`
+
+`Alt+z` 是最好記的(tmux 的 zoom 就是 `prefix z`),但使用者的顧慮是它**可能**
+撞到遠端上跑的東西 —— 而在 pty 裡,任何裸鍵都是遠端的,所以 zoom 鍵一定得是
+Alt 組合,也就一定會跟遠端的 Meta 綁定競爭。
+
+先把事實查清楚。readline / emacs 綁掉的 Meta 鍵是:
+
+```
+M-b M-f M-d M-t M-u M-l M-c M-y M-. M-_ M-< M-> M-n M-p M-r M-~ M-# M-* M-? M-= M-\ M-BackSpace
+```
+
+`M-z`、`M-m`、`M-o`、`M-Enter` 都不在裡面。四個都實測過能到得了 bubbletea
+(`Alt+Enter` 特別值得測:`ESC` 後面接的是控制字元 `\r`,不是一般 rune):
+
+```
+type=13 alt=true str="alt+enter"
+type=-1 alt=true str="alt+m"     (KeyRunes)
+type=-1 alt=true str="alt+o"
+type=-1 alt=true str="alt+z"
+```
+
+使用者選了 **`Alt+Enter`**。它有兩個別人沒有的好處:
+
+1. **跟 `Alt+Esc` 天然成對。** `Enter` / `Esc` 本來就是 sshu 的一對 core key
+   (確認 / 取消),加上 Alt 就是這一對在 pty 層的版本:**進去 / 出來**。
+   使用者要的「第一次 Alt+Esc 離開 zoom」正好讓它們讀成一組。
+2. **不花掉任何字母。** 字母空間才剛因為 tab 鍵擠過一輪(§11.21)。
+
+已知風險:Windows Terminal 把 `Alt+Enter` 當全螢幕切換,某些 Linux WM 拿它開
+終端機。兩者都是**本地層**,會在 sshu 之前吃掉它 —— 跟 `Alt+digits` 當年被
+AeroSpace 攔掉是同一類問題(§11.6)。sshu 是 unix-first,主流的 iTerm2 /
+Alacritty / kitty / GNOME Terminal 都沒有綁。
+
+#### `Alt+Esc` 一次剝一層
+
+zoom 是使用者自己疊上去的一層,所以出去的鍵**一次拿掉一層**:
+
+| 按第幾次 | 從哪裡 | 到哪裡 |
+|---|---|---|
+| 一 | zoom 中 | 回到網格,鍵盤**仍在那一格** |
+| 二 | 網格中 | 鍵盤回 `[1]`,側欄回來 |
+
+按一次跳兩層,是一個「出口」鍵不再可預測的方式。
+
+#### 只有一格時,這個鍵是遠端的
+
+一格已經填滿網格,zoom 什麼都不會改變。而**一個按下去看不出變化的鍵,第一次
+按就會被讀成壞掉**(同 §11.19 的判斷)。所以 `canZoom()` 為 false 時 sshu
+**不攔截**它 —— `Alt+Enter` 原封不動送給遠端,跟任何其他和絃一樣。footer 那格
+也跟著不出現。
+
+#### zoom 只在鍵盤在格子裡的時候存在
+
+`setFocus(p != panelPty)` 直接清掉它。理由:zoom 講的是「我正在用的這個終端機
+要整片」,而鍵盤回到 `[1]` 之後就沒有「正在用的終端機」了 —— 側欄還會回來、
+網格重新排版,zoom 這個狀態失去了它的對象。
+
+#### 換格保持 zoom
+
+`Alt+方向鍵` 在 zoom 中照樣走,而且**留在 zoom 裡**。tmux 的 zoom 在切 pane 時
+會自動取消;這裡不那樣做,因為 zoom 進去是為了看清楚一個終端機,而切到下一個
+終端機通常是為了同樣看清楚它。走的規則不變(仍然是網格上的空間移動),只是網格
+暫時只畫一格 —— 佈局還在,退出 zoom 就看得到自己在哪。
+
+實作上 `moveCell` 因此要在移動後重新 `applyGeometry()`:zoom 中「哪一格佔滿
+螢幕」就是幾何本身,新接手的那一格得先知道自己的新尺寸才畫得對。不 zoom 時
+這一行是免費的 —— `applyGeometry` 只對數字真的變了的 session 發 SIGWINCH。
+
+#### 不需要 marker
+
+一個只畫著一個終端機的網格,本身就是它自己的狀態顯示。這跟 §11.22 的
+scrollback marker 不同:那裡「在看歷史」和「遠端沒聲音」是同一張靜止畫面,
+非說不可;這裡沒有任何別的狀態長得像它。
+
+footer 仍然變:它說的是**現在按 `Alt+Esc` 會拿掉哪一層**(`leave zoom` /
+`leave pty`),以及 `Alt+Enter` 現在是 `zoom` 還是 `unzoom`。
+
+10 個 mutation 全數被抓(不 zoom、無條件吞掉這個鍵、一格也能 zoom、zoom 時
+照畫全部格子、zoom 的格子不 resize、`Alt+Esc` 一次剝兩層、離開網格不清 zoom、
+換格不重算幾何、footer 不說層、footer 無條件提供)。
+
+---
+
+### 11.26 `Close all sessions` —— 一列**故意**沒有熱鍵
+
+`[1]` 的 Space menu 多一列 panel operation:`Close all sessions`,一次關掉全部。
+使用者指定**不給它熱鍵**。
+
+#### 這不違反 §4.3,它是 §4.3 的另一半
+
+§4.3 說的是「每一個 letter hotkey 都必須是 menu 的一列」,**反過來不成立**。
+menu 裡本來就有沒有字母的列 —— `Enter` 的 Open、`Tab` 的 Display,它們的鍵名
+寫在 hint 欄而不是 bracket 裡(§4.4)。
+
+而這一列連 core key 都沒有,是因為**它不該快**:
+
+- 關掉每一條連線是**破壞性且罕見**的。
+- 給它一個字母,那個字母就會在某天被一隻只是想捲清單的手按到。`[1]` 上已經
+  有 `C`(關一條)—— 再放一個相鄰語意的大寫字母,誤觸的代價是全部。
+- menu 是慢路徑:開 menu → 走到那一列 → `Enter`,三個動作。對這件事,三個
+  動作正好。
+
+#### 機制:key 的形狀就是宣告
+
+```go
+const keyCloseAll = "close-all"
+```
+
+不需要新的旗標,兩件事自己成立:
+
+- `bracketHotkey` 對 `len(key) != 1` 直接回 label —— 這一列畫出來是純文字,
+  旁邊的 `[C]lose`、`[D]uplicate` 仍然戴著 bracket。**標記是契約**(§4.4):
+  沒有 bracket 就是「沒有鍵能按動它」,而那正是事實。
+- `hotkeyIndex` 是完全比對加大小寫 fold,而**沒有任何一次按鍵會被拼成
+  `"close-all"`**。`c`、`C`、`a`、`l`… 全部打不到它(`c` 會 fold 到 `[C]lose`,
+  那是對的那一列)。
+
+理論上的縫:bubbletea 的 `KeyRunes` 可以一次帶多個 rune(**貼上**),所以在
+`[1]` 貼上字串 `close-all` 會命中。這跟 sftp 的 host picker 用 `"@" + name`
+當 key 是同一個性質的縫,而這裡多一層保護:**它還會問**。
+
+#### 它是 panel op,而且沒有 session 時整個消失
+
+它作用在整張清單,不是游標那一列 —— 所以歸在 `panel operation` 區,跟
+`[C]lose`(關游標那一條)分開。tab `[2]` 的大小寫分工說的是同一件事,只是這裡
+沒有字母可以分。
+
+沒有 session 的時候,這個 panel 的**每一列**都沒有對象 —— 包含這一列。原本
+「沒有 session 就沒有 item 動作」的判斷因此提到迴圈開頭,對 panel op 一併成立。
+
+#### 只停,不收屍
+
+`doCloseAll` 只呼叫 `stopAll()`,剩下的交給 reaper 在下一個 tick 處理 —— 它才
+是「一條 session 結束了」的單一真相:記進 app log、帶著遠端自己說的那句話、
+把格子從網格上拿掉。在這裡再做一次,等於有兩條路要對「結束」的定義達成共識。
+
+確認框把數字放進問題裡(`Close all 2 sessions?`),因為「close all」在 1 條和
+9 條的時候讀起來是兩件事。
+
+7 個 mutation 全數被抓(給它字母、從 menu 拿掉、掛進 item 區、不問就做、
+問題裡沒有數字、commit 之後什麼都沒關、沒有 session 時照樣提供)。
+
+---
+
+### 11.27 log 的折行:別人的文字沒有結構可以尊重
+
+使用者回報 `[2] Logs` 的折行「太糟糕」。一則連線失敗的記錄長這樣:
+
+```
+12:00:33 ERR  10.20.12.31 · ❯   other-
+              service/ (放 other service
+              檔案)Last login: Thu Sep  3
+              12:00:27 2026 from 10.20.15.
+              1 ubuntu in ⊕ pc12031 in ~ ❯
+```
+
+每一行都提早斷,右邊留一大片空白 —— panel 越窄,浪費的比例越大,最後看起來
+像文字從一條窄縫裡擠出來。
+
+#### 兇手是一條為別的東西寫的規則
+
+`wrapText` 有一條「偏好在分隔符斷」的規則,而它的註解就寫明了服務對象:
+
+```go
+// Prefer a separator in the last third, so "db-replica-tokyo-ap-" breaks
+// after the dash rather than inside "ap".
+```
+
+那是給 `[1]` 的 **host 名**用的:短、結構已知、分隔符稀疏,在破折號後斷確實
+比較好讀。
+
+log 是**別人機器上的任意輸出**,而它恰好密集地由那些字元組成 —— 一個 IP 是
+三個點,一條路徑是一串斜線。於是每一行都在最後 1/3 找到一個 `.` 或 `/` 就斷,
+`10.20.12.31` 被切成 `10.20.12.` 和 `31`,每行丟掉三分之一的寬度。
+
+所以 `wrapText` 拆成兩個:
+
+| | 用在 | 規則 |
+|---|---|---|
+| `wrapText` | sshu 自己的字(host 名) | 偏好在分隔符斷 |
+| `wrapPlain` | **別人的字**(app log) | 填滿每一行 |
+
+而 log 的整個存在理由是「讓人讀到遠端說的每一個字」(§7.1 記整個最終畫面),
+那就該用滿每一行。
+
+#### 順手修掉的三個
+
+1. **訊息欄的下限讓行比 panel 寬。** `msgW := max(8, innerW-prefixW-1)` 的
+   floor 是在防負數,但防錯了方向:panel 窄於 24 欄時,15 欄的時間戳 gutter
+   加 8 欄訊息 = 23,比 panel 還寬。外層的 `fitLines` 於是把尾巴裁掉 ——
+   **字不見了,而版面看起來是好的**,那是更難發現的壞法。
+2. **gutter 該讓位。** 一個 20 欄的 panel 花 15 欄當縮排、留 4 欄給文字,
+   行沒有超寬,但那正是使用者抱怨的樣子。門檻是「**gutter 不該是比較寬的那
+   一半**」(`msgW < prefixW`):再窄就不縮排,靠第一行的時間戳標示 entry 的
+   起點。寬 panel 仍然縮排 —— 那時它讓一則多行的記錄讀成一個 block。
+3. **`wrapAt` 會無限迴圈。** 一個寬度 2 的字放不進寬度 1 的欄位時 `cut` 算出
+   0,而 `rs = rs[0:]` 不前進。這是既有的缺陷,只是原本的 floor 8 剛好蓋住了
+   它;把 floor 拿掉就掛住。現在讓它硬塞一個字並溢出一欄,由呼叫端 clip ——
+   **少一欄勝過整個 app 停住**。
+
+10 個 mutation 全數被抓。其中兩個第一輪存活,而它們指的是同一件事:
+**「行沒有超寬」不等於「行是可讀的」**。gutter 不讓位時,行寬剛好合格、內容
+每行四個字;msgW 變成 0 時,行寬合格、內容一片空白。兩條測試因此改成量
+**gutter 與文字的比例**,而不是量行寬。
+
+---
+
+### 11.28 一列就是一列:`<glyph><user>@<host>:<port> #<N>`
+
+`[1]` 的一列原本會折:位址太長就換行,`:port #N` 的尾巴再擠不下就自己佔第三列。
+使用者裁定改成**一列固定說完整件事**,而可以讓步的只有 `<user>@<host>`。
+
+#### 誰讓步,誰不讓步
+
+| | 讓步? | 為什麼 |
+|---|---|---|
+| glyph | 否 | 它是「這條 session 在不在網格上」的唯一標記(兩種形狀,不是兩種顏色) |
+| `:<port>` | **否** | **截一半的 port 是另一個號碼,不是一個短一點的號碼** |
+| ` #<N>` | **否** | 同一台 host 的兩條 session,只有它分得出來;半個 ordinal 不是 ordinal |
+| `<user>@<host>` | **是** | 剩下的空間全給它,不夠就縮 |
+
+#### 縮的方式:`@` 留著,兩邊各自縮
+
+```go
+func fitUserHost(user, host string, w int) string
+```
+
+**`@` 一定留著。** 它是讓這串字讀起來「是一個位址」的東西 —— 拿掉之後
+`deploy@10.0.3` 和 `deploy10.0.3` 是同一把字元,沒有形狀。
+
+**兩邊分開縮,不是把整串當一個字串截。** 整串截會從尾巴吃掉整個 host,留下一
+列只說得出「你是誰」而不說「在哪台機器」—— 而那一列存在的意義正好是後者
+(§7.1「列說的是這條連線是什麼」)。
+
+**短的那邊儘量留完整。** user 通常短、host 通常長,把 `deploy` 削掉兩格去換
+DNS 名多兩格,對誰都沒有幫助。只有**兩邊都超過一半**的時候才平分:
+
+```
+demo@a-very-long-hostname.example.com  (14 欄)  ->  demo@a-very-l…
+a-very-long-username-indeed@h          (14 欄)  ->  a-very-long-…@h
+averylongusername@averylonghostname    (15 欄)  ->  averyl…@averyl…
+```
+
+#### 左欄跟著加寬到 30
+
+一列要說完整件事,就得先有地方說。量了幾個真實形狀之後:
+
+| `sshLeftW` | 位址可用 | 新裝得下的 |
+|---|---|---|
+| 26(舊) | 12 | — |
+| 28 | 14 | `demo@localhost`、`deploy@10.0.3.14` |
+| **30** | **16** | 再加 `root@192.168.1.100`、`deploy@prod-web-01` |
+| 32 / 34 | 18 / 20 | **什麼都沒多** |
+
+30 停在這裡,是因為下一個值得裝的是長 DNS 名(`app@staging.example.com`,
+23 欄),買它要再花六欄,而那六欄是從網格上拿的。文件裡早就寫過「要換的話調
+到 30」(§7.1 的代價註),這次是兌現它。
+
+#### 順帶拆掉 §11.24 一半的程式
+
+§11.24 剛加的自動捲動裡,有一整套「不能除、要往回量」的邏輯,存在的唯一理由
+是列高不固定。現在一列就是一列:
+
+- `listRows()` 從一個走訪迴圈變回 `innerH`
+- `revealCursor()` 從往回累加變回 `scrollTo` —— **跟 sftp 的兩個清單同一個
+  函式**,而不是這個 panel 自己的一套
+
+跟隨本身留著,那是 §11.24 真正修好的東西。這一節只是拿掉了它為了應付折行而
+背上的重量。
+
+7 個 mutation 全數被抓(丟掉 `@`、兩邊都硬切、改回折行、把尾巴也拿去縮、
+`listRows` 回傳常數、`revealCursor` 不再捲、左欄改回 26)。其中三個第一輪
+存活,而且都是同一種錯:**測試問的是「有沒有壞掉」,而不是「有沒有做對」**。
+「短的優先完整」的測試只檢查了開頭那幾個字(`truncate` 對夠短的字串是 no-op,
+所以平分看起來一模一樣);`listRows` 的測試只檢查它跟捲動自洽(回傳常數也
+自洽);左欄寬度根本沒有測試釘住,因為「永遠一列」在 26 欄時同樣成立 ——
+只是每一列都被縮了。
+
+---
+
+---
+
+## 附錄 — 按鍵全表(v1.2.0)
 
 ### Tab 與 panel
 
 | 鍵 | 語意 |
 |---|---|
-| `Alt+P` / `Alt+F` / `Alt+S`(大寫;pty 外小寫也通) | 切 tab —— pty 內也有效 |
+| `M` / `F` / `S`(大寫;小寫屬於各 panel) | 切 tab —— **pty 內無效**,先 `Alt+Esc`;搜尋 / 打字中無效 |
 | `1`-`9` | **當前 tab** 的 panel 直達(pty 內數字屬於遠端) |
 | `Tab` | 當前 tab 的下一個 panel(**ssh tab 例外:顯示開關**) |
 
@@ -2718,7 +3345,7 @@ watch loop 兩秒一次、而且**只有目錄自己的 mtime 動過才重列**�
 | `Space` | contextual 入口(Space menu);**在浮層上按 = 關掉它** |
 | `?` | non-contextual 入口(help);**再按一次關掉** |
 
-### [Alt+p]reference
+### [M]anage
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
@@ -2739,32 +3366,37 @@ watch loop 兩秒一次、而且**只有目錄自己的 mtime 動過才重列**�
 | `Backspace`(同上) | **整行清除** |
 | `Enter`(其他欄) · `Esc` | 送出 / 取消 |
 
-### [Alt+f]ile transfer
+### [F]ile transfer
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | 全部 | `1` / `2` / `3` / `4` | 左檔案 / 左 marks / 右檔案 / 右 marks |
 | 全部 | `Tab` · `h`/`l` | 輪詢四個 panel / 切左右半 |
-| 全部 | `S` · `P` · `r` · `x`/`X` · `c`/`C` · `t`/`T` | Select host / Progress / Rename / Delete(項/marks)/ Clear(marks 單項/全部)/ 傳輸(項/marks) |
+| 全部 | `H` · `J` · `r` · `x`/`X` · `c`/`C` · `t`/`T` | Host(切這一側)/ Jobs(傳輸清單,可逐條取消)/ Rename / Delete(項/marks)/ Clear(marks 單項/全部)/ 傳輸(項/marks) |
 | 檔案 panel | `R` | **Refresh** —— 立刻重讀這個目錄(傳輸中照樣可用) |
 | 檔案 panel | `D` | **Disconnect** —— 這一側回到未選 host |
-| 全部 | `S` · `D`(**傳輸進行中**) | 兩列在 menu 裡暗掉、按鍵不執行、跳出「先去 `[P]rogress` 取消」 |
+| 全部 | `H` · `D`(**傳輸進行中**) | 兩列在 menu 裡暗掉、按鍵不執行、跳出「先去 `[J]obs` 取消」 |
 | 該側**沒有 host** | `Space` | 直接開 host 清單(不繞只有一列的 menu) |
 | 檔案 panel(**正在被寫入的列**) | `a` | 拒絕並說明;該列的 mark 欄改顯示 spinner,傳完消失並重列 |
 | 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add / Rename / View / Edit |
 
-### [Alt+s]sh
+### [S]SH
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` sessions | `j`/`k`/`u`/`d` | 移動 |
 | `[1]` | **`Tab`** | **顯示開關** —— 游標 session 的格子上/下網格 |
 | `[1]` | `Enter` | 顯示**並把鍵盤交給那一格**(side 欄收起) |
-| `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認) |
+| `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認,**完成後留在清單**) |
+| `[1]` | (**只在 Space menu**,無熱鍵) | **Close all sessions** —— 一次關掉全部(確認,問題帶數量;§11.26) |
 | `[2]` layout | `h`/`l` · `Enter` | 換排列(立刻生效)/ custom 上問**列 × 行**(R×C) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
-| 格子(pty) | 按住 **`Alt`+`←→↑↓`** | 往鄰格移動(邊緣 clamp,pty 內也有效) |
-| 格子(pty) | **`Alt+Esc`** | 收回鍵盤、回 `[1]`(side 欄回來) |
+| 格子(pty) | **`PgUp`/`PgDown`**(遠端**不在** alt screen) | 捲這一格的歷史(一次一畫面);title 顯示 `󰋚 N` |
+| 格子(pty) | `PgUp`/`PgDown`(遠端**在** alt screen) | 送給遠端 —— vim / less 自己翻頁 |
+| 格子(pty) | 任何會送到遠端的鍵 | 順手把畫面拉回 live |
+| 格子(pty) | 按住 **`Alt`+`←→↑↓`** | 往鄰格移動(邊緣 clamp,pty 內也有效;**zoom 中照走且留在 zoom**) |
+| 格子(pty) | **`Alt+Enter`** | **zoom** —— 這一格佔滿整個網格區;只有一格時屬於遠端(§11.25) |
+| 格子(pty) | **`Alt+Esc`** | 一次剝一層:**先離開 zoom**,再收回鍵盤、回 `[1]`(side 欄回來) |
 
 ### 導覽(所有清單共用)
 
@@ -2780,4 +3412,4 @@ watch loop 兩秒一次、而且**只有目錄自己的 mtime 動過才重列**�
 |---|---|
 | `?` | help popup |
 | `q` | 離開(無浮層時才生效;有活的 session / 傳輸會先問) |
-| `Ctrl+C` | 強制離開(子行程一併帶走) |
+| `Ctrl+C` | 強制離開(子行程一併帶走)—— **pty / 編輯器內除外,那裡它屬於遠端**(§11.20) |
