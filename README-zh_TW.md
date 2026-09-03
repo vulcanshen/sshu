@@ -20,7 +20,7 @@ sshu 是 `u`-family 的成員,也是 [Vulcan's TUI Design Principle](https://git
 ## Demo
 
 ### manage tab —— hosts、credentials、logs,然後連上去
-![manage](docs/demo-preference.gif)
+![manage](docs/demo-manage.gif)
 
 ### 雙側檔案傳輸 —— marks、真實傳輸、兼職進度條的分隔線
 ![file transfer](docs/demo-transfer.gif)
@@ -45,7 +45,7 @@ tab 用一個 shift 過的裸字母切換 —— **`M` / `F` / `S`** —— 而�
 ## 三個 tab
 
 ```
- [Alt] ❯ [p]reference ❯ [f]ile transfer ❯ [s]sh
+ [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
 **`[M]anage`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類:**SSH**(Hosts、Credentials)、**Events**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
@@ -200,9 +200,9 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 落進去的那個目錄也一樣,因為傳一整棵樹的時候,你看得見的那一列就是目錄。兩者
 都在 job 結束的那一刻消失,清單同時重讀。
 
-**傳輸進行中,`S` 與 `D` 會凍結**:兩者都是把某一側底下的檔案系統抽掉,而每
+**傳輸進行中,`H` 與 `D` 會凍結**:兩者都是把某一側底下的檔案系統抽掉,而每
 一筆傳輸都同時掛著兩側。那兩列**留在 Space menu 裡、整列暗掉**(不是消失 ——
-它們屬於這個 panel,只是此刻不能做),按下去會叫你先去 `P` 取消。右上角的
+它們屬於這個 panel,只是此刻不能做),按下去會叫你先去 `J` 取消。右上角的
 summary 在傳輸期間會轉。
 
 ### `[S]SH`
