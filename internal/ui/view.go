@@ -118,29 +118,53 @@ func (m AppModel) footer() string {
 	// mandatory disclosure for Alt+Esc: it is advertised exactly where it means
 	// something, and nowhere else.
 	if m.inPty() {
-		// The chords still work in here — that is the point of them being
-		// chords — so they are the only other thing the row may honestly say.
-		return keyLegend([][2]string{{"alt+esc", "leave pty"}, {"alt+" + arrowGlyphs + arrowUpDown, "cell"}, {"alt+P/F/S", "tab"}}, m.w)
+		// The tab keys are NOT offered: they are bare letters now, and in here a
+		// bare letter is the remote's (§11.21). What is left is sshu's own Alt
+		// keys, which no remote can claim.
+		// Alt+Esc peels one layer at a time, so the row says which layer it
+		// would take off if it were pressed right now.
+		out := "leave pty"
+		if m.ssh.zoomed {
+			out = "leave zoom"
+		}
+		pairs := [][2]string{{"alt+esc", out}}
+		// Offered only where it would do something: one cell already fills the
+		// grid, and there the chord belongs to the remote (§11.25).
+		if m.ssh.canZoom() {
+			zoom := "zoom"
+			if m.ssh.zoomed {
+				zoom = "unzoom"
+			}
+			pairs = append(pairs, [2]string{"alt+enter", zoom})
+		}
+		// And the scrollback keys, but only where they would do something: they
+		// are the remote's while a full-screen program is up, and there is
+		// nothing to page through until more has been said than fits (§11.19).
+		if m.ssh.canScroll() {
+			pairs = append(pairs, [2]string{"pgup/pgdn", "history"})
+		}
+		pairs = append(pairs, [2]string{"alt+" + arrowGlyphs + arrowUpDown, "cell"})
+		return keyLegend(pairs, m.w)
 	}
-	// An Operation page eats the digits, space, ? and q — while one is
-	// focused the footer says only the keys that are still true, the same
-	// honesty the pty row keeps.
+	// An Operation page eats every printable key — the digits, space, ?, q and
+	// the tab letters — so the row says only what is still true, the same
+	// honesty the pty row keeps. Esc first, then the tab keys answer again.
 	if m.textPage() {
 		return keyLegend([][2]string{{"tab", "field"}, {"enter", "run"},
-			{"esc", "back"}, {"alt+p/f/s", "tab"}}, m.w)
+			{"esc", "back"}}, m.w)
 	}
 	// The digits offered are the ones the current tab actually shows (§4.4): a
 	// number the screen does not display is a number the keyboard ignores.
-	nav := [2]string{"1-2 alt+p/f/s", "panel tab"}
+	nav := [2]string{"1-2 M/F/S", "panel tab"}
 	if m.tab == tabFT {
-		nav = [2]string{"1-4 alt+p/f/s", "panel tab"}
+		nav = [2]string{"1-4 M/F/S", "panel tab"}
 	}
-	// Unread errors are disclosed against the chord that reaches them: the log
-	// lives at preference → logs now, and a record nobody is told about is a
-	// record nobody opens.
+	// Unread errors are disclosed against the key that reaches them: the log
+	// lives at manage → logs, and a record nobody is told about is a record
+	// nobody opens.
 	pairs := [][2]string{{"space", "menu"}, {"?", "help"}, nav}
 	if n := m.log.unreadErrors(); n > 0 {
-		pairs = append(pairs, [2]string{"alt+P", plural(n, "unread error")})
+		pairs = append(pairs, [2]string{"M", plural(n, "unread error")})
 	}
 	pairs = append(pairs, [2]string{"q", "quit"})
 	return keyLegend(pairs, m.w)

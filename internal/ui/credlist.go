@@ -7,7 +7,7 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// credsModel is preference → credentials: a table over credentials.yaml.
+// credsModel is manage → credentials: a table over credentials.yaml.
 // Name, User, Auth — no host column, because a credential deliberately does
 // not know where it will be used.
 type credsModel struct {

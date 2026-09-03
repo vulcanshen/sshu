@@ -169,7 +169,7 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 	// Reading it happens where the log lives now: preference → logs. The line
 	// is WRAPPED onto the panel, not truncated — the word that says why is at
 	// the end, which is exactly what a cut tail would eat.
-	m = pressA(m, "alt+P", "1", "j", "j") // to the nav, then hosts → credentials → logs
+	m = pressA(m, "M", "1", "j", "j") // to the nav, then hosts → credentials → logs
 	if m.pref.item != prefLogs {
 		t.Fatalf("expected the logs section, got %d", m.pref.item)
 	}
@@ -430,6 +430,54 @@ func TestKeysReachTheRemote(t *testing.T) {
 	})
 }
 
+// Ctrl+C is the most reflexive key a shell has. It used to quit sshu from inside
+// a session — so killing a runaway command on the far end killed every other
+// session too, without even the confirmation `q` asks for.
+func TestCtrlCInsideAPtyInterruptsTheRemoteNotSshu(t *testing.T) {
+	// A bare `cat` would DIE of the SIGINT the PTY raises from \x03 — the
+	// line discipline turns the byte into a signal for the foreground group,
+	// which is exactly what a real remote shell survives and a stand-in has to
+	// as well. trap makes the disposition SIG_IGN, and a child inherits that.
+	// -v so the byte can be seen arriving (the terminal echoes it as ^C).
+	fakeSSH(t, `trap "" INT; printf '$ '; cat -v`)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+	s := m.ssh.sessions[0]
+	waitFor(t, "the stand-in to answer", func() bool { return s.pty.hasSpoken() })
+
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = next.(AppModel)
+	if cmd != nil {
+		t.Error("Ctrl+C at a remote must not raise a command — least of all tea.Quit")
+	}
+	waitFor(t, "the interrupt to arrive at the remote", func() bool {
+		return strings.Contains(strings.Join(s.pty.render(80, 24), ""), "^C")
+	})
+	if s.pty.exited() {
+		t.Error("the session must survive its own interrupt")
+	}
+	if len(m.ssh.sessions) != 1 {
+		t.Errorf("sessions = %d, want the one that was there", len(m.ssh.sessions))
+	}
+}
+
+// And it is still the emergency exit everywhere else, including on the tab that
+// owns the sessions — one Alt+Esc away from the remote.
+func TestCtrlCStillQuitsOnceTheKeyboardIsBack(t *testing.T) {
+	m := openOne(t)
+	m = pressA(m, "alt+esc")
+	if m.inPty() {
+		t.Fatal("alt+esc should have taken the keyboard back")
+	}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd == nil {
+		t.Fatal("Ctrl+C outside a pty is the emergency exit")
+	}
+	if _, isQuit := cmd().(tea.QuitMsg); !isQuit {
+		t.Error("Ctrl+C should quit, without asking")
+	}
+}
+
 // While the remote holds the keyboard the footer must advertise the way out and
 // nothing else — every other entry would be a lie.
 func TestFooterInPtyAdvertisesTheWayOut(t *testing.T) {
@@ -460,7 +508,7 @@ func TestDigitsAddressPanelsOfTheCurrentTab(t *testing.T) {
 		key  string
 		want sshPanel
 	}{{"1", panelSessions}, {"2", panelLayout}} {
-		m := pressA(sshApp(t, sample()), "alt+S", tc.key)
+		m := pressA(sshApp(t, sample()), "S", tc.key)
 		if m.ssh.focus != tc.want {
 			t.Errorf("%s in the ssh tab should focus panel %d, got %d", tc.key, tc.want, m.ssh.focus)
 		}
@@ -485,7 +533,7 @@ func TestDigitsAddressPanelsOfTheCurrentTab(t *testing.T) {
 // you there. On this tab it is the display toggle instead, and with no
 // sessions it does nothing at all.
 func TestTabNeverEntersThePty(t *testing.T) {
-	m := pressA(sshApp(t, sample()), "alt+S")
+	m := pressA(sshApp(t, sample()), "S")
 	for i := 0; i < 6; i++ {
 		m = pressA(m, "tab")
 		if m.tab != tabSSH {
@@ -506,7 +554,7 @@ func TestCursorDoesNotSwitchTheSession(t *testing.T) {
 	m := pressA(sshApp(t, sample()), "enter", "enter")
 	m = pressA(m, "esc") // out of the PTY, onto [4]
 	m.ssh.setFocus(panelSessions)
-	m = pressA(m, "alt+P", "l", "enter", "enter") // connect to a second host
+	m = pressA(m, "M", "l", "enter", "enter") // connect to a second host
 	t.Cleanup(func() { m.ssh.stopAll() })
 
 	if len(m.ssh.sessions) != 2 {
@@ -532,7 +580,7 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 	m := pressA(sshApp(t, sample()), "enter", "enter") // first session
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 	m = settle(next.(AppModel))
-	m = pressA(m, "alt+P", "j", "enter", "enter") // a second session, to a second host
+	m = pressA(m, "M", "j", "enter", "enter") // a second session, to a second host
 	t.Cleanup(func() { m.ssh.stopAll() })
 	if len(m.ssh.sessions) != 2 {
 		t.Fatalf("expected two sessions, got %d", len(m.ssh.sessions))
@@ -826,7 +874,7 @@ func TestSessionRowColourCases(t *testing.T) {
 	greenBG, handBG := ansiBgOf(t, liveColor), ansiBgOf(t, handColor)
 
 	// Foreground says on-screen.
-	row := strings.Join(m.ssh.listItem(shown, false, 24), "\n")
+	row := m.ssh.listItem(shown, false, 24)
 	if !strings.Contains(row, green) {
 		t.Error("the on-screen session should be green")
 	}
@@ -835,11 +883,11 @@ func TestSessionRowColourCases(t *testing.T) {
 	}
 
 	// Background says cursor — the same bar on every row, including that one.
-	row = strings.Join(m.ssh.listItem(other, true, 24), "\n")
+	row = m.ssh.listItem(other, true, 24)
 	if !strings.Contains(row, handBG) {
 		t.Error("the cursor should be a filled bar")
 	}
-	row = strings.Join(m.ssh.listItem(shown, true, 24), "\n")
+	row = m.ssh.listItem(shown, true, 24)
 	if !strings.Contains(row, handBG) {
 		t.Error("the cursor over the on-screen session is the same bar")
 	}
@@ -848,7 +896,7 @@ func TestSessionRowColourCases(t *testing.T) {
 	}
 
 	// And an ordinary row is neither.
-	row = strings.Join(m.ssh.listItem(other, false, 24), "\n")
+	row = m.ssh.listItem(other, false, 24)
 	for name, seq := range map[string]string{"green": green, "cursor": hand} {
 		if strings.Contains(row, seq) {
 			t.Errorf("an ordinary row should carry no %s", name)
@@ -864,7 +912,7 @@ func TestSessionRowShowsUserAtHost(t *testing.T) {
 	s := &session{id: 1, host: h, state: sessLive}
 	m.ssh.sessions = []*session{s}
 
-	row := ansi.Strip(strings.Join(m.ssh.listItem(s, false, 40), "\n"))
+	row := ansi.Strip(m.ssh.listItem(s, false, 40))
 	if want := h.User + "@" + h.Host; !strings.Contains(row, want) {
 		t.Errorf("row is %q, want it to carry %q", row, want)
 	}
@@ -876,31 +924,27 @@ func TestSessionRowShowsUserAtHost(t *testing.T) {
 	}
 }
 
-// The port is the one thing in a [4] row that must never be cut: the name wraps
-// against it, however long the name is.
+// The port is the one thing in a [1] row that must never be cut: the ADDRESS
+// shortens against it, however long the address is (§11.28).
 func TestSessionRowAlwaysShowsThePort(t *testing.T) {
 	m := sshApp(t, sample())
 	m.ssh.setSize(100, 28)
 
-	// The ADDRESS is what wraps now, so that is what has to be long.
 	long := store.Host{Name: "db", Host: "db-replica-tokyo.ap-northeast-1.internal",
 		Port: 2222, User: "postgres", Auth: store.AuthPassword}
 	s := &session{id: 1, host: long, state: sessLive}
 	m.ssh.sessions = []*session{s}
 
 	for _, innerW := range []int{24, 20, 16, 12} {
-		lines := m.ssh.listItem(s, false, innerW)
-		joined := strings.Join(lines, "\n")
-		if !strings.Contains(joined, "2222") {
-			t.Errorf("innerW=%d: the port was truncated away\n%s", innerW, joined)
+		row := m.ssh.listItem(s, false, innerW)
+		if !strings.Contains(ansi.Strip(row), "2222") {
+			t.Errorf("innerW=%d: the port was truncated away\n%s", innerW, ansi.Strip(row))
 		}
-		if len(lines) < 2 {
-			t.Errorf("innerW=%d: a 49-char address should have wrapped", innerW)
+		if strings.Contains(row, "\n") {
+			t.Errorf("innerW=%d: the row wrapped instead of shortening\n%s", innerW, ansi.Strip(row))
 		}
-		for i, l := range lines {
-			if dispW(l) != innerW {
-				t.Errorf("innerW=%d line %d: width %d", innerW, i, dispW(l))
-			}
+		if got := dispW(row); got != innerW {
+			t.Errorf("innerW=%d: width %d", innerW, got)
 		}
 	}
 }
@@ -967,24 +1011,27 @@ func TestTheSeamBelongsToTheTabOnItsLeft(t *testing.T) {
 }
 
 // The tab row is ONE strip: two round caps for the whole thing, and an arrow
-// between neighbours. The [Alt] lead is always lit and the active tab lights
-// with it, so WHICH arrows are filled pins down both — a filled arrow
-// carries a colour change, an outlined one only draws a line where the fill
-// matches on both sides.
-func TestTheTabRowIsOneStripSpellingTheChord(t *testing.T) {
+// between neighbours. Exactly one segment is lit, so WHICH arrows are filled
+// pins down which — a filled arrow carries a colour change, an outlined one
+// only draws a line where the fill matches on both sides.
+//
+// There used to be a lit [Alt] lead in front, and the counts below were three
+// seams rather than two. Bare letters spell no chord, so there is nothing for a
+// second lit segment to be half of.
+func TestTheTabRowIsOneStrip(t *testing.T) {
 	for _, tc := range []struct {
 		key         string
 		solid, thin int
 	}{
-		{"alt+P", 1, 2}, // Alt·p lit as ONE block: only p|f changes colour
-		{"alt+F", 3, 0}, // every seam is a colour change
-		{"alt+S", 2, 1}, // Alt|p and f|s change; p|f does not
+		{"M", 1, 1}, // M lit: M|F changes colour, F|S does not
+		{"F", 2, 0}, // the lit tab is in the middle — both seams change
+		{"S", 1, 1}, // F|S changes colour, M|F does not
 	} {
 		m := pressA(sized(sample(), 100, 26), tc.key)
 		row := strings.Split(m.View(), "\n")[0]
 
-		if !strings.Contains(row, "[Alt]") {
-			t.Errorf("%s: the strip must open with the held key", tc.key)
+		if strings.Contains(row, "[Alt]") {
+			t.Errorf("%s: the strip must not still carry a chord lead", tc.key)
 		}
 		if got := strings.Count(row, capLeft); got != 1 {
 			t.Errorf("%s: %d opening caps, want one strip", tc.key, got)
@@ -1130,11 +1177,64 @@ func TestDuplicateOpensASecondSessionToTheSameHost(t *testing.T) {
 	if a, b := first.ordinalTag(), m.ssh.sessions[1].ordinalTag(); a == "" || b == "" || a == b {
 		t.Errorf("expected distinct ordinals, got %q and %q", a, b)
 	}
-	if cur := m.ssh.currentSession(); cur == nil || cur.id != m.ssh.sessions[1].id {
-		t.Error("the new session's cell should hold the keyboard")
+	// The keyboard STAYS on [1] — the Enter that ran this was an Enter on a
+	// confirmation, not on a session row (§11.23).
+	if m.ssh.focus != panelSessions {
+		t.Errorf("duplicating must leave the keyboard on [1], focus=%d", m.ssh.focus)
+	}
+	if m.ssh.curSess != 1 {
+		t.Errorf("the cursor should be on the new session, curSess=%d", m.ssh.curSess)
 	}
 	if first.pty.exited() {
 		t.Error("duplicating must not disturb the session it copied")
+	}
+}
+
+// The new session is on the grid and echoing the cursor beside it, so the list
+// alone is not the only thing that says it happened.
+func TestADuplicateLandsOnTheListWithItsCellEchoing(t *testing.T) {
+	m := openOne(t)
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
+	m = settle(next.(AppModel))
+	m = pressA(m, "D", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+
+	if len(m.ssh.shown) != 2 {
+		t.Fatalf("the new session should be on the grid, shown=%d", len(m.ssh.shown))
+	}
+	newest := m.ssh.sessions[len(m.ssh.sessions)-1]
+	if got := m.ssh.cellTone(newest, len(m.ssh.shown)-1); got != toneEcho {
+		t.Errorf("the new cell should echo the cursor, tone=%d", got)
+	}
+	if m.inPty() {
+		t.Error("nothing should have handed the keyboard to a remote")
+	}
+}
+
+// Enter ON A ROW is still the one thing that means "take me in" — the whole
+// point of the distinction.
+func TestEnterOnASessionRowStillEntersThePty(t *testing.T) {
+	m := openOne(t)
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
+	m = settle(next.(AppModel))
+	if m.ssh.focus != panelSessions {
+		t.Fatal("setup: expected the keyboard on [1]")
+	}
+
+	m = pressA(m, "enter")
+	if m.ssh.focus != panelPty {
+		t.Errorf("Enter on a session row should hand it the keyboard, focus=%d", m.ssh.focus)
+	}
+}
+
+// And connecting from the hosts table still lands in the remote: reaching a
+// remote is what the key was pressed for there.
+func TestConnectingFromTheHostsTableStillLandsInThePty(t *testing.T) {
+	aliveSSH(t)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+	if m.ssh.focus != panelPty {
+		t.Errorf("connecting should land in the session, focus=%d", m.ssh.focus)
 	}
 }
 
@@ -1178,6 +1278,17 @@ func TestCloseEndsTheSession(t *testing.T) {
 	waitFor(t, "the session to end", func() bool { return s.pty.exited() })
 }
 
+// pressable reports whether a row's key names a keystroke somebody can make.
+// The core keys spell themselves out; a letter is a letter; anything longer is
+// a menu-only action and cannot be typed.
+func pressable(key string) bool {
+	switch key {
+	case "enter", "tab":
+		return true
+	}
+	return len(key) == 1
+}
+
 // Every row of the [4] Space menu must run [4] own action, not the action that
 // happens to share its letter in another tab. This is the test that was missing
 // when the menu dispatched every commit to tab [1]: [C]lose opened the new-host
@@ -1187,8 +1298,9 @@ func TestCloseEndsTheSession(t *testing.T) {
 // the bug was a divergence between those two paths, not in either action.
 func TestSSHMenuRowsRunTheirOwnActions(t *testing.T) {
 	wantAction := map[string]confirmAction{
-		"Close":     confirmClose,
-		"Duplicate": confirmDuplicate,
+		"Close":              confirmClose,
+		"Duplicate":          confirmDuplicate,
+		"Close all sessions": confirmCloseAll,
 	}
 	// Open lands in the pty and Display toggles the cell off (openOne put it
 	// on); the rest ask first.
@@ -1201,6 +1313,11 @@ func TestSSHMenuRowsRunTheirOwnActions(t *testing.T) {
 			continue
 		}
 		for _, how := range []string{"hotkey", "menu"} {
+			// A menu-only row has no keystroke to press — the menu is its
+			// only path, on purpose (§11.26).
+			if how == "hotkey" && !pressable(a.key) {
+				continue
+			}
 			m := openOne(t)
 			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 			m = settle(next.(AppModel))

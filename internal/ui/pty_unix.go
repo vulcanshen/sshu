@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/creack/pty"
 	"github.com/hinshun/vt10x"
 )
@@ -38,16 +40,43 @@ type ptyTerm struct {
 	// between "this terminal is empty" and "nothing has happened yet", which
 	// look identical on screen and are not remotely the same thing.
 	spoke atomic.Bool
+
+	// scrollback is the history vt10x does not keep. Its grid is a fixed
+	// rectangle and a row leaving the top is cleared, not stored — so the only
+	// moment a line can be preserved is on the way IN, before the emulator has
+	// a chance to drop it. Guarded by mu: the read goroutine appends, the
+	// update loop reads.
+	//
+	// Lines are stored RAW, escape sequences and all, because the point is to
+	// show the line again exactly as it arrived — a scrollback that strips the
+	// colour out of what you scrolled back to see is answering a different
+	// question.
+	scrollback  []string
+	pendingLine *strings.Builder
+	// pendingCR remembers a trailing \r: CRLF ends a line, a lone \r is a
+	// progress bar redrawing itself in place. They cannot be told apart until
+	// the next byte arrives.
+	pendingCR bool
+	// scrollOff is how many lines back from live the panel is showing. 0 is
+	// live — the only state the emulator itself knows anything about.
+	scrollOff int
 }
+
+// maxScrollback caps the history a single session keeps. Sessions run whether
+// or not anything is looking at them (§11.x), so this is per-session memory
+// that accrues in the background — the cap is what stops a chatty remote from
+// growing without bound for as long as sshu is open.
+const maxScrollback = 10000
 
 // startPty launches cmd on a PTY sized cols×rows.
 func startPty(cmd *exec.Cmd, cols, rows int) (*ptyTerm, error) {
 	cols, rows = max(cols, 1), max(rows, 1)
 	p := &ptyTerm{
-		term: vt10x.New(vt10x.WithSize(cols, rows)),
-		cmd:  cmd,
-		done: &atomic.Bool{},
-		mu:   &sync.Mutex{},
+		term:        vt10x.New(vt10x.WithSize(cols, rows)),
+		cmd:         cmd,
+		done:        &atomic.Bool{},
+		mu:          &sync.Mutex{},
+		pendingLine: &strings.Builder{},
 	}
 	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
 	if err != nil {
@@ -76,6 +105,7 @@ func (p *ptyTerm) readLoop() {
 			p.mu.Lock()
 			if p.term != nil {
 				_, _ = p.term.Write(buf[:n])
+				p.capture(buf[:n])
 			}
 			p.mu.Unlock()
 			p.spoke.Store(true)
@@ -88,6 +118,130 @@ func (p *ptyTerm) readLoop() {
 	deregisterProc(cmd)
 	p.exitErr.Store(&err)
 	done.Store(true)
+}
+
+// ---------------------------------------------------------------- scrollback
+
+// capture files the bytes just written to the emulator into the history the
+// emulator does not keep. mu is held by the caller, and term has ALREADY been
+// written — the modes it reports here are the ones this chunk left it in.
+//
+// Nothing is captured while the alt screen is up. A full-screen program repaints
+// its whole window on every keystroke, so capturing there would push thousands
+// of frames of vim through the buffer and flush the shell history that is
+// actually worth scrolling back to. Real terminals freeze their scrollback for
+// the same reason.
+func (p *ptyTerm) capture(buf []byte) {
+	if p.term.Mode()&vt10x.ModeAltScreen != 0 {
+		// Whatever half-line was pending belongs to the screen being left.
+		p.pendingLine.Reset()
+		p.pendingCR = false
+		return
+	}
+	// A terminal forgets its history only when asked to, and \x1b[3J is the ask.
+	// \x1b[2J is NOT: it erases the SCREEN, and scrolling back past a `clear` to
+	// what was there before is exactly what a scrollback is for. macOS `clear`
+	// happens to send both, which is why it drops the history here and in the
+	// user's own terminal alike — matching what their terminal does is the point.
+	if bytes.Contains(buf, []byte("\x1b[3J")) || bytes.Contains(buf, []byte("\x1bc")) {
+		p.scrollback = nil
+		p.scrollOff = 0
+		p.pendingLine.Reset()
+		p.pendingCR = false
+		return
+	}
+	for _, b := range buf {
+		if p.pendingCR {
+			p.pendingCR = false
+			if b == '\n' {
+				p.commitLine()
+				continue
+			}
+			// A lone \r: the line is being redrawn over itself. Keep only the
+			// latest version, which is what the screen ends up showing.
+			p.pendingLine.Reset()
+		}
+		switch b {
+		case '\r':
+			p.pendingCR = true
+		case '\n':
+			p.commitLine()
+		default:
+			p.pendingLine.WriteByte(b)
+		}
+	}
+}
+
+// commitLine moves the pending line into the ring. Blank-once-stripped lines are
+// dropped: a shell prompt repaint is a dozen escape sequences and no glyphs, and
+// filing those would fill the history with rows that render as nothing. The RAW
+// line is what gets stored — the strip only decides whether it is worth keeping.
+func (p *ptyTerm) commitLine() {
+	raw := p.pendingLine.String()
+	p.pendingLine.Reset()
+	if strings.TrimSpace(ansi.Strip(raw)) == "" {
+		return
+	}
+	p.scrollback = append(p.scrollback, raw)
+	if n := len(p.scrollback) - maxScrollback; n > 0 {
+		p.scrollback = p.scrollback[n:]
+	}
+}
+
+// altScreen reports whether a full-screen program has the terminal. It is the
+// one question that decides who PgUp belongs to: a program in the alt screen
+// does its own paging and must keep the key.
+func (p *ptyTerm) altScreen() bool {
+	if p == nil || p.term == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.term.Mode()&vt10x.ModeAltScreen != 0
+}
+
+// maxScrollOff is how far back the panel can look: everything held, less the
+// screenful that would be on display. Caller holds mu.
+func (p *ptyTerm) maxScrollOff() int {
+	_, rows := p.term.Size()
+	return max(0, len(p.scrollback)-rows)
+}
+
+// scrollPage moves the view one screenful. dir -1 goes back in time, +1 comes
+// forward; 0 is live. A history shorter than the screen cannot be scrolled at
+// all — everything it holds is already on display.
+func (p *ptyTerm) scrollPage(dir int) {
+	if p == nil || p.term == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	_, rows := p.term.Size()
+	p.scrollOff = clamp(p.scrollOff-dir*rows, 0, p.maxScrollOff())
+}
+
+// scrollable reports whether more has been said than currently fits on screen.
+// The footer asks: a key offered for something that cannot move is a key that
+// reads as broken the first time it is pressed.
+func (p *ptyTerm) scrollable() bool {
+	if p == nil || p.term == nil {
+		return false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.maxScrollOff() > 0
+}
+
+// scrolledBy is how many lines back the panel is showing, 0 when live. The cell
+// title reads this: a panel showing history and a panel that has stopped
+// updating look identical, and only one of them is a problem.
+func (p *ptyTerm) scrolledBy() int {
+	if p == nil || p.term == nil {
+		return 0
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return min(p.scrollOff, p.maxScrollOff())
 }
 
 func (p *ptyTerm) exited() bool { return p != nil && p.done != nil && p.done.Load() }
@@ -168,6 +322,11 @@ func (p *ptyTerm) lastWords() string {
 
 // write forwards a keystroke to the subprocess as the bytes a real terminal
 // would have sent.
+//
+// Anything that actually reaches the remote also snaps the view back to live.
+// Scrolling back is for reading; the moment you type you are talking to the far
+// end again, and typing into a screen that is showing five minutes ago is how
+// a command gets sent somewhere its author cannot see.
 func (p *ptyTerm) write(msg tea.KeyMsg) {
 	if p == nil || p.ptmx == nil {
 		return
@@ -176,6 +335,9 @@ func (p *ptyTerm) write(msg tea.KeyMsg) {
 	appCursor := p.term != nil && p.term.Mode()&vt10x.ModeAppCursor != 0
 	p.mu.Unlock()
 	if raw := ptyKeyBytes(msg, appCursor); len(raw) > 0 {
+		p.mu.Lock()
+		p.scrollOff = 0
+		p.mu.Unlock()
 		_, _ = p.ptmx.Write(raw)
 	}
 }
@@ -217,6 +379,10 @@ func (p *ptyTerm) stop() {
 // render draws the emulator grid as h lines of exactly w cells. The emulator is
 // kept at the panel's size, so this is a straight copy — but it still clamps,
 // because a resize and a frame can interleave.
+//
+// Scrolled back, it draws the stored lines instead. The emulator is untouched by
+// that: it keeps receiving whatever the remote sends, so coming back to live
+// shows the present rather than a replay of what was missed.
 func (p *ptyTerm) render(w, h int) []string {
 	blank := strings.Repeat(" ", max(w, 0))
 	out := make([]string, 0, h)
@@ -228,6 +394,24 @@ func (p *ptyTerm) render(w, h int) []string {
 	}
 
 	p.mu.Lock()
+	// Re-clamp here as well as on the keystroke: a resize between the two
+	// shrinks the ceiling under an offset that was legal when it was set.
+	p.scrollOff = min(p.scrollOff, p.maxScrollOff())
+	if p.scrollOff > 0 {
+		end := len(p.scrollback) - p.scrollOff
+		for _, l := range p.scrollback[max(0, end-h):end] {
+			s := clipANSI(l, w)
+			if pad := w - dispW(s); pad > 0 {
+				s += strings.Repeat(" ", pad)
+			}
+			out = append(out, s)
+		}
+		p.mu.Unlock()
+		for len(out) < h {
+			out = append(out, blank)
+		}
+		return out
+	}
 	cols, rows := p.term.Size()
 	cursorX, cursorY := -1, -1
 	if p.term.CursorVisible() {

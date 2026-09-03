@@ -49,7 +49,20 @@ func (l layoutMode) label() string {
 // (§1.2). Below sshNarrowW the columns cannot both be useful, so the grid
 // takes the screen and the list is reached with Alt+Esc.
 const (
-	sshLeftW     = 26
+	// sshLeftW is wide enough for a row to say the whole of what a session IS
+	// on one line: the display glyph, then "user@host:port #NN".
+	//
+	// It was 26, which left 21 columns for that string — one short of
+	// "demo@localhost:2222 #2", so the commonest shape of all wrapped onto a
+	// second line. 30 leaves 25, which takes an address ("root@192.168.1.100:22
+	// #12") and a short internal name ("deploy@prod-web-01:22 #12") whole.
+	//
+	// It stops there because the next thing worth fitting is a long DNS name
+	// ("app@staging.example.com:22 #12", 30 columns) and buying that costs six
+	// more columns off the grid — 32 and 34 fit nothing 30 does not. A row that
+	// long still wraps, and wrapping is what the two-line layout is for; the
+	// point was to stop the common case using it.
+	sshLeftW     = 30
 	sshNarrowW   = sshLeftW + 28
 	sshListLeadW = 1
 	// layoutRows is the layout strip's fixed height — border, one option row
@@ -86,6 +99,11 @@ type sshModel struct {
 	// focusPty is the cell holding the keyboard — an index into shown, only
 	// meaningful while focus == panelPty.
 	focusPty int
+	// zoomed gives the focused cell the whole grid area, the other cells no
+	// area at all. It only exists while the keyboard is IN a cell (setFocus
+	// clears it otherwise): zooming is about the terminal you are working in,
+	// and there is no such terminal when the list has the keyboard (§11.25).
+	zoomed bool
 
 	layout       layoutMode
 	gridC, gridR int // custom's columns × rows
@@ -169,9 +187,26 @@ func (m sshModel) sessionsH() int {
 	return m.h - layoutRows
 }
 
-// listRows is how many rows [1] shows, which is the page size u/d move by
-// half of.
-func (m sshModel) listRows() int { return max(1, m.sessionsH()-2) }
+// listInner is the [1] panel's content box. A zero width means the list is not
+// on screen at all — the side column folds while a remote has the keyboard, and
+// narrow gives the whole width to the grid.
+func (m sshModel) listInner() (w, h int) {
+	leftW, _ := m.panes()
+	return leftW - 2, m.sessionsH() - 2
+}
+
+// listRows is how many SESSIONS [1] shows at once — the page u/d move by half
+// of, and the window the cursor is kept inside.
+//
+// One row is one line, so this is the box height. It was a walk that measured
+// each row instead, because rows used to wrap: the address ran onto a second
+// line and the ":port #N" tail sometimes onto a third, and nothing could assume
+// a height. fitUserHost ended that — the row shortens rather than wraps
+// (§11.28) — and the measuring went with it.
+func (m sshModel) listRows() int {
+	_, innerH := m.listInner()
+	return max(1, innerH)
+}
 
 func (m *sshModel) setSize(w, h int) {
 	m.w, m.h = w, h
@@ -180,8 +215,12 @@ func (m *sshModel) setSize(w, h int) {
 }
 
 // setFocus moves focus and re-applies the geometry, because focus changes the
-// layout: the side column folds while the grid holds the keyboard.
+// layout: the side column folds while the grid holds the keyboard, and a zoom
+// only exists while a cell has it.
 func (m *sshModel) setFocus(p sshPanel) {
+	if p != panelPty {
+		m.zoomed = false
+	}
 	m.focus = p
 	m.applyGeometry()
 }
@@ -197,6 +236,19 @@ func (m *sshModel) applyGeometry() {
 		return
 	}
 	gw, gh := m.gridArea()
+	// Zoomed, the focused cell IS the grid. The others are not resized at all:
+	// they are not being drawn, and a SIGWINCH makes a remote repaint — telling
+	// five hidden shells to redraw on the way into a zoom is work nobody asked
+	// for and nobody sees.
+	if m.zoomed && m.canZoom() {
+		s := shown[m.focusPty]
+		cellCols, cellRows := max(1, gw-2), max(1, gh-2)
+		if s.pty != nil && (cellCols != s.appliedCols || cellRows != s.appliedRows) {
+			s.pty.resize(cellCols, cellRows)
+			s.appliedCols, s.appliedRows = cellCols, cellRows
+		}
+		return
+	}
 	cols, rows := m.gridDims(n)
 	ws, hs := splitEven(gw, cols), splitEven(gh, rows)
 	for i, s := range shown {
@@ -206,6 +258,25 @@ func (m *sshModel) applyGeometry() {
 			s.appliedCols, s.appliedRows = cellCols, cellRows
 		}
 	}
+}
+
+// canZoom reports whether zooming would change anything. One cell already fills
+// the grid, so the key is not offered there and not taken there either — it goes
+// to the remote instead, which is better than a key that visibly does nothing.
+func (m sshModel) canZoom() bool {
+	return m.focus == panelPty && len(m.shown) > 1 &&
+		m.focusPty >= 0 && m.focusPty < len(m.shown)
+}
+
+// toggleZoom flips the zoom and re-sizes the remote to match. Reports whether it
+// took the keystroke.
+func (m *sshModel) toggleZoom() bool {
+	if !m.canZoom() {
+		return false
+	}
+	m.zoomed = !m.zoomed
+	m.applyGeometry()
+	return true
 }
 
 // ---------------------------------------------------------------- lifecycle
@@ -428,9 +499,25 @@ func (m *sshModel) stopAll() {
 	}
 }
 
+// clampCursors puts the cursor and the viewport back into agreement. Every path
+// that can move either one ends here — j/k, a resize, a new session, a reaped
+// one — so following the cursor is one rule in one place rather than something
+// each caller has to remember.
 func (m *sshModel) clampCursors() {
 	m.curSess = clamp(m.curSess, 0, max(0, len(m.sessions)-1))
 	m.topSess = clamp(m.topSess, 0, max(0, len(m.sessions)-1))
+	m.revealCursor()
+}
+
+// revealCursor scrolls [1] so the cursor is on screen — the same scrollTo the
+// sftp lists use, which is what a list of fixed-height rows needs and all it
+// needs.
+func (m *sshModel) revealCursor() {
+	innerW, innerH := m.listInner()
+	if innerW <= 0 || innerH <= 0 || len(m.sessions) == 0 {
+		return
+	}
+	m.topSess = scrollTo(m.topSess, m.curSess, m.listRows())
 }
 
 func clamp(v, lo, hi int) int { return min(max(v, lo), hi) }
@@ -500,6 +587,11 @@ func (m *sshModel) moveCell(dx, dy int) {
 	}
 	m.failed = nil
 	m.focusPty = i
+	// Zoomed, the focused cell IS the geometry, so moving the focus moves what
+	// fills the screen — the cell arriving has to be told its new size before
+	// it paints. Unzoomed this is free: applyGeometry only SIGWINCHes a session
+	// whose numbers actually changed, and nothing changed.
+	m.applyGeometry()
 }
 
 // layoutKey drives the [2] strip: j/k (the options stack vertically now —
@@ -550,7 +642,7 @@ func endedBadlyToast(bad []*session) string {
 	case 1:
 		return bad[0].host.Name + " · " + bad[0].reason
 	default:
-		return plural(len(bad), "session") + " ended badly · see [Alt+p] logs"
+		return plural(len(bad), "session") + " ended badly · see [M]anage logs"
 	}
 }
 
@@ -662,6 +754,13 @@ func (m sshModel) gridView() string {
 		return panelChrome(innerW, fitLines(body, innerW, innerH), "", false)
 	}
 
+	// Zoomed: one cell, the whole area. Nothing else is drawn — that is the
+	// point, and it is also why the zoom needs no marker of its own. A grid
+	// showing exactly one terminal is not a state anyone has to be told about.
+	if m.zoomed && m.canZoom() {
+		return m.cellView(shown[m.focusPty], m.focusPty, gw, gh)
+	}
+
 	cols, rows := m.gridDims(len(shown))
 	ws, hs := splitEven(gw, cols), splitEven(gh, rows)
 	out := make([]string, 0, rows)
@@ -680,16 +779,57 @@ func (m sshModel) gridView() string {
 	return joinVertical(out...)
 }
 
-// cellLit says whether cell i wears the lit border. Inside the grid it is
-// the cell holding the keyboard. While the LIST holds the keyboard it is the
-// cell of the session under the cursor — the row and its cell light
-// together, so j/k on [1] traces across the grid.
-func (m sshModel) cellLit(s *session, i int) bool {
-	if m.focus == panelPty {
-		return i == m.focusPty
+// scrollKey handles the panel's own scrollback keys, reporting whether it took
+// the keystroke. Everything it does not take goes on to the remote.
+//
+// PgUp/PgDown are borrowed, not owned. A full-screen program — vim, less, htop —
+// pages with them itself, and it announces itself by switching to the alt
+// screen, so that is the test: alt screen up, the keys are the remote's. Plain
+// shell output pages nothing, which is exactly when scrolling has to come from
+// somewhere, and sshu is the only thing that can provide it.
+//
+// Home and End are deliberately NOT taken. In a shell they are the start and end
+// of the line being typed, which is a live editing gesture, and trading that for
+// a jump to the ends of a history is a bad trade. The way back to live is
+// PgDown, or simply typing.
+func (m sshModel) scrollKey(k string) bool {
+	s := m.currentSession()
+	if s == nil || s.pty.altScreen() {
+		return false
 	}
-	return m.focus == panelSessions && m.curSess < len(m.sessions) &&
-		m.sessions[m.curSess].id == s.id
+	switch k {
+	case "pgup", "shift+pgup":
+		s.pty.scrollPage(-1)
+	case "pgdown", "shift+pgdown":
+		s.pty.scrollPage(1)
+	default:
+		return false
+	}
+	return true
+}
+
+// cellTone says what cell i's border is saying. Inside the grid, the cell
+// holding the keyboard wears the focus blue. While the LIST holds the keyboard
+// the cell of the session under the cursor wears the CURSOR's colour instead —
+// the row and its cell light together, so j/k on [1] traces across the grid,
+// but the light is an echo of a cursor rather than a claim on the keyboard.
+//
+// Both used to be blue. That made the trace unreadable in the way that matters
+// most: with a bright blue frame on the right and a bright blue frame on the
+// left, the one question the chrome exists to answer — where are my keystrokes
+// going — had two answers on screen at once (§11.22).
+func (m sshModel) cellTone(s *session, i int) borderTone {
+	if m.focus == panelPty {
+		if i == m.focusPty {
+			return toneFocus
+		}
+		return toneIdle
+	}
+	if m.focus == panelSessions && m.curSess < len(m.sessions) &&
+		m.sessions[m.curSess].id == s.id {
+		return toneEcho
+	}
+	return toneIdle
 }
 
 // cellView is one grid cell: a bordered terminal.
@@ -701,19 +841,36 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 	} else {
 		rows = s.pty.render(innerW, innerH)
 	}
-	return panelChrome(innerW, fitLines(rows, innerW, innerH),
-		m.cellTitle(s, i, innerW), m.cellLit(s, i))
+	return panelChromeTone(innerW, fitLines(rows, innerW, innerH),
+		m.cellTitle(s, i, innerW), m.cellTone(s, i))
 }
 
 // cellTitle names the cell by what it is. It used to lead with an [Alt][N]
 // chord; the chord is spatial now (Alt+arrows), so there is no number to
 // disclose.
+//
+// Scrolled back, it also says so, and by how far. A cell showing history and a
+// cell whose remote has gone quiet are the same still picture — the app already
+// draws this distinction for a terminal that has not spoken yet (hasSpoken), and
+// it is the same distinction here. The marker is appended AFTER the name is cut
+// to fit, never before: in a narrow cell the state is what has to survive.
 func (m sshModel) cellTitle(s *session, i, innerW int) string {
 	t := s.host.User + "@" + s.host.Host
 	if tag := s.ordinalTag(); tag != "" {
 		t += " " + tag
 	}
-	return truncate(t, max(0, innerW-2))
+	mark := ""
+	if n := s.pty.scrolledBy(); n > 0 {
+		mark = " " + glyphHistory + " " + itoa(n)
+	}
+	return truncate(t, max(0, innerW-2-dispW(mark))) + mark
+}
+
+// canScroll reports whether the focused cell has history to page through, which
+// is the condition on the footer offering the keys.
+func (m sshModel) canScroll() bool {
+	s := m.currentSession()
+	return s != nil && !s.pty.altScreen() && s.pty.scrollable()
 }
 
 // blankBlock fills a custom grid's unused cell with canvas, not with an empty
@@ -766,19 +923,19 @@ func (m sshModel) gridEmpty(innerW, innerH int) []string {
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 	who := s.host.User + "@" + s.host.Host
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
-		emptyHint("The detail is in [Alt+p] logs — or try another host", "[Alt+p]"))
+		emptyHint("The detail is in [M]anage logs — or try another host", "[M]anage"))
 }
 
 // listBody lays out [1]. Each entry is a block, because a long address wraps.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		return emptyBody(innerW, innerH, "No sessions",
-			emptyHint("Connect from [Alt+p] hosts", "[Alt+p]"))
+			emptyHint("Connect from [M]anage hosts", "[M]anage"))
 	}
 
 	out := make([]string, 0, max(0, innerH))
 	for i := top; i < len(items) && len(out) < innerH; i++ {
-		out = append(out, m.listItem(items[i], i == cursor, innerW)...)
+		out = append(out, m.listItem(items[i], i == cursor, innerW))
 	}
 	return out
 }
@@ -796,7 +953,7 @@ func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []
 // Colour is still two independent channels: green foreground = on the grid,
 // background = the cursor bar. Where they meet the bar wins; the glyph is
 // what still tells the state there.
-func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
+func (m sshModel) listItem(s *session, isCursor bool, innerW int) string {
 	nameFG := textColor
 	glyph, glyphFG := glyphMonitorOff, dimColor
 	if m.isShown(s.id) {
@@ -814,38 +971,81 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 	const glyphCell = 2 // the glyph and its trailing space
 	nameW := max(1, innerW-sshListLeadW-glyphCell)
 
-	// The address wraps; the ":port" (and the #N tag) ride as ONE unbreakable
-	// tail — a port split across lines ("…:2" / "222") is another number, not
-	// a shortened one. If the tail cannot share the last line it takes its
-	// own, intact.
+	// ":port #N" is the fixed tail and it is never shortened. The port is what
+	// tells two sessions to the same box apart at the transport level and #N is
+	// what tells them apart at all — a truncated port is a different number
+	// rather than a shorter one, and half an ordinal is not an ordinal.
+	//
+	// Everything that gives is in "user@host" (fitUserHost), so a row is ONE
+	// line whatever it holds. It used to wrap instead, which cost the list a
+	// second line for its commonest entry and made every row a different
+	// height — including for the scrolling, which had to measure rather than
+	// count (§11.28).
 	tail := ":" + strconv.Itoa(s.host.Port)
 	if tag := s.ordinalTag(); tag != "" {
 		tail += " " + tag
 	}
-	lines := wrapText(s.host.User+"@"+s.host.Host, nameW)
-	if last := lines[len(lines)-1]; dispW(last)+dispW(tail) <= nameW {
-		lines[len(lines)-1] = last + tail
-	} else if dispW(tail) <= nameW {
-		lines = append(lines, tail)
-	} else {
-		lines = append(lines, wrapText(tail, nameW)...)
+	line := tail
+	if room := nameW - dispW(tail); room > 0 {
+		line = fitUserHost(s.host.User, s.host.Host, room) + tail
 	}
 
 	lead := strings.Repeat(" ", sshListLeadW)
-	out := make([]string, 0, len(lines))
-	for i, l := range lines {
-		g := glyph + " "
-		if i > 0 {
-			g = "  " // continuation lines indent under the name
-		}
-		out = append(out, gStyle.Render(lead+g)+body.Render(padRight(l, nameW)))
-	}
-	return out
+	return gStyle.Render(lead+glyph+" ") + body.Render(padRight(line, nameW))
 }
 
 // wrapText breaks s to at most w cells per line, preferring a break just after
 // a separator so a hostname splits at a dot or dash instead of mid-token.
-func wrapText(s string, w int) []string {
+// fitUserHost renders "user@host" in exactly w cells or fewer, shortening each
+// side on its own and always keeping the @.
+//
+// The @ stays because it is what makes the string readable AS an address: cut
+// it and "deploy@10.0.3" and "deploy10.0.3" are the same handful of characters
+// with no shape. Each side is then shortened separately rather than the pair
+// being truncated as one string, which would eat the host entirely and leave a
+// row that says only who you are.
+//
+// The shorter side is kept whole wherever it fits. A username is usually short
+// and a hostname usually long, and trimming "deploy" to buy two more characters
+// of a DNS name helps nobody; only when BOTH sides are over half do they split
+// the room evenly.
+func fitUserHost(user, host string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	if w == 1 {
+		return "@"
+	}
+	avail := w - 1 // the @
+	uw, hw := dispW(user), dispW(host)
+	if uw+hw <= avail {
+		return user + "@" + host
+	}
+	switch half := avail / 2; {
+	case uw <= half:
+		hw = avail - uw
+	case hw <= avail-half:
+		uw = avail - hw
+	default:
+		uw, hw = half, avail-half
+	}
+	return truncate(user, uw) + "@" + truncate(host, hw)
+}
+
+func wrapText(s string, w int) []string { return wrapAt(s, w, true) }
+
+// wrapPlain fills every line to the width, wherever that lands.
+//
+// It is for text sshu did not write. A remote's output has no structure worth
+// respecting, and it is dense with the very characters wrapText prefers to
+// break after: an IP address is three dots, a path is a run of slashes. Asking
+// for a separator there breaks "10.20.12.31" into "10.20.12." and "31" and
+// leaves a third of every line empty — which is what the app log looked like,
+// and it reads as damage rather than as wrapping.
+func wrapPlain(s string, w int) []string { return wrapAt(s, w, false) }
+
+// wrapAt is the shared cut. preferSep chooses between the two rules above.
+func wrapAt(s string, w int, preferSep bool) []string {
 	if w <= 0 {
 		return []string{""}
 	}
@@ -866,10 +1066,19 @@ func wrapText(s string, w int) []string {
 			used += rw
 			cut = i + 1
 		}
+		// A rune wider than the whole line — a CJK glyph in a one-column box —
+		// fits nowhere, and taking zero of them would loop here forever. It goes
+		// on the line and overflows it by one column; the caller clips. Losing a
+		// column beats hanging.
+		if cut == 0 {
+			cut = 1
+		}
 		// Prefer a separator in the last third, so "db-replica-tokyo-ap-" breaks
 		// after the dash rather than inside "ap".
-		if best := lastSepBefore(rs[:cut], cut*2/3); best > 0 {
-			cut = best
+		if preferSep {
+			if best := lastSepBefore(rs[:cut], cut*2/3); best > 0 {
+				cut = best
+			}
 		}
 		out = append(out, string(rs[:cut]))
 		rs = rs[cut:]

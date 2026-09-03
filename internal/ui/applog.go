@@ -18,7 +18,7 @@ import (
 // you can go back to is what a toast cannot be.
 //
 // It is a viewport (§6.1): newest first, no cursor, nothing in it can be
-// acted on. It lives as preference → logs — a content panel, not a popup —
+// acted on. It lives as manage → logs — a content panel, not a popup —
 // and landing it on screen is what marks its errors read.
 
 // logCap bounds the log. Five hundred lines is far more than a session produces
@@ -211,9 +211,25 @@ func (m *appLog) scrollKey(k string, innerW, innerH int) {
 func (m appLog) allRows(innerW int) []string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	// The prefix is "15:04:05 ERR  ", and the continuation lines of an entry are
-	// indented under its message rather than under its timestamp.
+	// indented under its message rather than under its timestamp, so an entry
+	// reads as one block.
+	//
+	// The message column is whatever is LEFT of the panel after that gutter,
+	// less one for air at the right edge. It used to have a floor of 8, which
+	// meant a panel narrower than 24 columns drew every wrapped line wider than
+	// itself — the outer fitLines then cut the tail off, so the WORDS went
+	// missing rather than the layout breaking, which is the harder failure to
+	// notice.
 	const prefixW = 15
-	msgW := max(8, innerW-prefixW-1)
+	msgW, indent := innerW-prefixW-1, prefixW
+	if msgW < prefixW {
+		// The gutter would be the wider half. It yields: an entry wrapped to
+		// the left margin still reads as one block (the timestamp on the first
+		// line is enough to mark where an entry starts), while fifteen columns
+		// of blank beside four columns of text reads as damage — text coming
+		// down a narrow channel with empty space either side.
+		msgW, indent = max(2, innerW-1), 0
+	}
 
 	var rows []string
 	for i := len(m.entries) - 1; i >= 0; i-- {
@@ -226,14 +242,20 @@ func (m appLog) allRows(innerW int) []string {
 		// anybody opened the log to read.
 		first := true
 		for _, para := range strings.Split(e.msg, "\n") {
-			for _, line := range wrapText(para, msgW) {
+			// wrapPlain, not wrapText: this is somebody else's output, and
+			// preferring a separator in it wastes a third of every line
+			// (see wrapPlain).
+			for _, line := range wrapPlain(para, msgW) {
 				if first {
-					rows = append(rows, " "+dim.Render(e.at.Format("15:04:05"))+" "+
-						lvl.Render(e.level.label())+" "+line)
+					// The timestamp gutter is a fixed 15 columns; clip keeps the
+					// promise below that, which is narrower than sshu ever gets
+					// but is the function's contract either way.
+					rows = append(rows, clipANSI(" "+dim.Render(e.at.Format("15:04:05"))+" "+
+						lvl.Render(e.level.label())+" "+line, innerW))
 					first = false
 					continue
 				}
-				rows = append(rows, spaces(prefixW)+line)
+				rows = append(rows, spaces(indent)+line)
 			}
 		}
 	}

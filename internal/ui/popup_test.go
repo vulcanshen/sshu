@@ -31,10 +31,9 @@ func settle(m AppModel) AppModel {
 }
 
 func keyMsg(k string) tea.KeyMsg {
-	// "alt+X" for a rune chord — how bubbletea reports ESC-prefixed keys, and
-	// how alt+shift+p arrives (the shifted rune, Alt set). Modified arrows
-	// (ESC[1;3D et al.) arrive as the arrow type with Alt set.
-	if r, ok := strings.CutPrefix(k, "alt+"); ok && k != "alt+esc" {
+	// "alt+X" for a rune chord — how bubbletea reports ESC-prefixed keys.
+	// Modified arrows (ESC[1;3D et al.) arrive as the arrow type with Alt set.
+	if r, ok := strings.CutPrefix(k, "alt+"); ok && k != "alt+esc" && k != "alt+enter" {
 		if t, isArrow := map[string]tea.KeyType{
 			"left": tea.KeyLeft, "right": tea.KeyRight,
 			"up": tea.KeyUp, "down": tea.KeyDown,
@@ -50,6 +49,10 @@ func keyMsg(k string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyEscape}
 	case "alt+esc":
 		return tea.KeyMsg{Type: tea.KeyEscape, Alt: true}
+	case "alt+enter":
+		// What a terminal really sends: ESC then CR, which bubbletea reports as
+		// the Enter key with Alt set (verified against a live tty).
+		return tea.KeyMsg{Type: tea.KeyEnter, Alt: true}
 	case "enter":
 		return tea.KeyMsg{Type: tea.KeyEnter}
 	case "tab":
@@ -70,6 +73,10 @@ func keyMsg(k string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyUp}
 	case "down":
 		return tea.KeyMsg{Type: tea.KeyDown}
+	case "pgup":
+		return tea.KeyMsg{Type: tea.KeyPgUp}
+	case "pgdown":
+		return tea.KeyMsg{Type: tea.KeyPgDown}
 	default:
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
 	}
@@ -216,8 +223,8 @@ func TestSpaceRespondsOnUnbuiltTabs(t *testing.T) {
 		tab    string
 		opened func(AppModel) bool
 	}{
-		{"alt+F", func(m AppModel) bool { return m.hostPicker.isActive() }},
-		{"alt+S", func(m AppModel) bool { return m.spaceMenu.isActive() }},
+		{"F", func(m AppModel) bool { return m.hostPicker.isActive() }},
+		{"S", func(m AppModel) bool { return m.spaceMenu.isActive() }},
 	} {
 		m := pressA(appWith(sample(), nil), c.tab, " ")
 		if !c.opened(m) {

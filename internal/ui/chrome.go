@@ -77,14 +77,16 @@ func divider(prev, cur lipgloss.Color) (glyph string, fg, bg lipgloss.Color) {
 	return dividerHard, prev, cur
 }
 
-// tabChain renders the strip. Segment 0 is the chord LEAD — the held key,
-// always lit: the strip spells what you press, [Alt] plus whichever letter
-// lights after it. When the active tab sits right next to the lead, the seam
-// between the two lit fills is the soft divider and they read as one block —
-// the chord, spelled out.
+// tabChain renders the strip. Exactly one segment is lit: the tab you are on.
+//
+// There used to be a second lit segment in front — a [Alt] lead — because the
+// keys were chords and the strip spelled the chord out, two lit halves reading
+// as one block. With bare letters there is no second half to spell, and a
+// permanently lit segment that names no surface is just a lit thing competing
+// with the one that means something (§11.21).
 func tabChain(segs []string, active int) string {
 	lit, unlit := focusColor, lipgloss.Color(baseHex)
-	isLit := func(i int) bool { return i == 0 || i == active }
+	isLit := func(i int) bool { return i == active }
 	fill := func(i int) lipgloss.Color {
 		if isLit(i) {
 			return lit
@@ -111,9 +113,9 @@ func tabChain(segs []string, active int) string {
 	return b.String()
 }
 
-// shortLabels drops each segment to its bracket — "[Alt] [p] [f] [s]" — the
-// first narrow-width degradation. The label is the content signal and losing
-// it hurts, but a strip wider than the terminal breaks the frame outright
+// shortLabels drops each segment to its bracket — "[M] [F] [S]" — the first
+// narrow-width degradation. The label is the content signal and losing it
+// hurts, but a strip wider than the terminal breaks the frame outright
 // (§1.1 — narrow must stay usable).
 func shortLabels(labels []string) []string {
 	out := make([]string, len(labels))
@@ -138,16 +140,16 @@ func shortLabels(labels []string) []string {
 // action in flight: a running transfer's summary comes in liveColor,
 // because information arriving is not dimmed (§7.2).
 func tabRow(w int, labels []string, active int, status string, live bool) string {
-	segs := append([]string{tabLead}, labels...)
+	segs := labels
 	if tabChainW(segs)+1 > w {
-		// "[Alt] [p] [f] [s]" fits well under minAppW, so one tier is the
-		// whole ladder.
+		// "[M] [F] [S]" fits well under minAppW, so one tier is the whole
+		// ladder.
 		segs = shortLabels(segs)
 	}
 
 	var b strings.Builder
 	b.WriteString(" ")
-	b.WriteString(tabChain(segs, active+1))
+	b.WriteString(tabChain(segs, active))
 	used := tabChainW(segs) + 1 // the leading indent
 	if used >= w {
 		return b.String() // pathological width; the guard in View catches this
@@ -227,11 +229,36 @@ func tabRule(w, pct int, moving bool) string {
 		dim.Render(strings.Repeat("─", max(0, w-filled)))
 }
 
-func borderColor(focused bool) lipgloss.Color {
-	if focused {
+// borderTone is what a panel's frame says about the keyboard. Two states were
+// enough everywhere until the ssh grid grew a third: a cell can be pointed AT
+// from the sessions list while the keyboard is still on the list (§11.22).
+type borderTone int
+
+const (
+	toneIdle  borderTone = iota // nothing is pointing at this panel
+	toneEcho                    // a cursor elsewhere is pointing at it
+	toneFocus                   // the keyboard is in it
+)
+
+func toneColor(t borderTone) lipgloss.Color {
+	switch t {
+	case toneFocus:
 		return focusColor
+	case toneEcho:
+		// The cursor's own colour. Not blue: blue is where the keyboard is, and
+		// two blues on screen makes the user hunt for which one is live. Not a
+		// new colour either — an echo of the list cursor is the list cursor, so
+		// it wears what the cursor wears (§2.1 keeps the bands separate).
+		return handColor
 	}
 	return borderDim
+}
+
+func borderColor(focused bool) lipgloss.Color {
+	if focused {
+		return toneColor(toneFocus)
+	}
+	return toneColor(toneIdle)
 }
 
 // panelChip is a panel border title as one rounded capsule: round-left cap,
@@ -241,8 +268,8 @@ func borderColor(focused bool) lipgloss.Color {
 // as a button and a title is not one. The rule above the panels settles that:
 // with the two zones visibly separated, a panel capsule is read as belonging to
 // its panel rather than as another tab to press.
-func panelChip(title string, focused bool) string {
-	bc := borderColor(focused)
+func panelChip(title string, tone borderTone) string {
+	bc := toneColor(tone)
 	cap := lipgloss.NewStyle().Foreground(bc)
 	body := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(bc).Bold(true)
 	return cap.Render(capLeft) + body.Render(title) + cap.Render(capRight)
@@ -253,7 +280,19 @@ func panelChip(title string, focused bool) string {
 // Every line of body must already be innerW cells; short lines are padded, so a
 // PTY frame arriving mid-resize cannot shear the border.
 func panelChrome(innerW int, body []string, title string, focused bool) string {
-	bc := borderColor(focused)
+	tone := toneIdle
+	if focused {
+		tone = toneFocus
+	}
+	return panelChromeTone(innerW, body, title, tone)
+}
+
+// panelChromeTone is the same frame with the third state available. panelChrome
+// is the two-state door onto it — every panel outside the ssh grid has exactly
+// two things a border can say, and spelling that as a bool at eleven call sites
+// reads better than a constant.
+func panelChromeTone(innerW int, body []string, title string, tone borderTone) string {
+	bc := toneColor(tone)
 	bs := lipgloss.NewStyle().Foreground(bc)
 
 	// An empty title means NO capsule. Rendering panelChip("") would still draw
@@ -261,7 +300,7 @@ func panelChrome(innerW int, body []string, title string, focused bool) string {
 	// the border, which is what "no title" must not look like.
 	chip, chipW := "", 0
 	if title != "" {
-		chip, chipW = panelChip(title, focused), dispW(title)+2
+		chip, chipW = panelChip(title, tone), dispW(title)+2
 		if chipW > innerW {
 			chip, chipW = "", 0
 		}

@@ -113,7 +113,7 @@ func TestTheRuleTurnsGreenWithTheTransfer(t *testing.T) {
 	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
 	green := ansiOf(t, liveColor)
 
-	for _, key := range []string{"alt+P", "alt+S"} {
+	for _, key := range []string{"M", "S"} {
 		rule := strings.Split(pressA(m, key).View(), "\n")[1]
 		if got := greenRun(rule, green); got != 50 {
 			t.Errorf("%s: green run is %d cells, want 50 of 100", key, got)
@@ -131,14 +131,14 @@ func TestTheRuleTurnsGreenWithTheTransfer(t *testing.T) {
 // merely describe state stay dim.
 func TestTransferStatusIsGreenNotDim(t *testing.T) {
 	withColour(t)
-	m := pressA(sized(sample(), 100, 26), "alt+F")
+	m := pressA(sized(sample(), 100, 26), "F")
 	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
 	green := ansiOf(t, liveColor)
 
 	if row := strings.Split(m.View(), "\n")[0]; !strings.Contains(row, green) {
 		t.Error("the running summary should be liveColor")
 	}
-	if row := strings.Split(pressA(m, "alt+S").View(), "\n")[0]; strings.Contains(row, green) {
+	if row := strings.Split(pressA(m, "S").View(), "\n")[0]; strings.Contains(row, green) {
 		t.Error("a resting status must stay dim; green belongs to the moving one")
 	}
 }
@@ -148,7 +148,7 @@ func TestTransferStatusIsGreenNotDim(t *testing.T) {
 // big file, and a number that does not move is what stuck looks like — the
 // dots turn on every tick, the way the dial's spinner does.
 func TestTheTransferSummarySpins(t *testing.T) {
-	m := pressA(sized(sample(), 100, 26), "alt+F")
+	m := pressA(sized(sample(), 100, 26), "F")
 	m.transfers.jobs = append(m.transfers.jobs, runningJob(1, 50, 100))
 
 	first := m.transfers.summary()

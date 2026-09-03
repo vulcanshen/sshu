@@ -9,7 +9,7 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// The three top-level surfaces. Screen order is preference / file transfer /
+// The three top-level surfaces. Screen order is manage / file transfer /
 // ssh (that is what the strip reads left to right).
 type tabID int
 
@@ -20,16 +20,19 @@ const (
 	tabCount
 )
 
-// Strip labels. The chain opens with the held key — tabLead, always lit —
-// and each label opens with the letter that completes the chord, disclosed
-// in its everyday lowercase spelling: [Alt] ❯ [p]reference. The tabs moved
-// OFF the bare digits so that every digit could address a panel of the
-// current tab instead — and so that switching tab works even while a remote
-// holds the keyboard, which no bare key could survive. (Inside a pty only
-// the SHIFTED chord is intercepted; see tabForChord.)
-const tabLead = "[Alt]"
-
-var tabLabels = []string{"[p]reference", "[f]ile transfer", "[s]sh"}
+// Strip labels. Each opens with the key that reaches it, and the key is a bare
+// SHIFTED letter — the tabs are the app's top-level structure, and reaching for
+// them should not cost a modifier.
+//
+// They used to be Alt chords, with a lit [Alt] lead segment in front of the
+// strip, so that switching tab worked even while a remote held the keyboard.
+// That is no longer bought: inside a pty every key belongs to the far end and
+// Alt+Esc comes out first (§11.21). What the chord cost was three of the app's
+// most reachable keys, permanently.
+//
+// [M]anage rather than Preference: the tab holds hosts, credentials and logs —
+// records, not settings — so the old name was answering for the wrong thing.
+var tabLabels = []string{"[M]anage", "[F]ile transfer", "[S]SH"}
 
 // chromeRows is the fixed chrome the panels do NOT get: the capsule row, the
 // rule under it, and the footer. Locked at 3 — none of them ever reflows (§1.3).
@@ -306,31 +309,23 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// everything else because every rule below would otherwise take a key the
 	// editor needs.
 	//
-	// Two keys are kept. Alt+Esc abandons the edit — in tab [3] it means "take
-	// the keyboard back", and here there is nowhere else to take it, so leaving
-	// is what taking it back is. Ctrl+C stays the emergency exit it is
-	// everywhere else in sshu, including inside a session's PTY; making it mean
-	// something different in this one PTY is how an emergency exit stops being
-	// one.
+	// One key is kept: Alt+Esc abandons the edit — in tab [3] it means "take the
+	// keyboard back", and here there is nowhere else to take it, so leaving is
+	// what taking it back is.
+	//
+	// Ctrl+C is NOT kept. It used to quit sshu from in here, on the grounds that
+	// an emergency exit which means something different in one PTY has stopped
+	// being one. That reasoning was backwards: inside an editor Ctrl+C is the
+	// editor's own key, and reaching for it — to cancel an insert, to interrupt
+	// something — and losing every session instead is not an emergency exit, it
+	// is the emergency. The exit is one keystroke further away and always
+	// advertised: Alt+Esc, then Ctrl+C.
 	if m.editorUI.running() {
-		switch {
-		case msg.Type == tea.KeyEscape && msg.Alt:
+		if msg.Type == tea.KeyEscape && msg.Alt {
 			return m.abandonEdit()
-		case msg.Type == tea.KeyCtrlC:
-			return m.quit()
 		}
 		m.editorUI.pty.write(msg)
 		return m, nil
-	}
-
-	// The tab chords work from anywhere below the float layer — including from
-	// inside a PTY, which is the whole reason they are Alt chords. Under a
-	// popup they do nothing: a tab switching beneath a form would strand the
-	// form over a surface it knows nothing about.
-	if !m.popupOpen() {
-		if t, ok := tabForChord(msg.String(), m.inPty()); ok {
-			return m.switchTab(t)
-		}
 	}
 
 	// Hold Alt and steer: the arrows move the keyboard to the neighbouring
@@ -339,6 +334,17 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// dropped: window managers own Alt+1..9 on the LOCAL side — AeroSpace,
 	// tiling tools — so the chords never even reached sshu.) Alt+arrows are
 	// dead keys in a bare terminal, which is what makes them takeable.
+	// Alt+Enter fills the screen with the focused cell. Enter is "go in" all
+	// over sshu, and this is going further in — which is also why Alt+Esc, the
+	// key that comes back OUT, is what leaves it (§11.25). With one cell on the
+	// grid there is nothing to zoom, so the chord is not taken and travels on
+	// to the remote like any other.
+	if m.tab == tabSSH && !m.popupOpen() && msg.Alt && msg.Type == tea.KeyEnter {
+		if m.ssh.toggleZoom() {
+			return m, nil
+		}
+	}
+
 	if m.tab == tabSSH && !m.popupOpen() && msg.Alt && m.ssh.focus == panelPty {
 		switch msg.Type {
 		case tea.KeyLeft:
@@ -363,6 +369,16 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// PTY holds focus, which is the only place it means anything.
 	if msg.Type == tea.KeyEscape && msg.Alt {
 		if m.ptyFocused() {
+			// One step at a time, outward. A zoom is a layer the user put
+			// themselves inside, so the key that comes back out takes it off
+			// first and hands the keyboard back second — pressing it once and
+			// landing two levels away is how a way-out key stops being
+			// predictable (§11.25).
+			if m.ssh.zoomed {
+				m.ssh.zoomed = false
+				m.ssh.applyGeometry()
+				return m, nil
+			}
 			m.ssh.setFocus(panelSessions)
 			return m, nil
 		}
@@ -406,12 +422,25 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Ctrl+C is the emergency exit, not a cancel — it works even under a popup,
 	// and it takes the sessions with it: an orphaned ssh holding a PTY nobody
 	// owns is worse than a slow exit.
-	if msg.Type == tea.KeyCtrlC {
+	//
+	// Everywhere except inside a remote. In there it is the far end's interrupt,
+	// and it is the most reflexive key a shell has: reaching for it to kill a
+	// runaway command and losing every session in the app instead is not an
+	// emergency exit, it is the emergency. Nothing is stranded by giving it up —
+	// Alt+Esc takes the keyboard back and Ctrl+C is itself again on the far side
+	// of it, and the footer has been advertising that key the whole time.
+	if msg.Type == tea.KeyCtrlC && !m.inPty() {
 		return m.quit()
 	}
 
 	// A focused PTY swallows everything else — that is what focusing it means.
 	if m.inPty() {
+		// Except the two keys that are about sshu's own window onto the remote
+		// rather than about the remote. They are taken back only while the far
+		// end has no use for them (§11.19).
+		if m.ssh.scrollKey(msg.String()) {
+			return m, nil
+		}
 		m.ssh.currentSession().pty.write(msg)
 		return m, nil
 	}
@@ -436,7 +465,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Type == tea.KeySpace && m.popupOpen() && !m.textFloat() {
 		return m.closeTop()
 	}
-	if msg.String() == "?" && !m.textFloat() && !m.textPage() && !m.inPty() {
+	if msg.String() == "?" && !m.typing() && !m.inPty() {
 		if m.help.anim.owns() {
 			return m, m.help.close()
 		}
@@ -445,10 +474,22 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// to be standing on is the menu they just opened.
 		return m, m.help.open(m.layer())
 	}
-	// V is the hidden u-family easter egg: the logo, revealed. Outside a pty
-	// only — in there V belongs to the remote.
-	if msg.String() == "V" && !m.textFloat() && !m.textPage() && !m.inPty() && !m.popupOpen() {
+	// V is the hidden u-family easter egg: the logo, revealed.
+	if msg.String() == "V" && !m.typing() && !m.popupOpen() {
 		return m, m.splash.show()
+	}
+
+	// The tab keys. They sit HERE — below the pty, below the floats — rather
+	// than at the top of this function, which is where they lived as Alt chords
+	// so that they could reach past a remote. A bare letter cannot do that and
+	// should not try: inside a pty every key is the far end's, and Alt+Esc is
+	// the way out (§11.21). Under a popup they do nothing either — a tab
+	// switching beneath a form would strand the form over a surface it knows
+	// nothing about.
+	if !m.popupOpen() && !m.typing() {
+		if t, ok := tabForKey(msg.String()); ok {
+			return m.switchTab(t)
+		}
 	}
 
 	// A filtering file list claims printable keys before the action table can:
@@ -641,7 +682,7 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// thing, and Space's whole promise is "what can I do here" — so it
 		// answers with the thing rather than with a menu whose only row points
 		// at it. Routed through sftpKey rather than straight at the picker, so
-		// this shortcut is the letter `S` by definition and cannot drift from
+		// this shortcut is the letter `H` by definition and cannot drift from
 		// it — the running-transfer guard included (§4.2).
 		if m.tab == tabFT && m.sftp.cur().fs == nil {
 			return m.sftpKey(keySelectHost)
@@ -656,33 +697,40 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.dispatchKey(k)
 }
 
-// tabForChord resolves a tab-switch chord. The disclosed spelling is the
-// lowercase one — [Alt+p] — and outside a pty both cases answer: a dead key
-// one shift away from a live one is a trap with no payoff. INSIDE a pty the
-// unshifted chords are not sshu's to take — M-f is forward-word in every
-// readline and emacs on the far end — so only the shifted spelling is
-// intercepted where a remote holds the keyboard.
-func tabForChord(k string, remoteHasKeys bool) (tabID, bool) {
+// tabForKey resolves a tab-switch key. Shifted only: the lowercase letters are
+// the panels' own vocabulary (m, f and s all mean something somewhere), and the
+// case is what tells the two apart — the same exact-case rule hotkeyIndex keeps.
+func tabForKey(k string) (tabID, bool) {
 	switch k {
-	case "alt+P":
+	case "M":
 		return tabPref, true
-	case "alt+F":
+	case "F":
 		return tabFT, true
-	case "alt+S":
-		return tabSSH, true
-	}
-	if remoteHasKeys {
-		return 0, false
-	}
-	switch k {
-	case "alt+p":
-		return tabPref, true
-	case "alt+f":
-		return tabFT, true
-	case "alt+s":
+	case "S":
 		return tabSSH, true
 	}
 	return 0, false
+}
+
+// typing reports whether a printable key is a CHARACTER right now rather than a
+// command: a list being filtered, an Operation page, or a float being typed
+// into. Every bare global letter asks this before it acts.
+//
+// It exists because the alternative — each key remembering its own list of
+// exceptions — had already failed twice: V opened the splash and ? opened the
+// help while a filename was being typed into a search (§11.21). One question,
+// asked in one place, so a new global key cannot forget half the answer.
+func (m AppModel) typing() bool {
+	if m.textFloat() || m.textPage() {
+		return true
+	}
+	if m.popupOpen() {
+		return false // a float has the keyboard; the panel behind it is not being typed into
+	}
+	if m.tab == tabFT && m.sftp.cur().filtering {
+		return true
+	}
+	return m.tab == tabPref && m.pref.item == prefHosts && m.hosts.filtering
 }
 
 // switchTab is the one place the tab changes. The sftp watcher only runs
@@ -1094,6 +1142,8 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.doConnect()
 	case confirmClose:
 		return m.doClose(m.confirm.target)
+	case confirmCloseAll:
+		return m.doCloseAll()
 	case confirmDuplicate:
 		return m.doDuplicate(m.confirm.target)
 	case confirmTransfer:
@@ -1136,24 +1186,29 @@ func (m AppModel) doDelete(name string) (tea.Model, tea.Cmd) {
 
 // doConnect is the §7.1 context shift: an ssh session is a long-lived target, so
 // the whole float stack goes before the tab switches — coming back out of a
-// session onto a stale menu would just be disorienting.
+// session onto a stale menu would just be disorienting. It lands in the remote,
+// because reaching a remote is what the key was pressed for.
 func (m AppModel) doConnect() (tea.Model, tea.Cmd) {
 	i := indexOfHost(m.hosts.hosts, m.confirm.target)
 	if i < 0 {
 		return m, m.closeStack()
 	}
-	return m.startSession(m.hosts.hosts[i])
+	return m.startSession(m.hosts.hosts[i], panelPty)
 }
 
 // doDuplicate takes the host off the SESSION rather than looking it up in
 // hosts.yaml: the entry may since have been renamed or deleted, and duplicating
 // what is on screen should not depend on that.
+//
+// It lands back on [1], not in the new session (§11.23): duplicating is a list
+// operation, and the only thing on that list that means "take me in" is Enter
+// on a row.
 func (m AppModel) doDuplicate(id string) (tea.Model, tea.Cmd) {
 	s := m.sessionByID(id)
 	if s == nil {
 		return m, m.closeStack()
 	}
-	return m.startSession(s.host)
+	return m.startSession(s.host, panelSessions)
 }
 
 func (m AppModel) doClose(id string) (tea.Model, tea.Cmd) {
@@ -1165,6 +1220,22 @@ func (m AppModel) doClose(id string) (tea.Model, tea.Cmd) {
 	m.ssh.setFocus(panelSessions)
 	return m, tea.Batch(m.closeStack(), m.ssh.tick(),
 		m.toast.show("Closed "+s.host.Name, toastInfo))
+}
+
+// doCloseAll kills every live session. Like doClose it only stops the
+// processes — the reaper picks them up on the next tick, which is what logs
+// each one with the reason it ended and takes its cell off the grid. Doing that
+// work here as well would mean two paths that have to agree about what "ended"
+// means.
+func (m AppModel) doCloseAll() (tea.Model, tea.Cmd) {
+	n := m.ssh.liveCount()
+	if n == 0 {
+		return m, m.closeStack()
+	}
+	m.ssh.stopAll()
+	m.ssh.setFocus(panelSessions)
+	return m, tea.Batch(m.closeStack(), m.ssh.tick(),
+		m.toast.show("Closing "+plural(n, "session"), toastInfo))
 }
 
 func (m AppModel) sessionByID(id string) *session {
@@ -1205,7 +1276,7 @@ func (m AppModel) openCredPicker() (tea.Model, tea.Cmd) {
 	}
 	if len(m.creds.creds) == 0 {
 		items = append(items,
-			menuItem{label: "none saved yet — add them in preference → credentials", header: true})
+			menuItem{label: "none saved yet — add them in manage → credentials", header: true})
 	}
 	m.credPicker.setItems(items, "credentials", m.form.layer+1)
 	return m, m.credPicker.open()
@@ -1326,7 +1397,7 @@ func (m AppModel) validateForm() (string, int) {
 			}
 		}
 		if !found {
-			return fmt.Sprintf("No credential named %q — see preference → credentials", cn), fCredential
+			return fmt.Sprintf("No credential named %q — see manage → credentials", cn), fCredential
 		}
 	}
 	port, err := strconv.Atoi(strings.TrimSpace(m.form.fields[fPort].value))

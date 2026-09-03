@@ -101,6 +101,11 @@ var (
 	glyphMonitor    = string(rune(0xf0379)) // nf-md-monitor
 	glyphMonitorOff = string(rune(0xf0d90)) // nf-md-monitor_off
 	glyphGrid       = string(rune(0xf0570)) // nf-md-view_grid — the custom-grid prompt
+	// glyphHistory marks a cell showing scrollback rather than live output. An
+	// up arrow was the obvious pick and the wrong one: it says which DIRECTION
+	// the view moved, when the thing that has to be unmistakable is WHAT is on
+	// screen — the past.
+	glyphHistory = string(rune(0xf02da)) // nf-md-history
 	// arrowGlyphs labels the left/right keys in a hint. Plain Unicode arrows, not
 	// Nerd Font: these sit in a border line where a mis-measured glyph shears the
 	// frame, and U+2190/2192 are single-width everywhere.

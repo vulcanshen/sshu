@@ -90,8 +90,8 @@ func TestASideWithNoHostOnlyOffersSelectHost(t *testing.T) {
 	if after := pressA(m, "t"); len(after.transfers.jobs) != 0 {
 		t.Error("with no host there is nothing to transfer")
 	}
-	if after := pressA(m, "S"); !after.hostPicker.isActive() {
-		t.Error("S must still open the host picker")
+	if after := pressA(m, "H"); !after.hostPicker.isActive() {
+		t.Error("H must still open the host picker")
 	}
 }
 

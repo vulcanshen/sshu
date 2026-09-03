@@ -107,7 +107,7 @@ func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int, a arrivals) []s
 		case s.filtering:
 			fact = "No match"
 		default:
-			hint = emptyHint("Press [A] to add a file or directory, or [S] to switch host", "[A]", "[S]")
+			hint = emptyHint("Press [A] to add a file or directory, or [H] to switch host", "[A]", "[H]")
 		}
 		return emptyBody(innerW, innerH, fact, hint)
 	}
@@ -177,7 +177,7 @@ func (m sftpModel) marksPanel(sd side, w, h int) string {
 
 func (m sftpModel) noHostBody(innerW, innerH int) []string {
 	return emptyBody(innerW, innerH, "No host",
-		emptyHint("Press [S] to select a host, or local", "[S]", "local"))
+		emptyHint("Press [H] to pick a host, or local", "[H]", "local"))
 }
 
 // ------------------------------------------------------------------- rows

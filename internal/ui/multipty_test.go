@@ -247,49 +247,118 @@ func TestDyingOtherCellKeepsTheKeyboard(t *testing.T) {
 }
 
 // j/k on [1] traces across the grid: the cell of the session under the list
-// cursor wears the lit border while the list holds the keyboard, and yields
+// cursor wears the ECHO border while the list holds the keyboard, and yields
 // the moment the keyboard is somewhere else.
 func TestListCursorLightsItsCell(t *testing.T) {
 	m := twoOnGrid(t)
 	m.ssh.setFocus(panelSessions)
 	m.ssh.curSess = 0 // NOT focusPty — the newest connect left that at 1
 
-	if !m.ssh.cellLit(m.ssh.sessions[0], 0) {
-		t.Error("the cursor session's cell should light")
+	if got := m.ssh.cellTone(m.ssh.sessions[0], 0); got != toneEcho {
+		t.Errorf("the cursor session's cell should echo the cursor, got tone %d", got)
 	}
-	if m.ssh.cellLit(m.ssh.sessions[1], 1) {
-		t.Error("only the cursor session's cell lights")
+	if got := m.ssh.cellTone(m.ssh.sessions[1], 1); got != toneIdle {
+		t.Errorf("only the cursor session's cell lights, got tone %d", got)
 	}
 
 	m.ssh.setFocus(panelLayout)
-	if m.ssh.cellLit(m.ssh.sessions[0], 0) {
-		t.Error("the layout strip has no session under a cursor to echo")
+	if got := m.ssh.cellTone(m.ssh.sessions[0], 0); got != toneIdle {
+		t.Errorf("the layout strip has no session under a cursor to echo, got tone %d", got)
 	}
 
 	m.ssh.setFocus(panelPty)
 	m.ssh.focusPty = 1
-	if !m.ssh.cellLit(m.ssh.sessions[1], 1) || m.ssh.cellLit(m.ssh.sessions[0], 0) {
-		t.Error("inside the grid the keyboard cell is the lit one")
+	if got := m.ssh.cellTone(m.ssh.sessions[1], 1); got != toneFocus {
+		t.Errorf("inside the grid the keyboard cell takes the focus tone, got %d", got)
+	}
+	if got := m.ssh.cellTone(m.ssh.sessions[0], 0); got != toneIdle {
+		t.Errorf("the other cell is idle, got tone %d", got)
 	}
 }
 
-// The echo is a border on the RENDERED grid — state alone has been wrong
-// about what actually shows before (the picker once opened under the form).
+// frameSGRs lists the colour of every cell frame in a rendered grid, in the
+// order the top-left corners appear.
+//
+// "Does this colour appear anywhere in the grid" is NOT the same question:
+// handColor also draws the connecting spinner and the host name inside a cell,
+// so a Contains check would pass on a frame that never changed.
+func frameSGRs(t *testing.T, grid string) []string {
+	t.Helper()
+	var out []string
+	for i := 0; ; {
+		at := strings.Index(grid[i:], "╭")
+		if at < 0 {
+			return out
+		}
+		at += i
+		open := strings.LastIndex(grid[:at], "\x1b[")
+		if open < 0 {
+			t.Fatal("a cell corner with no colour in front of it")
+		}
+		end := strings.Index(grid[open:], "m")
+		if end < 0 {
+			t.Fatal("an unterminated escape before a cell corner")
+		}
+		out = append(out, grid[open+2:open+end])
+		i = at + len("╭")
+	}
+}
+
+// The echo is a border on the RENDERED grid — state alone has been wrong about
+// what actually shows before (the picker once opened under the form).
 func TestListCursorEchoRendersOnTheGrid(t *testing.T) {
 	withColour(t)
 	m := twoOnGrid(t)
 	m.ssh.setFocus(panelSessions)
 	m.ssh.curSess = 0
-	lit := ansiOf(t, focusColor)
 
-	if !strings.Contains(m.ssh.gridView(), lit) {
-		t.Error("the cursor session's cell should wear the lit border")
+	frames := frameSGRs(t, m.ssh.gridView())
+	if len(frames) != 2 {
+		t.Fatalf("expected two cells on the grid, found %d frames", len(frames))
+	}
+	if frames[0] != ansiOf(t, handColor) {
+		t.Error("the cursor session's cell should wear the echo border")
+	}
+	if frames[1] != ansiOf(t, borderDim) {
+		t.Error("the other cell should stay dim")
 	}
 
 	// Take that cell off the grid: the cursor still points at the session,
 	// but there is nothing left to light.
 	m.ssh.toggleShown(m.ssh.sessions[0].id)
-	if strings.Contains(m.ssh.gridView(), lit) {
-		t.Error("a session without a cell has nothing to light")
+	for _, f := range frameSGRs(t, m.ssh.gridView()) {
+		if f == ansiOf(t, handColor) {
+			t.Error("a session without a cell has nothing to light")
+		}
+	}
+}
+
+// The echo must NOT be the focus blue. A bright blue frame on the list that
+// holds the keyboard and a bright blue frame on a cell that does not is the
+// exact confusion this third colour exists to remove.
+func TestTheEchoIsNotTheFocusBlue(t *testing.T) {
+	withColour(t)
+	m := twoOnGrid(t)
+	m.ssh.setFocus(panelSessions)
+	m.ssh.curSess = 0
+
+	blue := ansiOf(t, focusColor)
+	for i, f := range frameSGRs(t, m.ssh.gridView()) {
+		if f == blue {
+			t.Errorf("cell %d wears the focus blue while the LIST has the keyboard", i)
+		}
+	}
+
+	// And once the keyboard IS in a cell, that cell goes blue.
+	m.ssh.setFocus(panelPty)
+	m.ssh.focusPty = 0
+	frames := frameSGRs(t, m.ssh.gridView())
+	if len(frames) == 0 || frames[0] != blue {
+		t.Error("the cell holding the keyboard wears the focus blue")
+	}
+	for i, f := range frames[1:] {
+		if f != ansiOf(t, borderDim) {
+			t.Errorf("cell %d should be dim while another holds the keyboard", i+1)
+		}
 	}
 }

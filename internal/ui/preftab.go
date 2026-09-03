@@ -6,12 +6,18 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// The preference tab is where sshu's own data lives: the hosts, the
+// The [M]anage tab is where sshu's own data lives: the hosts, the
 // credentials they can share, and the app log. A fixed side nav on the left,
 // one content panel on the right. The nav cursor IS the choice — moving it
 // swaps the content immediately, and Enter only moves the keyboard over —
 // because a cursor that needs a second key to mean anything is a cursor that
 // looks broken while you browse with it.
+//
+// The identifiers still read `pref` — prefItem, tabPref, panelPrefNav. The tab
+// was called Preference until §11.21 renamed it for what it actually holds
+// (records, not settings). Renaming the symbols would touch every file that
+// mentions the tab without changing a pixel, so the old spelling stays as an
+// internal one; `pref` here means this tab, whatever its label says.
 
 type prefItem int
 

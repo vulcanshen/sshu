@@ -377,7 +377,7 @@ func TestDisconnectReturnsTheSideToNoHost(t *testing.T) {
 		t.Errorf("dialGen should have moved past %d, got %d", gen, s.dialGen)
 	}
 	// The panel says what it now is, and the other side is untouched.
-	if !strings.Contains(ansi.Strip(m.View()), "select a host") {
+	if !strings.Contains(ansi.Strip(m.View()), "pick a host") {
 		t.Error("the panel should be back to the no-host prompt")
 	}
 	if m.sftp.sides[sideRight].fs == nil {

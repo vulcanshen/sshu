@@ -245,9 +245,9 @@ func TestSFTPMenuOffersTransferEverywhere(t *testing.T) {
 }
 
 func TestSFTPHostPickerOffersLocalFirst(t *testing.T) {
-	m := pressA(sftpFixture(t, 100, 26), "S")
+	m := pressA(sftpFixture(t, 100, 26), "H")
 	if !m.hostPicker.isActive() {
-		t.Fatal("s should open the host picker")
+		t.Fatal("H should open the host picker")
 	}
 	first := ""
 	for _, it := range m.hostPicker.items {
@@ -538,7 +538,7 @@ func TestSFTPHostPickerConnectsLocal(t *testing.T) {
 	m.sftp.sides[sideLeft].fs = nil
 	m.sftp.sides[sideLeft].host = ""
 
-	m = pressA(m, "S")
+	m = pressA(m, "H")
 	if !m.hostPicker.isInteractive() {
 		t.Fatal("the picker should be ready for keys")
 	}
@@ -583,7 +583,7 @@ func TestTransferCanBeCancelled(t *testing.T) {
 		t.Fatalf("expected one job, got %d", len(m.transfers.jobs))
 	}
 
-	m = pressA(m, "P")
+	m = pressA(m, "J")
 	if !m.transfersUI.isInteractive() {
 		t.Fatal("the transfers popup should be ready for keys")
 	}
