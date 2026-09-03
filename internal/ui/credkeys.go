@@ -21,6 +21,7 @@ type credAction struct {
 var credActions = []credAction{
 	// item — the credential under the cursor
 	{key: "enter", label: "Edit", hint: "Enter . change this credential", needsCred: true, run: AppModel.openCredEdit},
+	{key: "V", label: "View", hint: "how this credential authenticates", needsCred: true, run: AppModel.openCredView},
 	{key: "D", label: "Delete", hint: "remove from credentials.yaml", needsCred: true, run: AppModel.askDeleteCred},
 
 	// panel — the table

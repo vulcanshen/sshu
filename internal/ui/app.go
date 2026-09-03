@@ -71,6 +71,7 @@ type AppModel struct {
 	transfersUI transfersPopup
 	log         appLog
 	viewer      viewerPopup
+	detail      detailPopup
 	editorUI    editorPopup
 	help        helpPopup
 	form        hostForm
@@ -101,6 +102,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		transfersUI: newTransfersPopup(),
 		log:         newAppLog(),
 		viewer:      newViewerPopup(),
+		detail:      newDetailPopup(),
 		editorUI:    newEditorPopup(),
 		hostPicker:  newHostPicker(),
 		credPicker:  newCredPicker(),
@@ -173,6 +175,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.credPicker.setSize(m.w, m.h)
 		m.transfersUI.setSize(m.w, m.h)
 		m.viewer.setSize(m.w, m.h)
+		m.detail.setSize(m.w, m.h)
 		m.editorUI.setSize(m.w, m.h)
 		m.spaceMenu.setSize(m.w, m.h)
 		m.help.setSize(m.w, m.h)
@@ -193,6 +196,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.credPicker.anim.tick(msg),
 			m.transfersUI.anim.tick(msg),
 			m.viewer.anim.tick(msg),
+			m.detail.anim.tick(msg),
 			m.editorUI.anim.tick(msg),
 			m.help.anim.tick(msg),
 			m.form.anim.tick(msg),
@@ -474,8 +478,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// to be standing on is the menu they just opened.
 		return m, m.help.open(m.layer())
 	}
-	// V is the hidden u-family easter egg: the logo, revealed.
-	if msg.String() == "V" && !m.typing() && !m.popupOpen() {
+	// V is the hidden u-family easter egg: the logo, revealed. It is the
+	// LOWEST claim on the key in the app — a panel with a real [V]iew takes
+	// it, and the logo gets what is left (§11.29).
+	if msg.String() == "V" && !m.typing() && !m.popupOpen() && !m.panelClaimsView() {
 		return m, m.splash.show()
 	}
 
@@ -518,6 +524,9 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case m.viewer.anim.owns():
 		m.viewer.update(msg)
+		return m, nil
+	case m.detail.anim.owns():
+		m.detail.update(msg)
 		return m, nil
 	case m.editorUI.anim.owns():
 		// Fetching or writing: the only keys are Esc and Space, and both were
@@ -574,6 +583,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.transfersUI.close()
 	case m.viewer.isActive():
 		return m, m.viewer.close()
+	case m.detail.isActive():
+		return m, m.detail.close()
 	case m.hostPicker.isActive():
 		return m, m.hostPicker.close()
 	case m.credPicker.isActive():
@@ -606,7 +617,7 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.credFormUI.close(),
 		m.confirm.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
-		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(),
+		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
 		m.editorUI.close(), m.spaceMenu.close())
 }
 
@@ -899,7 +910,27 @@ func (m AppModel) popupOpen() bool {
 		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
 		m.spaceMenu.anim.owns() || m.hostPicker.anim.owns() ||
 		m.credPicker.anim.owns() || m.transfersUI.anim.owns() ||
-		m.viewer.anim.owns() || m.editorUI.anim.owns()
+		m.viewer.anim.owns() || m.editorUI.anim.owns() || m.detail.anim.owns()
+}
+
+// panelClaimsView reports whether the focused panel's own table takes V right
+// now. It asks the SAME applicable-actions function the menu asks rather than
+// restating the condition, so the easter egg cannot come to disagree with the
+// row it is standing aside for — including on an empty table, where there is
+// nothing to view and the logo is welcome to the key (§4.2).
+func (m AppModel) panelClaimsView() bool {
+	if m.tab != tabPref || m.pref.focus != panelPrefContent {
+		return false
+	}
+	switch m.pref.item {
+	case prefHosts:
+		keys, _ := m.hostsApplicable()
+		return hotkeyIndex(keys, "V") >= 0
+	case prefCreds:
+		keys, _ := m.credsApplicable()
+		return hotkeyIndex(keys, "V") >= 0
+	}
+	return false
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -950,6 +981,7 @@ type hostAction struct {
 var hostActions = []hostAction{
 	// item — the host under the cursor
 	{key: "enter", label: "Connect", hint: "Enter . ssh session", needsHost: true, run: AppModel.askConnect},
+	{key: "V", label: "View", hint: "what this host is, secrets masked", needsHost: true, run: AppModel.openHostView},
 	{key: "E", label: "Edit", hint: "change this host", needsHost: true, run: AppModel.openEdit},
 	{key: "D", label: "Delete", hint: "remove from hosts.yaml", needsHost: true, run: AppModel.askDelete},
 

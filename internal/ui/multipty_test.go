@@ -89,12 +89,12 @@ func TestAltArrowsMoveBetweenCells(t *testing.T) {
 // does nothing — the cell simply is not there.
 func TestAltArrowsRespectARaggedGrid(t *testing.T) {
 	m := twoOnGrid(t)
-	// A third session, custom 2×2: cells 0 1 / 2 _ — the bottom-right is empty.
+	// A third session, custom 2 columns: cells 0 1 / 2 _ — bottom-right empty.
 	if _, err := m.ssh.connect(sample()[2]); err != nil {
 		t.Fatal(err)
 	}
 	m.ssh.layout = layoutCustom
-	m.ssh.gridC, m.ssh.gridR = 2, 2
+	m.ssh.gridC = 2
 	m.ssh.applyGeometry()
 
 	m.ssh.focusPty = 1 // top-right
@@ -158,14 +158,19 @@ func TestGridDims(t *testing.T) {
 		t.Errorf("horizontal: got %d×%d", c, r)
 	}
 	m.layout = layoutCustom
-	m.gridC, m.gridR = 2, 1
+	m.gridC = 2
 	if c, r := m.gridDims(3); c != 2 || r != 2 {
 		t.Errorf("custom must grow rows for the overflow cell, got %d×%d", c, r)
 	}
+	// The rows are DERIVED, never reserved: two cells in a 2-column grid is
+	// one row, not two with an empty one held open.
+	if c, r := m.gridDims(2); c != 2 || r != 1 {
+		t.Errorf("custom must not reserve an empty row, got %d×%d", c, r)
+	}
 }
 
-// The layout strip: 2 focuses it, h/l walk the modes and apply immediately,
-// Enter on custom asks for the shape and the answer lands.
+// The layout strip: 2 focuses it, j/k walk the modes and apply immediately,
+// Enter on custom asks for the column count and the answer lands.
 func TestLayoutStripDrivesTheGrid(t *testing.T) {
 	m := twoOnGrid(t)
 	m.ssh.setFocus(panelSessions)
@@ -183,28 +188,32 @@ func TestLayoutStripDrivesTheGrid(t *testing.T) {
 	}
 	m = pressA(m, "enter")
 	if !m.input.isActive() {
-		t.Fatal("Enter on custom should ask for the shape")
+		t.Fatal("Enter on custom should ask for the column count")
 	}
 	// Replace the prefilled value wholesale.
 	for range 8 {
 		m = pressA(m, "backspace")
 	}
-	m = typeText(m, "3x2") // rows × columns
+	m = typeText(m, "3")
 	m = pressA(m, "enter")
-	if m.ssh.gridR != 3 || m.ssh.gridC != 2 {
-		t.Fatalf("3x2 means 3 rows × 2 columns, got R=%d C=%d", m.ssh.gridR, m.ssh.gridC)
+	if m.ssh.gridC != 3 {
+		t.Fatalf("3 means three columns, got C=%d", m.ssh.gridC)
 	}
 
-	// Nonsense is refused and does not change the shape.
-	m.ssh.setFocus(panelLayout)
-	m = pressA(m, "enter")
-	for range 8 {
-		m = pressA(m, "backspace")
-	}
-	m = typeText(m, "0x40")
-	m = pressA(m, "enter")
-	if m.ssh.gridR != 3 || m.ssh.gridC != 2 {
-		t.Fatalf("a refused shape must change nothing, got R=%d C=%d", m.ssh.gridR, m.ssh.gridC)
+	// The OLD answer to the old question is refused rather than mined for a
+	// digit: somebody typing "2x3" is answering a question nobody asked, and
+	// silently applying the 2 would set a shape they never chose.
+	for _, bad := range []string{"2x3", "0", "40", "", "x"} {
+		m.ssh.setFocus(panelLayout)
+		m = pressA(m, "enter")
+		for range 8 {
+			m = pressA(m, "backspace")
+		}
+		m = typeText(m, bad)
+		m = pressA(m, "enter")
+		if m.ssh.gridC != 3 {
+			t.Fatalf("%q must change nothing, got C=%d", bad, m.ssh.gridC)
+		}
 	}
 }
 

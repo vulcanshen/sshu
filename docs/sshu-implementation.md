@@ -246,6 +246,13 @@ folder 與 file 的 icon 可以差一格。所以列是**量自己的固定前�
 `nf-md-radiobox_blank` 在字型裡是以別名 `checkbox-blank-circle-outline` 登記的
 (MDI 本來就把兩者當同一個圖)—— 下一個去查 cmap 的人會看到另一個名字,那不是錯。
 
+### 3.2.4 一個 item 兩行,而兩行都用縮的
+
+`[1]` 的一個 item 是 `<glyph> <name>` 加 `<user>@<host>:<port>`,固定兩行。
+**兩半都縮、都不折**:名字走 `truncate`,位址走 `fitUserHost`(`@` 留著、兩邊
+各自縮),`:port` 一格都不讓。所以 `sshItemH` 是常數,`listRows` 是除法而不是
+走訪(design §11.32)。
+
 ### 3.2.5 兩種折行:自己的字 vs 別人的字
 
 `wrapText` 偏好在 `-._/` 斷(host 名的 `db-replica-tokyo-ap-` 該在破折號後
@@ -574,7 +581,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 ---
 
-## 附錄 — sshu hotkey 全表(v1.2.0)
+## 附錄 — sshu hotkey 全表(v1.3.0)
 
 **bracket 印的那個大小寫就是唯一按得動的鍵**(§4.4)。
 
@@ -592,8 +599,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
-| `[2]` Hosts | `Enter` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ Add / Edit / Delete / Search |
-| `[2]` Credentials | `Enter` · `A` · `D` | Edit / Add / Delete(先問,列出引用數) |
+| `[2]` Hosts | `Enter` · `V` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ **View**(`detailPopup`,§6.1 viewport 類;密碼固定寬遮罩、credential 就地解析,design §11.29)/ Add / Edit / Delete / Search |
+| `[2]` Credentials | `Enter` · `V` · `A` · `D` | Edit / **View**(只有 auth 那一段;名字在浮層標題)/ Add / Delete(先問,列出引用數) |
 | `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 
@@ -622,8 +629,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` sessions(游標走出框就自己捲,§11.24;一列一行,所以 `listRows` 就是框高、`revealCursor` 就是 `scrollTo`,§11.28)| `Tab` · `Enter` · `C` · `D` · **(menu only)** | **顯示開關** / 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問,**完成後留在清單、游標落在新的那條**,design §11.23)/ **Close all sessions**(只在 Space menu、刻意沒有熱鍵,先問且問題帶數量,design §11.26);j/k 掃過時,游標 session 的格子外框在網格上同步亮 —— 用 `handColor` 而非 focusColor,藍色只留給「鍵盤在這裡」(design §11.22) |
-| `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**列 × 行**(R×C) |
+| `[1]` sessions(游標走出框就自己捲,§11.24;**一個 item 固定兩行**,所以 `listRows` 是 `innerH / sshItemH`、`revealCursor` 仍是 `scrollTo`,design §11.32)| `H`/`Tab` · `Enter` · `C` · `D` · **(menu only)** | **`[H]ide`**(menu 只印 `H`;`Tab` 是這個 panel 的慣例,照樣能按,design §11.30)/ 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問,**完成後留在清單、游標落在新的那條**,design §11.23)/ **Close all sessions**(只在 Space menu、刻意沒有熱鍵,先問且問題帶數量,design §11.26);j/k 掃過時,游標 session 的格子外框在網格上同步亮 —— 用 `handColor` 而非 focusColor,藍色只留給「鍵盤在這裡」(design §11.22) |
+| `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**欄數**(一個數字 1-9;列數由 `ceil(n/c)` 推出,舊的 rows 只是下限、近乎沒作用,design §11.31) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 格子(pty) | `Alt+Enter` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25) |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
