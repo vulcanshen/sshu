@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.3.0] — 2026-09-03
+
+A read-only `[V]iew` for the rows that hold secrets, a sessions list that says
+what you *called* a machine as well as what it is, and two things that were
+asking questions they did not intend to answer.
+
+Changes since 1.2.0:
+
+### Added
+
+- **`[V]iew` on hosts and credentials** — a read-only popup for what a row
+  actually holds. The table cannot answer it: columns are shed as the terminal
+  narrows, the auth column is a glyph rather than a word, and the password can
+  never be on a table at all. Opening the edit form to look was the alternative,
+  and a form is a thing you can accidentally change.
+
+  A host is shown as its connection and its auth, in two sections. A stored
+  password is reported as a **fixed-width mask** — not one bullet per character
+  the way the form draws it, because in the form the length is your own and here
+  it is somebody else's. A privatekey host shows the path, since the path is all
+  it has. A credential host is resolved on the spot: the name it points at, then
+  the user and secret that name supplies — and when the credential is gone, the
+  row says so and says what it costs ("missing, cannot connect"). The credential
+  popup is the auth half alone, which is the whole of what a credential is.
+
+  `V` was the u-family easter egg. The egg is now the lowest claim on the key in
+  the app: a panel with a real `[V]iew` takes it, and the logo gets what is left
+  — including on an empty table, where there is nothing to view.
+
+### Changed
+
+- **A session on the list is two lines, and says its name** — `<name>` above,
+  `<user>@<host>:<port>` below. One line could hold only one of the two, and the
+  one it held was the address, so a list of sessions never showed the names the
+  hosts table is entirely made of. Neither line wraps: the name is cut, the
+  address shortens on each side of a kept `@`, and the port never gives. The
+  address starts at the border rather than lining up under the name — the
+  alignment reads better and costs the address two columns on every row, which
+  the panel then has to be two columns wider to give back. The left column went
+  30 → 26 with the columns that freed.
+
+- **`Tab` on the sessions list is also `[H]ide`** — the row used to be called
+  "Display", a noun among verbs, named for the direction it almost never runs
+  in: a session's cell goes onto the grid the moment it connects. The label says
+  `Hide` and the hint says `hide/show`, because a label is what you scan and a
+  hint is what you read when you are not sure. `Tab` still does it — it is this
+  tab's own key, disclosed where panel keys are disclosed.
+
+- **The custom grid asks for one number, the column count** — it used to ask for
+  rows × columns, and the rows half was very nearly a lie: the grid returned
+  `max(rows, ceil(n/cols))`, so asking for 2×3 and opening ten sessions gave a
+  2×5 grid. The stated row count only ever mattered when there were too *few*
+  cells to fill it, where all it bought was reserved empty space. `"2x3"` is now
+  refused rather than mined for a digit: that is an answer to the old question,
+  and quietly taking the 2 would apply a shape nobody chose.
+
+### Removed
+
+- **The `#N` on two sessions to one host.** It keyed on the hosts.yaml *name*
+  while every row and cell title drew the *address*, so it tagged the wrong
+  pairs in both directions: two entries pointing at one box drew identical rows
+  and got no tag at all, while one entry edited between two connects got #1/#2
+  on two different machines. Two sessions to one host are two entries, in the
+  order they were opened.
+
 ## [1.2.0] — 2026-09-03
 
 The tabs come off their Alt chords: one shifted letter each, **`M` / `F` / `S`**.

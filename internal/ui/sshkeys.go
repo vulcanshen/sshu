@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vulcanshen/sshu/internal/store"
@@ -37,7 +38,7 @@ const keyCloseAll = "close-all"
 var sshActions = []sshAction{
 	// item — the session under the cursor
 	{key: "enter", label: "Open", hint: "Enter . show and take the keyboard", panel: panelSessions, run: AppModel.openSession},
-	{key: "tab", label: "Display", hint: "Tab . toggle this session's cell", panel: panelSessions, run: AppModel.toggleSessionDisplay},
+	{key: "H", label: "Hide", hint: "hide/show this session's cell", panel: panelSessions, run: AppModel.toggleSessionDisplay},
 	{key: "C", label: "Close", hint: "end this session", panel: panelSessions, run: AppModel.askClose},
 	{key: "D", label: "Duplicate", hint: "another to this host", panel: panelSessions, run: AppModel.askDuplicate},
 
@@ -54,8 +55,8 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 			return m, m.input.ask(inputPopup{
 				title:  "Custom grid",
 				glyph:  glyphGrid,
-				prompt: "Rows x columns for the grid, e.g. 2x3",
-				value:  itoa(clamp(m.ssh.gridR, 1, 9)) + "x" + itoa(clamp(m.ssh.gridC, 1, 9)),
+				prompt: "Columns for the grid, 1-9",
+				value:  itoa(clamp(m.ssh.gridC, 1, 9)),
 				accept: "apply",
 				action: inputGridDims,
 			}, m.layer())
@@ -79,45 +80,46 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 // applyGridDims parses the custom grid's "RxC" answer — rows first, the
 // order the shape is read aloud in. Any two numbers 1-9 separated by anything
 // count; a shape that is not that is refused with the example still on screen.
+// applyGridDims takes ONE number, the column count. It used to take rows ×
+// columns, and the rows half was very nearly a lie: gridDims returned
+// max(rows, ceil(n/cols)), so asking for 2×3 and opening ten sessions gave a
+// 2×5 grid. The stated row count only ever mattered when there were too FEW
+// cells to fill it, where all it bought was reserved empty space. One number
+// says the same thing without the arithmetic that contradicts it (§11.31).
 func (m AppModel) applyGridDims(value string) (tea.Model, tea.Cmd) {
-	r, c, ok := parseGridDims(value)
+	c, ok := parseGridCols(value)
 	if !ok {
 		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show("Grid must be rows x columns, each 1-9 — e.g. 2x3", toastError))
+			m.toast.show("Columns must be a single number, 1-9", toastError))
 	}
-	m.ssh.gridC, m.ssh.gridR = c, r
+	m.ssh.gridC = c
 	m.ssh.layout = layoutCustom
 	m.ssh.applyGeometry()
 	return m, tea.Batch(m.closeStack(), m.input.close(),
-		m.toast.show("Grid set to "+itoa(r)+"×"+itoa(c)+" (rows × columns)", toastInfo))
+		m.toast.show("Grid set to "+plural(c, "column"), toastInfo))
 }
 
-func parseGridDims(s string) (first, second int, ok bool) {
-	var nums []int
-	cur := -1
-	for _, ch := range s {
-		if ch >= '0' && ch <= '9' {
-			if cur < 0 {
-				cur = 0
-			}
-			cur = cur*10 + int(ch-'0')
-			continue
-		}
-		if cur >= 0 {
-			nums = append(nums, cur)
-			cur = -1
-		}
+// parseGridCols reads the one number the prompt asks for. Anything else in the
+// box is a refusal rather than something to dig a digit out of: "2x3" is a
+// user still answering the OLD question, and quietly taking the 2 would apply
+// something they did not ask for.
+func parseGridCols(s string) (cols int, ok bool) {
+	s = strings.TrimSpace(s)
+	if len(s) != 1 || s[0] < '1' || s[0] > '9' {
+		return 0, false
 	}
-	if cur >= 0 {
-		nums = append(nums, cur)
-	}
-	if len(nums) != 2 || nums[0] < 1 || nums[0] > 9 || nums[1] < 1 || nums[1] > 9 {
-		return 0, 0, false
-	}
-	return nums[0], nums[1], true
+	return int(s[0] - '0'), true
 }
 
-// toggleSessionDisplay is the menu's row for what Tab does on the list.
+// toggleSessionDisplay is [H]ide, and Tab is the same thing under the key this
+// tab has always used for it.
+//
+// The LABEL is worded for the direction it almost always runs in — a session's
+// cell goes onto the grid the moment it connects, so the thing you reach for is
+// taking one off — and the HINT says it toggles. That split is the whole answer
+// to a two-way action having a one-way name: the label is what you scan for, so
+// it names the common case; the hint is what you read when you are not sure, so
+// it tells the truth about both directions (§11.30).
 func (m AppModel) toggleSessionDisplay() (tea.Model, tea.Cmd) {
 	s := m.cursorSession()
 	if s == nil {

@@ -16,7 +16,8 @@ import (
 // finishes opening under test, so its content renders as nothing and the
 // test passes for the wrong reason.
 var animTargets = []string{"spacemenu", "hostpicker", "credpicker", "help", "form",
-	"picker", "transfers", "credform", "viewer", "editor", "confirm", "input", "toast"}
+	"picker", "transfers", "credform", "viewer", "editor", "confirm", "input", "toast",
+	"detail"}
 
 // settle runs the animations to completion — a popup mid-open refuses keys on
 // purpose (§6.2), so a test that skips this is testing a half-drawn surface.
@@ -175,7 +176,7 @@ func TestEveryMenuRowRuns(t *testing.T) {
 		}
 		m = pressA(m, a.key)
 		opened := m.form.isActive() || m.confirm.isActive() || m.tab != tabPref ||
-			m.hosts.filtering
+			m.hosts.filtering || m.detail.isActive()
 		if !opened {
 			t.Errorf("menu row %q committed but nothing happened", a.label)
 		}
@@ -550,7 +551,7 @@ func TestDumpPopups(t *testing.T) {
 func TestOnlyTheMarkedCaseFires(t *testing.T) {
 	fired := func(m AppModel) bool {
 		return m.form.isActive() || m.confirm.isActive() || m.tab != tabPref ||
-			m.hosts.filtering
+			m.hosts.filtering || m.detail.isActive()
 	}
 	for _, a := range hostActions {
 		if len(a.key) != 1 {

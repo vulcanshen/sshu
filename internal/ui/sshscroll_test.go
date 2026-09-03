@@ -29,56 +29,151 @@ func listOf(n, w, h int) sshModel {
 	return m
 }
 
-func rowFor(m sshModel, s *session) string {
+// linesFor is the two lines one entry draws, with the styling stripped.
+func linesFor(m sshModel, s *session) []string {
 	innerW, _ := m.listInner()
-	return ansi.Strip(m.listItem(s, false, innerW))
+	out := m.listItem(s, false, innerW)
+	for i := range out {
+		out[i] = ansi.Strip(out[i])
+	}
+	return out
 }
 
-func sessionOf(user, host string, port, ord int) *session {
-	return &session{id: 1, ordinal: ord, host: store.Host{User: user, Host: host, Port: port}}
+func nameLine(m sshModel, s *session) string { return linesFor(m, s)[0] }
+func addrLine(m sshModel, s *session) string { return linesFor(m, s)[1] }
+
+func sessionOf(user, host string, port int) *session {
+	return &session{id: 1, host: store.Host{Name: "the-name", User: user, Host: host, Port: port}}
 }
 
 // ------------------------------------------------------------------ the row
 
-// The row says the whole of what a session IS, on ONE line: the display glyph,
-// the address, the port, and the ordinal. It used to wrap instead, so the
-// commonest entry of all — "demo@localhost:2222 #2" — cost two lines.
-func TestASessionRowIsAlwaysOneLine(t *testing.T) {
+// An entry is TWO lines, whatever it holds — the name above, the address below.
+// The height being a constant is what lets the scrolling divide instead of
+// measure, so it is asserted for the shapes most likely to want a third line.
+func TestASessionEntryIsAlwaysTwoLines(t *testing.T) {
 	m := listOf(0, 100, 30)
+	innerW, _ := m.listInner()
 	for _, tc := range []struct {
 		user, host string
-		port, ord  int
+		port       int
 	}{
-		{"demo", "localhost", 2222, 12},
-		{"root", "192.168.1.100", 22, 12},
-		{"deploy", "prod-web-01", 22, 12},
-		{"ec2-user", "bastion.eu-west-1.compute.internal", 22, 12},
-		{"a", "b", 1, 0},
+		{"demo", "localhost", 2222},
+		{"root", "192.168.1.100", 22},
+		{"deploy", "prod-web-01", 22},
+		{"ec2-user", "bastion.eu-west-1.compute.internal", 22},
+		{"a", "b", 1},
+		{"averylongusernameindeed", "an.equally.long.hostname.example.com", 65535},
 	} {
-		if row := rowFor(m, sessionOf(tc.user, tc.host, tc.port, tc.ord)); strings.Contains(row, "\n") {
-			t.Errorf("%s@%s:%d wrapped:\n%q", tc.user, tc.host, tc.port, row)
+		lines := linesFor(m, sessionOf(tc.user, tc.host, tc.port))
+		if len(lines) != sshItemH {
+			t.Errorf("%s@%s:%d drew %d lines, want %d", tc.user, tc.host, tc.port, len(lines), sshItemH)
+			continue
+		}
+		for i, ln := range lines {
+			if strings.Contains(ln, "\n") {
+				t.Errorf("%s@%s:%d line %d wrapped: %q", tc.user, tc.host, tc.port, i, ln)
+			}
+			if w := dispW(ln); w != innerW {
+				t.Errorf("%s@%s:%d line %d is %d cells, want %d", tc.user, tc.host, tc.port, i, w, innerW)
+			}
 		}
 	}
 }
 
-// The port and the ordinal are never shortened. A truncated port is a different
-// number rather than a shorter one, and the ordinal is the only thing that
-// tells two sessions to the same host apart.
-func TestThePortAndOrdinalSurviveAnyAddress(t *testing.T) {
+// The two lines say two different things, in the order they are asked in: what
+// you called the machine, then what ssh will do about it. A single line could
+// only ever hold one of them, and the one it held was the address — so a list
+// of sessions never showed the names the hosts table is made of.
+func TestTheNameIsAboveTheAddress(t *testing.T) {
+	m := listOf(0, 100, 30)
+	s := &session{id: 1, host: store.Host{
+		Name: "prod-web-01", User: "deploy", Host: "10.0.3.14", Port: 2222}}
+
+	if got := nameLine(m, s); !strings.Contains(got, "prod-web-01") {
+		t.Errorf("the first line should be the name: %q", got)
+	} else if strings.Contains(got, "10.0.3.14") || strings.Contains(got, "@") {
+		t.Errorf("the address belongs on the second line: %q", got)
+	}
+	if got := addrLine(m, s); !strings.Contains(got, "deploy@10.0.3.14:2222") {
+		t.Errorf("the second line should be the address: %q", got)
+	} else if strings.Contains(got, "prod-web-01") {
+		t.Errorf("the name belongs on the first line: %q", got)
+	}
+}
+
+// The address starts at the BORDER, under the glyph rather than after the name.
+// The alignment is not the point — the two columns are: indenting spends them
+// on every row, and they come out of the half that is never allowed to be
+// ambiguous. This asserts the gain, not just the offset, because an
+// implementation could start at the border and still budget as if it had not.
+func TestTheAddressStartsAtTheBorder(t *testing.T) {
+	m := listOf(0, 100, 30)
+	lines := linesFor(m, sessionOf("deploy", "10.0.3.14", 22))
+	// In CELLS, not bytes: the display glyph is four bytes and one column.
+	colOf := func(line, want string) int {
+		i := strings.Index(line, want)
+		if i < 0 {
+			t.Fatalf("%q is not in %q", want, line)
+		}
+		return dispW(line[:i])
+	}
+	nameAt, addrAt := colOf(lines[0], "the-name"), colOf(lines[1], "deploy@")
+	if addrAt >= nameAt {
+		t.Errorf("the address should start left of the name, at %d vs %d\n%q\n%q",
+			addrAt, nameAt, lines[0], lines[1])
+	}
+	if addrAt != sshListLeadW {
+		t.Errorf("the address should start at the border (column %d), got %d",
+			sshListLeadW, addrAt)
+	}
+
+	// And the columns it saved are actually SPENT on the address: an address
+	// exactly as wide as the second line must survive whole, while one two
+	// columns longer — the width the old indent would have left — must not.
+	innerW, _ := m.listInner()
+	fits := strings.Repeat("h", innerW-sshListLeadW-len("deploy@:22"))
+	if got := addrLine(m, sessionOf("deploy", fits, 22)); strings.Contains(got, "…") {
+		t.Errorf("an address that fills the line exactly was still cut: %q", got)
+	}
+}
+
+// A name too long for the column is cut, not wrapped — the entry's height is
+// the promise, and the address underneath is still there to identify it.
+func TestALongNameIsCutRatherThanWrapped(t *testing.T) {
+	m := listOf(0, 100, 30)
+	s := &session{id: 1, host: store.Host{
+		Name: "db-replica-tokyo-ap-northeast-1", User: "postgres", Host: "db.corp", Port: 22}}
+
+	lines := linesFor(m, s)
+	if len(lines) != sshItemH {
+		t.Fatalf("a long name should not add a line, got %d", len(lines))
+	}
+	if !strings.Contains(lines[0], "…") {
+		t.Errorf("the cut should be marked: %q", lines[0])
+	}
+	if !strings.Contains(lines[0], "db-replica") {
+		t.Errorf("the beginning is what identifies it: %q", lines[0])
+	}
+}
+
+// The port is never shortened, however little room is left: a truncated port is
+// a different number rather than a shorter one.
+func TestThePortSurvivesAnyAddress(t *testing.T) {
 	m := listOf(0, 100, 30)
 	for _, tc := range []struct {
 		user, host string
-		port, ord  int
+		port       int
 		want       string
 	}{
-		{"demo", "localhost", 2222, 12, ":2222 #12"},
-		{"ec2-user", "bastion.eu-west-1.compute.internal", 22, 12, ":22 #12"},
-		{"averyverylongusernameindeed", "an.equally.long.hostname.example.com", 65535, 9, ":65535 #9"},
+		{"demo", "localhost", 2222, ":2222"},
+		{"ec2-user", "bastion.eu-west-1.compute.internal", 22, ":22"},
+		{"averyverylongusernameindeed", "an.equally.long.hostname.example.com", 65535, ":65535"},
 	} {
-		row := strings.TrimRight(rowFor(m, sessionOf(tc.user, tc.host, tc.port, tc.ord)), " ")
+		row := strings.TrimRight(addrLine(m, sessionOf(tc.user, tc.host, tc.port)), " ")
 		if !strings.HasSuffix(row, tc.want) {
-			t.Errorf("%s@%s:%d #%d lost its tail: %q, want it to end %q",
-				tc.user, tc.host, tc.port, tc.ord, row, tc.want)
+			t.Errorf("%s@%s:%d lost its port: %q, want it to end %q",
+				tc.user, tc.host, tc.port, row, tc.want)
 		}
 	}
 }
@@ -87,7 +182,7 @@ func TestThePortAndOrdinalSurviveAnyAddress(t *testing.T) {
 // because it is what makes the string read as an address at all.
 func TestALongAddressIsShortenedOnBothSidesOfTheAt(t *testing.T) {
 	m := listOf(0, 100, 30)
-	row := rowFor(m, sessionOf("ec2-user", "bastion.eu-west-1.compute.internal", 22, 12))
+	row := addrLine(m, sessionOf("ec2-user", "bastion.eu-west-1.compute.internal", 22))
 	if strings.Count(row, "@") != 1 {
 		t.Fatalf("the @ must survive: %q", row)
 	}
@@ -146,24 +241,29 @@ func TestFitUserHost(t *testing.T) {
 }
 
 // The width exists for this: the addresses people actually type arrive whole,
-// with their port and ordinal, and nothing is marked as cut. 26 columns left 21
-// for the row, one short of "demo@localhost:2222 #2" — the commonest shape
-// there is.
+// port and all, and nothing is marked as cut. This is what pins sshLeftW, and
+// the cases that pin it are the ones on a NON-DEFAULT port — ":2222" costs two
+// columns more than ":22", and a column that only fits the default port is a
+// column that shortens exactly the addresses whose port was worth showing.
+// (sshu's own demo host is one of them.)
 func TestCommonAddressesAreNotShortenedAtAll(t *testing.T) {
 	m := listOf(0, 100, 30)
 	for _, tc := range []struct {
 		user, host string
-		port, ord  int
+		port       int
 	}{
-		{"demo", "localhost", 2222, 12},
-		{"root", "192.168.1.100", 22, 12},
-		{"deploy", "prod-web-01", 22, 12},
-		{"deploy", "10.0.3.14", 22, 12},
+		{"demo", "localhost", 2222},
+		{"root", "192.168.1.100", 22},
+		{"deploy", "prod-web-01", 22},
+		{"deploy", "10.0.3.14", 22},
+		{"ubuntu", "ip-10-0-1-23", 22},  // the EC2 default shape, 22 columns
+		{"deploy", "prod-web-01", 2222}, // the same host on a moved port, 23
+		{"ec2-user", "10.0.3.14", 2222}, // 23 — the widest that has to survive
 	} {
-		row := rowFor(m, sessionOf(tc.user, tc.host, tc.port, tc.ord))
+		row := addrLine(m, sessionOf(tc.user, tc.host, tc.port))
 		if strings.Contains(row, "…") {
-			t.Errorf("%s@%s:%d #%d should fit whole at the default width: %q",
-				tc.user, tc.host, tc.port, tc.ord, strings.TrimRight(row, " "))
+			t.Errorf("%s@%s:%d should fit whole at the default width: %q",
+				tc.user, tc.host, tc.port, strings.TrimRight(row, " "))
 		}
 	}
 }
@@ -175,12 +275,30 @@ func TestCommonAddressesAreNotShortenedAtAll(t *testing.T) {
 func TestListRowsMatchesWhatThePanelDraws(t *testing.T) {
 	m := listOf(40, 100, 30)
 	innerW, innerH := m.listInner()
-	if got := m.listRows(); got != innerH {
-		t.Errorf("listRows = %d, but the box is %d lines", got, innerH)
+	if got, want := m.listRows(), innerH/sshItemH; got != want {
+		t.Errorf("listRows = %d entries, but %d lines hold %d", got, innerH, want)
 	}
 	drawn := m.listBody(m.sessions, 0, 0, innerW, innerH)
-	if len(drawn) != m.listRows() {
-		t.Errorf("the panel drew %d rows, listRows says %d", len(drawn), m.listRows())
+	if len(drawn) != m.listRows()*sshItemH {
+		t.Errorf("the panel drew %d lines for the %d entries listRows claims",
+			len(drawn), m.listRows())
+	}
+}
+
+// An odd number of lines cannot hold half an entry: a session drawn as a name
+// with no address under it reads as a rendering fault, not as a list that ran
+// out of room. The last line is left blank instead.
+func TestAnEntryIsDrawnWholeOrNotAtAll(t *testing.T) {
+	for _, h := range []int{9, 10, 11, 12} {
+		m := listOf(40, 100, h)
+		innerW, innerH := m.listInner()
+		drawn := m.listBody(m.sessions, 0, 0, innerW, innerH)
+		if len(drawn)%sshItemH != 0 {
+			t.Errorf("panel height %d drew %d lines — half an entry", h, len(drawn))
+		}
+		if len(drawn) > innerH {
+			t.Errorf("panel height %d drew %d lines into a %d-line box", h, len(drawn), innerH)
+		}
 	}
 }
 
@@ -302,9 +420,23 @@ func TestANewSessionScrollsIntoView(t *testing.T) {
 		t.Fatalf("the cursor should be on the newest, got %d", m.ssh.curSess)
 	}
 
-	// The newest session's row is what the panel is actually showing.
-	panel := ansi.Strip(m.ssh.sessionsPanel(sshLeftW, m.ssh.sessionsH()))
-	if !strings.Contains(panel, "#3") {
-		t.Errorf("the new session's row is not on screen:\n%s", panel)
+	// The window came with it. Three duplicates of one host draw three identical
+	// entries (§11.32), so "which one is on screen" is not a question the frame
+	// can answer — what it can answer is that the panel is no longer showing the
+	// top of the list, and the invariant listBody draws on is that the cursor is
+	// inside the window.
+	if m.ssh.topSess == 0 {
+		t.Errorf("the viewport never moved, top=%d cur=%d vis=%d",
+			m.ssh.topSess, m.ssh.curSess, m.ssh.listRows())
+	}
+	if m.ssh.curSess < m.ssh.topSess || m.ssh.curSess >= m.ssh.topSess+m.ssh.listRows() {
+		t.Errorf("the new session is outside the window: cur=%d top=%d vis=%d",
+			m.ssh.curSess, m.ssh.topSess, m.ssh.listRows())
+	}
+	// And the panel drew whole entries into the space it has.
+	panel := m.ssh.sessionsPanel(sshLeftW, m.ssh.sessionsH())
+	if n := strings.Count(ansi.Strip(panel), "@"); n != m.ssh.listRows() {
+		t.Errorf("the panel shows %d addresses, the window holds %d:\n%s",
+			n, m.ssh.listRows(), ansi.Strip(panel))
 	}
 }

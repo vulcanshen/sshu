@@ -50,16 +50,20 @@ func TestCredFormInvalidSubmitToastsAndStays(t *testing.T) {
 	}
 }
 
-// The layout strip's custom label reads rows × columns — the same order the
-// prompt asks in.
-func TestCustomLabelReadsRowsThenColumns(t *testing.T) {
+// The strip states custom in the unit the prompt asks for, and in words: a
+// bare number on a radio row is a number for something unstated.
+func TestCustomLabelStatesTheColumns(t *testing.T) {
 	m := twoOnGrid(t)
 	m.ssh.layout = layoutCustom
-	m.ssh.gridR, m.ssh.gridC = 3, 2 // the strip label reads rows × columns
+	m.ssh.gridC = 3
 	m.ssh.setFocus(panelSessions)
 	view := ansi.Strip(m.View())
-	if !strings.Contains(view, "custom 3×2") {
-		t.Fatalf("the strip should read rows × columns (3×2):\n%s", view)
+	if !strings.Contains(view, "custom 3 columns") {
+		t.Fatalf("the strip should say what the 3 counts:\n%s", view)
+	}
+	m.ssh.gridC = 1
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "custom 1 column") {
+		t.Fatalf("one column is not 1 columns:\n%s", view)
 	}
 }
 

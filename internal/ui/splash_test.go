@@ -83,10 +83,12 @@ func TestSplashRevealsTheByline(t *testing.T) {
 	}
 }
 
-// V outside a pty reveals the logo; any key puts the frame back; V inside a
-// pty belongs to the remote and must not open it.
+// V reveals the logo where nothing else wants the key; any key puts the frame
+// back. Two places do want it and are covered elsewhere: a pty, where every
+// bare key is the remote's, and a table with a [V]iew row (detail_test.go).
 func TestSplashOpensOnVAndAnyKeyCloses(t *testing.T) {
-	m := appWith(sample(), nil)
+	// The ssh tab claims no V of its own, so the egg is reachable there.
+	m := pressA(appWith(sample(), nil), "S")
 	m = pressA(m, "V")
 	if !m.splash.isActive() {
 		t.Fatal("V should reveal the easter egg")

@@ -644,33 +644,66 @@ func TestExitedSessionLeavesWithItsReason(t *testing.T) {
 	}
 }
 
-// #N appears only when a host has more than one live session — the list is
-// name-only, so that tag is the only thing telling them apart.
-func TestOrdinalOnlyWhenDuplicated(t *testing.T) {
+// Hide is on H, and Tab does the same thing. Both halves matter and neither
+// implies the other: the menu row is marked [H]ide, so H has to work or the
+// marking is a lie; and Tab is this tab's own convention (§4.4.1), so dropping
+// it would break a key nothing in the menu was ever responsible for (§11.30).
+func TestHideIsOnHAndAlsoOnTab(t *testing.T) {
+	for _, key := range []string{"H", "tab"} {
+		m := openOne(t)
+		next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
+		m = settle(next.(AppModel))
+		t.Cleanup(func() { m.ssh.stopAll() })
+		if len(m.ssh.shown) != 1 {
+			t.Fatalf("%s: setup — a new session starts on the grid, shown=%v", key, m.ssh.shown)
+		}
+		if m = pressA(m, key); len(m.ssh.shown) != 0 {
+			t.Errorf("%s should take the cell off the grid, shown=%v", key, m.ssh.shown)
+		}
+		if m = pressA(m, key); len(m.ssh.shown) != 1 {
+			t.Errorf("%s should put it back, shown=%v", key, m.ssh.shown)
+		}
+	}
+
+	// And the marking says H, not something else that happens to work.
+	for _, a := range sshActions {
+		if a.label == "Hide" && a.key != "H" {
+			t.Errorf("the Hide row is marked %q — the bracket is the disclosure", a.key)
+		}
+	}
+}
+
+// Two sessions to one host draw two identical entries, and that is the accepted
+// answer rather than an oversight. The #N that used to distinguish them keyed on
+// the hosts.yaml NAME while the entry drew the ADDRESS, so it tagged the wrong
+// pairs in both directions: two entries pointing at one box got no tag, and one
+// entry edited between two connects got #1/#2 on two different machines
+// (§11.32). What the list still promises is that there are two of them, in the
+// order they were opened, which the cursor walks.
+func TestTwoSessionsToOneHostAreTwoEntries(t *testing.T) {
 	aliveSSH(t)
 	m := sshApp(t, sample())
 	m.ssh.setSize(100, 28)
-	if _, err := m.ssh.connect(sample()[0]); err != nil {
-		t.Fatal(err)
+	for range 2 {
+		if _, err := m.ssh.connect(sample()[0]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	t.Cleanup(func() { m.ssh.stopAll() })
 
-	if tag := m.ssh.sessions[0].ordinalTag(); tag != "" {
-		t.Errorf("a lone session needs no ordinal, got %q", tag)
+	if len(m.ssh.sessions) != 2 {
+		t.Fatalf("two connects should be two sessions, got %d", len(m.ssh.sessions))
 	}
-	if _, err := m.ssh.connect(sample()[0]); err != nil {
-		t.Fatal(err)
+	innerW, _ := m.ssh.listInner()
+	a := m.ssh.listItem(m.ssh.sessions[0], false, innerW)
+	b := m.ssh.listItem(m.ssh.sessions[1], false, innerW)
+	if len(a) != sshItemH || len(b) != sshItemH {
+		t.Fatalf("each should be %d lines, got %d and %d", sshItemH, len(a), len(b))
 	}
-	if a, b := m.ssh.sessions[0].ordinalTag(), m.ssh.sessions[1].ordinalTag(); a != "#1" || b != "#2" {
-		t.Errorf("two sessions to one host should be #1/#2, got %q/%q", a, b)
-	}
-
-	// A different host is not a duplicate.
-	if _, err := m.ssh.connect(sample()[1]); err != nil {
-		t.Fatal(err)
-	}
-	if tag := m.ssh.sessions[2].ordinalTag(); tag != "" {
-		t.Errorf("a different host needs no ordinal, got %q", tag)
+	for i := range a {
+		if a[i] != b[i] {
+			t.Errorf("line %d differs, so something is still tagging them:\n%q\n%q", i, a[i], b[i])
+		}
 	}
 }
 
@@ -873,8 +906,17 @@ func TestSessionRowColourCases(t *testing.T) {
 	green, hand := ansiOf(t, liveColor), ansiOf(t, handColor)
 	greenBG, handBG := ansiBgOf(t, liveColor), ansiBgOf(t, handColor)
 
+	// An entry is two lines and both wear whatever it is wearing — half a
+	// highlighted entry reads as the cursor sitting between two things.
+	joined := func(s *session, isCursor bool) string {
+		return strings.Join(m.ssh.listItem(s, isCursor, 24), "\n")
+	}
+	each := func(s *session, isCursor bool) []string {
+		return m.ssh.listItem(s, isCursor, 24)
+	}
+
 	// Foreground says on-screen.
-	row := m.ssh.listItem(shown, false, 24)
+	row := joined(shown, false)
 	if !strings.Contains(row, green) {
 		t.Error("the on-screen session should be green")
 	}
@@ -883,11 +925,16 @@ func TestSessionRowColourCases(t *testing.T) {
 	}
 
 	// Background says cursor — the same bar on every row, including that one.
-	row = m.ssh.listItem(other, true, 24)
+	row = joined(other, true)
 	if !strings.Contains(row, handBG) {
 		t.Error("the cursor should be a filled bar")
 	}
-	row = m.ssh.listItem(shown, true, 24)
+	for i, ln := range each(other, true) {
+		if !strings.Contains(ln, handBG) {
+			t.Errorf("line %d of the cursor entry is not on the bar: %q", i, ln)
+		}
+	}
+	row = joined(shown, true)
 	if !strings.Contains(row, handBG) {
 		t.Error("the cursor over the on-screen session is the same bar")
 	}
@@ -896,7 +943,7 @@ func TestSessionRowColourCases(t *testing.T) {
 	}
 
 	// And an ordinary row is neither.
-	row = m.ssh.listItem(other, false, 24)
+	row = joined(other, false)
 	for name, seq := range map[string]string{"green": green, "cursor": hand} {
 		if strings.Contains(row, seq) {
 			t.Errorf("an ordinary row should carry no %s", name)
@@ -904,47 +951,63 @@ func TestSessionRowColourCases(t *testing.T) {
 	}
 }
 
-// The row says what the connection IS, not what it is called.
-func TestSessionRowShowsUserAtHost(t *testing.T) {
+// An entry says both halves of what a session is: what it is called, and what
+// the connection IS. It used to say only the second — one line could hold only
+// one of them — so a list of sessions never showed a name the hosts table is
+// entirely made of.
+func TestSessionEntryShowsTheNameAndTheAddress(t *testing.T) {
 	m := sshApp(t, sample())
 	m.ssh.setSize(100, 28)
 	h := sample()[0]
 	s := &session{id: 1, host: h, state: sessLive}
 	m.ssh.sessions = []*session{s}
 
-	row := ansi.Strip(m.ssh.listItem(s, false, 40))
-	if want := h.User + "@" + h.Host; !strings.Contains(row, want) {
-		t.Errorf("row is %q, want it to carry %q", row, want)
+	lines := m.ssh.listItem(s, false, 40)
+	if len(lines) != sshItemH {
+		t.Fatalf("an entry is %d lines, got %d", sshItemH, len(lines))
 	}
-	if strings.Contains(row, h.Name) {
-		t.Errorf("the row should not fall back to the saved name: %q", row)
+	name, addr := ansi.Strip(lines[0]), ansi.Strip(lines[1])
+	if !strings.Contains(name, h.Name) {
+		t.Errorf("the first line is %q, want the name %q", name, h.Name)
 	}
-	if !strings.Contains(row, strconv.Itoa(h.Port)) {
-		t.Errorf("the port is missing: %q", row)
+	if want := h.User + "@" + h.Host; !strings.Contains(addr, want) {
+		t.Errorf("the second line is %q, want it to carry %q", addr, want)
+	}
+	if !strings.Contains(addr, strconv.Itoa(h.Port)) {
+		t.Errorf("the port is missing: %q", addr)
 	}
 }
 
-// The port is the one thing in a [1] row that must never be cut: the ADDRESS
-// shortens against it, however long the address is (§11.28).
-func TestSessionRowAlwaysShowsThePort(t *testing.T) {
+// The port is the one thing in a [1] entry that must never be cut: the ADDRESS
+// shortens against it, however long the address is and however narrow the
+// column gets (§11.32). The entry stays two lines of exactly innerW throughout —
+// that constant height is what the scrolling divides by.
+func TestSessionEntryAlwaysShowsThePort(t *testing.T) {
 	m := sshApp(t, sample())
 	m.ssh.setSize(100, 28)
 
-	long := store.Host{Name: "db", Host: "db-replica-tokyo.ap-northeast-1.internal",
+	long := store.Host{Name: "db-replica-tokyo-ap-northeast-1",
+		Host: "db-replica-tokyo.ap-northeast-1.internal",
 		Port: 2222, User: "postgres", Auth: store.AuthPassword}
 	s := &session{id: 1, host: long, state: sessLive}
 	m.ssh.sessions = []*session{s}
 
 	for _, innerW := range []int{24, 20, 16, 12} {
-		row := m.ssh.listItem(s, false, innerW)
-		if !strings.Contains(ansi.Strip(row), "2222") {
-			t.Errorf("innerW=%d: the port was truncated away\n%s", innerW, ansi.Strip(row))
+		lines := m.ssh.listItem(s, false, innerW)
+		if len(lines) != sshItemH {
+			t.Errorf("innerW=%d: %d lines, want %d", innerW, len(lines), sshItemH)
+			continue
 		}
-		if strings.Contains(row, "\n") {
-			t.Errorf("innerW=%d: the row wrapped instead of shortening\n%s", innerW, ansi.Strip(row))
+		if !strings.Contains(ansi.Strip(lines[1]), "2222") {
+			t.Errorf("innerW=%d: the port was truncated away\n%s", innerW, ansi.Strip(lines[1]))
 		}
-		if got := dispW(row); got != innerW {
-			t.Errorf("innerW=%d: width %d", innerW, got)
+		for i, ln := range lines {
+			if strings.Contains(ln, "\n") {
+				t.Errorf("innerW=%d line %d: wrapped instead of shortening\n%s", innerW, i, ansi.Strip(ln))
+			}
+			if got := dispW(ln); got != innerW {
+				t.Errorf("innerW=%d line %d: width %d", innerW, i, got)
+			}
 		}
 	}
 }
@@ -1173,9 +1236,11 @@ func TestDuplicateOpensASecondSessionToTheSameHost(t *testing.T) {
 	if m.ssh.sessions[1].id == first.id {
 		t.Error("the duplicate should be a distinct session")
 	}
-	// Two sessions to one host: the ordinal is what tells them apart.
-	if a, b := first.ordinalTag(), m.ssh.sessions[1].ordinalTag(); a == "" || b == "" || a == b {
-		t.Errorf("expected distinct ordinals, got %q and %q", a, b)
+	// They are distinct SESSIONS with distinct PTYs; what they are not is
+	// distinguishable on the list, and that is settled rather than missed
+	// (§11.32 — see TestTwoSessionsToOneHostAreTwoEntries).
+	if m.ssh.sessions[1].pty == first.pty {
+		t.Error("the duplicate should have a PTY of its own")
 	}
 	// The keyboard STAYS on [1] — the Enter that ran this was an Enter on a
 	// confirmation, not on a session row (§11.23).
@@ -1302,11 +1367,11 @@ func TestSSHMenuRowsRunTheirOwnActions(t *testing.T) {
 		"Duplicate":          confirmDuplicate,
 		"Close all sessions": confirmCloseAll,
 	}
-	// Open lands in the pty and Display toggles the cell off (openOne put it
-	// on); the rest ask first.
+	// Open lands in the pty and Hide takes the cell off the grid (openOne put
+	// it on); the rest ask first.
 	opens := map[string]func(AppModel) bool{
-		"Open":    func(m AppModel) bool { return m.ssh.focus == panelPty },
-		"Display": func(m AppModel) bool { return len(m.ssh.shown) == 0 },
+		"Open": func(m AppModel) bool { return m.ssh.focus == panelPty },
+		"Hide": func(m AppModel) bool { return len(m.ssh.shown) == 0 },
 	}
 	for _, a := range sshActions {
 		if a.panel != panelSessions {

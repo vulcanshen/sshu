@@ -52,7 +52,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
 
 **`[F]ile transfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. While bytes move, the `<done>/<files> · <pct>%` summary in the top right reports in green, and the rule under the tab row doubles as a progress bar — green ink filling from the left with the percentage, on every tab, snapping back to a plain line when the transfer ends. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
-**`[S]SH`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `Tab` on the sessions list toggles a session's cell on the grid, `Enter` shows one and hands it the keyboard, holding `Alt` the arrow keys steer between cells, `Alt+Esc` takes the keyboard back. As the cursor walks the sessions list, the matching cell lights up on the grid. A layout strip arranges the grid: horizontal, vertical, or a custom rows × columns.
+**`[S]SH`** — a **grid of live terminals**, each a real `ssh` on its own PTY. `[H]ide` (or `Tab`) takes a session's cell off the grid and puts it back, `Enter` shows one and hands it the keyboard, holding `Alt` the arrow keys steer between cells, `Alt+Esc` takes the keyboard back. As the cursor walks the sessions list, the matching cell lights up on the grid. A layout strip arranges the grid: horizontal, vertical, or a custom number of columns.
 
 ## Install
 
@@ -166,6 +166,7 @@ The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, gro
 | Key | Action |
 |---|---|
 | `Enter` | hosts: Connect (asks first; a credential host is resolved right here) · credentials: Edit |
+| `V` | **View** — what this row actually holds, read-only. A host shows its connection and its auth; a credential shows its auth alone. A stored password is reported as a fixed mask, never as a value, and a credential host is resolved on the spot — including saying so when the credential it names is gone |
 | `A` | Add a host / a credential |
 | `E` | Edit the host under the cursor |
 | `D` | Delete it (asks first — deleting a credential counts the hosts that still reference it) |
@@ -211,7 +212,7 @@ first. The top-right summary spins while anything is in flight.
 
 | Key | Action |
 |---|---|
-| **`Tab`** | **Toggle this session's cell** on the grid — any number can be up at once |
+| **`H`** | **Hide** this session's cell — and put it back. A session's cell goes onto the grid the moment it connects, so taking one off is the direction this runs in. `Tab` does the same thing: it is this tab's own key, the way it is on every other tab |
 | `Enter` | Show this session **and hand it the keyboard** (the side column folds away) |
 | `C` | Close this session (asks first) |
 | *(no key — `Space` menu only)* | **Close all sessions** — ends every one of them, asking first with the count in the question. Deliberately without a letter: closing everything is destructive and rare, and a letter is what a hand finds by accident on a list it was only scrolling |
@@ -221,7 +222,9 @@ first. The top-right summary spins while anything is in flight.
 | **`Alt+arrows`** | Steer to the neighbouring cell — spatial, so nothing has to be numbered. Inside a zoom it still steers, and stays zoomed |
 | **`Alt+Esc`** | **Out, one layer at a time** — the first press leaves a zoom, the next takes the keyboard back from the remote (back to the list, side column returns) |
 
-The layout strip (`2`, bottom of the left column — the right side is nothing but terminals): `j`/`k` walk **horizontal / vertical / custom** and apply as you move; `Enter` on custom asks for rows × columns (any two digits 1–9). Rows read `<user>@<host>:<port>` on one line, ssh's own spelling, and lead with a display column — a monitor glyph for a session with a cell on the grid, a struck-through one without. As the cursor moves, the matching cell's border lights on the grid — the row and its terminal are the same session, so they light together. That light is the **cursor's** colour, not the focus blue: blue means the keyboard is here, and two blue frames on screen would make you hunt for which one is live.
+The layout strip (`2`, bottom of the left column — the right side is nothing but terminals): `j`/`k` walk **horizontal / vertical / custom** and apply as you move; `Enter` on custom asks how many **columns** (one digit, 1–9) and the rows follow from how many sessions there are.
+
+Each entry on the list is two lines: what you called the machine, then `<user>@<host>:<port>` — ssh's own spelling of what the connection actually is. The first line leads with a display column — a monitor glyph for a session with a cell on the grid, a struck-through one without. Neither line ever wraps: a long name is cut and a long address shortens on each side of a kept `@`, so an entry is always exactly two lines. As the cursor moves, the matching cell's border lights on the grid — the row and its terminal are the same session, so they light together. That light is the **cursor's** colour, not the focus blue: blue means the keyboard is here, and two blue frames on screen would make you hunt for which one is live.
 
 `Alt+Esc` is sshu's own key and exists for exactly one situation: a grid cell hands every keystroke to the remote, so something has to be able to take it back. Everywhere else, plain `Esc` is enough. `Alt+Enter` is its opposite number — `Enter` is "go in" all over sshu, and a zoom is going further in — which is why `Alt+Esc` is what comes back out of one.
 
@@ -248,7 +251,7 @@ The layout strip (`2`, bottom of the left column — the right side is nothing b
 
 ## Status
 
-**v1.2.0.** Three tabs on one shifted letter each, the grouped `[1] sshu` nav, reusable credentials, the persistent app log, the ssh terminal grid with pageable history, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v1.3.0.** Three tabs on one shifted letter each, the grouped `[1] sshu` nav, reusable credentials with a read-only `[V]iew` of what any row actually holds, the persistent app log, the ssh terminal grid with pageable history, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 - **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab

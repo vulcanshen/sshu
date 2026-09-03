@@ -38,9 +38,6 @@ type session struct {
 	state   sessionState
 	reason  string // "exited 0" / "disconnected" / a start-up failure
 	ok      bool   // ended cleanly — [6] colours the row on this
-	// ordinal distinguishes two live sessions to the same host. 0 means this is
-	// the only one and nothing is shown.
-	ordinal int
 	// detail is the whole final screen, kept for the app log while reason keeps
 	// the one line a toast has room for.
 	detail []string
@@ -51,14 +48,6 @@ type session struct {
 	// reflow only SIGWINCHes the sessions whose numbers actually changed.
 	appliedCols, appliedRows int
 	pty                      *ptyTerm
-}
-
-// ordinalTag is the #N shown only when a host has more than one live session.
-func (s *session) ordinalTag() string {
-	if s.ordinal == 0 {
-		return ""
-	}
-	return "#" + strconv.Itoa(s.ordinal)
 }
 
 // ---------------------------------------------------------------- ssh command

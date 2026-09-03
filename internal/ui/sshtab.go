@@ -24,7 +24,8 @@ const (
 )
 
 // layoutMode is the grid's arrangement. Horizontal and vertical are the two
-// degenerate grids (one row / one column); custom is a fixed columns × rows.
+// degenerate grids (one row / one column); custom fixes the COLUMN count and
+// lets the rows follow from how many cells there are (§11.31).
 type layoutMode int
 
 const (
@@ -49,22 +50,32 @@ func (l layoutMode) label() string {
 // (§1.2). Below sshNarrowW the columns cannot both be useful, so the grid
 // takes the screen and the list is reached with Alt+Esc.
 const (
-	// sshLeftW is wide enough for a row to say the whole of what a session IS
-	// on one line: the display glyph, then "user@host:port #NN".
+	// sshLeftW gives an entry's second line 23 columns for "user@host:port",
+	// after the panel border. The glyph column is not deducted: the address
+	// starts at the border, under the glyph rather than after it.
 	//
-	// It was 26, which left 21 columns for that string — one short of
-	// "demo@localhost:2222 #2", so the commonest shape of all wrapped onto a
-	// second line. 30 leaves 25, which takes an address ("root@192.168.1.100:22
-	// #12") and a short internal name ("deploy@prod-web-01:22 #12") whole.
+	// It was 30, sized for "user@host:port #NN" on ONE line. Two lines and no
+	// ordinal (§11.32) hand back the columns the tag held, and the name — which
+	// used to compete for the same line — now has a line of its own. Two more
+	// came back when the address stopped lining up under the name.
 	//
-	// It stops there because the next thing worth fitting is a long DNS name
-	// ("app@staging.example.com:22 #12", 30 columns) and buying that costs six
-	// more columns off the grid — 32 and 34 fit nothing 30 does not. A row that
-	// long still wraps, and wrapping is what the two-line layout is for; the
-	// point was to stop the common case using it.
-	sshLeftW     = 30
+	// What sets the floor is the PORT, not the hostname: ":2222" costs two
+	// columns more than ":22", so 24 (21 columns) fits every common address on
+	// the default port and shortens the ones whose port was worth showing —
+	// "ubuntu@ip-10-0-1-23:22" (22) and "deploy@prod-web-01:2222" (23) among
+	// them, and sshu's own demo host with them. 26 takes all of those.
+	//
+	// It stops at 26 because the next thing worth fitting is a long DNS name
+	// ("app@staging.example.com:22", 26 columns) and buying it costs three more
+	// columns off the grid for one shape. Longer addresses shorten rather than
+	// wrap — fitUserHost, and truncate on the name above it, are what keep an
+	// entry exactly two lines.
+	sshLeftW     = 26
 	sshNarrowW   = sshLeftW + 28
 	sshListLeadW = 1
+	// sshItemH is an entry height, in lines. It is a constant rather than a
+	// measurement because the layout guarantees it: both halves shorten in place.
+	sshItemH = 2
 	// layoutRows is the layout strip's fixed height — border, one option row
 	// per mode, border. It lives at the BOTTOM OF THE LEFT COLUMN, so the
 	// right side is nothing but terminals.
@@ -105,8 +116,8 @@ type sshModel struct {
 	// and there is no such terminal when the list has the keyboard (§11.25).
 	zoomed bool
 
-	layout       layoutMode
-	gridC, gridR int // custom's columns × rows
+	layout layoutMode
+	gridC  int // custom's column count; the rows follow
 
 	focus   sshPanel
 	curSess int
@@ -115,7 +126,7 @@ type sshModel struct {
 }
 
 func newSSHModel() sshModel {
-	return sshModel{focus: panelSessions, nextID: 1, gridC: 2, gridR: 2}
+	return sshModel{focus: panelSessions, nextID: 1, gridC: 2}
 }
 
 // ------------------------------------------------------------------ geometry
@@ -146,8 +157,8 @@ func (m sshModel) gridArea() (w, h int) {
 }
 
 // gridDims is how many columns and rows the grid uses for n cells. Custom
-// respects its stated shape and grows ROWS when overfilled — a cell must
-// never silently not exist.
+// states the columns; the rows are however many it takes to hold them all —
+// a cell must never silently not exist.
 func (m sshModel) gridDims(n int) (cols, rows int) {
 	if n <= 0 {
 		return 0, 0
@@ -157,8 +168,7 @@ func (m sshModel) gridDims(n int) (cols, rows int) {
 		return 1, n
 	case layoutCustom:
 		c := clamp(m.gridC, 1, 9)
-		r := clamp(m.gridR, 1, 9)
-		return c, max(r, (n+c-1)/c)
+		return c, (n + c - 1) / c
 	default:
 		return n, 1
 	}
@@ -198,14 +208,13 @@ func (m sshModel) listInner() (w, h int) {
 // listRows is how many SESSIONS [1] shows at once — the page u/d move by half
 // of, and the window the cursor is kept inside.
 //
-// One row is one line, so this is the box height. It was a walk that measured
-// each row instead, because rows used to wrap: the address ran onto a second
-// line and the ":port #N" tail sometimes onto a third, and nothing could assume
-// a height. fitUserHost ended that — the row shortens rather than wraps
-// (§11.28) — and the measuring went with it.
+// An entry is exactly TWO lines, always, so this stays a division rather than
+// the walk it once was. What made the walk necessary was rows of UNEQUAL
+// height — an address that wrapped onto a second line and sometimes a third —
+// and both halves of an entry now shorten in place instead (§11.32).
 func (m sshModel) listRows() int {
 	_, innerH := m.listInner()
-	return max(1, innerH)
+	return max(1, innerH/sshItemH)
 }
 
 func (m *sshModel) setSize(w, h int) {
@@ -339,7 +348,6 @@ func (m *sshModel) connect(h store.Host) (*session, error) {
 	}
 	s.pty, s.appliedCols, s.appliedRows = p, 80, 24
 	m.sessions = append(m.sessions, s)
-	m.renumber()
 	m.shown = append(m.shown, s.id)
 	m.focusPty = len(m.shown) - 1
 	m.curSess = len(m.sessions) - 1
@@ -386,23 +394,11 @@ func (m *sshModel) sweepStalled() {
 // it to act.
 const stallGrace = 5 * time.Second
 
-// renumber assigns #N to hosts that have more than one live session, so the
-// list and the cell titles can still tell them apart.
-func (m *sshModel) renumber() {
-	count := map[string]int{}
-	for _, s := range m.sessions {
-		count[s.host.Name]++
-	}
-	seen := map[string]int{}
-	for _, s := range m.sessions {
-		if count[s.host.Name] < 2 {
-			s.ordinal = 0
-			continue
-		}
-		seen[s.host.Name]++
-		s.ordinal = seen[s.host.Name]
-	}
-}
+// The #N that used to sit on a duplicated host is gone (§11.32). It keyed on
+// the hosts.yaml NAME while every row and cell title draws the ADDRESS, so it
+// answered a question nobody could see it answering: two entries pointing at
+// one box drew identical rows and got no tag, and one entry edited between two
+// connects got #1/#2 on two different machines.
 
 // reap moves finished sessions out and RETURNS them, because a session ending
 // used to be completely silent. Its cell leaves the grid; the keyboard must
@@ -422,7 +418,6 @@ func (m *sshModel) reap() []*session {
 			continue
 		}
 		s.state, s.ended, s.reason = sessEnded, time.Now(), s.pty.exitReason()
-		s.ordinal = 0
 		s.ok = s.reason == "exited 0"
 		if s.timedOut {
 			// It was killed, so its exit code says nothing worth repeating.
@@ -452,7 +447,6 @@ func (m *sshModel) reap() []*session {
 		return nil
 	}
 	m.sessions = live
-	m.renumber()
 
 	// A failure holds the grid only when it left the grid EMPTY — with other
 	// cells still live, the toast and the log carry it and the grid reflows.
@@ -692,11 +686,7 @@ func (m sshModel) panelTitle(p sshPanel) string {
 		return "[2] layout"
 	}
 	if s := m.currentSession(); s != nil {
-		t := s.host.Name
-		if tag := s.ordinalTag(); tag != "" {
-			t += " " + tag
-		}
-		return t
+		return s.host.Name
 	}
 	return "ssh"
 }
@@ -726,8 +716,8 @@ func (m sshModel) layoutPanel(w int) string {
 		}
 		label := l.label()
 		if l == layoutCustom {
-			// Rows × columns — the same order the prompt asks in.
-			label += " " + itoa(clamp(m.gridR, 1, 9)) + "×" + itoa(clamp(m.gridC, 1, 9))
+			// The number the prompt asks for, in the unit it is asked in.
+			label += " " + plural(clamp(m.gridC, 1, 9), "column")
 		}
 		text := truncate(" "+glyph+" "+label, max(0, innerW))
 		if l == m.layout {
@@ -856,9 +846,6 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 // to fit, never before: in a narrow cell the state is what has to survive.
 func (m sshModel) cellTitle(s *session, i, innerW int) string {
 	t := s.host.User + "@" + s.host.Host
-	if tag := s.ordinalTag(); tag != "" {
-		t += " " + tag
-	}
 	mark := ""
 	if n := s.pty.scrolledBy(); n > 0 {
 		mark = " " + glyphHistory + " " + itoa(n)
@@ -926,7 +913,10 @@ func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
 		emptyHint("The detail is in [M]anage logs — or try another host", "[M]anage"))
 }
 
-// listBody lays out [1]. Each entry is a block, because a long address wraps.
+// listBody lays out [1]. Each entry is a two-line block, and a block is drawn
+// whole or not at all: half an entry on the last line is a session whose
+// address is simply missing, which reads as a rendering fault rather than as
+// a list that ran out of room.
 func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []string {
 	if len(items) == 0 {
 		return emptyBody(innerW, innerH, "No sessions",
@@ -934,26 +924,38 @@ func (m sshModel) listBody(items []*session, cursor, top, innerW, innerH int) []
 	}
 
 	out := make([]string, 0, max(0, innerH))
-	for i := top; i < len(items) && len(out) < innerH; i++ {
-		out = append(out, m.listItem(items[i], i == cursor, innerW))
+	for i := top; i < len(items) && len(out)+sshItemH <= innerH; i++ {
+		out = append(out, m.listItem(items[i], i == cursor, innerW)...)
 	}
 	return out
 }
 
-// listItem lays out one row of [1]:
+// listItem lays out one entry of [1] as exactly two lines:
 //
-//	<space><display glyph> <user>@<host>:<port>
+//	<space><display glyph> <name>
+//	<space><user>@<host>:<port>
 //
-// One string, the way ssh itself would spell it — the port rides the address
-// instead of owning a right-aligned slot of its own. The leading glyph is
-// the display column — a monitor when this session has a cell on the grid, a
-// struck-through one when it does not. Two shapes rather than one shape in
-// two colours, so the difference survives any palette.
+// The name goes first because it is what the user chose to call the machine,
+// and the address underneath is what ssh will actually do about it. One line
+// could hold only one of the two, and the one it held was the address — so a
+// list of sessions never showed the names the hosts table is entirely made of.
+//
+// The second line starts at the BORDER, not under the name. Indenting it was
+// tried first and reads better in isolation, but it spends two columns of the
+// address on every row to do it — and the address is the half that must never
+// be ambiguous, while the name above it is free to be cut. The glyph column
+// still reads down the list: it is the only thing on its line before the name,
+// and the line under it is the one place an address can start.
+//
+// The leading glyph is the display column — a monitor when this session has a
+// cell on the grid, a struck-through one when it does not. Two shapes rather
+// than one shape in two colours, so the difference survives any palette.
 //
 // Colour is still two independent channels: green foreground = on the grid,
 // background = the cursor bar. Where they meet the bar wins; the glyph is
-// what still tells the state there.
-func (m sshModel) listItem(s *session, isCursor bool, innerW int) string {
+// what still tells the state there. The bar covers BOTH lines — half a
+// highlighted entry would read as the cursor being between two things.
+func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 	nameFG := textColor
 	glyph, glyphFG := glyphMonitorOff, dimColor
 	if m.isShown(s.id) {
@@ -969,29 +971,30 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) string {
 	}
 
 	const glyphCell = 2 // the glyph and its trailing space
+	// The two lines get DIFFERENT budgets, because the address does not line
+	// up under the name: it starts back at the border and takes the glyph's
+	// two columns with it. Aligning them looked tidier and cost the address —
+	// the half that is never allowed to be ambiguous — two columns on every
+	// row, which the panel then had to be two columns wider to give back.
 	nameW := max(1, innerW-sshListLeadW-glyphCell)
+	addrW := max(1, innerW-sshListLeadW)
 
-	// ":port #N" is the fixed tail and it is never shortened. The port is what
-	// tells two sessions to the same box apart at the transport level and #N is
-	// what tells them apart at all — a truncated port is a different number
-	// rather than a shorter one, and half an ordinal is not an ordinal.
-	//
-	// Everything that gives is in "user@host" (fitUserHost), so a row is ONE
-	// line whatever it holds. It used to wrap instead, which cost the list a
-	// second line for its commonest entry and made every row a different
-	// height — including for the scrolling, which had to measure rather than
-	// count (§11.28).
+	// ":port" is the fixed tail and is never shortened: a truncated port is a
+	// different number rather than a shorter one. Everything that gives is in
+	// "user@host", which fitUserHost shortens on each side of a kept @ — so the
+	// address stays one line however long it is, which is what makes an entry a
+	// height the scrolling can divide by instead of measure (§11.32).
 	tail := ":" + strconv.Itoa(s.host.Port)
-	if tag := s.ordinalTag(); tag != "" {
-		tail += " " + tag
-	}
-	line := tail
-	if room := nameW - dispW(tail); room > 0 {
-		line = fitUserHost(s.host.User, s.host.Host, room) + tail
+	addr := tail
+	if room := addrW - dispW(tail); room > 0 {
+		addr = fitUserHost(s.host.User, s.host.Host, room) + tail
 	}
 
 	lead := strings.Repeat(" ", sshListLeadW)
-	return gStyle.Render(lead+glyph+" ") + body.Render(padRight(line, nameW))
+	return []string{
+		gStyle.Render(lead+glyph+" ") + body.Render(padRight(truncate(s.host.Name, nameW), nameW)),
+		body.Render(lead + padRight(addr, addrW)),
+	}
 }
 
 // wrapText breaks s to at most w cells per line, preferring a break just after
