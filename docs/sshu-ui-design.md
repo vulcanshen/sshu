@@ -3845,7 +3845,7 @@ completeness 不看哪些列是亮的、hint 一律說 save、cred Enter 一律�
 
 ---
 
-## 附錄 — 按鍵全表(v1.3.1)
+## 附錄 — 按鍵全表(v1.4.0)
 
 ### Tab 與 panel
 
