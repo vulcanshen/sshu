@@ -6,7 +6,10 @@ import "github.com/charmbracelet/lipgloss"
 // Assigned once, derived everywhere. Each tier is reserved: nothing borrows
 // another's band, or the user has to learn which meaning a colour carries where.
 var (
-	// structural (system) — panel chrome + the active tab capsule. Never user state.
+	// structural (system) — panel chrome, the active tab capsule, and the KEY
+	// half of every legend (footer and popup hint alike, §4.4). Never user
+	// state: a key name is the app naming its own controls, which is what puts
+	// it in this band rather than in the cursor's.
 	focusColor = lipgloss.Color("#89b4fa") // blue
 	borderDim  = lipgloss.Color("#585b70") // surface2: unselected card border
 	// cursor — "the current hand".
@@ -29,6 +32,12 @@ var (
 	// the list cursor already owns the background, and one row can only carry one
 	// background — putting both there would make them fight for the same channel.
 	liveColor = lipgloss.Color("#a6e3a1") // green
+	// selection mode: a pty cell that has stopped following the remote so its
+	// text can be swept and copied (§11.33). A band of its own because it is
+	// neither focus nor warning — the panel still has the keyboard, and nothing
+	// is wrong; it is doing something ELSE with the keyboard, and that is the
+	// one thing the frame has to be able to say at a glance.
+	selectColor = lipgloss.Color("#f9e2af") // yellow
 	// the selected row in the hosts table. Blue rather than handColor because
 	// subtext1 sits too close to textColor to read as a highlight.
 	//

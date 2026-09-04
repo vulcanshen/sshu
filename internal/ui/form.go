@@ -167,6 +167,31 @@ func (m hostForm) enabled(i int) bool {
 	return true
 }
 
+// complete reports whether every field this form NEEDS has a value. It is the
+// question Enter asks on every press: a complete form SAVES, an incomplete one
+// steps to the next field instead (§11.34).
+//
+// The needed set is not a second list to keep in sync — it is exactly the
+// ENABLED fields, and enabled() already encodes what each Auth choice requires:
+// password wants Password, privatekey wants IdentityFile, credential wants
+// Credential and stops wanting User because the credential supplies it. A
+// toggle always has a value, so only the text rows are asked.
+//
+// "Has a value" is not "is valid". A port of 0 has a value, and that is the
+// point: completeness is whether the form has been FILLED IN, validity is
+// whether what was filled in is any good. They get separate disclosures — the
+// hint for the first, the error row for the second — because folding them
+// together would make Enter refuse to save while never saying why.
+func (m hostForm) complete() bool {
+	for i := range m.fields {
+		if m.enabled(i) && m.fields[i].kind == fieldText &&
+			strings.TrimSpace(m.fields[i].value) == "" {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *hostForm) moveFocus(d int) {
 	for i := 0; i < fCount; i++ {
 		m.focus = (m.focus + d + fCount) % fCount
@@ -201,17 +226,26 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		// The two pick-a-value fields spend Enter on the chooser ONLY while
-		// they are empty — an empty field has nothing else for Enter to mean.
-		// Once one holds a value, Enter is what it is on every other field:
-		// save. It used to step to the next field instead, which made choosing
-		// a credential cost two Enters and a lap back round to Name.
-		// Replacing a value is Backspace (the whole line) then Enter again.
+		// Enter asks one question, on every field: is this form finished? If it
+		// is, Enter saves. If it is not, Enter is "next" and loops — so holding
+		// Enter walks the form and then submits it, and the same key never
+		// means two things at once depending on which row you happen to be on
+		// (§11.34).
+		//
+		// The two pick-a-value fields keep their exception while EMPTY: there,
+		// "next" would step over the one row that has no other way to be
+		// filled, and opening the chooser IS how that field gets its value.
+		// Filled, they are ordinary rows again — replacing a pick is Backspace
+		// (the whole line) and then Enter.
 		switch {
 		case m.focus == fIdentity && strings.TrimSpace(f.value) == "":
 			return m, formBrowse
 		case m.focus == fCredential && strings.TrimSpace(f.value) == "":
 			return m, formPickCred
+		}
+		if !m.complete() {
+			m.moveFocus(1)
+			return m, formNone
 		}
 		return m, formSubmit
 	case tea.KeyBackspace:
@@ -359,6 +393,15 @@ func (m hostForm) view() string {
 	// The hint names what THIS field does with Enter — on an EMPTY pick-a-value
 	// row Enter chooses rather than saves, and saying so is the standing
 	// disclosure (§4.5).
+	//
+	// It also names what Enter does RIGHT NOW, which changes as the form fills
+	// up: `next` while something is still missing, `save` the moment nothing
+	// is. That flip is the whole disclosure for the rule — the legend answers
+	// "why did Enter not save" before the question gets asked (§11.34).
+	enter := "save"
+	if !m.complete() {
+		enter = "next"
+	}
 	var pairs [][2]string
 	switch {
 	case m.focus == fIdentity && strings.TrimSpace(m.fields[fIdentity].value) == "":
@@ -366,11 +409,11 @@ func (m hostForm) view() string {
 	case m.focus == fCredential && strings.TrimSpace(m.fields[fCredential].value) == "":
 		pairs = [][2]string{{"Enter", "choose"}, {"Tab", "next"}, {"Esc", "cancel"}}
 	case m.focus == fIdentity || m.focus == fCredential:
-		pairs = [][2]string{{"Enter", "save"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Enter", enter}, {"Backspace", "clear"}, {"Esc", "cancel"}}
 	case m.fields[m.focus].kind == fieldToggle:
-		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", "save"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", enter}, {"Esc", "cancel"}}
 	default:
-		pairs = [][2]string{{"Tab", "next"}, {"Enter", "save"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Tab", "next"}, {"Enter", enter}, {"Esc", "cancel"}}
 	}
 
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+title+" ", hintLegend(pairs),

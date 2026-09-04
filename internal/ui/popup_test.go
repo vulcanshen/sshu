@@ -92,6 +92,32 @@ func pressA(m AppModel, keys ...string) AppModel {
 	return m
 }
 
+// fillHostForm gives every row a value so the form is COMPLETE, which is what
+// Enter needs before it means save (§11.34). A test about submitting has to go
+// through here, or it is exercising the "next" branch by accident — which is
+// how nine tests written against the old rule quietly changed meaning.
+func fillHostForm(m AppModel, name string) AppModel {
+	for i, v := range map[int]string{
+		fName: name, fHost: "10.0.0.9", fPort: "22", fUser: "root",
+		fIdentity: "~/.ssh/id_ed25519", fPassword: "pw",
+	} {
+		m.form.fields[i].value = v
+		m.form.fields[i].caret = len([]rune(v))
+	}
+	return m
+}
+
+// fillCredForm is the same for the sibling form.
+func fillCredForm(m AppModel, name string) AppModel {
+	for i, v := range map[int]string{
+		cName: name, cUser: "root", cIdentity: "~/.ssh/id_ed25519", cPassword: "pw",
+	} {
+		m.credFormUI.fields[i].value = v
+		m.credFormUI.fields[i].caret = len([]rune(v))
+	}
+	return m
+}
+
 // typeText sends a string one rune at a time, the way a form receives it.
 func typeText(m AppModel, s string) AppModel {
 	for _, r := range s {
@@ -393,6 +419,8 @@ func TestCreateSavesTheNewHost(t *testing.T) {
 	// Host → Port → Auth → User (Credential is dark under privatekey).
 	m = pressA(m, "tab", "tab", "tab")
 	m = typeText(m, "root")
+	// Auth is privatekey, so the key file is part of being finished (§11.34).
+	m.form.fields[fIdentity].value = "~/.ssh/id_ed25519"
 	m = pressA(m, "enter")
 
 	if m.form.isActive() {
@@ -462,10 +490,16 @@ func TestDeleteCancelledChangesNothing(t *testing.T) {
 
 // Validation keeps the user in the form with the offending field marked, rather
 // than stacking an error popup they have to dismiss before fixing anything.
+//
+// The form has to be COMPLETE to get here at all now: an unfinished one never
+// reaches validation, because Enter is "next" until it is finished (§11.34).
+// Complete and wrong is a different thing from unfinished, and this is the one
+// that earns a mark.
 func TestValidationStaysInTheForm(t *testing.T) {
 	var saved []store.Host
 	m := pressA(appWith(sample(), &saved), "A")
-	m = pressA(m, "enter") // nothing filled in
+	m = fillHostForm(m, sample()[1].Name) // filled in, but the name is taken
+	m = pressA(m, "enter")
 
 	if !m.form.isActive() {
 		t.Fatal("an invalid form must stay open")
@@ -489,6 +523,7 @@ func TestDuplicateNameRejected(t *testing.T) {
 	m = typeText(m, "h")
 	m = pressA(m, "tab", "tab", "tab")
 	m = typeText(m, "u")
+	m.form.fields[fIdentity].value = "~/.ssh/id_ed25519" // privatekey needs one
 	m = pressA(m, "enter")
 
 	if !m.form.isActive() || m.form.errIdx != fName {
@@ -642,16 +677,26 @@ func TestFormErrorClearsAsFieldsAreFixed(t *testing.T) {
 		t.Fatalf("a fresh form should not complain yet, got %q", m.form.err)
 	}
 
+	// A complete form with a taken name: the only way to be refused now that an
+	// unfinished form does not submit at all (§11.34).
+	m = fillHostForm(m, sample()[1].Name)
+	m.form.focus = fName
 	m = pressA(m, "enter")
 	if m.form.errIdx != fName {
 		t.Fatalf("submit should mark Name, got field %d", m.form.errIdx)
 	}
 
-	// Fill Name: the mark must move on to the next real problem, not linger.
-	m = typeText(m, "box")
+	// Make the name its own: the mark must go the moment it is fixed.
+	m.form.focus = fName
+	m.form.fields[fName].caret = len([]rune(m.form.fields[fName].value))
+	m = typeText(m, "-2")
 	if m.form.errIdx == fName {
-		t.Errorf("Name is filled but still marked: %q", m.form.err)
+		t.Errorf("Name is fixed but still marked: %q", m.form.err)
 	}
+
+	// Empty a field that was filled: the mark must follow it, live.
+	m.form.fields[fHost].value, m.form.fields[fHost].caret = "", 0
+	m = typeText(m, "!")
 	if m.form.errIdx != fHost {
 		t.Errorf("the error should have moved to Host, got field %d (%q)", m.form.errIdx, m.form.err)
 	}
@@ -663,9 +708,6 @@ func TestFormErrorClearsAsFieldsAreFixed(t *testing.T) {
 
 	m.form.focus = fHost
 	m = typeText(m, "h.example.com")
-	if m.form.errIdx != fUser {
-		t.Errorf("the error should have moved to User, got field %d (%q)", m.form.errIdx, m.form.err)
-	}
 
 	m.form.focus = fUser
 	m = typeText(m, "root")

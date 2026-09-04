@@ -1,5 +1,75 @@
 # Changelog
 
+## [1.3.1] — 2026-09-04
+
+A pty cell you can copy out of without a mouse, a form whose Enter means one
+thing, and a `clear` that stops looking like it broke the scrollback.
+
+Changes since 1.3.0:
+
+### Added
+
+- **Selection mode on a pty cell (`Alt+v`)** — freeze the cell, move a cursor
+  over the frozen text, and copy what you sweep to the system clipboard.
+
+  The terminal's own selection is the obvious way to get output out of a panel,
+  and a grid is exactly what breaks it: a drag runs along a physical screen
+  line, so it collects the border and the neighbouring cell's output on the way
+  past. Turning the mouse on to take the drag over would have cost native
+  selection in the **whole** app — the lists and popups included, where it still
+  works fine — so this is a keyboard mode instead, and it costs nothing outside
+  itself.
+
+  The keys are vim's: `hjkl` moves and scrolls the page at the edges, `u`/`d`
+  go half a screen, `v` and `V` select by cell or by line, `y` copies and
+  leaves. With nothing selected `y` takes the cursor's line, which puts "copy
+  what just printed" on three keys. `Esc` drops the selection first and the
+  mode second; `Alt+v` again, or `Alt+Esc`, leaves outright.
+
+  The cell's frame turns yellow while the mode is up, and the footer swaps to
+  the mode's own keys — every key under your fingers means something different
+  in there. The text goes to the **system** clipboard via `pbcopy`, `wl-copy`,
+  `xclip` or `xsel`, so it pastes into a local editor with no help from the
+  terminal, and the result is always reported: how many lines went, or what to
+  install if none of the tools were there.
+
+### Changed
+
+- **A form's `Enter` asks one question: is this finished?** It used to mean
+  three different things depending on which row the cursor happened to be on —
+  browse, choose, or submit — and the only way to tell them apart before
+  pressing was to remember where you were.
+
+  Finished, `Enter` saves. Not finished, it is "next" and loops, so holding
+  `Enter` walks the form and then submits it. What counts as finished follows
+  the Auth toggle, because it is exactly the rows Auth has left lit: `password`
+  wants a Password, `privatekey` wants an IdentityFile, `credential` wants a
+  Credential and stops wanting a User. The popup's hint says which of the two
+  `Enter` is right now — `next` or `save` — and flips the moment the last field
+  is filled.
+
+  The empty IdentityFile and Credential rows keep their chooser: "next" there
+  would step over the only row that cannot be filled any other way.
+
+  One consequence worth knowing: a `privatekey` host with **no** key file used
+  to be savable, and meant "let ssh's own config and agent decide". The form
+  will not create one any more. Hand-written `hosts.yaml` is unaffected — the
+  store's validation did not change.
+
+- **Credentials: `[E]dit` has a letter.** It was reachable only by `Enter`,
+  which prints no bracket, so the only way to learn it was to press `Enter` and
+  see what happened. `E` opens it now, and `Enter` still does too — on a
+  credential, "go in" and "edit" are the same door.
+
+### Fixed
+
+- **Output arriving in the same read as a `clear` is no longer dropped from the
+  scrollback.** A remote erasing its history (`\x1b[3J`) discarded the whole
+  chunk it arrived in — and `clear && ls` is one chunk, so the listing was never
+  filed. The panel then correctly reported having no history to page through,
+  which from the outside looks exactly like `clear` breaking `PgUp`. An erase
+  now clears what came before it and keeps what came after.
+
 ## [1.3.0] — 2026-09-03
 
 A read-only `[V]iew` for the rows that hold secrets, a sessions list that says

@@ -59,23 +59,24 @@ func TestEnterBrowsesOnlyOnTheEmptyIdentityField(t *testing.T) {
 		t.Errorf("expected the 5 fixture files, got %d", len(m.picker.matches))
 	}
 
-	// Filled: Enter submits, like Enter does on every other field. The form is
-	// still empty here, so the submit shows itself as the refusal it earns —
-	// what matters is that Enter reached the submit path at all.
+	// Filled: Enter is whatever it is on every other field. With the rest of the
+	// form filled in that is save, and the form goes away (§11.34).
 	m = pressA(m, "esc")
-	m.form.fields[fIdentity].value = "~/.ssh/id_ed25519"
-	m.form.fields[fIdentity].caret = 3
+	m = fillHostForm(m, "picker-box")
 	m.form.focus = fIdentity
 	m = pressA(m, "enter")
 	if m.picker.isActive() {
 		t.Fatal("Enter on a filled path field must not browse")
 	}
-	if !m.form.submitted || m.form.err == "" {
+	if !m.form.submitted || m.form.err != "" {
 		t.Fatalf("Enter on a filled path field should submit, submitted=%v err=%q",
 			m.form.submitted, m.form.err)
 	}
 
 	// Backspace clears the whole line — a picked path is replaced, not shaved.
+	m = openPicker(t)
+	m = pressA(m, "esc")
+	m.form.fields[fIdentity].value = "~/.ssh/id_ed25519"
 	m.form.focus = fIdentity
 	m = pressA(m, "backspace")
 	if got := m.form.fields[fIdentity].value; got != "" {
@@ -192,8 +193,10 @@ func TestFormHintIsPerField(t *testing.T) {
 	if h := formHint(m); !strings.Contains(h, "browse") {
 		t.Errorf("the IdentityFile field must advertise Tab as browse\n%q", h)
 	}
-	// Filled, it advertises what it now does instead: save.
-	m.form.fields[fIdentity].value = "~/.ssh/id_ed25519"
+	// Filled, it advertises what it now does instead — save, once the rest of
+	// the form is filled in too (§11.34).
+	m = fillHostForm(m, "hint-box")
+	m.form.focus = fIdentity
 	if h := formHint(m); strings.Contains(h, "browse") || !strings.Contains(h, "save") {
 		t.Errorf("a filled IdentityFile field must advertise Enter as save\n%q", h)
 	}

@@ -293,6 +293,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toastExpireMsg:
 		return m, m.toast.expire(msg)
 
+	case clipboardDoneMsg:
+		if msg.err != nil {
+			return m, m.toast.show(clipboardFailure(msg.err), toastError)
+		}
+		return m, m.toast.show("copied "+plural(msg.lines, "line"), toastInfo)
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -329,6 +335,29 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.abandonEdit()
 		}
 		m.editorUI.pty.write(msg)
+		return m, nil
+	}
+
+	// Selection mode owns its panel completely, and is checked before every
+	// other ssh chord for the reason the editor block above is checked first:
+	// the cell has stopped following the remote, so it is a different surface,
+	// and a chord that zoomed it or moved the keyboard off it mid-sweep would
+	// throw the selection away for a gesture nobody meant to make (§11.33).
+	if m.ssh.copy.on {
+		if !m.ssh.copyAlive() {
+			m.ssh.copy.stop() // the session ended underneath the mode
+		} else {
+			return m.copyModeKey(msg)
+		}
+	}
+
+	// Alt+v freezes the focused cell and puts a selection cursor on it, so its
+	// text can be swept to the system clipboard. It is a chord because every
+	// bare key in a pty belongs to the remote, and v because that is the key
+	// that starts a selection once you are inside (§11.33).
+	if m.tab == tabSSH && !m.popupOpen() && msg.Alt &&
+		msg.Type == tea.KeyRunes && string(msg.Runes) == "v" && m.inPty() {
+		m.ssh.startCopy()
 		return m, nil
 	}
 
@@ -1458,4 +1487,23 @@ func indexOfHost(hosts []store.Host, name string) int {
 		}
 	}
 	return -1
+}
+
+// copyModeKey runs one keystroke of a pty cell's selection mode.
+//
+// Alt+v and Alt+Esc are the two ways out, and they are the same two ways that
+// leave any other layer in this tab — Alt+Esc peels one layer at a time
+// (§11.25), and selection mode is a layer. Everything else the mode either uses
+// or swallows.
+func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.Alt && (msg.Type == tea.KeyEscape ||
+		(msg.Type == tea.KeyRunes && string(msg.Runes) == "v")) {
+		m.ssh.copy.stop()
+		return m, nil
+	}
+	text, yanked := m.ssh.copy.key(msg.String())
+	if !yanked {
+		return m, nil
+	}
+	return m, copyToClipboard(text)
 }

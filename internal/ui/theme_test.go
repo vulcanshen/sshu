@@ -67,11 +67,17 @@ func TestFocusedFormRowIsLavender(t *testing.T) {
 }
 
 // The list cursor keeps handColor — the two roles stay apart.
+//
+// It probes the BACKGROUND, which is what a cursor actually is. It used to
+// probe the foreground and passed anyway, because the popup's hint legend put
+// handColor on screen as a foreground — so the test would have stayed green
+// with the cursor painted any colour at all. Turning the legends blue is what
+// exposed it.
 func TestListCursorIsNotLavender(t *testing.T) {
 	withColour(t)
 	m := pressA(appWith(sample(), nil), " ") // Space menu, cursor on the first row
 	got := m.spaceMenu.view()
-	if !strings.Contains(got, ansiOf(t, handColor)) {
+	if !strings.Contains(got, ansiBgOf(t, handColor)) {
 		t.Error("the menu cursor should still be handColor")
 	}
 	if strings.Contains(got, ansiOf(t, editColor)) {
@@ -86,6 +92,36 @@ func TestListCursorIsNotLavender(t *testing.T) {
 func ansiOf(t *testing.T, c lipgloss.Color) string {
 	t.Helper()
 	return sgrParams(t, lipgloss.NewStyle().Foreground(c).Render("x"), c)
+}
+
+// A key you press is blue, on the app's bottom row and on a popup's alike. The
+// two legends are one legend at two scales (§4.4), so nothing pins them apart —
+// which is exactly how they could drift without a test noticing.
+func TestALegendKeyIsBlueEverywhere(t *testing.T) {
+	withColour(t)
+	blue, hand := ansiOf(t, focusColor), ansiOf(t, handColor)
+
+	footer := keyLegend([][2]string{{"alt+v", "select"}}, 40)
+	if !strings.Contains(footer, blue) {
+		t.Errorf("the footer key must be blue: %q", footer)
+	}
+	if strings.Contains(footer, hand) {
+		t.Errorf("handColor is the cursor, not a key: %q", footer)
+	}
+
+	hint := hintLegend([][2]string{{"Enter", "save"}})
+	if !strings.Contains(hint, blue) {
+		t.Errorf("a popup's hint key must be the same blue: %q", hint)
+	}
+	if strings.Contains(hint, hand) {
+		t.Errorf("handColor is the cursor, not a key: %q", hint)
+	}
+
+	// The description half stays dim — bright key, dim description (§4.4) is
+	// the reading the colour change must not disturb.
+	if !strings.Contains(footer, ansiOf(t, dimColor)) {
+		t.Errorf("the description must still be dim: %q", footer)
+	}
 }
 
 // A panel frame carries focus, and that is the whole job of the colour: the

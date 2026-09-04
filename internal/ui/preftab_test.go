@@ -344,19 +344,23 @@ func TestCredIdentityFieldEnterAndBackspace(t *testing.T) {
 	}
 	m = pressA(m, "esc") // back to the form
 
-	m.credFormUI.fields[cIdentity].value = "~/.ssh/id_ed25519"
-	m.credFormUI.fields[cIdentity].caret = 5
+	m = fillCredForm(m, "picker-cred")
+	m.credFormUI.focus = cIdentity
 	m = pressA(m, "enter")
 	if m.picker.isActive() {
 		t.Fatal("Enter on a filled path field must not browse")
 	}
-	// The form is otherwise empty, so the submit shows as the refusal it earns
-	// — the point is that Enter reached the submit path rather than stepping on.
-	if !m.credFormUI.submitted || m.credFormUI.err == "" {
+	// With the rest of the form filled in, Enter on a filled path row is save
+	// like everywhere else (§11.34).
+	if !m.credFormUI.submitted || m.credFormUI.err != "" {
 		t.Fatalf("Enter on a filled path field should submit, submitted=%v err=%q",
 			m.credFormUI.submitted, m.credFormUI.err)
 	}
 
+	// The save closed the form, so Backspace gets a fresh one to clear.
+	m = pressA(m, "A")
+	m.credFormUI.fields[cIdentity].value = "~/.ssh/id_ed25519"
+	m.credFormUI.fields[cIdentity].caret = 17
 	m.credFormUI.focus = cIdentity
 	m = pressA(m, "backspace")
 	if got := m.credFormUI.fields[cIdentity].value; got != "" {

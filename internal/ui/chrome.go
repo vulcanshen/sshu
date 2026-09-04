@@ -196,7 +196,12 @@ func keyLegend(pairs [][2]string, w int) string {
 		n--
 	}
 
-	k := lipgloss.NewStyle().Foreground(handColor)
+	// Blue, the structural band (§2.1). A key name is chrome — the app naming
+	// its own controls — not user state, which is the line that band draws. It
+	// used to be handColor, and handColor is the CURSOR: the same colour on
+	// "where you are in this list" and on "here is a key you could press" made
+	// the footer read as another row of the thing above it.
+	k := lipgloss.NewStyle().Foreground(focusColor)
 	d := lipgloss.NewStyle().Foreground(dimColor)
 	parts := make([]string, 0, n)
 	for i := 0; i < n; i++ {
@@ -235,15 +240,22 @@ func tabRule(w, pct int, moving bool) string {
 type borderTone int
 
 const (
-	toneIdle  borderTone = iota // nothing is pointing at this panel
-	toneEcho                    // a cursor elsewhere is pointing at it
-	toneFocus                   // the keyboard is in it
+	toneIdle   borderTone = iota // nothing is pointing at this panel
+	toneEcho                     // a cursor elsewhere is pointing at it
+	toneFocus                    // the keyboard is in it
+	toneSelect                   // the keyboard is in it, in selection mode
 )
 
 func toneColor(t borderTone) lipgloss.Color {
 	switch t {
 	case toneFocus:
 		return focusColor
+	case toneSelect:
+		// Still focused, but the panel has stopped following the remote. Blue
+		// would say "your keystrokes go here", which is true and useless — they
+		// go somewhere DIFFERENT now, and the frame is the only thing that can
+		// say so before a key is pressed.
+		return selectColor
 	case toneEcho:
 		// The cursor's own colour. Not blue: blue is where the keyboard is, and
 		// two blues on screen makes the user hunt for which one is live. Not a
