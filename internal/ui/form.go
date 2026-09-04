@@ -144,6 +144,16 @@ func (m *hostForm) openEdit(h store.Host, layer int) tea.Cmd {
 	return m.anim.open()
 }
 
+// openDuplicate is openEdit with one difference, and that difference decides
+// everything: `editing` stays EMPTY. The form is creating rather than changing,
+// so validateForm compares the name against every host including the one it was
+// copied from — and refuses it. See §11.35 for why that refusal is the feature.
+func (m *hostForm) openDuplicate(h store.Host, layer int) tea.Cmd {
+	cmd := m.openEdit(h, layer)
+	m.editing = ""
+	return cmd
+}
+
 func (m hostForm) auth() store.AuthMethod {
 	return store.AuthMethod(m.fields[fAuth].options[m.fields[fAuth].sel])
 }

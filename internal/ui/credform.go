@@ -81,6 +81,14 @@ func (m *credForm) openEdit(c store.Credential, layer int) tea.Cmd {
 	return m.anim.open()
 }
 
+// openDuplicate is the host form's, on the sibling: openEdit with `editing`
+// left empty, so the copied name collides with the row it came from (§11.35).
+func (m *credForm) openDuplicate(c store.Credential, layer int) tea.Cmd {
+	cmd := m.openEdit(c, layer)
+	m.editing = ""
+	return cmd
+}
+
 func (m credForm) auth() store.AuthMethod {
 	return store.AuthMethod(m.fields[cAuth].options[m.fields[cAuth].sel])
 }

@@ -457,9 +457,9 @@ func TestEditSavesInPlace(t *testing.T) {
 func TestDeleteRemovesAndSaves(t *testing.T) {
 	var saved []store.Host
 	// Upper case: lower-case d is half-page-down on the table.
-	m := pressA(appWith(sample(), &saved), "D")
+	m := pressA(appWith(sample(), &saved), "X") // delete moved off D (§11.35)
 	if !m.confirm.isActive() || m.confirm.action != confirmDelete {
-		t.Fatal("D should raise the delete confirmation")
+		t.Fatal("X should raise the delete confirmation")
 	}
 	m = pressA(m, "enter")
 

@@ -28,9 +28,14 @@ func TestCredPickerRendersAboveTheForm(t *testing.T) {
 	}
 }
 
-// An invalid credential submit refuses loudly — a toast on top of the marked
-// field — and the form stays up so the user can finish.
-func TestCredFormInvalidSubmitToastsAndStays(t *testing.T) {
+// A refused submit is said ONCE, in the form: the row names the field, marks it
+// and takes the cursor there. No toast — the popup is already showing that
+// sentence, and a second copy of it floating over the popup that shows it is
+// not emphasis (§6.7).
+//
+// The two sibling forms have to refuse the SAME way. The host form never
+// toasted; the credential form did, and that difference is what this pins.
+func TestAnInvalidSubmitIsSaidOnceInTheForm(t *testing.T) {
 	// Complete but wrong: the name is taken. An unfinished form does not submit
 	// at all now, so a refusal has to be earned by a form that IS finished
 	// (§11.34).
@@ -47,12 +52,26 @@ func TestCredFormInvalidSubmitToastsAndStays(t *testing.T) {
 	if !m.credFormUI.isActive() {
 		t.Fatal("refusing must not close the form")
 	}
-	if !m.toast.isActive() {
-		t.Fatal("the refusal must raise a toast")
-	}
 	if m.credFormUI.err == "" || m.credFormUI.errIdx != cName {
-		t.Fatalf("the error row must mark the field too, err=%q idx=%d",
+		t.Fatalf("the error row must name and mark the field, err=%q idx=%d",
 			m.credFormUI.err, m.credFormUI.errIdx)
+	}
+	if m.toast.isActive() {
+		t.Error("the popup already says it — a toast over it is the same sentence twice")
+	}
+	if got := ansi.Strip(m.View()); !strings.Contains(got, m.credFormUI.err) {
+		t.Error("said once means it has to actually be on screen")
+	}
+
+	// And the host form, which never toasted, still does not.
+	h := pressA(appWith(sample(), nil), "A")
+	h = fillHostForm(h, sample()[1].Name)
+	h = pressA(h, "enter")
+	if h.form.errIdx != fName {
+		t.Fatalf("setup: the host form should have refused, field=%d", h.form.errIdx)
+	}
+	if h.toast.isActive() {
+		t.Error("the host form must not start toasting either")
 	}
 }
 

@@ -290,9 +290,9 @@ func TestCredentialAddEditDelete(t *testing.T) {
 	m = pressA(m, "esc", "esc")
 
 	// Delete asks, then rewrites.
-	m = pressA(m, "D")
+	m = pressA(m, "X") // delete moved off D (§11.35)
 	if !m.confirm.isActive() {
-		t.Fatal("D should ask first")
+		t.Fatal("X should ask first")
 	}
 	m = pressA(m, "enter")
 	if len(saved) != 2 || len(saved[1]) != 0 {
@@ -312,9 +312,9 @@ func TestDeleteCredentialWarnsAboutReferencingHosts(t *testing.T) {
 	}
 	m := appWith(hosts, nil)
 	m.creds.creds = []store.Credential{{Name: "ops", User: "root", Auth: store.AuthPassword}}
-	m = pressA(m, "1", "j", "enter", "D")
+	m = pressA(m, "1", "j", "enter", "X")
 	if !m.confirm.isActive() {
-		t.Fatal("D should ask")
+		t.Fatal("X should ask")
 	}
 	found := false
 	for _, l := range m.confirm.lines {

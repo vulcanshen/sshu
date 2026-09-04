@@ -169,7 +169,8 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `V` | **View** —— 這一列到底裝了什麼,唯讀。host 分「連線」與「認證」兩段,credential 只有認證那一段。存起來的密碼一律是固定寬度的遮罩、永遠不顯示值;credential host 就地解析 —— 包括它指向的 credential 已經不在時,直接說出來 |
 | `A` | 新增 host / credential |
 | `E` | 編輯游標這一列 —— host 或 credential |
-| `D` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它) |
+| `D` | **複製** —— 開一個每一欄都已經從這一列填好的 Add 表單。什麼都還沒寫進檔案,也沒有發明任何名字:表單是完整的,所以 `Enter` 就是存檔,而它帶著的名字被它自己複製的那一列佔著。第一次 `Enter` 一定被擋在 Name 上,而游標本來就在 Name 上 |
+| `X` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它)。這件事原本是 `D`;現在 sshu 裡 `D` 一律是複製、`x`/`X` 一律是刪掉 |
 | `/` | hosts:搜尋 —— name / user / host / port 一起比對,依分數排序 |
 | `C` | logs:清空 log(先問 —— 連 `applogs.yaml` 一起清) |
 
