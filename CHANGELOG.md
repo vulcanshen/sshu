@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.3.1] — 2026-09-04
+## [1.4.0] — 2026-09-04
 
 A pty cell you can copy out of without a mouse, a form whose Enter means one
 thing, and a `clear` that stops looking like it broke the scrollback.
