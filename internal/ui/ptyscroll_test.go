@@ -263,6 +263,44 @@ func TestOnlyAnExplicitScrollbackEraseDropsTheHistory(t *testing.T) {
 	}
 }
 
+// An erase asks away what came BEFORE it. Everything after it in the same read
+// is new history, and `clear && ls` is exactly one read: the erase, then the
+// listing. Dropping the whole chunk loses the listing and leaves the panel
+// truthfully reporting that it has nothing to page through — which is what a
+// `clear` looks like from the outside when it has "broken" PgUp.
+func TestAnEraseDropsWhatCameBeforeItNotAfter(t *testing.T) {
+	p := newTestTerm(40, 10)
+	p.feed("gone\r\n")
+
+	chunk := "\x1b[3J\x1b[H\x1b[2J" // what `clear` sends, ahead of the command's own output
+	for i := range 20 {
+		chunk += "kept-" + itoa(i) + "\r\n"
+	}
+	p.feed(chunk)
+
+	got := p.history()
+	if len(got) != 20 {
+		t.Fatalf("history = %d lines, want the 20 that arrived after the erase: %q", len(got), got)
+	}
+	if ansi.Strip(got[0]) != "kept-0" {
+		t.Errorf("history starts at %q, want the first line after the erase", ansi.Strip(got[0]))
+	}
+	if !p.scrollable() {
+		t.Error("20 lines in a 10-row cell is a history to page through")
+	}
+}
+
+// Two erases in one read: only what follows the LAST one is still history.
+func TestTheLastEraseInAReadIsTheOneThatCounts(t *testing.T) {
+	p := newTestTerm(40, 10)
+	p.feed("\x1b[3J" + "midway\r\n" + "\x1b[3J" + "final\r\n")
+
+	got := p.history()
+	if len(got) != 1 || ansi.Strip(got[0]) != "final" {
+		t.Errorf("history = %q, want only the line after the last erase", got)
+	}
+}
+
 // The ring is what stops a chatty remote growing without bound for as long as
 // sshu is open — sessions keep reading whether or not anything is looking.
 func TestHistoryIsCappedAtTheOldestEnd(t *testing.T) {

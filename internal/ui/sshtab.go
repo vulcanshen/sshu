@@ -119,6 +119,11 @@ type sshModel struct {
 	layout layoutMode
 	gridC  int // custom's column count; the rows follow
 
+	// copy is the focused cell's selection mode, when it has one. At most one
+	// panel can be in it: it is a thing done WITH the keyboard, and there is
+	// only one keyboard (§11.33).
+	copy copyState
+
 	focus   sshPanel
 	curSess int
 	topSess int
@@ -218,6 +223,12 @@ func (m sshModel) listRows() int {
 }
 
 func (m *sshModel) setSize(w, h int) {
+	if w != m.w || h != m.h {
+		// A frozen page is frozen at ONE size. Reflowing it would move the text
+		// out from under both ends of a half-made selection, so the mode ends
+		// with the size it was made for (§11.33).
+		m.copy.stop()
+	}
 	m.w, m.h = w, h
 	m.applyGeometry()
 	m.clampCursors()
@@ -227,6 +238,9 @@ func (m *sshModel) setSize(w, h int) {
 // layout: the side column folds while the grid holds the keyboard, and a zoom
 // only exists while a cell has it.
 func (m *sshModel) setFocus(p sshPanel) {
+	// The mode belongs to the cell that entered it. Moving the keyboard is
+	// leaving, whatever the reason for the move.
+	m.copy.stop()
 	if p != panelPty {
 		m.zoomed = false
 	}
@@ -809,6 +823,9 @@ func (m sshModel) scrollKey(k string) bool {
 // left, the one question the chrome exists to answer — where are my keystrokes
 // going — had two answers on screen at once (§11.22).
 func (m sshModel) cellTone(s *session, i int) borderTone {
+	if m.copy.on && m.copy.sessID == s.id {
+		return toneSelect
+	}
 	if m.focus == panelPty {
 		if i == m.focusPty {
 			return toneFocus
@@ -826,9 +843,12 @@ func (m sshModel) cellTone(s *session, i int) borderTone {
 func (m sshModel) cellView(s *session, i, w, h int) string {
 	innerW, innerH := w-2, h-2
 	var rows []string
-	if s.state == sessLive && !s.pty.hasSpoken() {
+	switch {
+	case m.copy.on && m.copy.sessID == s.id:
+		rows = m.copy.visible()
+	case s.state == sessLive && !s.pty.hasSpoken():
 		rows = m.connectingBody(s, innerW, innerH)
-	} else {
+	default:
 		rows = s.pty.render(innerW, innerH)
 	}
 	return panelChromeTone(innerW, fitLines(rows, innerW, innerH),
@@ -851,6 +871,51 @@ func (m sshModel) cellTitle(s *session, i, innerW int) string {
 		mark = " " + glyphHistory + " " + itoa(n)
 	}
 	return truncate(t, max(0, innerW-2-dispW(mark))) + mark
+}
+
+// focusedCellSize is the INNER size of the cell holding the keyboard. Selection
+// mode freezes a page to exactly this box, because that is the box it will be
+// drawn back into.
+func (m sshModel) focusedCellSize() (w, h int) {
+	gw, gh := m.gridArea()
+	shown := m.shownSessions()
+	if len(shown) == 0 {
+		return 0, 0
+	}
+	if m.zoomed && m.canZoom() {
+		return gw - 2, gh - 2
+	}
+	cols, rows := m.gridDims(len(shown))
+	ws, hs := splitEven(gw, cols), splitEven(gh, rows)
+	i := clamp(m.focusPty, 0, len(shown)-1)
+	c, r := i%cols, i/cols
+	if c >= len(ws) || r >= len(hs) {
+		return 0, 0
+	}
+	return ws[c] - 2, hs[r] - 2
+}
+
+// startCopy freezes the focused cell into selection mode. A cell that has not
+// spoken has nothing to select, so the chord does nothing there rather than
+// opening a mode onto an empty page.
+func (m *sshModel) startCopy() {
+	s := m.currentSession()
+	w, h := m.focusedCellSize()
+	if s == nil || s.state != sessLive || !s.pty.hasSpoken() || w <= 0 || h <= 0 {
+		return
+	}
+	m.copy.start(s, w, h)
+}
+
+// copyAlive reports whether the mode still has the panel it was opened on. A
+// session can end or be hidden while the mode is up, and a mode holding the
+// keyboard for a cell that is no longer there would swallow every key.
+func (m sshModel) copyAlive() bool {
+	if !m.copy.on {
+		return false
+	}
+	s := m.currentSession()
+	return s != nil && s.id == m.copy.sessID && s.state == sessLive
 }
 
 // canScroll reports whether the focused cell has history to page through, which

@@ -121,6 +121,18 @@ func (m AppModel) footer() string {
 	// mandatory disclosure for Alt+Esc: it is advertised exactly where it means
 	// something, and nowhere else.
 	if m.inPty() {
+		// Selection mode replaces the row outright: every key under the user's
+		// fingers means something different in there, and a row still offering
+		// the pty's keys would be describing a panel that is not on screen.
+		if m.ssh.copy.on {
+			return keyLegend([][2]string{
+				{"y", "copy"},
+				{"v/V", "select"},
+				{"hjkl", "move"},
+				{"u/d", "half page"},
+				{"alt+v", "leave"},
+			}, m.w)
+		}
 		// The tab keys are NOT offered: they are bare letters now, and in here a
 		// bare letter is the remote's (§11.21). What is left is sshu's own Alt
 		// keys, which no remote can claim.
@@ -146,6 +158,13 @@ func (m AppModel) footer() string {
 		if m.ssh.canScroll() {
 			pairs = append(pairs, [2]string{"pgup/pgdn", "history"})
 		}
+		// The way to get text OUT of the cell. Unconditional: inPty already
+		// means a live session that has spoken, which is everything the mode
+		// needs. It sits ahead of the cell chord because keyLegend drops from
+		// the END on a cramped footer, and there is no other way to reach this
+		// at all — a bare `?` in here belongs to the remote, so the footer is
+		// the only live disclosure the pty has (§11.33, §11.19).
+		pairs = append(pairs, [2]string{"alt+v", "select"})
 		pairs = append(pairs, [2]string{"alt+" + arrowGlyphs + arrowUpDown, "cell"})
 		return keyLegend(pairs, m.w)
 	}

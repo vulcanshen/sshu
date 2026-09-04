@@ -50,6 +50,8 @@ var helpContent = []helpEntry{
 	{"Alt+Enter", "fill the screen with this cell"},
 	{"Alt+Esc", "leave the zoom, then the pty"},
 	{"PgUp · PgDn", "page this cell's history"},
+	{"Alt+v", "select and copy out of this cell"},
+	{"hjkl · u · d", "…move there, v / V select, y copies"},
 	{"", "Navigate"},
 	{"j · k", "move cursor"},
 	{"u · d", "half a page"},

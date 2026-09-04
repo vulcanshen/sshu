@@ -104,6 +104,20 @@ func (m *credForm) moveFocus(d int) {
 	}
 }
 
+// complete is the host form's rule, on the sibling form: every enabled text
+// field has a value, and enabled() already says which those are — password
+// wants Password, privatekey wants IdentityFile. See hostForm.complete for why
+// this is not the same question as validity (§11.34).
+func (m credForm) complete() bool {
+	for i := range m.fields {
+		if m.enabled(i) && m.fields[i].kind == fieldText &&
+			strings.TrimSpace(m.fields[i].value) == "" {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *credForm) syncFocus() {
 	if !m.enabled(m.focus) {
 		m.moveFocus(1)
@@ -128,11 +142,16 @@ func (m credForm) update(msg tea.KeyMsg) (credForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		// The path field's Enter: only the EMPTY field opens the picker. Filled,
-		// it saves like every other field — enter → pick → enter → saved. And
-		// replacing a pick is Backspace (the whole line) then Enter again.
+		// Same one question as the host form: finished → save, not finished →
+		// next, looping (§11.34). The EMPTY path field keeps its exception,
+		// because stepping over it would step over the only row that cannot be
+		// filled any other way.
 		if m.focus == cIdentity && strings.TrimSpace(f.value) == "" {
 			return m, formBrowse
+		}
+		if !m.complete() {
+			m.moveFocus(1)
+			return m, formNone
 		}
 		return m, formSubmit
 	case tea.KeyBackspace:
@@ -190,16 +209,20 @@ func (m credForm) view() string {
 	// The hint names what THIS field does with Enter — on the EMPTY path row
 	// Enter browses rather than saves, and saying so is the standing
 	// disclosure (§4.5).
+	enter := "save"
+	if !m.complete() {
+		enter = "next"
+	}
 	var pairs [][2]string
 	switch {
 	case m.focus == cIdentity && strings.TrimSpace(m.fields[cIdentity].value) == "":
 		pairs = [][2]string{{"Enter", "browse"}, {"Tab", "next"}, {"Esc", "cancel"}}
 	case m.focus == cIdentity:
-		pairs = [][2]string{{"Enter", "save"}, {"Backspace", "clear"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Enter", enter}, {"Backspace", "clear"}, {"Esc", "cancel"}}
 	case m.fields[m.focus].kind == fieldToggle:
-		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", "save"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Tab", "next"}, {arrowGlyphs, "switch"}, {"Enter", enter}, {"Esc", "cancel"}}
 	default:
-		pairs = [][2]string{{"Tab", "next"}, {"Enter", "save"}, {"Esc", "cancel"}}
+		pairs = [][2]string{{"Tab", "next"}, {"Enter", enter}, {"Esc", "cancel"}}
 	}
 
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+title+" ", hintLegend(pairs),

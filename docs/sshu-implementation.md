@@ -382,6 +382,10 @@ v0.2 到 v1.1.0 這裡是 `Alt+p/f/s` 和絃,帶一個固定亮的 `[Alt]` 鏈�
 才選得到)。對 ssh 工具而言那是高頻動作,所以 `[3]` 的 scrollback 走
 `PgUp`/`PgDown` 而不是滾輪(design §11.19)。
 
+**而「怎麼跟選字共存」的答案是:不開 mouse。** grid 本來就破壞原生選字(拖曳沿著
+實體列走,會抓到邊框和隔壁格子),補救走**鍵盤**的選取模式 `Alt+v`(design
+§11.33)—— 它在自己以外不花任何東西,開 mouse 則要拿整個 app 的原生選字去換。
+
 ---
 
 ## §6. 浮層 in sshu — Popup Convention
@@ -555,6 +559,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Enter zoom**(一格佔滿,Alt+Esc 一次剝一層)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
 | pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
+| pty **選取模式**:`Alt+v` 凍結該格(`copySnapshot` = scrollback 尾巴被當下 grid 蓋掉)、border 轉黃、`hjkl`/`u`/`d` 走游標、`v`/`V` 選、`y` 寫本機剪貼簿(`pbcopy` / `wl-copy` / `xclip` / `xsel`)並結束 | `ui/copymode.go` `ui/clipboard.go` `ui/pty_unix.go` `ui/sshtab.go` |
 | manage:nav(分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
 | 「選值欄位」互動:空欄 Enter 開選單、**有值 Enter 送出**、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
@@ -581,7 +586,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 ---
 
-## 附錄 — sshu hotkey 全表(v1.3.0)
+## 附錄 — sshu hotkey 全表(v1.3.1)
 
 **bracket 印的那個大小寫就是唯一按得動的鍵**(§4.4)。
 
@@ -600,7 +605,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|---|
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
 | `[2]` Hosts | `Enter` · `V` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ **View**(`detailPopup`,§6.1 viewport 類;密碼固定寬遮罩、credential 就地解析,design §11.29)/ Add / Edit / Delete / Search |
-| `[2]` Credentials | `Enter` · `V` · `A` · `D` | Edit / **View**(只有 auth 那一段;名字在浮層標題)/ Add / Delete(先問,列出引用數) |
+| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · `A` · `D` | Edit / **View**(只有 auth 那一段;名字在浮層標題)/ Add / Delete(先問,列出引用數) |
 | `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 
@@ -610,9 +615,11 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|
 | `Tab`/`Shift+Tab`/`↑``↓` | 換欄(所有欄位一致) |
 | `←` `→`(Auth) | password / privatekey / credential(host form) |
-| `Enter`(IdentityFile / Credential 欄) | **空欄開選單、有值送出**(與其他欄一致) |
+| `Enter`(IdentityFile / Credential,**空欄**) | 開選單 —— 唯一的例外,那一欄沒有別的辦法填 |
 | `Backspace`(同上) | **整行清除** |
-| `Enter`(其他欄)· `Esc` | 送出 / 取消 |
+| `Enter`(其他所有情況) | `complete()` ? 送出 : `moveFocus(1)`。必填集合 **就是 `enabled()` 的集合**(不另建清單);「有值」≠「有效」,前者由 hint 揭露、後者由錯誤列(design §11.34) |
+| 底部 hint | `Enter next` / `Enter save`,隨填寫即時翻面 |
+| `Esc` | 取消 |
 
 ### [F]ile transfer(小寫=游標列,大寫=整個 panel)
 
@@ -635,7 +642,9 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 格子(pty) | `Alt+Enter` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25) |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | **`PgUp`/`PgDown`** | 遠端**不在** alt screen 時捲這一格的歷史(`scrollback`,10000 行上限;`readLoop` 存的是**進來的 bytes**,不是回頭讀 vt10x 的列 —— 那些列早就被清掉了);在 alt screen 時原封送給遠端,讓 vim / less 自己翻頁(design §11.19) |
-| 格子(pty) | `Alt+Esc` | **一次剝一層**:zoom 中先離開 zoom(鍵盤留在格子裡),再按才收回鍵盤、回 `[1]`(design §11.25) |
+| 格子(pty) | `Alt+Esc` | **一次剝一層**:選取模式中先離開它,zoom 中先離開 zoom(鍵盤留在格子裡),再按才收回鍵盤、回 `[1]`(design §11.25) |
+| 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格供複製;再按一次離開。模式開著時 `Alt+方向鍵` / `Alt+Enter` 不作用,是刻意的模態(design §11.33) |
+| 選取模式 | `h`/`j`/`k`/`l` · `u`/`d` · `v`/`V` · `y` · `Esc` | 游標(撞邊界捲凍結的頁面)/ 半頁 / char / line 選取 / 複製並結束 / 先丟選取再離開。**其餘所有鍵一律吞掉**,不送遠端 |
 
 ### 全域
 

@@ -209,7 +209,10 @@ func popupInnerW(screenW, want int) int {
 // Spacing is tighter than the footer's because a border line has no room to
 // breathe: one space inside a pair, two between them.
 func hintLegend(pairs [][2]string) string {
-	k := lipgloss.NewStyle().Foreground(handColor)
+	// The same blue as the footer, and for the same reason: these two ARE the
+	// one legend at two scales, so a key that is blue on the app's bottom row
+	// cannot be a different colour on a popup's (§4.4).
+	k := lipgloss.NewStyle().Foreground(focusColor)
 	d := lipgloss.NewStyle().Foreground(dimColor)
 	parts := make([]string, 0, len(pairs))
 	for _, p := range pairs {

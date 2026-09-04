@@ -20,7 +20,7 @@ type credAction struct {
 
 var credActions = []credAction{
 	// item — the credential under the cursor
-	{key: "enter", label: "Edit", hint: "Enter . change this credential", needsCred: true, run: AppModel.openCredEdit},
+	{key: "E", label: "Edit", hint: "Enter . change this credential", needsCred: true, run: AppModel.openCredEdit},
 	{key: "V", label: "View", hint: "how this credential authenticates", needsCred: true, run: AppModel.openCredView},
 	{key: "D", label: "Delete", hint: "remove from credentials.yaml", needsCred: true, run: AppModel.askDeleteCred},
 
@@ -43,6 +43,15 @@ func (m AppModel) credsApplicable() ([]string, []credAction) {
 
 func (m AppModel) credsKey(k string) (tea.Model, tea.Cmd) {
 	keys, acts := m.credsApplicable()
+	// Enter is a SYNONYM for [E]dit here, not a row of its own. On a host row
+	// Enter connects and E edits; a credential has nothing to connect to, so
+	// "go in" and "edit" are the same door. It stays a synonym rather than the
+	// row's key because a row keyed on Enter prints no bracket (§4.4), and the
+	// only way left to learn the action is to press Enter and see what happens.
+	// The hint still names Enter, so both keys are disclosed.
+	if k == "enter" {
+		k = "E"
+	}
 	if i := hotkeyIndex(keys, k); i >= 0 {
 		return acts[i].run(m)
 	}

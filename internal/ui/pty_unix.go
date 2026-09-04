@@ -140,15 +140,19 @@ func (p *ptyTerm) capture(buf []byte) {
 	}
 	// A terminal forgets its history only when asked to, and \x1b[3J is the ask.
 	// \x1b[2J is NOT: it erases the SCREEN, and scrolling back past a `clear` to
-	// what was there before is exactly what a scrollback is for. macOS `clear`
-	// happens to send both, which is why it drops the history here and in the
-	// user's own terminal alike — matching what their terminal does is the point.
-	if bytes.Contains(buf, []byte("\x1b[3J")) || bytes.Contains(buf, []byte("\x1bc")) {
+	// what was there before is exactly what a scrollback is for. `clear` sends
+	// both, which is why it drops the history here and in the user's own terminal
+	// alike — matching what their terminal does is the point.
+	//
+	// An erase drops what came BEFORE it, and only that. `clear && ls` arrives as
+	// one chunk, so returning here would throw the ls away too and leave the panel
+	// correctly reporting a history it never got the chance to keep.
+	if end := eraseEnd(buf); end >= 0 {
 		p.scrollback = nil
 		p.scrollOff = 0
 		p.pendingLine.Reset()
 		p.pendingCR = false
-		return
+		buf = buf[end:]
 	}
 	for _, b := range buf {
 		if p.pendingCR {
@@ -170,6 +174,19 @@ func (p *ptyTerm) capture(buf []byte) {
 			p.pendingLine.WriteByte(b)
 		}
 	}
+}
+
+// eraseEnd finds where the last scrollback erase in buf ends, or -1 if there is
+// none. The LAST one is what counts: everything before it has already been
+// asked away, and only the bytes after it are still history.
+func eraseEnd(buf []byte) int {
+	end := -1
+	for _, seq := range [][]byte{[]byte("\x1b[3J"), []byte("\x1bc")} {
+		if i := bytes.LastIndex(buf, seq); i >= 0 && i+len(seq) > end {
+			end = i + len(seq)
+		}
+	}
+	return end
 }
 
 // commitLine moves the pending line into the ring. Blank-once-stripped lines are
@@ -412,9 +429,24 @@ func (p *ptyTerm) render(w, h int) []string {
 		}
 		return out
 	}
+	out = p.gridLines(w, h, true)
+	p.mu.Unlock()
+	return out
+}
+
+// gridLines draws the emulator grid as h lines of exactly w cells. The caller
+// holds mu.
+//
+// withCursor draws the terminal's own cursor as a reversed cell. Selection mode
+// passes false: it freezes a page and puts its OWN cursor on it, and two cursors
+// on one screen is one too many — the remote's would be pointing at where
+// typing would go, which is the one thing that cannot happen there.
+func (p *ptyTerm) gridLines(w, h int, withCursor bool) []string {
+	blank := strings.Repeat(" ", max(w, 0))
+	out := make([]string, 0, h)
 	cols, rows := p.term.Size()
 	cursorX, cursorY := -1, -1
-	if p.term.CursorVisible() {
+	if withCursor && p.term.CursorVisible() {
 		c := p.term.Cursor()
 		cursorX, cursorY = c.X, c.Y
 	}
@@ -434,12 +466,45 @@ func (p *ptyTerm) render(w, h int) []string {
 		}
 		out = append(out, s)
 	}
-	p.mu.Unlock()
-
 	for len(out) < h {
 		out = append(out, blank)
 	}
 	return out
+}
+
+// copySnapshot freezes what selection mode works on: the history, with the
+// screenful the panel is actually showing pasted over its tail.
+//
+// The tail is REPLACED, not appended. The scrollback is filled on the way IN,
+// so it already holds the lines that are still on screen — appending would show
+// every visible line twice. Leaving the screen out instead would lose the parts
+// that never reach the ring: the half-line a shell prompt ends on, and any line
+// commitLine declined to file. Replacing is the same assumption PgUp has always
+// made, that the screen is the last h entries; here it is finally written down.
+//
+// In the alt screen the grid is the whole buffer. Nothing is captured while a
+// full-screen program owns the terminal (§11.19), so there is no history to put
+// above it — and vim's own window is exactly what somebody in there wants to
+// copy out of.
+func (p *ptyTerm) copySnapshot(w, h int) []string {
+	if p == nil || p.term == nil || w <= 0 || h <= 0 {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	screen := p.gridLines(w, h, false)
+	if p.term.Mode()&vt10x.ModeAltScreen != 0 {
+		return screen
+	}
+	out := make([]string, 0, len(p.scrollback)+h)
+	for _, l := range p.scrollback[:max(0, len(p.scrollback)-h)] {
+		s := clipANSI(l, w)
+		if pad := w - dispW(s); pad > 0 {
+			s += strings.Repeat(" ", pad)
+		}
+		out = append(out, s)
+	}
+	return append(out, screen...)
 }
 
 // vt10x attribute bit positions (fixed by iota order in vt10x/state.go).

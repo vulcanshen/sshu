@@ -31,12 +31,18 @@ func TestCredPickerRendersAboveTheForm(t *testing.T) {
 // An invalid credential submit refuses loudly — a toast on top of the marked
 // field — and the form stays up so the user can finish.
 func TestCredFormInvalidSubmitToastsAndStays(t *testing.T) {
-	m := pressA(appWith(nil, nil), "1", "j", "enter", "A")
+	// Complete but wrong: the name is taken. An unfinished form does not submit
+	// at all now, so a refusal has to be earned by a form that IS finished
+	// (§11.34).
+	m := pressA(credApp(nil, []store.Credential{{Name: "ops", User: "root",
+		Auth: store.AuthPrivateKey, IdentityFile: "~/.ssh/id_ed25519"}}),
+		"1", "j", "enter", "A")
 	if !m.credFormUI.isActive() {
 		t.Fatal("setup: no form")
 	}
+	m = fillCredForm(m, "ops")
 	m.credFormUI.focus = cName
-	m = pressA(m, "enter") // nothing filled in
+	m = pressA(m, "enter")
 
 	if !m.credFormUI.isActive() {
 		t.Fatal("refusing must not close the form")
