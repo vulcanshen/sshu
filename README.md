@@ -169,7 +169,8 @@ The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Logs**, gro
 | `V` | **View** — what this row actually holds, read-only. A host shows its connection and its auth; a credential shows its auth alone. A stored password is reported as a fixed mask, never as a value, and a credential host is resolved on the spot — including saying so when the credential it names is gone |
 | `A` | Add a host / a credential |
 | `E` | Edit the row under the cursor — a host or a credential |
-| `D` | Delete it (asks first — deleting a credential counts the hosts that still reference it) |
+| `D` | **Duplicate** — an Add form arriving with every field already filled in from this row. Nothing is written and no name is invented: the form is complete, so `Enter` means save, and the name it arrives holding is taken by the row it was copied from. The first `Enter` is refused on the Name field, which is where the cursor already is |
+| `X` | Delete it (asks first — deleting a credential counts the hosts that still reference it). `D` used to do this; it means Duplicate everywhere in sshu now, and `x`/`X` means delete everywhere |
 | `/` | hosts: Search — name, user, host and port at once, ranked best-first |
 | `C` | logs: Clear the log (asks first — it erases `applogs.yaml` too) |
 

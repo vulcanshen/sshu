@@ -2355,8 +2355,16 @@ Backspace 不整行清、hint 仍寫 next)。
 
 **credential picker 曾經開在 form 底下**:composite 順序讓 form 蓋掉了它,
 而所有 isActive 斷言照樣綠 —— z-order bug 只有 render 出來的畫面抓得到,
-釘住它的測試讀的就是畫面。無效送出則是「說兩次」:error row 標出是哪一欄,
-toast 讓拒絕不可能被錯過,form 留在原地讓人填完。新互動是使用者描述的流程原樣:**空欄 Enter 開選單 → 選好 Enter →
+釘住它的測試讀的就是畫面。無效送出**只說一次**:error row 標出是哪一欄、標紅、
+把游標移過去,form 留在原地讓人填完。
+
+> **原本 cred form 還會再彈一個 toast,已經拿掉**(使用者當場定案)。理由不是
+> 「兩次太吵」,是**同一句話在同一個時刻出現在兩個地方**:浮層自己就在顯示它,
+> 而 toast 飄在別處、蓋在那個已經寫著同一句話的浮層上(§6.7 說的是就地修好、
+> 不要疊)。而且 host form **從來就沒有 toast** —— 真正錯的是兩張姊妹表單用不同
+> 的方式拒絕,現在兩邊一致。
+
+新互動是使用者描述的流程原樣:**空欄 Enter 開選單 → 選好 Enter →
 有值的欄 Enter 跳下一欄;Backspace 整行清除**,選來的值是被替換的,不是
 一個字母一個字母刮掉的。`Tab` 回歸全欄位一致的「下一欄」。host form 的
 Credential 欄與 credForm 的 IdentityFile 欄同一套;兩張 form 共用同一個
@@ -3845,6 +3853,64 @@ completeness 不看哪些列是亮的、hint 一律說 save、cred Enter 一律�
 
 ---
 
+### 11.35 `[D]uplicate` —— 順便把 `D` 這個字母的分裂修好
+
+Hosts 和 Credentials 要一個 duplicate。而 `D` 已經給了 Delete。
+
+#### 這不是「找一個沒被佔的字母」的問題
+
+攤開來看,`D` **早就在同一個 app 裡代表兩件事**:
+
+| tab | 鍵 | 意思 |
+|---|---|---|
+| `[S]SH` `[1]` sessions | `D` | **Duplicate** |
+| `[F]ile transfer` | `x` / `X` | **Delete**(項 / marks) |
+| `[M]anage` `[2]` | `D` | **Delete** ← 唯一的異類,兩邊都撞 |
+
+sshu 其實已經有「刪除 = `x`/`X`」和「複製 = `D`」兩套既有字彙,只有 Manage 的
+`D` 兩邊都對不上。所以答案不是給 duplicate 找個新字母,而是**把 Manage 的
+Delete 移到 `X`**,`D` 讓給 duplicate。收斂成一句話:**`D` 一律是 Duplicate,
+`X` 一律是刪掉。**(`C` 在 sessions 是 Close —— 結束一條**連線**,不是刪掉一筆
+**記錄**,概念不同,不參與這件事。)
+
+**改錯的方向是安全的那一邊**:習慣 `D`=Delete 的手按下去會得到一個 duplicate
+—— 無害,而且還會停在一個要按 Esc 才走的表單上;反過來(以為是 duplicate 卻刪掉)
+才是危險的方向。兩個動作都有確認,不會即時發生。
+
+小寫 `d` 是導覽鍵(半頁下),但 dispatch **區分大小寫**(`hotkeyIndex` 早就拿掉
+了 case-fold,§4.4 追記),所以 `D` 不會誤觸。
+
+#### duplicate 的行為:一個「已經填好的 Add」
+
+按 `D` 開的是**建立**表單,而不是寫一筆 `xxx-copy` 進檔案。每一欄都填上被複製那
+一列的值,游標停在 Name。
+
+然後**什麼都不用再做**:
+
+- 每一欄都有值 → `complete()` 為真 → **Enter 就是 save**(§11.34)。
+- 而它帶著的名字**是被佔用的** —— 被它自己複製的那一列佔用著(`openDuplicate`
+  就是 `openEdit` 但把 `editing` 留空,所以唯一性檢查會把原本那一列也算進去)。
+- 於是第一次 Enter **一定被擋**,錯誤標在 Name 上,而游標本來就在 Name 上。
+
+**強制改名這件事不是為 duplicate 寫的特例,是既有機制自己長出來的結果。** 沒有
+發明 `-copy` 後綴、沒有第二條存檔路徑、沒有新的錯誤訊息 —— 唯一性檢查在做它每天
+都在做的事,而 §11.34 的完整性規則保證了 Enter 一定走到它面前。(使用者當場定案,
+理由就是這個:「這樣的 ux 就會一致」。)
+
+`openDuplicate` 全部的實作是三行:呼叫 `openEdit`,清掉 `editing`,回傳。
+
+#### 一個已知的邊界
+
+被複製的那一列如果**本身就缺欄位**(手寫的 `hosts.yaml`、或舊規則之前建的
+privatekey host 沒有 IdentityFile),那複製出來的表單就**不完整**,Enter 會是
+`next` 而不是 save,第一次 Enter 也就不會撞名字。這不是壞掉 —— 那正是 §11.34
+在講的事,而底部 hint 會誠實地寫著 `next`。
+
+4 個 mutation 全數被抓(`openDuplicate` 不清 `editing`、hosts 少掉 Duplicate 列、
+hosts 的 Delete 移離 `X`、credentials 少掉 Duplicate 列)。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.0)
 
 ### Tab 與 panel
@@ -3869,8 +3935,8 @@ completeness 不看哪些列是亮的、hint 一律說 save、cred Enter 一律�
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events 分類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 —— 鍵盤在 `[2]` 時整片 dim(§11.13) |
-| `[2]` Hosts | `Enter` · `V` · `E` · `D` · `A` · `/` | Connect(確認)/ **View**(唯讀明細,密碼遮罩,§11.29)/ Edit / Delete(確認)/ Add / Search |
-| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · `D` · `A` | **Edit**(§11.34:原本只綁 Enter,而 Enter 印不出括號)/ **View**(只有 auth 那一段)/ Delete(確認,列出引用數)/ Add |
+| `[2]` Hosts | `Enter` · `V` · `E` · **`D`** · **`X`** · `A` · `/` | Connect(確認)/ **View**(唯讀明細,密碼遮罩,§11.29)/ Edit / **Duplicate**(填好的 Add,第一次 Enter 一定撞名字,§11.35)/ **Delete**(確認)/ Add / Search |
+| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · **`D`** · **`X`** · `A` | **Edit**(§11.34:原本只綁 Enter,而 Enter 印不出括號)/ **View**(只有 auth 那一段)/ **Duplicate**(§11.35)/ **Delete**(確認,列出引用數)/ Add |
 | `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 捲動(viewport,無游標;上畫面即已讀)/ Clear logs(先問;連 applogs.yaml,空 log 時不存在) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案,見 §11.12 追記 |
 

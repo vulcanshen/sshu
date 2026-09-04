@@ -56,6 +56,27 @@ Changes since 1.3.0:
   will not create one any more. Hand-written `hosts.yaml` is unaffected — the
   store's validation did not change.
 
+- **`[D]uplicate` on hosts and credentials, and `D` stops meaning two things.**
+  Delete moves to `X`. That is not a scramble for a free letter: `D` already
+  meant Duplicate in the sessions list and `x`/`X` already meant delete in the
+  file transfer tab, so manage's `D` was the one that agreed with neither. Now
+  `D` is Duplicate everywhere and `X` is delete everywhere. The wrong-key
+  accident also runs the safe way round — a hand that expected Delete gets a
+  form it can Escape out of, rather than the reverse.
+
+  Duplicate opens an **Add form already holding the whole row**, cursor on Name.
+  Nothing is written and no `-copy` suffix is invented. Every field has a value,
+  so `Enter` means save; the name it arrives holding belongs to the row it was
+  copied from, so that save is refused on the Name field — which is where the
+  cursor already is. Forcing the rename is the uniqueness check doing its
+  ordinary job, not a special case written for duplication.
+
+- **A refused form is said once, in the form.** The credential form used to
+  raise a toast on top of its own error row; the host form never did. The row
+  already names the field, marks it, and puts the cursor on it, and a second
+  copy of that sentence floating over the popup that is displaying it is not
+  emphasis. Both forms refuse the same way now.
+
 - **Credentials: `[E]dit` has a letter.** It was reachable only by `Enter`,
   which prints no bracket, so the only way to learn it was to press `Enter` and
   see what happened. `E` opens it now, and `Enter` still does too — on a

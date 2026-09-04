@@ -22,7 +22,8 @@ var credActions = []credAction{
 	// item — the credential under the cursor
 	{key: "E", label: "Edit", hint: "Enter . change this credential", needsCred: true, run: AppModel.openCredEdit},
 	{key: "V", label: "View", hint: "how this credential authenticates", needsCred: true, run: AppModel.openCredView},
-	{key: "D", label: "Delete", hint: "remove from credentials.yaml", needsCred: true, run: AppModel.askDeleteCred},
+	{key: "D", label: "Duplicate", hint: "a new credential starting from this one", needsCred: true, run: AppModel.openCredDuplicate},
+	{key: "X", label: "Delete", hint: "remove from credentials.yaml", needsCred: true, run: AppModel.askDeleteCred},
 
 	// panel — the table
 	{key: "A", label: "Add", hint: "a new credential", panelOp: true, run: AppModel.openCredCreate},
@@ -99,6 +100,16 @@ func (m AppModel) openCredEdit() (tea.Model, tea.Cmd) {
 		return m, m.toast.show("No credential selected", toastError)
 	}
 	return m, m.credFormUI.openEdit(c, m.layer())
+}
+
+// openCredDuplicate opens a CREATE form holding everything this credential
+// holds. Same shape as the host one, and the same reason (§11.35).
+func (m AppModel) openCredDuplicate() (tea.Model, tea.Cmd) {
+	c, ok := m.cursorCred()
+	if !ok {
+		return m, m.toast.show("No credential selected", toastError)
+	}
+	return m, m.credFormUI.openDuplicate(c, m.layer())
 }
 
 // hostsUsing counts the hosts that name this credential — the number a delete
@@ -201,11 +212,15 @@ func (m AppModel) validateCredForm() (string, int) {
 func (m AppModel) commitCredForm() (tea.Model, tea.Cmd) {
 	m.credFormUI.submitted = true
 	if msg, field := m.validateCredForm(); msg != "" {
-		// Said twice on purpose: the error row marks WHICH field, the toast
-		// makes the refusal impossible to miss. The form stays up — the whole
-		// point of refusing is letting the user finish.
+		// Said ONCE, in the form. The error row names the field, marks it red,
+		// and moves the cursor to it — a toast on top of that is the same
+		// sentence a second time, floating somewhere else, over a popup that is
+		// already showing it (§6.7: fix it in place, do not stack).
+		//
+		// It used to do both, and the host form never did — so the two sibling
+		// forms refused differently, which is the part that was actually wrong.
 		m.credFormUI.fail(msg, field)
-		return m, m.toast.show(msg, toastError)
+		return m, nil
 	}
 
 	c := m.credFormUI.credential()

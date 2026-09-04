@@ -604,8 +604,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
-| `[2]` Hosts | `Enter` · `V` · `A` · `E` · `D` · `/` | Connect(先問;credential 在此解析)/ **View**(`detailPopup`,§6.1 viewport 類;密碼固定寬遮罩、credential 就地解析,design §11.29)/ Add / Edit / Delete / Search |
-| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · `A` · `D` | Edit / **View**(只有 auth 那一段;名字在浮層標題)/ Add / Delete(先問,列出引用數) |
+| `[2]` Hosts | `Enter` · `V` · `A` · `E` · **`D`** · **`X`** · `/` | Connect(先問;credential 在此解析)/ **View**(`detailPopup`,§6.1 viewport 類;密碼固定寬遮罩、credential 就地解析,design §11.29)/ Add / Edit / **Duplicate**(`openDuplicate` = `openEdit` + 清空 `editing`,design §11.35)/ **Delete** / Search |
+| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · `A` · **`D`** · **`X`** | Edit / **View**(只有 auth 那一段;名字在浮層標題)/ Add / **Duplicate**(design §11.35)/ **Delete**(先問,列出引用數) |
 | `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 

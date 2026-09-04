@@ -37,7 +37,7 @@ func TestSpaceDismissesEveryFloat(t *testing.T) {
 			func(m AppModel) bool { return m.spaceMenu.isActive() }, false},
 		{"help", onHosts("?"),
 			func(m AppModel) bool { return m.help.isActive() }, false},
-		{"confirm", onHosts("D"),
+		{"confirm", onHosts("X"),
 			func(m AppModel) bool { return m.confirm.isActive() }, false},
 		{"host picker", func(t *testing.T) AppModel { return inSFTP(t, "H") },
 			func(m AppModel) bool { return m.hostPicker.isActive() }, false},

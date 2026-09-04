@@ -1012,7 +1012,8 @@ var hostActions = []hostAction{
 	{key: "enter", label: "Connect", hint: "Enter . ssh session", needsHost: true, run: AppModel.askConnect},
 	{key: "V", label: "View", hint: "what this host is, secrets masked", needsHost: true, run: AppModel.openHostView},
 	{key: "E", label: "Edit", hint: "change this host", needsHost: true, run: AppModel.openEdit},
-	{key: "D", label: "Delete", hint: "remove from hosts.yaml", needsHost: true, run: AppModel.askDelete},
+	{key: "D", label: "Duplicate", hint: "a new host starting from this one", needsHost: true, run: AppModel.openHostDuplicate},
+	{key: "X", label: "Delete", hint: "remove from hosts.yaml", needsHost: true, run: AppModel.askDelete},
 
 	// panel — the table
 	{key: "A", label: "Add", hint: "a new host", panelOp: true, run: AppModel.openCreate},
@@ -1141,6 +1142,21 @@ func (m AppModel) openEdit() (tea.Model, tea.Cmd) {
 		return m, m.toast.show("No host selected", toastError)
 	}
 	return m, m.form.openEdit(h, m.layer())
+}
+
+// openHostDuplicate opens a CREATE form already holding everything the row
+// under the cursor holds (§11.35). Nothing is written yet and no name is
+// invented: the form arrives complete, so Enter means save (§11.34), and the
+// name it arrives holding is taken — by the row it was copied from. The first
+// Enter is therefore refused ON the Name field, which is where the cursor
+// already is. Forcing the rename is the uniqueness check doing its ordinary
+// job, not a special case bolted on for duplication.
+func (m AppModel) openHostDuplicate() (tea.Model, tea.Cmd) {
+	h, ok := m.cursorHost()
+	if !ok {
+		return m, m.toast.show("No host selected", toastError)
+	}
+	return m, m.form.openDuplicate(h, m.layer())
 }
 
 func (m AppModel) askDelete() (tea.Model, tea.Cmd) {
