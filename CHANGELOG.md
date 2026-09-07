@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.4.1] — 2026-09-07
+
+An sshu opened inside an sshu starts at once instead of five seconds late, and
+the hosts table stops making its one genuinely fixed column look like the one
+that moves.
+
+Changes since 1.4.0:
+
+### Fixed
+
+- **A pty cell answers the questions it is asked.** Anything started in a cell
+  sat for five seconds before drawing its first frame — an sshu inside an sshu
+  most visibly, but every Bubble Tea program and anything else that asks the
+  terminal a question paid the same.
+
+  A terminal is not only a screen being written to; it is also asked things —
+  where the cursor is, what the background colour is — and the asker writes its
+  query and then **blocks on the answer**. The emulator behind a cell knew both
+  questions and produced correct answers, but its replies were being written to
+  a discard: nothing ever reached the child, which waited out its own five
+  second timeout and carried on with a guess. For a Bubble Tea program that
+  happens in package init, before `main` runs, so the delay landed before the
+  program could put anything on screen at all.
+
+  The emulator's replies now go back up the pty to the child, which is what a
+  terminal does. Measured on `sshu version` driven through a cell: 5.04s before,
+  0.06s after.
+
+### Changed
+
+- **Port is left-aligned, and Auth has room for a credential's name.** Port was
+  the only right-aligned column in the hosts table, so a short port sat behind a
+  gap that grew and shrank with its length — which made the one column whose
+  width is genuinely fixed look like the one changing size. It is left now, like
+  every other column. Right-aligning numbers is the habit from columns you add
+  up, and nobody adds up ports.
+
+  Auth was sized by the longest method name, which is the wrong measure: a host
+  using a credential shows **which** credential, and that is a name the user
+  chose — the only cell in the table whose length nobody can bound. It gets four
+  more columns. The credentials list keeps the old width, because its own Auth
+  cell only ever holds a method name; the two columns were never the same
+  column, they just happened to be the same size.
+
+  Name is now the widest column rather than the second widest, which is what the
+  table was always meant to be — it is what a host is picked by. The cost is
+  disclosed: Auth needs four more columns to survive, so it is dropped below 55
+  columns of terminal rather than 51.
+
+  Fixing the widths surfaced a rounding bug older than the change: after the
+  minimums bite, the shares could total more than the row had, and the leftover
+  cell pushed the panel's right border out of line. It never fired at the
+  previous weights.
+
 ## [1.4.0] — 2026-09-04
 
 A pty cell you can copy out of without a mouse, a form whose Enter means one
