@@ -454,10 +454,34 @@ v0.2 到 v1.1.0 這裡是 `Alt+p/f/s` 和絃,帶一個固定亮的 `[Alt]` 鏈�
 - **`Esc` 只在一個地方解析**(`closeTop`):沒有任何 popup 自己重新實作取消
 - **取消 target 會留下 source**(§6.4):從 Space menu 開的 form,`Esc` 回到 menu
 
+### 6.2.1 明細浮層腳底下的 offer(design §11.29)
+
+`detailPopup` 是 viewport,但它腳底下可以掛一個 offer:`prompt`(問句)、`accept`
+(hint 給 Enter 的動詞)、`action` + `target`。hosts 的 Enter 掛 `detailConnect`、
+credentials 的掛 `detailEditCred`;沒有 offer 時三個欄位都空著,浮層就只是浮層。
+
+三條實作約束:
+
+- **`promptRows()` 必須從 `visible()` 扣掉。** `capRows` 把整個浮層砍到
+  `screenH-6`,而 offer 是**加在捲動區之後**的兩列。不先扣,窄畫面下被砍掉的就是
+  offer 本身 —— hint 還寫著 `Enter connect`,問句卻已經不在框裡。
+- **表單取代浮層,不疊上去。** `doEditCred` 是
+  `tea.Batch(m.detail.close(), m.credFormUI.openEdit(...))`。同一列的兩個視角疊起來
+  的話,從表單 `Esc` 出來會落在一份表單剛改過的舊快照上。
+- **`commit()` 不重複判斷有沒有 offer。** 那是 `detailCommit()` 的 switch 的事,
+  寫兩次就是同一條規則兩份編碼 —— 而且 viewport 對 `enter` 沒有用途
+  (`moveScroll` 不認),所以那個 guard 根本不可能被觀察到。
+
+`confirmConnect` 因此整個移除:`askConnect` 是它唯一的生產者。
+
 ### 6.3 破壞性動作一律先問
 
 Delete host、Close session、Quit(有 live session 或進行中傳輸時)、sftp 的 `x` /
 `X`、覆寫。問句一律說**數量與哪一台**——兩邊長得很像,只說「2 個檔案」不夠。
+
+**Connect 不在這張表上了。** 它以前有自己的 message 類浮層,但連線不是破壞性動作
+—— 那個確認框真正在做的是「先讓你看清楚要去哪」,而明細本來就說得更完整。現在它是
+明細腳底下的一行(§6.2.1),被否決的做法與理由在 design §11.29。
 
 ---
 
@@ -465,9 +489,9 @@ Delete host、Close session、Quit(有 live session 或進行中傳輸時)、sft
 
 ### 7.1 context shift 之後清除 source
 
-Connect 確認 `Enter` 之後:confirm 收掉 → Space menu 收掉 → 切到 tab [3] → 開
-session。ssh session 是**長時 target**,使用者出來時注意力早已轉移。同一判準適用
-sftp 傳輸。
+明細腳底的 Connect offer 按 `Enter` 之後:明細收掉 → Space menu 收掉 → 切到
+tab [3] → 開 session。ssh session 是**長時 target**,使用者出來時注意力早已轉移。
+同一判準適用 sftp 傳輸。
 
 ### 7.2 session 完全不落地
 
@@ -603,6 +627,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
 | `hosts.yaml`:XDG 解析、atomic 0600 寫入、警告標頭;`auth: credential` + `Resolve` | `store/store.go` `store/hosts.go` |
 | `credentials.yaml`:與 hosts 同一組緩解;name 唯一、credential 不能再指 credential | `store/credentials.go` |
+| **載入時去重**:兩個檔都跑 `dedupeByName`,保留第一筆、回傳丟掉的名字;不改檔案,只在 app log 記一行 `warn`(design §11.38) | `store/store.go dedupeByName` `store/hosts.go` `store/credentials.go` `cmd/sshu/main.go dupeWarning` `ui/app.go WithStartupWarning` |
+| **明細浮層帶 offer**:`Enter` 開唯讀明細,腳底 `prompt`/`accept` 是連線或編輯的問句;`V` 已還給 splash 彩蛋(design §11.29) | `ui/detail.go` `ui/app.go detailCommit` `ui/credkeys.go doEditCred` |
 | `config.yaml`:唯讀設定,`connect_timeout` 兩個 tab 共用;缺檔用預設、壞檔進 app log | `store/config.go` |
 | `SSH_ASKPASS` 供密碼(不進子行程環境) | `cmd/sshu/main.go` `ui/session.go` |
 
@@ -620,7 +646,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 
 ---
 
-## 附錄 — sshu hotkey 全表(v1.4.1)
+## 附錄 — sshu hotkey 全表(v1.4.2)
 
 **bracket 印的那個大小寫就是唯一按得動的鍵**(§4.4)。
 
@@ -638,8 +664,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
-| `[2]` Hosts | `Enter` · `V` · `A` · `E` · **`D`** · **`X`** · `/` | Connect(先問;credential 在此解析)/ **View**(`detailPopup`,§6.1 viewport 類;密碼固定寬遮罩、credential 就地解析,design §11.29)/ Add / Edit / **Duplicate**(`openDuplicate` = `openEdit` + 清空 `editing`,design §11.35)/ **Delete** / Search |
-| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · `A` · **`D`** · **`X`** | Edit / **View**(只有 auth 那一段;名字在浮層標題)/ Add / **Duplicate**(design §11.35)/ **Delete**(先問,列出引用數) |
+| `[2]` Hosts | **`Enter`** · `A` · `E` · `D` · `X` · `/` | **Enter = `detailPopup`(§6.1 viewport 類)+ 腳底 offer `Connect to "<name>"?`**;密碼固定寬遮罩、credential 就地解析,解析失敗就不給 offer(design §11.29)/ Add / Edit / **Duplicate**(`openDuplicate` = `openEdit` + 清空 `editing`,design §11.35)/ **Delete** / Search |
+| `[2]` Credentials | **`Enter`** · **`E`** · `A` · `D` · `X` | **Enter = `detailPopup` + 腳底 offer `Edit "<name>"?`**(只有 auth 那一段;名字在浮層標題)/ Edit(直達表單)/ Add / **Duplicate**(design §11.35)/ **Delete**(先問,列出引用數) |
 | `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 

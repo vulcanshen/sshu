@@ -142,27 +142,34 @@ func TestConnectResolvesTheCredential(t *testing.T) {
 	}
 }
 
-// A dangling reference fails AT THE CONFIRM, with a sentence — not three
-// keystrokes later inside ssh.
+// A dangling reference fails BEFORE ssh, in the float Enter opens — not three
+// keystrokes later inside it.
+//
+// It used to be a toast plus a log line over a float that never opened, which
+// named the credential but not much else and landed away from the row. Now the
+// float opens, the credential's own row says what is wrong with it in red, and
+// the connect offer is simply not made — the refusal is on the thing being
+// refused (§11.34).
 func TestConnectWithAMissingCredentialSaysSo(t *testing.T) {
 	hosts := []store.Host{{Name: "web", Host: "h", Port: 22,
 		Auth: store.AuthCredential, Credential: "gone"}}
-	m := pressA(credApp(hosts, nil), "enter")
+	m := settle(pressA(credApp(hosts, nil), "enter"))
 
-	if m.confirm.isActive() {
-		t.Fatal("the confirm must not open over a connection that cannot be made")
+	if !m.detail.isActive() {
+		t.Fatal("the float must open — it is where the reason is")
 	}
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, "gone") || !strings.Contains(v, "cannot connect") {
+		t.Errorf("the float should name the credential and the cost:\n%s", v)
+	}
+	if strings.Contains(v, "Connect to") {
+		t.Errorf("a connection that cannot be made must not be offered:\n%s", v)
+	}
+	// Enter is inert with no offer on the float, so the second press cannot
+	// smuggle the connection through.
+	m = settle(pressA(m, "enter"))
 	if len(m.ssh.sessions) != 0 {
 		t.Fatal("no session should have been opened")
-	}
-	found := false
-	for _, e := range m.log.entries {
-		if e.level == logError && strings.Contains(e.msg, "gone") {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("the missing credential should be in the log, by name")
 	}
 }
 

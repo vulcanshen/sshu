@@ -10,7 +10,8 @@ type confirmAction int
 
 const (
 	confirmNone confirmAction = iota
-	confirmConnect
+	// There is no confirmConnect: connecting is now offered by the detail float
+	// rather than by a confirmation of its own (§11.29).
 	confirmDelete
 	confirmClose         // kill a live session
 	confirmCloseAll      // kill every live session at once

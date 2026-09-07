@@ -150,6 +150,16 @@ func (m AppModel) WithStartupError(msg string) AppModel {
 	return m
 }
 
+// WithStartupWarning is WithStartupError's quieter sibling: something about the
+// on-disk state was not what sshu expected, sshu carried on anyway, and the
+// difference is worth saying out loud. A duplicate name dropped on load is the
+// case it exists for — nothing failed, but the file and the list on screen no
+// longer agree, and only the user can close that gap.
+func (m AppModel) WithStartupWarning(msg string) AppModel {
+	m.log.warn(msg)
+	return m
+}
+
 func (m AppModel) Init() tea.Cmd { return nil }
 
 func (m AppModel) panelHeight() int { return m.h - chromeRows }
@@ -507,10 +517,11 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// to be standing on is the menu they just opened.
 		return m, m.help.open(m.layer())
 	}
-	// V is the hidden u-family easter egg: the logo, revealed. It is the
-	// LOWEST claim on the key in the app — a panel with a real [V]iew takes
-	// it, and the logo gets what is left (§11.29).
-	if msg.String() == "V" && !m.typing() && !m.popupOpen() && !m.panelClaimsView() {
+	// V is the hidden u-family easter egg: the logo, revealed. It used to stand
+	// aside for a panel with a real [V]iew; nothing claims the letter any more
+	// (§11.29), so the key is the egg's everywhere outside a pty and a text
+	// field.
+	if msg.String() == "V" && !m.typing() && !m.popupOpen() {
 		return m, m.splash.show()
 	}
 
@@ -555,6 +566,13 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.viewer.update(msg)
 		return m, nil
 	case m.detail.anim.owns():
+		// The detail float is a viewport that may also be standing between the
+		// user and one action (§11.29). Enter commits that action when there is
+		// one; every other key, Enter included when there is not, is the
+		// viewport's.
+		if m.detail.commit(msg) {
+			return m.detailCommit()
+		}
 		m.detail.update(msg)
 		return m, nil
 	case m.editorUI.anim.owns():
@@ -942,26 +960,6 @@ func (m AppModel) popupOpen() bool {
 		m.viewer.anim.owns() || m.editorUI.anim.owns() || m.detail.anim.owns()
 }
 
-// panelClaimsView reports whether the focused panel's own table takes V right
-// now. It asks the SAME applicable-actions function the menu asks rather than
-// restating the condition, so the easter egg cannot come to disagree with the
-// row it is standing aside for — including on an empty table, where there is
-// nothing to view and the logo is welcome to the key (§4.2).
-func (m AppModel) panelClaimsView() bool {
-	if m.tab != tabPref || m.pref.focus != panelPrefContent {
-		return false
-	}
-	switch m.pref.item {
-	case prefHosts:
-		keys, _ := m.hostsApplicable()
-		return hotkeyIndex(keys, "V") >= 0
-	case prefCreds:
-		keys, _ := m.credsApplicable()
-		return hotkeyIndex(keys, "V") >= 0
-	}
-	return false
-}
-
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
 // otherwise navigation.
 func (m AppModel) hostsKey(k string) (tea.Model, tea.Cmd) {
@@ -1009,8 +1007,7 @@ type hostAction struct {
 // menu should show (bracketHotkey). Either case still fires it — see hotkeyIndex.
 var hostActions = []hostAction{
 	// item — the host under the cursor
-	{key: "enter", label: "Connect", hint: "Enter . ssh session", needsHost: true, run: AppModel.askConnect},
-	{key: "V", label: "View", hint: "what this host is, secrets masked", needsHost: true, run: AppModel.openHostView},
+	{key: "enter", label: "Connect", hint: "Enter . what it is, then in", needsHost: true, run: AppModel.openHost},
 	{key: "E", label: "Edit", hint: "change this host", needsHost: true, run: AppModel.openEdit},
 	{key: "D", label: "Duplicate", hint: "a new host starting from this one", needsHost: true, run: AppModel.openHostDuplicate},
 	{key: "X", label: "Delete", hint: "remove from hosts.yaml", needsHost: true, run: AppModel.askDelete},
@@ -1178,34 +1175,18 @@ func (m AppModel) askDelete() (tea.Model, tea.Cmd) {
 	}, m.layer())
 }
 
-func (m AppModel) askConnect() (tea.Model, tea.Cmd) {
-	h, ok := m.cursorHost()
-	if !ok {
-		return m, m.toast.show("No host selected", toastError)
+// detailCommit runs whatever the open detail float was offering. It is the
+// counterpart of confirmKey and deliberately looks like it: one switch, one
+// action per case, and the target carried on the float rather than re-read from
+// the cursor.
+func (m AppModel) detailCommit() (tea.Model, tea.Cmd) {
+	switch m.detail.action {
+	case detailConnect:
+		return m.doConnect(m.detail.target)
+	case detailEditCred:
+		return m.doEditCred(m.detail.target)
 	}
-	// Resolve NOW, so the confirmation shows who the connection will actually
-	// run as — and so a missing credential fails here, with a sentence, rather
-	// than three keystrokes later inside ssh.
-	rh, err := store.Resolve(h, m.creds.creds)
-	if err != nil {
-		m.log.errorf(err.Error())
-		return m, m.toast.show(err.Error(), toastError)
-	}
-	authNote := string(h.Auth)
-	if h.Auth == store.AuthCredential {
-		authNote = "credential " + h.Credential
-	}
-	return m, m.confirm.ask(confirmPopup{
-		glyph: glyphConnect,
-		title: "Connect",
-		lines: []string{
-			fmt.Sprintf("Connect to %s?", h.Name),
-			rh.Addr() + "  ·  " + authNote,
-		},
-		accept: "connect",
-		action: confirmConnect,
-		target: h.Name,
-	}, m.layer())
+	return m, nil
 }
 
 func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1215,8 +1196,6 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.confirm.action {
 	case confirmDelete:
 		return m.doDelete(m.confirm.target)
-	case confirmConnect:
-		return m.doConnect()
 	case confirmClose:
 		return m.doClose(m.confirm.target)
 	case confirmCloseAll:
@@ -1265,8 +1244,8 @@ func (m AppModel) doDelete(name string) (tea.Model, tea.Cmd) {
 // the whole float stack goes before the tab switches — coming back out of a
 // session onto a stale menu would just be disorienting. It lands in the remote,
 // because reaching a remote is what the key was pressed for.
-func (m AppModel) doConnect() (tea.Model, tea.Cmd) {
-	i := indexOfHost(m.hosts.hosts, m.confirm.target)
+func (m AppModel) doConnect(name string) (tea.Model, tea.Cmd) {
+	i := indexOfHost(m.hosts.hosts, name)
 	if i < 0 {
 		return m, m.closeStack()
 	}

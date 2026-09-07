@@ -94,29 +94,35 @@ func CredsPath() (string, error) {
 	return dir + string(os.PathSeparator) + "credentials.yaml", nil
 }
 
-// LoadCreds reads credentials.yaml. Missing is the first-run empty state.
-func LoadCreds() (CredsFile, error) {
+// LoadCreds reads credentials.yaml. Missing is the first-run empty state. The
+// second return is the names of any credentials dropped for repeating one.
+func LoadCreds() (CredsFile, []string, error) {
 	path, err := CredsPath()
 	if err != nil {
-		return CredsFile{Version: currentVersion}, err
+		return CredsFile{Version: currentVersion}, nil, err
 	}
 	return LoadCredsFrom(path)
 }
 
-// LoadCredsFrom is LoadCreds against an explicit path (tests).
-func LoadCredsFrom(path string) (CredsFile, error) {
+// LoadCredsFrom is LoadCreds against an explicit path (tests). Duplicate names
+// are dropped and reported, exactly as LoadFrom does it — the two files pose the
+// same problem, and a rule that held on one of them but not the other would be
+// the harder thing to remember.
+func LoadCredsFrom(path string) (CredsFile, []string, error) {
 	f := CredsFile{Version: currentVersion}
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return f, nil
+		return f, nil, nil
 	}
 	if err != nil {
-		return f, err
+		return f, nil, err
 	}
 	if err := yaml.Unmarshal(raw, &f); err != nil {
-		return CredsFile{Version: currentVersion}, fmt.Errorf("%s: %w", path, err)
+		return CredsFile{Version: currentVersion}, nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return f, nil
+	var dropped []string
+	f.Credentials, dropped = dedupeByName(f.Credentials, func(c Credential) string { return c.Name })
+	return f, dropped, nil
 }
 
 // SaveCreds writes credentials.yaml atomically at 0600.

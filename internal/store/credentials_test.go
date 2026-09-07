@@ -25,7 +25,7 @@ func TestCredsRoundTripAndPerms(t *testing.T) {
 		t.Fatalf("credentials.yaml holds plaintext passwords, want 0600, got %o", perm)
 	}
 
-	out, err := LoadCredsFrom(path)
+	out, _, err := LoadCredsFrom(path)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -36,12 +36,40 @@ func TestCredsRoundTripAndPerms(t *testing.T) {
 }
 
 func TestCredsMissingFileIsEmptyNotError(t *testing.T) {
-	f, err := LoadCredsFrom(filepath.Join(t.TempDir(), "nope.yaml"))
+	f, _, err := LoadCredsFrom(filepath.Join(t.TempDir(), "nope.yaml"))
 	if err != nil {
 		t.Fatalf("missing file must not error: %v", err)
 	}
 	if len(f.Credentials) != 0 {
 		t.Fatalf("want no credentials, got %d", len(f.Credentials))
+	}
+}
+
+// credentials.yaml is the same problem as hosts.yaml and gets the same answer,
+// because a rule that held on one of the two files would be the harder one to
+// remember.
+func TestLoadCredsDropsDuplicateNamesAndSaysWhich(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "credentials.yaml")
+	os.WriteFile(path, []byte("version: 1\ncredentials:\n"+
+		"  - {name: deploy, user: first, auth: password}\n"+
+		"  - {name: ops, user: ops, auth: password}\n"+
+		"  - {name: deploy, user: second, auth: password}\n"), 0o600)
+
+	f, dropped, err := LoadCredsFrom(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Credentials) != 2 {
+		t.Fatalf("want the two distinct names, got %+v", f.Credentials)
+	}
+	if f.Credentials[0].User != "first" {
+		t.Errorf("the first entry of a repeated name should win, got %+v", f.Credentials[0])
+	}
+	if len(dropped) != 1 || dropped[0] != "deploy" {
+		t.Errorf("want the dropped entry reported by name, got %q", dropped)
+	}
+	if err := f.Validate(); err != nil {
+		t.Errorf("a de-duped list must be saveable, got %v", err)
 	}
 }
 

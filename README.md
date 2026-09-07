@@ -265,7 +265,7 @@ Inside it the cell stops following the remote — the session keeps running and 
 
 ## Status
 
-**v1.3.0.** Three tabs on one shifted letter each, the grouped `[1] sshu` nav, reusable credentials with a read-only `[V]iew` of what any row actually holds, the persistent app log, the ssh terminal grid with pageable history, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v1.3.0.** Three tabs on one shifted letter each, the grouped `[1] sshu` nav, reusable credentials with a read-only look at what any row actually holds — `Enter`, with the thing `Enter` was for offered at the foot of it — the persistent app log, the ssh terminal grid with pageable history, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 - **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab

@@ -280,10 +280,10 @@ func TestCredentialAddEditDelete(t *testing.T) {
 		t.Errorf("adding a credential is an event, log has:\n%s", joined)
 	}
 
-	// Enter edits, prefilled.
-	m = pressA(m, "enter")
+	// Enter looks, then Enter edits — prefilled.
+	m = settle(pressA(m, "enter", "enter"))
 	if !m.credFormUI.isActive() || m.credFormUI.fields[cName].value != "ops" {
-		t.Fatal("Enter should open the edit form prefilled")
+		t.Fatal("Enter through the float should open the edit form prefilled")
 	}
 	// Two Escapes: the save toast is still up and Esc pops one float at a
 	// time, topmost first.

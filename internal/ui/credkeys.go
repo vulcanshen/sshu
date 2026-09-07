@@ -20,8 +20,8 @@ type credAction struct {
 
 var credActions = []credAction{
 	// item — the credential under the cursor
-	{key: "E", label: "Edit", hint: "Enter . change this credential", needsCred: true, run: AppModel.openCredEdit},
-	{key: "V", label: "View", hint: "how this credential authenticates", needsCred: true, run: AppModel.openCredView},
+	{key: "enter", label: "View", hint: "Enter . how this one authenticates", needsCred: true, run: AppModel.openCredDetail},
+	{key: "E", label: "Edit", hint: "change this credential", needsCred: true, run: AppModel.openCredEdit},
 	{key: "D", label: "Duplicate", hint: "a new credential starting from this one", needsCred: true, run: AppModel.openCredDuplicate},
 	{key: "X", label: "Delete", hint: "remove from credentials.yaml", needsCred: true, run: AppModel.askDeleteCred},
 
@@ -42,17 +42,13 @@ func (m AppModel) credsApplicable() ([]string, []credAction) {
 	return keys, acts
 }
 
+// credsKey dispatches one key on the credentials panel. Enter is a row of its
+// own now rather than a synonym for [E]dit: it opens the read-only detail, from
+// whose foot Enter goes on to the form (§11.29). E still goes straight there,
+// so the shortcut is not lost — what changed is that "look at this" no longer
+// has to be a form you might type into.
 func (m AppModel) credsKey(k string) (tea.Model, tea.Cmd) {
 	keys, acts := m.credsApplicable()
-	// Enter is a SYNONYM for [E]dit here, not a row of its own. On a host row
-	// Enter connects and E edits; a credential has nothing to connect to, so
-	// "go in" and "edit" are the same door. It stays a synonym rather than the
-	// row's key because a row keyed on Enter prints no bracket (§4.4), and the
-	// only way left to learn the action is to press Enter and see what happens.
-	// The hint still names Enter, so both keys are disclosed.
-	if k == "enter" {
-		k = "E"
-	}
 	if i := hotkeyIndex(keys, k); i >= 0 {
 		return acts[i].run(m)
 	}
@@ -100,6 +96,24 @@ func (m AppModel) openCredEdit() (tea.Model, tea.Cmd) {
 		return m, m.toast.show("No credential selected", toastError)
 	}
 	return m, m.credFormUI.openEdit(c, m.layer())
+}
+
+// doEditCred is the offer at the foot of a credential's detail float. It looks
+// the credential up by NAME rather than re-reading the cursor, for the same
+// reason doConnect does: the float carries what it was opened on, and a second
+// source of truth is a chance for the two to disagree.
+//
+// The form REPLACES the float rather than stacking on it. They are two views of
+// one row, not a target opened from a source (§6.4) — leaving the detail
+// underneath would mean Esc out of the form lands back on a copy of the row the
+// form may just have changed.
+func (m AppModel) doEditCred(name string) (tea.Model, tea.Cmd) {
+	for _, c := range m.creds.creds {
+		if c.Name == name {
+			return m, tea.Batch(m.detail.close(), m.credFormUI.openEdit(c, m.layer()))
+		}
+	}
+	return m, m.detail.close()
 }
 
 // openCredDuplicate opens a CREATE form holding everything this credential

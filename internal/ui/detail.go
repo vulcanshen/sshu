@@ -1,11 +1,22 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/vulcanshen/sshu/internal/store"
+)
+
+// detailAction is what Enter does on a detail float, or detailNone when the
+// float is only being read.
+type detailAction int
+
+const (
+	detailNone detailAction = iota
+	detailConnect
+	detailEditCred
 )
 
 // detailPopup is the §6.1 VIEWPORT class — the same family as `?` help and the
@@ -19,6 +30,11 @@ import (
 // value. Opening the edit form to look was the alternative, and a form is a
 // thing you can accidentally change.
 //
+// It is ALSO the last thing between the row and what Enter does to it (§11.29):
+// prompt and accept turn the foot of the float into the question a separate
+// confirmation used to ask. Reading and deciding were two floats over the same
+// row, and the confirmation said strictly less than this one already does.
+//
 // Labels are dim and values bright, which is the OPPOSITE of the help popup's
 // pairing. That is not an inconsistency: §4.4's "bright key, dim description"
 // is about a key you press, and there is no key here. The bright half is
@@ -27,10 +43,17 @@ type detailPopup struct {
 	anim     popupAnimator
 	title    string
 	sections []detailSection
-	top      int
-	layer    int
-	screenW  int
-	screenH  int
+	// prompt is the question at the foot of the float; accept is the verb the
+	// hint gives Enter. Both empty means there is nothing to commit, and Enter
+	// belongs to the viewport.
+	prompt  string
+	accept  string
+	action  detailAction
+	target  string // the name the action applies to
+	top     int
+	layer   int
+	screenW int
+	screenH int
 }
 
 // detailSection groups rows under a dim heading.
@@ -55,9 +78,25 @@ func (m detailPopup) isInteractive() bool { return m.anim.isInteractive() }
 func (m *detailPopup) close() tea.Cmd     { return m.anim.close() }
 func (m *detailPopup) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 
-func (m *detailPopup) show(title string, sections []detailSection, layer int) tea.Cmd {
-	m.title, m.sections, m.top, m.layer = title, sections, 0, layer
+// show replaces the float's contents wholesale, keeping the things that belong
+// to the screen rather than to this particular float. Same shape as
+// confirmPopup.ask, and for the same reason: a caller that has to remember to
+// clear last time's prompt would eventually forget.
+func (m *detailPopup) show(c detailPopup, layer int) tea.Cmd {
+	anim, w, h := m.anim, m.screenW, m.screenH
+	*m = c
+	m.anim, m.screenW, m.screenH = anim, w, h
+	m.top, m.layer = 0, layer
 	return m.anim.open()
+}
+
+// commit reports that Enter was pressed on a float that is listening. Whether
+// there is anything to commit is detailCommit's question and ONLY its question:
+// asking it here as well would be the same rule written twice, and Enter on a
+// float with no offer is inert either way — a viewport has no use for the key.
+// Esc is the caller's, exactly as it is on the confirmation box (§4.3).
+func (m detailPopup) commit(msg tea.KeyMsg) bool {
+	return m.anim.isInteractive() && msg.String() == "enter"
 }
 
 func (m *detailPopup) update(msg tea.KeyMsg) {
@@ -73,7 +112,7 @@ func (m *detailPopup) update(msg tea.KeyMsg) {
 // somebody's saved password has no reason to publish how long it is.
 const maskedSecret = "••••••••"
 
-// hostDetail is the [V]iew contents for one host: what it connects to, and how.
+// hostDetail is the contents for one host: what it connects to, and how.
 //
 // A credential host is shown as what it IS plus what it RESOLVES TO — the
 // credential's name, then the user and secret it supplies. Resolve treats a
@@ -120,8 +159,8 @@ func hostDetail(h store.Host, creds []store.Credential) []detailSection {
 	return []detailSection{conn, auth}
 }
 
-// credDetail is the [V]iew contents for one credential: the auth half only,
-// which is the whole of what a credential is. Its name is the popup's title.
+// credDetail is the contents for one credential: the auth half only, which is
+// the whole of what a credential is. Its name is the popup's title.
 func credDetail(c store.Credential) []detailSection {
 	rows := []detailRow{
 		{label: "User", value: c.User},
@@ -166,8 +205,19 @@ func (m detailPopup) lines() []detailRow {
 	return out
 }
 
+// promptRows is what the offer costs the scrolling area: a spacer and the
+// question. It is a FIXED footer rather than one more scrollable line, because
+// the hint promises Enter does something and a promise that can scroll off the
+// top of the box is not one.
+func (m detailPopup) promptRows() int {
+	if m.prompt == "" {
+		return 0
+	}
+	return 2
+}
+
 func (m detailPopup) visible() int {
-	return max(1, min(len(m.lines()), m.screenH-6))
+	return max(1, min(len(m.lines()), m.screenH-6-m.promptRows()))
 }
 
 func (m detailPopup) view() string {
@@ -178,7 +228,8 @@ func (m detailPopup) view() string {
 	for _, r := range m.lines() {
 		valueW = max(valueW, dispW(r.value))
 	}
-	innerW := popupInnerW(m.screenW, max(labelW+4+valueW+1, dispW(m.title)+6))
+	innerW := popupInnerW(m.screenW,
+		max(labelW+4+valueW+1, dispW(m.title)+6, dispW(m.prompt)+4))
 	// Same yielding rule the form uses: on a narrow terminal the label column
 	// gives way rather than squeezing the value out of existence.
 	labelCol := min(labelW+4, max(0, innerW-8))
@@ -210,32 +261,62 @@ func (m detailPopup) view() string {
 		rows = append(rows, dim.Render(padRight("  "+r.label, labelCol))+value)
 	}
 
+	// The offer sits under a blank line, at the foot of the box and outside the
+	// scroll — the same position the confirmation's question held, so the eye
+	// looks where it already looked.
+	if m.prompt != "" {
+		rows = append(rows, dim.Render(strings.Repeat(" ", innerW)),
+			txt.Render(padRight(" "+truncate(m.prompt, max(0, innerW-1)), innerW)))
+	}
+
 	pairs := [][2]string{{"Esc", "close"}}
+	if m.accept != "" {
+		pairs = append([][2]string{{"Enter", m.accept}}, pairs...)
+	}
 	if len(all) > vis {
 		pairs = append([][2]string{{"j/k", "scroll"}}, pairs...)
 	}
+	// The glyph says what the float IS, not what it offers: a read-only look at
+	// a row, whichever door happens to be at the bottom of it.
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphEye+" "+m.title+" ",
 		hintLegend(pairs), animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
 
-// openHostView and openCredView are the two [V]iew actions. Both read the row
-// under the cursor through the same accessor the rest of the table uses, so a
-// filtered list opens the row you are looking at rather than the Nth of the
-// unfiltered one.
-func (m AppModel) openHostView() (tea.Model, tea.Cmd) {
+// openHost and openCredDetail are what Enter does on the two tables. Both read
+// the row under the cursor through the same accessor the rest of the table
+// uses, so a filtered list opens the row you are looking at rather than the Nth
+// of the unfiltered one.
+func (m AppModel) openHost() (tea.Model, tea.Cmd) {
 	h, ok := m.cursorHost()
 	if !ok {
-		return m, nil
+		return m, m.toast.show("No host selected", toastError)
 	}
-	return m, m.detail.show(nameOr(h.Name, "host"), hostDetail(h, m.creds.creds), m.layer())
+	c := detailPopup{title: nameOr(h.Name, "host"), sections: hostDetail(h, m.creds.creds)}
+	// The offer is only made when it can be kept. A host whose credential is
+	// gone cannot be connected to, and the row inside already says which
+	// credential and what it costs, in red — that is the refusal, said once and
+	// in the place the user is looking (§11.34). It used to be a toast over a
+	// float that never opened, which said less and landed somewhere else.
+	if _, err := store.Resolve(h, m.creds.creds); err == nil {
+		c.prompt = fmt.Sprintf("Connect to %q?", h.Name)
+		c.accept, c.action, c.target = "connect", detailConnect, h.Name
+	}
+	return m, m.detail.show(c, m.layer())
 }
 
-func (m AppModel) openCredView() (tea.Model, tea.Cmd) {
+func (m AppModel) openCredDetail() (tea.Model, tea.Cmd) {
 	c, ok := m.cursorCred()
 	if !ok {
-		return m, nil
+		return m, m.toast.show("No credential selected", toastError)
 	}
-	return m, m.detail.show(nameOr(c.Name, "credential"), credDetail(c), m.layer())
+	return m, m.detail.show(detailPopup{
+		title:    nameOr(c.Name, "credential"),
+		sections: credDetail(c),
+		prompt:   fmt.Sprintf("Edit %q?", c.Name),
+		accept:   "edit",
+		action:   detailEditCred,
+		target:   c.Name,
+	}, m.layer())
 }
 
 // nameOr keeps the title from collapsing to a bare glyph on an entry whose name
