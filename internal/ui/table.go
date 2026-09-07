@@ -15,10 +15,18 @@ import (
 //
 // Columns: Name, User, Host, Port, Auth.
 const (
-	// Port and Auth are fixed: "65535" and the longer of the two auth names.
+	// Port is fixed at the width of the largest port there is, so the column
+	// neither grows nor shrinks with what happens to be in the list.
 	colPortW = 5
-	colAuthW = 12 // glyph + space + "privatekey"
-	colGap   = 2
+	// Auth here is NOT the same column as the credentials list's, even though
+	// both are headed "Auth" and both once shared this number. That one shows a
+	// method and nothing else, so twelve cells is exactly enough forever. This
+	// one also has to say WHICH credential — a name the user chose, and the only
+	// cell in this table whose content nobody can bound — so it gets room past
+	// the longest method name instead of being sized by it.
+	colAuthW  = 16
+	credAuthW = 12 // glyph + space + "privatekey", and never anything else
+	colGap    = 2
 
 	// Minimums below which a column stops carrying information and is dropped
 	// instead of being shaved to nothing.
@@ -54,15 +62,23 @@ func computeCols(w int) tableCols {
 		free := avail - fixed - gaps*colGap
 
 		if free >= minNameW+minUserW+minHostW {
-			// Share out by weight; the name gets the most because it is what the
-			// user picked the host by.
-			c.name = max(minNameW, free*35/100)
-			c.host = max(minHostW, free*40/100)
+			// Share out by weight, and the name really does get the most: it is
+			// what the user picked the host by, and the one column they scan
+			// rather than read.
+			c.name = max(minNameW, free*45/100)
+			c.host = max(minHostW, free*35/100)
 			c.user = max(minUserW, free-c.name-c.host)
-			// Weights can overshoot after the minimums bite; trim the host column,
-			// which degrades most gracefully (a truncated domain still reads).
+			// Weights can overshoot once the minimums bite, and the row must
+			// still come to exactly free — a column over budget pushes the
+			// panel's right border out of line. Give back from the host first,
+			// which degrades most gracefully (a truncated domain still reads),
+			// and only then from the name.
 			if over := c.name + c.user + c.host - free; over > 0 {
-				c.host = max(minHostW, c.host-over)
+				give := min(over, c.host-minHostW)
+				c.host -= give
+				if over -= give; over > 0 {
+					c.name = max(minNameW, c.name-over)
+				}
 			}
 			return c
 		}
@@ -98,7 +114,10 @@ func tableRowText(c tableCols, name, user, host, port, auth, authGlyph string) s
 		out += gap + padRight(host, c.host)
 	}
 	if c.port {
-		out += gap + padLeft(port, colPortW)
+		// Left, like every other column. Right-aligning numbers is the habit
+		// from columns you add up; nobody adds up ports, and the alignment made
+		// the one fixed-width column in the table look like the one that moved.
+		out += gap + padRight(port, colPortW)
 	}
 	if c.auth {
 		cell := auth

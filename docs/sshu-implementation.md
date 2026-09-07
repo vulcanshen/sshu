@@ -196,8 +196,22 @@ X 直接掉(§A.0)。
 
 ### 1.4 欄位收縮
 
-hosts 表格依序捨 Auth → Port → User/Host,**Name 最後才讓**。sftp 檔案列的 size
-是固定 8 欄的右側 slot,名字撞它就先折。`[4]` session 列的 port **永不截斷**。
+hosts 表格依序捨 Auth → Port → User/Host,**Name 最後才讓**(門檻:Auth `w ≥ 55`、
+Port `w ≥ 37`、User/Host `w ≥ 30`)。Name 拿剩餘寬 45%、Host 35%、User 拿剩下 ——
+Name 是最寬的那欄,`w ≥ 80` 由 `TestTheNameIsTheWidestColumn` 釘住。
+
+**Port 固定 5 欄、靠左**,和其他每一欄一樣:它是全表唯一內容有硬上限的欄,右對齊
+只會讓它看起來像會動的那一欄(design §11.37)。**Auth 是兩欄不是一欄** ——
+hosts 的 `colAuthW = 16`(還要放 credential 名字,唯一沒上限的內容)、credentials
+清單的 `credAuthW = 12`(只放方法名,永遠夠)。
+
+權重算完套下限後總和可能**超過** `free`,收尾先從 Host 扣它扣得動的、不夠再扣
+Name;只扣 Host 會在 Host 已踩下限時扣不動,多出來那一格把右框推歪。
+`TestTableHeaderAndRowsAlign` **每一格寬度都掃**,不取樣 —— 會出事的寬度隨欄寬
+定義移動,取樣點改完就不再覆蓋邊界。
+
+sftp 檔案列的 size 是固定 8 欄的右側 slot,名字撞它就先折。`[4]` session 列的
+port **永不截斷**。
 
 ---
 
@@ -268,6 +282,25 @@ log 的 gutter(時間戳欄,15 欄)在 `msgW < prefixW` 時整個讓位:寧可�
 
 vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成兩格。`ptyTerm.render` 每一行
 先 `clipANSI` 再補齊。代價是這種行被切掉最後一兩欄;不切的代價是整個框壞掉。
+
+### 3.3.1 emulator 不只畫,它也要回話
+
+終端機會**被問問題**:`CSI 6n`(游標在哪)、`OSC 11`(背景色)。發問的一方寫出
+查詢就同步等,等不到就等滿自己的 timeout —— termenv 是 5 秒,而且發生在 `main()`
+之前(Bubble Tea 的 package init)。
+
+vt10x 看得懂也答得出來,但 `vt10x.New` 的預設 writer 是 `io.Discard`。所以
+`startPty` **先開 pty master、再拿它建 emulator**:
+
+```go
+ptmx, err := pty.StartWithSize(cmd, ...)
+term: vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithWriter(ptmx))
+```
+
+**writer 必須是 `ptmx` 本身,不能包一層去 `ptyTerm` 拿。** `readLoop` 是持著
+`p.mu` 呼叫 `p.term.Write` 的,而 vt10x 在 parse 途中同步呼叫 writer —— 取第二次
+鎖就死鎖在第一個查詢上。重構 `startPty` 時這兩件事都不能動:**master 先開**、
+**writer 不碰鎖**(design §11.36)。
 
 ### 3.4 Surface 標籤
 
@@ -557,6 +590,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Enter zoom**(一格佔滿,Alt+Esc 一次剝一層)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
+| pty emulator **回答終端機查詢**(`CSI 6n` / `OSC 11`)—— writer 接回 master,否則格子裡任何發問的程式都卡滿 5 秒 timeout | `ui/pty_unix.go startPty` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
 | pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
 | pty **選取模式**:`Alt+v` 凍結該格(`copySnapshot` = scrollback 尾巴被當下 grid 蓋掉)、border 轉黃、`hjkl`/`u`/`d` 走游標、`v`/`V` 選、`y` 寫本機剪貼簿(`pbcopy` / `wl-copy` / `xclip` / `xsel`)並結束 | `ui/copymode.go` `ui/clipboard.go` `ui/pty_unix.go` `ui/sshtab.go` |
