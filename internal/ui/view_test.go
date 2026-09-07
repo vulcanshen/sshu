@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
@@ -78,11 +79,11 @@ func TestTableShedsColumnsAsItNarrows(t *testing.T) {
 		wantPort, wantAuth     bool
 		wantUser, wantHostCols bool
 	}{
-		// Derived from the minimums: Auth needs w>=51, Port w>=37, and the
+		// Derived from the minimums: Auth needs w>=55, Port w>=37, and the
 		// user/host pair w>=30. Below that only the name is left.
 		{100, true, true, true, true},
-		{51, true, true, true, true},
-		{50, true, false, true, true},
+		{55, true, true, true, true},
+		{54, true, false, true, true},
 		{37, true, false, true, true},
 		{36, false, false, true, true},
 		{30, false, false, true, true},
@@ -103,8 +104,14 @@ func TestTableShedsColumnsAsItNarrows(t *testing.T) {
 
 // Header and rows are laid out by the same function, so their columns cannot
 // drift apart. This checks the invariant that keeps that true.
+//
+// Every width, not a handful: the widths that break this are the ones where a
+// column is dropped or a minimum starts biting, and those move whenever a
+// column's size changes. A list of sample widths chosen against the old numbers
+// silently stops covering the boundaries after any such change — which is
+// exactly how the overshoot at free == minName+minUser+minHost went unnoticed.
 func TestTableHeaderAndRowsAlign(t *testing.T) {
-	for _, w := range []int{100, 76, 60, 44, 30, 18} {
+	for w := 12; w <= 140; w++ {
 		c := computeCols(w)
 		head := dispW(tableHeader(c, w))
 		row := dispW(renderHostRow(sample()[1], sample()[1].User, c, false, w))
@@ -112,6 +119,61 @@ func TestTableHeaderAndRowsAlign(t *testing.T) {
 		if head != w || row != w || selRow != w {
 			t.Errorf("w=%d: header=%d row=%d selected=%d, all should be %d", w, head, row, selRow, w)
 		}
+	}
+}
+
+// Port is the one column whose content has a hard upper bound, so it is sized
+// once and never moves. It is also LEFT-aligned, like every other column:
+// right-aligning is the habit from columns you add up, nobody adds up ports,
+// and it was what made the only genuinely fixed column look like the one that
+// changed width from row to row.
+func TestThePortCellIsFixedWidthAndLeftAligned(t *testing.T) {
+	c := computeCols(100)
+	if !c.port {
+		t.Fatal("100 columns is wide enough to keep the port column")
+	}
+	at := c.name + colGap + c.user + colGap + c.host + colGap
+	// Written out rather than computed, so the expectation cannot drift along
+	// with the padding helper it is meant to be checking.
+	for _, tc := range []struct{ port, want string }{
+		{"22", "22   "},
+		{"2222", "2222 "},
+		{"65535", "65535"},
+	} {
+		row := tableRowText(c, "name", "user", "host", tc.port, "password", "")
+		if got := row[at : at+colPortW]; got != tc.want {
+			t.Errorf("port %q rendered as %q, want %q", tc.port, got, tc.want)
+		}
+	}
+}
+
+// The name really is the widest column, not merely the one the comment claims
+// is widest — for most of this table's life Host was wider. It is what the user
+// picked the host by and the only column they scan rather than read.
+//
+// Stated over the widths a terminal actually has: below about 58 columns the
+// host's higher minimum wins and the name is the one being squeezed, which is
+// the correct trade at that size and a different claim from this one.
+func TestTheNameIsTheWidestColumn(t *testing.T) {
+	for _, w := range []int{80, 100, 120, 160} {
+		c := computeCols(w)
+		if c.name <= c.host || c.name <= c.user {
+			t.Errorf("w=%d: name=%d should beat host=%d and user=%d",
+				w, c.name, c.host, c.user)
+		}
+	}
+}
+
+// Auth is the only cell in the table holding something the user named, so it is
+// sized past the longest method name rather than by it. Fourteen characters is
+// what the column promises; a credential list, whose Auth cell only ever holds
+// a method, keeps the narrower width and is unaffected.
+func TestTheAuthColumnFitsACredentialName(t *testing.T) {
+	h := sample()[0]
+	h.Auth, h.Credential = store.AuthCredential, "prod-deploy-ci"
+	c := computeCols(100)
+	if got := ansi.Strip(renderHostRow(h, "deploy", c, false, 100)); !strings.Contains(got, h.Credential) {
+		t.Errorf("the credential name should survive the Auth column whole, got %q", got)
 	}
 }
 

@@ -197,12 +197,12 @@ panel border title)、其下 1 行整寬分隔線(傳輸進行時兼職進度條
   [1] hosts  [2] sftp  [3] ssh                                    1/5 hosts
 ──────────────────────────────────────────────────────────────────────────────
 ╭(hosts)─────────────────────────────────────────────────────────────────────╮
-│ Name               User           Host                  Port  Auth         │
-│ prod-web-01        deploy         10.0.3.14               22  ◆ privatekey │
-│ db-replica-tokyo…  postgres       db.internal.corp      2222  ◆ password   │
-│ bastion-eu-west-1  ec2-user       bastion.eu-west-1.…     22  ◆ privatekey │
-│ staging-api        app            staging.example.com     22  ◆ password   │
-│ jump               root           jump.corp               22  ◆ privatekey │
+│ Name                  User        Host             Port   Auth             │
+│ prod-web-01           deploy      10.0.3.14        22     ◆ privatekey     │
+│ db-replica-tokyo-ap…  postgres    db.internal.co…  2222   ◆ password       │
+│ bastion-eu-west-1     ec2-user    bastion.eu-wes…  22     ◆ privatekey     │
+│ staging-api           app         staging.exampl…  22     ◆ password       │
+│ jump                  root        jump.corp        22     ◆ privatekey     │
 │                                                                            │
 ╰────────────────────────────────────────────────────────────────────────────╯
  space menu   ? help   1-3 tabs   q quit
@@ -358,19 +358,27 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 
 | 欄 | 寬度 |
 |---|---|
-| **Name** | 剩餘寬的 35%(下限 8) |
+| **Name** | 剩餘寬的 45%(下限 8) |
 | **User** | 剩餘寬(下限 6) |
-| **Host** | 剩餘寬的 40%(下限 10) |
-| **Port** | 固定 5(`65535`),右對齊 |
-| **Auth** | 固定 12(glyph + 空格 + `privatekey`) |
+| **Host** | 剩餘寬的 35%(下限 10) |
+| **Port** | 固定 5(`65535`),**左對齊,和其他每一欄一樣** |
+| **Auth** | 固定 16(glyph + 空格 + credential 名) |
 
 **放不下就整欄拿掉,不把欄位削到沒有意義**。收縮順序是
 **Auth → Port → User/Host**,`Name` 永遠留著 —— 叫不出名字的一列不算一列。
-門檻由上面的下限推導:Auth 需要 `w ≥ 51`、Port 需要 `w ≥ 37`、User/Host 那組
+門檻由上面的下限推導:Auth 需要 `w ≥ 55`、Port 需要 `w ≥ 37`、User/Host 那組
 需要 `w ≥ 30`,再窄就只剩 Name。
 
+**Name 真的是最寬的那欄**(§11.37)。它一度只有 35% 而 Host 有 40% —— 程式碼
+上方的註解卻寫著「name gets the most」,寫的跟做的差了一欄。現在 45/35,`w ≥ 80`
+時 `Name > Host > User` 由 `TestTheNameIsTheWidestColumn` 釘住。更窄時 Host 的
+下限(10)高過 Name 的(8),Name 反而先被擠 —— 那是那個尺寸下的正確取捨,不是
+這條宣稱的反例,所以測試的範圍就寫成它成立的範圍。
+
 **header 與資料列走同一個 `tableRowText`**,所以欄位不可能對不齊 ——
-`TestTableHeaderAndRowsAlign` 釘住這件事。
+`TestTableHeaderAndRowsAlign` 釘住這件事,而且是**每一個寬度都掃**,不是挑幾個
+取樣點:會出事的寬度正是「某欄剛被丟掉」或「某個下限剛開始咬」的那幾格,而它們
+會隨欄寬定義移動 —— 照舊數字挑的取樣點在改完之後就悄悄不覆蓋邊界了(§11.37)。
 
 ### 1.3 窄寬:表格自己就是 responsive 形式
 
@@ -3910,6 +3918,91 @@ privatekey host 沒有 IdentityFile),那複製出來的表單就**不完整**,En
 hosts 的 Delete 移離 `X`、credentials 少掉 Duplicate 列)。
 
 ---
+
+### 11.36 終端機不只是螢幕,它還會回答
+
+在 sshu 的格子裡再開一個 sshu,**要等五秒才畫得出東西**;同一台機器直接開就是
+瞬間。慢的不是 Linux、也不是 ssh —— 是**外層 sshu 這個終端機不回話**。
+
+一個終端機不只是被寫入的螢幕,它也**被問問題**:游標在哪(`CSI 6n`)、背景色是
+什麼(`OSC 11`)。發問的一方寫出查詢後就**停下來等**,而且是在 `main()` 之前:
+Bubble Tea 的 `tea_init.go` 在 package init 呼叫 `lipgloss.HasDarkBackground()`,
+走到 termenv 的 `termStatusReport`,同步等,`OSCTimeout` 是 **5 秒**。
+
+vt10x **看得懂**這兩個查詢,也**產生了正確的回答**。問題在 `vt10x.New` 的預設
+writer 是 `io.Discard` —— 回答生出來就被丟掉,一個 byte 都沒回到子行程。所以
+`startPty` 現在**先開 pty master、再用它建 emulator**,把回答接回子行程的 stdin:
+
+```go
+ptmx, err := pty.StartWithSize(cmd, ...)
+term: vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithWriter(ptmx))
+```
+
+量到的:接回去之前 5.04 秒,之後 0.06 秒。
+
+**這不是「巢狀 sshu」的問題,是 sshu 當終端機當得不完整。** 任何在格子裡跑、會
+問問題的程式都付一樣的五秒 —— 每個 charm 系工具、每個送 `CSI 6n` 的程式。修的是
+那一層,不是那個症狀。
+
+被否決的做法:
+
+- **給子行程 `TERM=screen`**。termenv 看到 `screen`/`tmux`/`dumb` 開頭就不問。
+  但那是騙它,順帶關掉遠端真的有的能力,而且只擋住 termenv 這一個發問者 ——
+  換一個程式問,五秒照付。
+- **在 sshu 自己的 `main()` 開頭 `lipgloss.SetHasDarkBackground(true)`**。來不及:
+  Bubble Tea 的 package init 比 `main()` 早。而且這只治內層是 sshu 的情況。
+- **writer 包一層、經過 `ptyTerm` 去拿 `ptmx`**。會死鎖。`readLoop` 是**持著
+  `p.mu`** 呼叫 `p.term.Write` 的,而 vt10x 在 parse 途中同步呼叫 writer ——
+  writer 再取一次 `p.mu`,第一個查詢就卡死。所以 writer 就是 `ptmx` 本身,不碰
+  任何鎖。
+
+測試(`TestTheEmulatorAnswersTheChildsQuery`)讓子行程問一次 `CSI 6n`,然後用
+`dd` 卡在 stdin 的**一個 byte** 上 —— 那個 byte 只有在回答真的傳回去時才存在。
+測試裡的 `stty -icanon` 不是裝飾:回答不帶換行,行緩衝的終端機會把它扣住不交,
+於是**一個好的 emulator 也會讓測試紅**。真正發問的人都先關掉 canonical mode
+(termenv 也是),所以測試得用發問者的方式發問。
+
+### 11.37 Port 是固定欄,那就別讓它看起來會動
+
+`colPortW` 一直是 5(`65535` 的寬度),**從來沒有變過** —— 但它是全表唯一
+**靠右**對齊的欄。於是 `22` 顯示成 `   22`、`2222` 顯示成 ` 2222`,前面那片空白
+隨著內容長短伸縮,看起來反而像是這一欄在動。改成靠左,和其他每一欄一樣。
+
+數字靠右是**會相加的欄**的習慣。沒有人把 port 加起來。
+
+#### Auth 是兩欄,不是一欄
+
+`colAuthW` 原本被 hosts 表格和 credentials 清單共用,值 12 = glyph + 空格 +
+`privatekey`。但這兩個「Auth」裝的不是同一種東西:
+
+- **credentials 清單**的 Auth 只放**方法名**(`password` / `privatekey`),
+  12 格永遠剛好,多一格都是浪費。
+- **hosts 表格**的 Auth 還要說**是哪一張 credential** —— 一個使用者自己取的
+  名字,是這張表裡唯一沒有人能設上限的內容。用「最長的方法名」去量它,量錯了
+  對象。
+
+所以拆成 `colAuthW = 16`(hosts)與 `credAuthW = 12`(credentials)。它們碰巧
+曾經一樣寬,不代表是同一個東西 —— 共用一個常數的代價是:hosts 要加寬,
+credentials 就白白多四格空白。
+
+代價講清楚:Auth 多吃 4 格,它的存活門檻從 `w ≥ 51` 升到 `w ≥ 55`。
+
+#### 一個因此浮出來的既有 bug
+
+權重從 35/40 改成 45/35 之後,`TestTableHeaderAndRowsAlign` 在 `w = 30`、`31`、
+`37`、`38`、`55`、`56` 爆了 —— 資料列比 header 寬一格。
+
+原因不在新權重,在**收尾**。按權重算完再套下限,總和可能**超過** `free`;舊的
+收尾只從 Host 扣,而 Host 常常已經**踩在自己的下限上**,扣不動,超出的那一格就
+留在列上,把 panel 的右框推歪。舊權重下剛好沒踩到,所以它一直在那裡沒被發現。
+
+現在的收尾:先從 Host 扣**它扣得動的部分**,不夠再從 Name 扣。`free` 保證
+`≥ minName + minUser + minHost`,所以永遠有解。
+
+**而抓到它的是測試方式的改變**:`TestTableHeaderAndRowsAlign` 從「挑六個寬度」
+改成「12 到 140 每一格都掃」。會出事的寬度正是欄位被丟掉、下限開始咬的那幾格,
+它們**會隨著欄寬定義移動** —— 照舊數字挑的取樣點,在欄寬改動後就悄悄不再覆蓋
+邊界。這類測試不該取樣。
 
 ## 附錄 — 按鍵全表(v1.4.0)
 

@@ -61,12 +61,14 @@ func (m credsModel) status() string {
 	return plural(len(m.creds), "credential")
 }
 
-// credCols is the split at this width. Auth is fixed like the hosts table's;
-// user goes before auth does, and the name is the last thing standing.
+// credCols is the split at this width. Auth is fixed at the width of the
+// longest method name — this column shows the method and nothing else, unlike
+// the hosts table's Auth, which also has to name a credential and is wider for
+// it. User goes before auth does, and the name is the last thing standing.
 func credCols(w int) (name, user int, auth bool) {
 	avail := w - 2
 	auth = true
-	fixed := colAuthW + colGap
+	fixed := credAuthW + colGap
 	if avail-fixed < minNameW+minUserW+colGap {
 		auth, fixed = false, 0
 	}
@@ -100,7 +102,7 @@ func (m credsModel) tableBody(innerW, innerH int) []string {
 		head += strings.Repeat(" ", colGap) + padRight("User", user)
 	}
 	if auth {
-		head += strings.Repeat(" ", colGap) + padRight("Auth", colAuthW)
+		head += strings.Repeat(" ", colGap) + padRight("Auth", credAuthW)
 	}
 	out := []string{dim.Render(padRight(head, innerW))}
 
@@ -127,14 +129,14 @@ func (m credsModel) row(c store.Credential, selected bool, name, user int, auth 
 		if c.Auth == store.AuthPrivateKey {
 			glyph, text = glyphKey, string(store.AuthPrivateKey)
 		}
-		row += sub.Render(strings.Repeat(" ", colGap) + padRight(glyph+" "+text, colAuthW))
+		row += sub.Render(strings.Repeat(" ", colGap) + padRight(glyph+" "+text, credAuthW))
 	}
 	plain := 1 + name
 	if user > 0 {
 		plain += colGap + user
 	}
 	if auth {
-		plain += colGap + colAuthW
+		plain += colGap + credAuthW
 	}
 	filler := strings.Repeat(" ", max(0, innerW-plain))
 	if selected {

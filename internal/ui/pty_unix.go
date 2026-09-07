@@ -71,18 +71,30 @@ const maxScrollback = 10000
 // startPty launches cmd on a PTY sized cols×rows.
 func startPty(cmd *exec.Cmd, cols, rows int) (*ptyTerm, error) {
 	cols, rows = max(cols, 1), max(rows, 1)
+	// The master is opened FIRST because the emulator needs it: a terminal is
+	// not only a screen, it also answers questions, and an answer is input to
+	// the child. Left at vt10x's default writer of io.Discard those answers are
+	// dropped on the floor and whoever asked waits out its own timeout instead —
+	// five seconds, every time, for anything that asks. Nothing exotic asks:
+	// every Bubble Tea program queries the background colour from package init,
+	// before main() runs, so sshu inside sshu started five seconds late.
+	//
+	// The writer is the master itself and NOT a wrapper reaching through p,
+	// because vt10x calls it from inside the parse, which readLoop runs while
+	// holding p.mu — a writer that took the mutex would deadlock on the first
+	// query.
+	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
+	if err != nil {
+		return nil, err
+	}
 	p := &ptyTerm{
-		term:        vt10x.New(vt10x.WithSize(cols, rows)),
+		ptmx:        ptmx,
+		term:        vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithWriter(ptmx)),
 		cmd:         cmd,
 		done:        &atomic.Bool{},
 		mu:          &sync.Mutex{},
 		pendingLine: &strings.Builder{},
 	}
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
-	if err != nil {
-		return nil, err
-	}
-	p.ptmx = ptmx
 	registerProc(cmd) // so no exit path can leave the child running
 	go p.readLoop()
 	return p, nil
