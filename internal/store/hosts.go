@@ -140,27 +140,35 @@ func (f File) Index(name string) int {
 }
 
 // Load reads hosts.yaml. A missing file is not an error — it is the first-run
-// empty state, and the UI has a panel for it.
-func Load() (File, error) {
+// empty state, and the UI has a panel for it. The second return is the names of
+// any hosts dropped for repeating one — see LoadFrom.
+func Load() (File, []string, error) {
 	path, err := HostsPath()
 	if err != nil {
-		return File{Version: currentVersion}, err
+		return File{Version: currentVersion}, nil, err
 	}
 	return LoadFrom(path)
 }
 
 // LoadFrom is Load against an explicit path (tests).
-func LoadFrom(path string) (File, error) {
+//
+// Duplicate names are DROPPED rather than refused. A hand-edited file is the
+// only way to get one, and refusing to start would be the harshest possible
+// answer to a paste that went in twice: the whole list stays unreachable until
+// the user finds the repeat by hand, in a file they cannot read because sshu is
+// what they read it with. The dropped names come back so the caller can say
+// what happened — dropping them silently would be worse than either.
+func LoadFrom(path string) (File, []string, error) {
 	f := File{Version: currentVersion}
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return f, nil
+		return f, nil, nil
 	}
 	if err != nil {
-		return f, err
+		return f, nil, err
 	}
 	if err := yaml.Unmarshal(raw, &f); err != nil {
-		return File{Version: currentVersion}, fmt.Errorf("%s: %w", path, err)
+		return File{Version: currentVersion}, nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// A hand-edited file may omit port; fill the default rather than reject the
 	// whole file over a field the user reasonably left out.
@@ -169,7 +177,9 @@ func LoadFrom(path string) (File, error) {
 			f.Hosts[i].Port = DefaultPort
 		}
 	}
-	return f, nil
+	var dropped []string
+	f.Hosts, dropped = dedupeByName(f.Hosts, func(h Host) string { return h.Name })
+	return f, dropped, nil
 }
 
 // Save writes hosts.yaml atomically at 0600.

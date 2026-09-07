@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,7 +31,7 @@ func main() {
 		os.Exit(runAskpass(name))
 	}
 
-	hosts, err := store.Load()
+	hosts, dupHosts, err := store.Load()
 	if err != nil {
 		// A malformed hosts.yaml is worth refusing to start over: silently
 		// showing an empty list would look like data loss and the next save
@@ -50,7 +52,7 @@ func main() {
 
 	// Credentials are data like hosts, but a broken credentials.yaml only
 	// breaks the hosts that reference it — sshu still starts, and says so.
-	credsFile, credsErr := store.LoadCreds()
+	credsFile, dupCreds, credsErr := store.LoadCreds()
 
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
@@ -69,6 +71,15 @@ func main() {
 	}
 	if credsErr != nil {
 		app = app.WithStartupError("credentials.yaml: " + credsErr.Error())
+	}
+	// A dropped duplicate is not an error — sshu is running on a list that is
+	// now internally consistent — but it is a difference between the file and
+	// what is on screen, and the user is the only one who can close it.
+	if len(dupHosts) > 0 {
+		app = app.WithStartupWarning(dupeWarning("hosts.yaml", dupHosts))
+	}
+	if len(dupCreds) > 0 {
+		app = app.WithStartupWarning(dupeWarning("credentials.yaml", dupCreds))
 	}
 	p := tea.NewProgram(app, tea.WithAltScreen())
 
@@ -98,12 +109,31 @@ func main() {
 	}
 }
 
+// dupeWarning is the one line the app log gets about entries a load had to drop.
+//
+// It NAMES them. "2 duplicates were ignored" would leave the user hunting
+// through a file for which ones, and the whole reason to say anything is that
+// they go and fix it. A name appearing twice in the list is not a bug in the
+// message: it means that name was in the file three times.
+func dupeWarning(file string, names []string) string {
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = strconv.Quote(n)
+	}
+	noun := "entries"
+	if len(names) == 1 {
+		noun = "entry"
+	}
+	return fmt.Sprintf("%s: ignored %d duplicate %s (%s); the first of each name is the one in use",
+		file, len(names), noun, strings.Join(quoted, ", "))
+}
+
 // runAskpass prints the stored password for name. A non-zero exit tells ssh the
 // helper had nothing, and ssh falls back to prompting inside the PTY — which is
 // the right outcome for a key host, a host that has since been renamed, or a
 // hosts.yaml that cannot be read.
 func runAskpass(name string) int {
-	f, err := store.Load()
+	f, _, err := store.Load()
 	if err != nil {
 		return 1
 	}
@@ -114,7 +144,7 @@ func runAskpass(name string) int {
 	h := f.Hosts[i]
 	// A credential host stores its password in credentials.yaml, one hop away.
 	if h.Auth == store.AuthCredential {
-		cf, err := store.LoadCreds()
+		cf, _, err := store.LoadCreds()
 		if err != nil {
 			return 1
 		}

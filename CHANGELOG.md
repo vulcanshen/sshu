@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.4.2] — 2026-09-08
+
+Enter on a row now shows you the row and offers the thing Enter was for, in one
+float instead of two — and a name that appears twice in a hand-edited file stops
+quietly breaking the list it is in.
+
+Changes since 1.4.1. All three demos are re-recorded on this build.
+
+### Changed
+
+- **`[V]iew` is gone; Enter does both jobs.** On a host, Enter opened a
+  confirmation that said the address and the auth method — every word of which
+  the `[V]iew` float already said, and said better. They were two read-only
+  floats over the same row, and you had to close one to open the other.
+
+  Enter now opens the detail itself, with the question at the foot of it:
+
+  ```
+  ╭─ 󰛐 staging-api ─────────────────────╮
+  │ Connection                          │
+  │  Name           staging-api         │
+  │  Host           staging.example.com │
+  │  Port           22                  │
+  │                                     │
+  │ Auth                                │
+  │  Type           credential          │
+  │  Credential     shared-deploy       │
+  │  User           deploy              │
+  │  Identity file  ~/.ssh/id_ed25519   │
+  │                                     │
+  │ Connect to "staging-api"?           │
+  │                                     │
+  ╰─ Enter connect  Esc close ──────────╯
+  ```
+
+  Only wanted to look? Esc. Credentials get the same shape with their own verb —
+  `Edit "<name>"?` — and `[E]dit` still goes straight to the form, so looking at
+  a credential no longer means opening a form you can type into.
+
+  A host whose credential is missing is shown but not offered: the red row names
+  the credential and says it cannot connect, and there is no connect line to
+  press. That replaces a toast which appeared over a float that never opened.
+
+- **`V` is the logo again, everywhere.** It used to stand aside wherever a panel
+  had a real `[V]iew`, which meant the letter meant one thing on two panels of
+  the manage tab, the logo everywhere else, and flipped between them on the same
+  panel depending on whether the table was empty. Nothing claims it now.
+
+### Fixed
+
+- **A name repeated in a hand-edited `hosts.yaml` or `credentials.yaml` no
+  longer breaks the list.** Only hand-editing could produce one — the form and
+  the save path both refuse duplicates — and what came back was a list that
+  behaved as if it had none: every lookup resolved to the first entry, so the
+  second was on screen but unreachable; deleting it removed both rows at once;
+  and until the file was fixed by hand, nothing could be saved at all.
+
+  Both files now drop the repeats as they load, keeping the first of each name —
+  the one every lookup already resolved to. The file itself is left alone until
+  you save something, and the app log says what was dropped, by name:
+
+  ```
+  hosts.yaml: ignored 2 duplicate entries ("prod", "prod"); the first of each name is the one in use
+  ```
+
 ## [1.4.1] — 2026-09-07
 
 An sshu opened inside an sshu starts at once instead of five seconds late, and

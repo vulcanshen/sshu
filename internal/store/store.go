@@ -56,6 +56,45 @@ func FoldHome(p string) string {
 	return p
 }
 
+// dedupeByName drops every entry repeating a name an earlier entry already
+// took, and reports the dropped entries' names in the order they were dropped.
+// Both loaders run it, because both files are keyed by a name and both are
+// hand-editable.
+//
+// The FIRST one wins because that is what the rest of sshu already believed:
+// Index, CredsFile.Index and the UI's indexOfHost all stop at the first match,
+// so the entry every lookup resolved to was always the first. What a repeated
+// name used to produce was a list that behaved as if it had not: the second row
+// was on screen but unreachable by name, deleting it removed BOTH rows in one
+// keystroke (the delete filters by name), and the next save was refused
+// outright by Validate — so the list you were looking at could not be written
+// back at all. Dropping the repeat at the door makes the list on screen the
+// list every other operation already assumed it had.
+//
+// It does NOT rewrite the file. The duplicate stays on disk until the user
+// saves something, which is the only moment they have asked for the file to
+// change.
+func dedupeByName[T any](items []T, name func(T) string) ([]T, []string) {
+	seen := make(map[string]bool, len(items))
+	kept := make([]T, 0, len(items))
+	var dropped []string
+	for _, it := range items {
+		n := name(it)
+		if seen[n] {
+			dropped = append(dropped, n)
+			continue
+		}
+		seen[n] = true
+		kept = append(kept, it)
+	}
+	if dropped == nil {
+		// Nothing repeated: hand back the original slice rather than the copy, so
+		// the ordinary path allocates nothing and behaves exactly as before.
+		return items, nil
+	}
+	return kept, dropped
+}
+
 // ExpandTilde turns a leading ~ into the user's home directory. Paths in
 // hosts.yaml are hand-editable, so ~/.ssh/id_ed25519 has to work.
 func ExpandTilde(p string) string {

@@ -175,23 +175,34 @@ func TestTheCredFormRequiresWhatItsAuthUses(t *testing.T) {
 // ---------------------------------------------------------------- the hotkey
 
 // Edit was reachable only by Enter, which prints no bracket — so the only way
-// to learn it was to press Enter and see what happened. It has a letter now,
-// and Enter still works, because on a credential "go in" and "edit" are the
-// same door.
-func TestCredentialEditIsOnEAndEnterStillWorks(t *testing.T) {
+// to learn it was to press Enter and see what happened. It has a letter now.
+//
+// Enter still ends at the same form, but by way of the read-only float
+// (§11.29): E is the shortcut for people who already know what the row holds,
+// Enter is for people who are looking. Both are checked here, because the pair
+// coming apart — a shortcut that stops working, or a look that opens a form you
+// can type into — is the failure this row exists to prevent.
+func TestCredentialEditIsOnEAndEnterStillReachesIt(t *testing.T) {
 	creds := []store.Credential{{Name: "ops", User: "root",
 		Auth: store.AuthPrivateKey, IdentityFile: "~/.ssh/id_ed25519"}}
-	for _, key := range []string{"E", "enter"} {
-		m := pressA(credApp(nil, creds), "1", "j", "enter")
-		m = pressA(m, key)
+	for _, keys := range [][]string{{"E"}, {"enter", "enter"}} {
+		m := settle(pressA(credApp(nil, creds), "1", "j", "enter"))
+		m = settle(pressA(m, keys...))
 		if !m.credFormUI.isActive() {
-			t.Errorf("%s should open the edit form", key)
+			t.Errorf("%v should reach the edit form", keys)
 			continue
 		}
 		if m.credFormUI.editing != "ops" {
-			t.Errorf("%s opened a form editing %q, want the row under the cursor",
-				key, m.credFormUI.editing)
+			t.Errorf("%v opened a form editing %q, want the row under the cursor",
+				keys, m.credFormUI.editing)
 		}
+	}
+
+	// A single Enter must stop at the float. If it went straight through, the
+	// look would be the form again and the change would have bought nothing.
+	m1 := settle(pressA(credApp(nil, creds), "1", "j", "enter", "enter"))
+	if m1.credFormUI.isActive() {
+		t.Error("one Enter should stop at the read-only float, not open the form")
 	}
 
 	// And the marking says E, or the letter is a secret again.

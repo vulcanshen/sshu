@@ -4,16 +4,19 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// detailView opens [V]iew on the hosts table and returns the frame it drew.
+// detailView opens the detail float on the hosts table and returns the frame it
+// drew. Enter is the door now — the same key that goes on to connect from the
+// foot of it (§11.29).
 func detailView(t *testing.T, m AppModel) string {
 	t.Helper()
-	m = settle(pressA(m, "V"))
+	m = settle(pressA(m, "enter"))
 	if !m.detail.isActive() {
-		t.Fatal("V should open the detail popup")
+		t.Fatal("Enter should open the detail popup")
 	}
 	return ansi.Strip(m.View())
 }
@@ -115,31 +118,154 @@ func TestCredViewIsAuthOnly(t *testing.T) {
 	}
 }
 
-// V is the easter egg everywhere EXCEPT where a panel has a real use for it.
-// The two halves are one test because the bug is the pair coming apart: a
-// splash that never yields shadows the row, and one that always yields loses
-// the egg.
-func TestVGoesToThePanelThatClaimsItAndToTheLogoOtherwise(t *testing.T) {
-	m := pressA(appWith(sample(), nil), "V")
+// V is the easter egg, full stop. It used to stand aside wherever a panel had a
+// real [V]iew, which meant the letter meant one thing on two surfaces of the
+// same tab and the logo on every other. Nothing claims it now, so the surface
+// with the most reason to have taken it is the one this checks first.
+func TestVIsTheLogoOnEverySurface(t *testing.T) {
+	for _, keys := range [][]string{
+		{"V"},           // the hosts table, which used to claim it
+		{"j", "V"},      // and with a row actually under the cursor
+		{"1", "j", "V"}, // the credentials table, which also used to
+		{"S", "V"},      // a tab that never claimed it
+	} {
+		m := pressA(appWith(sample(), nil), keys...)
+		if m.detail.isActive() {
+			t.Errorf("%v: V must not open a detail float any more", keys)
+		}
+		if !m.splash.isActive() {
+			t.Errorf("%v: V should reveal the logo", keys)
+		}
+	}
+}
+
+// Enter on a host is one float doing both jobs: it says what the row is, and it
+// offers the thing Enter was pressed for. The offer is what a separate
+// confirmation used to be, and it is at the foot of the answer rather than on
+// top of it.
+func TestEnterOnAHostShowsItAndOffersConnect(t *testing.T) {
+	m := settle(pressA(appWith(sample(), nil), "enter"))
 	if !m.detail.isActive() {
-		t.Error("V on the hosts table should open the detail popup")
+		t.Fatal("Enter should open the detail float")
 	}
-	if m.splash.isActive() {
-		t.Error("the easter egg must stand aside for a panel that claims V")
+	v := ansi.Strip(m.View())
+	h, _ := m.cursorHost()
+	if !strings.Contains(v, "Connect to \""+h.Name+"\"?") {
+		t.Errorf("the offer should name the host:\n%s", v)
+	}
+	if !strings.Contains(v, "connect") || !strings.Contains(v, "close") {
+		t.Errorf("the hint must disclose both doors:\n%s", v)
+	}
+	// The facts the old confirmation carried are still on screen — it said the
+	// address and the auth method, and this says those and more.
+	for _, want := range []string{h.Host, itoa(h.Port), string(h.Auth)} {
+		if !strings.Contains(v, want) {
+			t.Errorf("the float should still say %q:\n%s", want, v)
+		}
 	}
 
-	// The ssh tab claims nothing, so the egg is still there.
-	m = pressA(appWith(sample(), nil), "S", "V")
-	if !m.splash.isActive() {
-		t.Error("V where no panel wants it should still reveal the logo")
-	}
-
-	// An empty table has nothing to view, so the key is free again.
-	m = pressA(appWith(nil, nil), "V")
+	// And the second Enter is the connection.
+	m = settle(pressA(m, "enter"))
 	if m.detail.isActive() {
-		t.Error("there is no row to view on an empty table")
+		t.Error("committing must take the float down")
 	}
-	if !m.splash.isActive() {
-		t.Error("with nothing to view, V belongs to the logo again")
+	if m.tab != tabSSH {
+		t.Errorf("Enter on the offer should hand off to tab [3], got %d", m.tab)
+	}
+}
+
+// Esc is the whole of "I only wanted to look". Nothing is connected, nothing is
+// changed, and the row is where it was.
+func TestEscOnTheOfferConnectsNothing(t *testing.T) {
+	m := settle(pressA(appWith(sample(), nil), "enter", "esc"))
+	if m.detail.isActive() {
+		t.Error("Esc should close the float")
+	}
+	if len(m.ssh.sessions) != 0 {
+		t.Error("looking at a host must not connect to it")
+	}
+	if m.tab != tabPref {
+		t.Errorf("Esc should leave the tab alone, got %d", m.tab)
+	}
+}
+
+// An offer is only made when it can be kept. A host whose credential is gone
+// cannot be connected to, so the float shows why and offers nothing — the
+// refusal is the red row, said once and where the user is already looking.
+func TestABrokenCredentialIsShownAndNotOffered(t *testing.T) {
+	m := settle(pressA(appWith([]store.Host{{Name: "api", Host: "api.corp", Port: 22,
+		Auth: store.AuthCredential, Credential: "retired"}}, nil), "enter"))
+	if !m.detail.isActive() {
+		t.Fatal("Enter should still open the float — that is where the reason is")
+	}
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, "retired") || !strings.Contains(v, "cannot connect") {
+		t.Errorf("the float must say which credential and what it costs:\n%s", v)
+	}
+	if strings.Contains(v, "Connect to") {
+		t.Errorf("an offer that cannot be kept must not be made:\n%s", v)
+	}
+	// And Enter is inert: it belongs to the viewport when there is no offer.
+	m = settle(pressA(m, "enter"))
+	if len(m.ssh.sessions) != 0 || m.tab != tabPref {
+		t.Error("Enter must not connect a host that cannot resolve")
+	}
+}
+
+// The credentials table gets the same shape, with its own verb: Enter opens the
+// read-only answer, and Enter again goes on to the form. Looking no longer
+// means opening a thing you can type into.
+func TestEnterOnACredentialShowsItAndOffersEdit(t *testing.T) {
+	creds := []store.Credential{{Name: "ops", User: "root",
+		Auth: store.AuthPrivateKey, IdentityFile: "~/.ssh/id_ed25519"}}
+	// "1", "j", "enter" is the nav: credentials selected, keyboard handed to the
+	// content. The Enter after that is the one on the row.
+	m := settle(pressA(credApp(nil, creds), "1", "j", "enter", "enter"))
+	if !m.detail.isActive() {
+		t.Fatal("Enter should open the detail float")
+	}
+	v := ansi.Strip(m.View())
+	if !strings.Contains(v, `Edit "ops"?`) {
+		t.Errorf("the offer should name the credential:\n%s", v)
+	}
+	if !strings.Contains(v, "edit") || !strings.Contains(v, "close") {
+		t.Errorf("the hint must disclose both doors:\n%s", v)
+	}
+
+	m = settle(pressA(m, "enter"))
+	if !m.credFormUI.isActive() || m.credFormUI.editing != "ops" {
+		t.Fatalf("Enter on the offer should open the edit form, editing %q",
+			m.credFormUI.editing)
+	}
+	// The form REPLACES the float; two views of one row do not stack.
+	if m.detail.isActive() {
+		t.Error("the detail float should be gone once the form is up")
+	}
+}
+
+// The offer is a fixed footer, not one more scrollable line: the hint promises
+// Enter does something, and a promise that can scroll out of the box is not one.
+//
+// The screen is SHORT on purpose. At a comfortable height the float shows every
+// line it has and there is nothing to scroll, so the same assertion would hold
+// whether the offer were pinned or not — it would pass for the wrong reason.
+// Sixteen rows is short enough that the content genuinely does not fit.
+func TestTheOfferCannotBeScrolledAway(t *testing.T) {
+	m := appWith([]store.Host{{Name: "api", Host: "api.corp", Port: 22,
+		Auth: store.AuthCredential, Credential: "shared-deploy"}}, nil)
+	m.creds.creds = []store.Credential{{Name: "shared-deploy", User: "deploy",
+		Auth: store.AuthPrivateKey, IdentityFile: "~/.ssh/shared"}}
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 16})
+	m = settle(pressA(next.(AppModel), "enter"))
+
+	if len(m.detail.lines()) <= m.detail.visible() {
+		t.Fatalf("setup: the float fits, so scrolling proves nothing (%d lines, %d visible)",
+			len(m.detail.lines()), m.detail.visible())
+	}
+	for range 40 { // all the way to the bottom and then some
+		m = pressA(m, "j")
+	}
+	if v := ansi.Strip(m.View()); !strings.Contains(v, `Connect to "api"?`) {
+		t.Errorf("the offer scrolled out of its own box:\n%s", v)
 	}
 }

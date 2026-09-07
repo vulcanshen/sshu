@@ -826,8 +826,8 @@ Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製�
 | 類型 | sshu 實例 | 特徵 |
 |---|---|---|
 | **menu** | Space menu、**Identity file picker** | 分 region / 清單、cursor-first、選一個執行 |
-| **message** | Connect 確認、Delete 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、**`!` app log**、`[v]iew`、**`[V]iew` 明細**(§11.29) | 可捲、沒有游標 |
+| **message** | Delete 確認、Quit 確認、Toast | 短、確認 / auto-dismiss |
+| **viewport** | `?` help、**`!` app log**、`[v]iew`、**Enter 明細**(§11.29) | 可捲、沒有游標;**明細的腳底下可以掛一個 offer** |
 | **form** ← **新** | Add host / Edit host | 多欄位、逐欄位 focus、一次提交 |
 | **input** ← **新** | tab [2] 的 Rename | **一行**文字、一個問題、Enter 送出 |
 | **pty** | **tab [3] 的 panel [5]**(ssh session) | 外部程式在 sshu 內 render |
@@ -1074,20 +1074,20 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
 **stack**:picker 疊在 form 上(layer +1),form 留在底下 —— `Esc` 取消選檔
 會回到那張還沒填完的 form,不是掉回面板(§6.4)。
 
-### 6.4 Connect 確認(message)
+### 6.4 Connect ~~確認~~ —— 併進明細的腳(v1.4.2)
 
-`Enter` 對 cursor 卡按下 → 先跳確認、確認後才切到 `[3] ssh` 開 session:
-
-```
-            ╭─ ◆ Connect ─────────────────────────╮
-            │                                     │
-            │  Connect to prod-web-01?            │
-            │  deploy@10.0.3.14:22  ·  privatekey │
-            │                                     │
-            ╰─ Enter connect   Esc cancel ────────╯
-```
-
-`Esc` = 取消、留在 hosts。`Enter` = 開 session。
+> **已改寫。** 這裡原本是一個獨立的 message 類確認框:
+>
+> ```
+>             ╭─ ◆ Connect ─────────────────────────╮
+>             │  Connect to prod-web-01?            │
+>             │  deploy@10.0.3.14:22  ·  privatekey │
+>             ╰─ Enter connect   Esc cancel ────────╯
+> ```
+>
+> 它的兩行**都是明細浮層的子集**,所以整個併進去了 —— `Enter` 現在開的是明細,
+> 問句掛在它的腳底下,`Esc` 一樣是取消、留在 hosts。完整理由與被否決的做法在
+> §11.29,`confirmConnect` 已從 `confirmAction` 移除。
 
 ### 6.5 Delete 確認(message)
 
@@ -1135,14 +1135,14 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
 
 ## §7. 時間軸 UX
 
-### 7.1 Connect 確認後 → **清除 source**(§7.1 context-shift 例外)
+### 7.1 Connect 之後 → **清除 source**(§7.1 context-shift 例外)
 
 通用 §7.1 預設保留 source,但 **ssh session 是長時 target**:使用者從
-session 出來時注意力早已轉移,底下浮著的 Space menu / confirm 只會恍神。
-所以 Connect 確認 `Enter` 之後:
+session 出來時注意力早已轉移,底下浮著的 Space menu / 明細只會恍神。
+所以在明細的 offer 上按 `Enter` 之後:
 
 ```
-confirm popup 收掉 → Space menu(若有)收掉 → 切 tab 到 [3] → 開 session
+明細浮層收掉 → Space menu(若有)收掉 → 切 tab 到 [3] → 開 session
 ```
 
 同一判準也適用 sftp 傳輸:`[t]ransfer` / `[T]ransfer all marks` 一旦確定就把
@@ -2055,7 +2055,7 @@ embedded terminal 的 `creack/pty` + `hinshun/vt10x`、連線的
 | **`?` help popup**(可捲) | 已落地 | `ui/helppopup.go` |
 | **Add / Edit form popup + 驗證** | 已落地 | `ui/form.go` `ui/app.go validateForm` |
 | **Delete 確認** | 已落地 | `ui/confirm.go` |
-| **Connect 確認**(確認後 → tab [3]) | 已落地(接點待 tab [3]) | `ui/confirm.go` `ui/app.go doConnect` |
+| **Connect**(明細腳底的 offer,`Enter` → tab [3]) | 已落地(v1.4.2 由確認框併入明細,§11.29) | `ui/detail.go` `ui/app.go detailCommit` `ui/app.go doConnect` |
 | **Toast**(generation guard + auto-dismiss) | 已落地 | `ui/toast.go` |
 | **開關動畫**(~128ms、各自 animator) | 已落地 | `ui/popup.go popupAnimator` |
 | **popup layer 色**(巢狀深度推導) | 已落地 | `ui/popup.go popupLayerColor` |
@@ -3415,7 +3415,11 @@ averylongusername@averylonghostname    (15 欄)  ->  averyl…@averyl…
 
 ---
 
-### 11.29 `[V]iew` —— 表格答不出來的那三件事
+### 11.29 Enter —— 表格答不出來的那三件事,和你正要去的地方
+
+> **v1.4.2 改寫。** 這一節原本講的是 `[V]iew`:一個唯讀浮層,回答表格答不出來的
+> 問題。那部分沒有變,變的是**怎麼打開它**,以及它腳底下多了什麼。舊的 `[V]` 熱鍵
+> 已經移除,理由在本節最後兩個小節。
 
 `[2] Hosts` 一列講得完 host 的五個欄位,卻答不出三個問題:
 
@@ -3443,7 +3447,10 @@ averylongusername@averylonghostname    (15 欄)  ->  averyl…@averyl…
 │  Credential     shared-deploy       │
 │  User           deploy              │
 │  Identity file  ~/.ssh/id_ed25519   │
-╰─ Esc close ─────────────────────────╯
+│                                     │
+│ Connect to "staging-api"?           │
+│                                     │
+╰─ Enter connect  Esc close ──────────╯
 ```
 
 **password 顯示固定寬度的遮罩,不是逐字元的。** form 裡的密碼欄是一個 `•` 一個
@@ -3459,8 +3466,8 @@ credential 是**一整包**而不是一組預設值,所以它供的 user 與 sec
 connect`。名字和「這個名字指向不存在的東西」是同一件事,拆成兩行會在一欄有標籤的
 值裡放一句沒有標籤的話。
 
-`[2] Credentials` 的 `[V]iew` 只有 Auth 那一段 —— credential 就是那一段。名字放
-在浮層**標題**上(§3.4:glyph 說型別、文字說身分)。
+`[2] Credentials` 的明細只有 Auth 那一段 —— credential 就是那一段。名字放在浮層
+**標題**上(§3.4:glyph 說型別、文字說身分),腳底下的 offer 是 `Edit "<name>"?`。
 
 #### 標籤暗、值亮 —— 跟 help 相反,而且是對的
 
@@ -3468,27 +3475,81 @@ connect`。名字和「這個名字指向不存在的東西」是同一件事,�
 那半。同一條規則的兩種正確結果,不是不一致。版面沿用 form 的讓位規則:窄的時候
 label 欄先讓,因為截掉的 label 還讀得出來、擠掉的值讀不出來。
 
-#### 彩蛋讓位
+#### 為什麼「看」和「決定」合成一個浮層(v1.4.2)
 
-`V` 本來是 u-family 的彩蛋(splash)。它在 `handleKey` 裡的位置**比 panel 的動作表
-還早**,所以照抄一列 `[V]iew` 進 `hostActions` 的結果會是:menu 上寫著
-`[V]iew`,按下去跳出 logo。
+使用者原話:
 
-解法不是換一個字母(`V` 就是 view,sftp 的 `[v]iew` 已經用了同一個符號),而是
-**讓彩蛋變成全 app 最低的宣告**:
+> 「把 `[V]iew` 移除,改成第一次 enter 跳出 info popup(就是現在 view 顯示的
+> popup), info popup 底下多一行 `Enter Connect to <host>?`,然後 bottom hint 顯示
+> `Enter connect  Esc close`……反正本來 enter 就會跳 confirm popup,他如果只要看
+> View 就按下 enter 後 close 就好」
 
-```go
-if msg.String() == "V" && !m.typing() && !m.popupOpen() && !m.panelClaimsView() {
+原本 host 那一列有**兩個唯讀浮層做同一件事的兩半**:`[V]iew` 說這一列是什麼,
+Connect 確認問你要不要去。而那個確認框裡寫的是
+
+```
+Connect to staging-api?
+deploy@staging.example.com:22  ·  credential shared-deploy
 ```
 
-`panelClaimsView()` **問的是 menu 問的同一張表**(`hostsApplicable` /
-`credsApplicable`),不是把條件重寫一次 —— 所以它不可能跟它要讓位的那一列說法不
-一致。連空表格都對:沒有東西可看的時候 `[V]iew` 不在表上,`V` 就還是彩蛋的。
+—— **每一個字都是明細的子集**。同一個游標下的同一列,你要看得清楚就得開一個浮層、
+要決定就得關掉它再開另一個,而後者說得比前者少。
 
-8 個 mutation 全數被抓(密碼直接印出來、遮罩長度跟著密碼、credential 不解析、
-斷掉的 credential 不說原因、credential 浮層混進 host 欄位、彩蛋永不讓位、彩蛋永遠
-讓位、identity path 空白)。其中「彩蛋永遠讓位」與「永不讓位」寫成**同一個測試的
-兩半**:會壞的是這對關係散掉,而不是任何一邊單獨錯。
+合併之後 Enter 只有一個意思:**把這一列攤開,順便問你要不要去**。只想看的人按
+Esc,那正是「取消」在全 app 的意思(§4.3),不必為了看而先學會一個字母。
+
+**offer 是固定的腳,不是可捲的最後一行。** hint 承諾 Enter 有事會發生,一個會捲出
+框外的承諾不算承諾。`promptRows()` 讓 `visible()` 先扣掉那兩列,所以窄畫面是內容
+先讓,不是問題先讓。測試刻意用 **16 列高**的畫面 —— 舒適高度下浮層全塞得下、根本
+沒得捲,同一條斷言不論固定與否都會綠,那是**因為錯的理由而綠**。
+
+**做不到的事就不提。** credential 斷掉的 host 沒有 offer:紅色那一列已經說了是哪
+一張、代價是什麼,那就是拒絕本身,說一次、就說在使用者正在看的地方(§11.34)。
+以前是一個 toast 加一行 log 蓋在一個**根本沒開的浮層**上 —— 說得比較少,而且落在
+別的地方。
+
+**credentials 同形,動詞不同。** 那裡的 Enter 本來是 `[E]dit` 的同義字,現在是
+明細,腳底下寫 `Edit "<name>"?`。`E` 仍然直達表單 —— 知道自己在找什麼的人不必多按
+一次;而「我想看看這張 credential 裝了什麼」不再需要打開一個**你可能改到東西的
+表單**,那正是 §11.29 一開始存在的理由,只是以前 credentials 這一側沒有兌現。
+
+**表單取代浮層,不疊在上面。** 明細和表單是同一列的兩個視角,不是「從來源開出去的
+目標」(§6.4)。留著明細在底下的話,從表單 Esc 出來會落在一份**表單剛剛可能改過的**
+舊快照上。
+
+#### 彩蛋把 `V` 收回去了
+
+`V` 本來是 u-family 的彩蛋(splash),而 `[V]iew` 進 `hostActions` 之後,彩蛋被降成
+**全 app 最低的宣告** —— `panelClaimsView()` 去問 menu 問的同一張表,誰有真的
+`[V]iew` 就讓給誰。
+
+那套讓位機制現在整個刪掉了,因為**沒有東西要讓**:
+
+```go
+if msg.String() == "V" && !m.typing() && !m.popupOpen() {
+```
+
+而這也是這個改動順帶修好的第二件事。舊狀態下 `V` 這個字母在**同一個 tab 的兩個
+面板上是 View、在其他每個地方是 logo**,還會因為表格是不是空的而在同一個面板上
+翻面(空表格沒有 `[V]iew`,`V` 就變回彩蛋)。一個字母的意思取決於游標底下有沒有
+東西,這件事沒有辦法揭露、也沒有人記得住。現在它到哪裡都是同一件事。
+
+被否決:**只拿掉 hosts 的 `[V]iew`**。使用者原話是「這樣 `[V]` 就會統一回到
+splash」,但 credentials 也有一列 `[V]iew` —— 只改 hosts 的話 `panelClaimsView()`
+得留著、`V` 在 credentials 面板仍然不是彩蛋,那句「統一」就不成立。兩張表一起改
+才拿得到那個結論。
+
+mutation:8 個舊的加 8 個新的全數被抓 —— 密碼直接印出來、遮罩長度跟著密碼、
+credential 不解析、斷掉的 credential 不說原因、credential 浮層混進 host 欄位、
+identity path 空白;offer 那一行不畫、hint 不提 Enter、斷掉的 credential 照樣給
+offer、offer 跟著內容捲、credentials 的 Enter 直接開表單、表單疊在浮層上、`V` 又
+去開明細。
+
+其中「**Enter 沒有 offer 時也照樣 commit**」這個 mutation **活下來了**,而它活下來
+是對的:`detailCommit()` 的 switch 對 `detailNone` 本來就什麼都不做,而 viewport
+對 `enter` 也沒有用途(`moveScroll` 不認這個鍵),所以那個 guard 今天**不可能被
+觀察到**。它是同一條規則的第二份編碼,所以拿掉了 —— 判斷點只留 `detailCommit()`
+一個。
 
 ---
 
@@ -4004,7 +4065,52 @@ credentials 就白白多四格空白。
 它們**會隨著欄寬定義移動** —— 照舊數字挑的取樣點,在欄寬改動後就悄悄不再覆蓋
 邊界。這類測試不該取樣。
 
-## 附錄 — 按鍵全表(v1.4.1)
+### 11.38 重複的 name —— 在門口就沒有第二列
+
+`name` 是 `hosts.yaml` 與 `credentials.yaml` 的鍵。表單擋得住撞名字,存檔時
+`File.Validate` / `CredsFile.Validate` 也擋得住 —— 唯一進得來的路是**手改檔案**。
+而手改進來之後,清單會變成一份**表現得像沒有重複的清單**:
+
+- `Index` / `CredsFile.Index` / `indexOfHost` **全都取第一筆**,所以第二列在畫面上
+  但按名字找不到 —— Enter、Edit、Duplicate 全部落到第一列身上;
+- `[X]` 刪除是**按名字過濾**的,所以刪「第二列」會**一刀把兩列都刪掉**;
+- 而在那之前,任何存檔動作都會被 `Validate` **整份擋下來** —— 你正在看的這份清單
+  存不回去。
+
+三個症狀,一個原因:**載入時放進來的東西,不是這個程式其他部分假設的那個東西**。
+
+所以在門口就處理掉:`LoadFrom` / `LoadCredsFrom` 各跑一次 `dedupeByName`,**保留
+第一筆**、把丟掉的那幾筆的名字回傳給呼叫者。
+
+**保留第一筆不是隨便挑的** —— 那是這個程式**本來就已經相信**的那一筆。所有查找都
+停在第一個 match,所以第一筆才是使用者真正一直在操作的那一列;保留最後一筆會讓
+畫面上的那一列在去重後**換一個內容**。
+
+**被否決:啟動就拒絕(像壞掉的 YAML 那樣 `os.Exit(1)`)。** 對「貼上時多貼了一次」
+來說那是最兇的回答 —— 整份清單在使用者手動找出重複之前都進不去,而他要讀的那個檔
+**正是要用 sshu 來讀的**。壞掉的 YAML 是另一回事:那是沒有東西可以載入。
+
+**被否決:去重之後順手把檔案寫回去。** 載入不是使用者要求的改動。檔案保持原樣,
+直到他自己存一次 —— 那才是他說「改吧」的那一刻。這條有測試釘住(載入後檔案 byte
+不變)。
+
+**說出來,但只說一句。** 沒有失敗、沒有紅色,只是**檔案跟畫面上的清單不一致了**,
+而只有使用者能把它補平。所以走 app log 的 `warn`(新的 `WithStartupWarning`,
+`WithStartupError` 的低音版本),而且**要點名**:
+
+```
+hosts.yaml: ignored 2 duplicate entries ("prod", "prod"); the first of each name is the one in use
+```
+
+同一個名字出現兩次不是訊息的 bug —— 那表示檔案裡有三份,而使用者要去刪掉的正是
+多出來的那兩份。「ignored 2 duplicates」會讓人抱著一個檔案找是哪兩個,而說出來的
+唯一理由就是要他去修。
+
+**兩個檔一起做。** 使用者只點名了 `hosts.yaml`,但 `credentials.yaml` 是**同一個
+缺陷的另一份**(同樣按 name 取第一筆、同樣被 `Validate` 擋存檔)。一條只在兩個
+同形檔案的其中一個成立的規則,是比較難記的那一種。
+
+## 附錄 — 按鍵全表(v1.4.2)
 
 ### Tab 與 panel
 
@@ -4028,8 +4134,8 @@ credentials 就白白多四格空白。
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Events 分類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 —— 鍵盤在 `[2]` 時整片 dim(§11.13) |
-| `[2]` Hosts | `Enter` · `V` · `E` · **`D`** · **`X`** · `A` · `/` | Connect(確認)/ **View**(唯讀明細,密碼遮罩,§11.29)/ Edit / **Duplicate**(填好的 Add,第一次 Enter 一定撞名字,§11.35)/ **Delete**(確認)/ Add / Search |
-| `[2]` Credentials | **`E`**(`Enter` 同義)· `V` · **`D`** · **`X`** · `A` | **Edit**(§11.34:原本只綁 Enter,而 Enter 印不出括號)/ **View**(只有 auth 那一段)/ **Duplicate**(§11.35)/ **Delete**(確認,列出引用數)/ Add |
+| `[2]` Hosts | **`Enter`** · `E` · `D` · `X` · `A` · `/` | **Enter = 唯讀明細,腳底下是 `Connect to "<name>"?`**(§11.29;只想看就 Esc;credential 斷掉時不給 offer)/ Edit / **Duplicate**(填好的 Add,第一次 Enter 一定撞名字,§11.35)/ **Delete**(確認)/ Add / Search |
+| `[2]` Credentials | **`Enter`** · **`E`** · `D` · `X` · `A` | **Enter = 唯讀明細,腳底下是 `Edit "<name>"?`**(§11.29)/ **Edit**(§11.34:括號要給單一字母;直達表單)/ **Duplicate**(§11.35)/ **Delete**(確認,列出引用數)/ Add |
 | `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 捲動(viewport,無游標;上畫面即已讀)/ Clear logs(先問;連 applogs.yaml,空 log 時不存在) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案,見 §11.12 追記 |
 

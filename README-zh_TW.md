@@ -263,7 +263,7 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 
 ## 現況
 
-**v1.3.0。** 三個 tab 各一個 shift 過的字母、分類的 `[1] sshu` nav、可重用的 credentials 與唯讀的 `[V]iew`(這一列到底裝了什麼)、落地的 app log、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。300+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**v1.3.0。** 三個 tab 各一個 shift 過的字母、分類的 `[1] sshu` nav、可重用的 credentials 與唯讀明細(這一列到底裝了什麼 —— `Enter` 打開,要去哪就在它腳底下問)、落地的 app log、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。300+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
 - **sftp 側未知 host key 的互動確認** —— 今天是直接拒絕,要先用 ssh tab 接受

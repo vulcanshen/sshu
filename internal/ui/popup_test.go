@@ -287,12 +287,12 @@ func TestEscPopsOneLevel(t *testing.T) {
 
 // Committing ends the errand, so it takes the whole stack with it (§7.1).
 func TestCommitTearsDownTheStack(t *testing.T) {
-	m := pressA(appWith(sample(), nil), " ", "enter") // menu -> Connect -> confirm
-	if !m.confirm.isActive() {
-		t.Fatal("expected the connect confirmation")
+	m := pressA(appWith(sample(), nil), " ", "enter") // menu -> Connect -> the float
+	if !m.detail.isActive() {
+		t.Fatal("expected the connect offer")
 	}
 	m = pressA(m, "enter")
-	if m.confirm.isActive() || m.spaceMenu.isActive() {
+	if m.detail.isActive() || m.spaceMenu.isActive() {
 		t.Error("committing must clear the whole float stack")
 	}
 	if m.tab != tabSSH {

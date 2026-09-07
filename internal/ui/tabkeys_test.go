@@ -76,15 +76,15 @@ func TestTabKeysBelongToTheRemote(t *testing.T) {
 // Under a popup they do nothing: a tab switching beneath a form would strand
 // the form over a surface it knows nothing about.
 func TestTabKeysAreInertUnderAPopup(t *testing.T) {
-	m := pressA(appWith(sample(), nil), "enter") // the connect confirm is up
-	if !m.confirm.isActive() {
-		t.Fatal("setup: expected the connect confirmation")
+	m := pressA(appWith(sample(), nil), "enter") // the connect offer is up
+	if !m.detail.isActive() {
+		t.Fatal("setup: expected the connect offer")
 	}
 	m = pressA(m, "S")
 	if m.tab != tabPref {
 		t.Fatalf("S under a popup must be inert, tab=%d", m.tab)
 	}
-	if !m.confirm.isActive() {
+	if !m.detail.isActive() {
 		t.Fatal("the popup must survive the key")
 	}
 }
