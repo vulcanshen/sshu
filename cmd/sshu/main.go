@@ -54,6 +54,16 @@ func main() {
 	// breaks the hosts that reference it — sshu still starts, and says so.
 	credsFile, dupCreds, credsErr := store.LoadCreds()
 
+	// ~/.ssh/config is not sshu's file, and it is already deciding what tab [3]
+	// does — sshu launches the real ssh, which reads it. Missing is the ordinary
+	// empty state; unreadable is worth saying, and never a reason not to start.
+	sshCfg, sshCfgErr := store.LoadSSHConfig()
+
+	// known_hosts is the other file sshu did not write and already reads:
+	// remote/sftp.go verifies against it, and refuses outright when a key has
+	// changed. Missing is the ordinary empty state.
+	knownHosts, knownErr := store.LoadKnownHosts()
+
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
 	}
@@ -62,7 +72,9 @@ func main() {
 	}
 	app := ui.New(hosts.Hosts, save, cfg).
 		WithLog(logTail, store.AppendLog, store.ClearLog).
-		WithCredentials(credsFile.Credentials, saveCreds)
+		WithCredentials(credsFile.Credentials, saveCreds).
+		WithSSHConfig(sshCfg, store.SaveSSHConfig).
+		WithKnownHosts(knownHosts, store.SaveKnownHosts)
 	if cfgErr != nil {
 		app = app.WithStartupError("config.yaml: " + cfgErr.Error())
 	}
@@ -71,6 +83,12 @@ func main() {
 	}
 	if credsErr != nil {
 		app = app.WithStartupError("credentials.yaml: " + credsErr.Error())
+	}
+	if sshCfgErr != nil {
+		app = app.WithStartupError("~/.ssh/config: " + sshCfgErr.Error())
+	}
+	if knownErr != nil {
+		app = app.WithStartupError("~/.ssh/known_hosts: " + knownErr.Error())
 	}
 	// A dropped duplicate is not an error — sshu is running on a list that is
 	// now internally consistent — but it is a difference between the file and

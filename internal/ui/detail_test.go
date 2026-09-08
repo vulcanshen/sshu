@@ -43,9 +43,10 @@ func TestHostViewNeverPrintsThePassword(t *testing.T) {
 // what it hides. A per-rune mask (which is what the FORM draws, where the
 // length is your own) would publish it.
 func TestHostViewMaskDoesNotLeakTheLength(t *testing.T) {
-	short := hostDetail(store.Host{Name: "a", Auth: store.AuthPassword, Password: "x"}, nil)
+	short := hostDetail(store.Host{Name: "a", Auth: store.AuthPassword, Password: "x"}, nil,
+		store.SSHConfigFile{}, 15)
 	long := hostDetail(store.Host{Name: "a", Auth: store.AuthPassword,
-		Password: strings.Repeat("x", 40)}, nil)
+		Password: strings.Repeat("x", 40)}, nil, store.SSHConfigFile{}, 15)
 
 	got := func(secs []detailSection) string {
 		for _, s := range secs {

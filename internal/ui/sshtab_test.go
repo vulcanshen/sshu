@@ -169,7 +169,7 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 	// Reading it happens where the log lives now: preference → logs. The line
 	// is WRAPPED onto the panel, not truncated — the word that says why is at
 	// the end, which is exactly what a cut tail would eat.
-	m = pressA(m, "M", "1", "j", "j") // to the nav, then hosts → credentials → logs
+	m = pressA(m, "M", "1", "j", "j", "j", "j") // nav → hosts → credentials → config → known hosts → logs
 	if m.pref.item != prefLogs {
 		t.Fatalf("expected the logs section, got %d", m.pref.item)
 	}

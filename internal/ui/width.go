@@ -43,6 +43,31 @@ func truncate(s string, w int) string {
 	return b.String() + strings.Repeat(" ", w-1-used) + "…"
 }
 
+// truncateHead cuts from the FRONT, keeping the tail. For a path that is the
+// only useful direction: `~/.ssh/config.d/work` and `~/.ssh/config.d/team`
+// differ at the end, and cutting there would leave two rows reading alike.
+func truncateHead(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	if dispW(s) <= w {
+		return s
+	}
+	if w == 1 {
+		return "…"
+	}
+	r := []rune(s)
+	used, i := 0, len(r)
+	for ; i > 0; i-- {
+		rw := dispW(string(r[i-1]))
+		if used+rw > w-1 { // leave one cell for the ellipsis
+			break
+		}
+		used += rw
+	}
+	return "…" + strings.Repeat(" ", w-1-used) + string(r[i:])
+}
+
 // clipANSI cuts a possibly-styled string to w cells without severing an escape
 // sequence. truncate() is for plain text; using it on styled output would cut
 // mid-ANSI and bleed the style into everything after it.

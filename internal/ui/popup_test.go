@@ -16,8 +16,8 @@ import (
 // finishes opening under test, so its content renders as nothing and the
 // test passes for the wrong reason.
 var animTargets = []string{"spacemenu", "hostpicker", "credpicker", "help", "form",
-	"picker", "transfers", "credform", "viewer", "editor", "confirm", "input", "toast",
-	"detail"}
+	"picker", "transfers", "credform", "sshcfgform", "knownadd", "viewer", "editor", "confirm",
+	"input", "toast", "detail"}
 
 // settle runs the animations to completion — a popup mid-open refuses keys on
 // purpose (§6.2), so a test that skips this is testing a half-drawn surface.
@@ -806,7 +806,7 @@ func lastLine(s string) string {
 // stub: its own words clipped ("nothing reco…") and its legend cut mid-key.
 // And with nothing to run, the legend offers only the key that still works.
 func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
-	m := pressA(appWith(sample(), nil), "1", "j", "j", "enter") // logs, empty
+	m := pressA(appWith(sample(), nil), "1", "j", "j", "j", "j", "enter") // logs, empty
 	if len(m.log.entries) != 0 {
 		t.Fatalf("setup: the log should be empty, has %d", len(m.log.entries))
 	}

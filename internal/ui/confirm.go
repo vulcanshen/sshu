@@ -24,20 +24,27 @@ const (
 	confirmEditBinary    // open something that does not look like text
 	confirmEditOverwrite // write back over a file that changed underneath
 	confirmClearLogs     // erase the app log, applogs.yaml and all
+	confirmDeleteSSHCfg  // remove a Host block from ~/.ssh/config
+	confirmDeleteKnown   // stop trusting a key in ~/.ssh/known_hosts
+	confirmTrustHostKey  // write a freshly fetched key into known_hosts
 )
 
 // confirmPopup is the message class (§6.1): a short question with one yes and
 // one no. It is NOT a menu — a menu is "pick one of N", and blurring the two
 // would make Enter mean different things on different floats.
 type confirmPopup struct {
-	anim    popupAnimator
-	glyph   string
-	title   string
-	lines   []string
-	accept  string // what Enter does, shown in the hint
-	warn    bool   // render the first line in the warning colour
-	action  confirmAction
-	target  string // host name the action applies to
+	anim   popupAnimator
+	glyph  string
+	title  string
+	lines  []string
+	accept string // what Enter does, shown in the hint
+	warn   bool   // render the first line in the warning colour
+	action confirmAction
+	target string // host name the action applies to
+	// at is the target's POSITION, for the one list whose rows have no name to
+	// carry: two ~/.ssh/config blocks may share a pattern, and ssh means
+	// something by that, so the row's identity is where it sits (§11.39).
+	at      int
 	layer   int
 	screenW int
 	screenH int

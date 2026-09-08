@@ -48,8 +48,13 @@ type formField struct {
 	placeholder string // shown dim while the field is empty — never a value
 	mask        bool   // render as bullets — the password is never shown in clear
 	digits      bool   // reject anything but 0-9
-	options     []string
-	sel         int
+	// separator makes the row a labelled rule rather than a field. The Space
+	// menu already splits a list this way (menuItem.separator); a form with a
+	// variable tail needs the same thing, to say where the rows that are always
+	// here stop and the ones this particular record happens to carry begin.
+	separator bool
+	options   []string
+	sel       int
 }
 
 // Field order. Auth comes BEFORE the fields it decides: choosing credential
@@ -444,6 +449,18 @@ func formBody(fields []formField, focus, errIdx int, errMsg string,
 	for i, f := range fields {
 		on := enabled(i)
 		focused := i == focus
+
+		// A separator takes the whole row: it has no value, and drawing the
+		// "—" that a disabled field gets would make it look like one that had
+		// been switched off.
+		if f.separator {
+			// innerW-1 and then a space, because every other row here is
+			// label+value+" " — a rule that runs into the border is the one line
+			// in the box that touches the frame.
+			head := "  " + f.label + " "
+			rows = append(rows, dim.Render(head+strings.Repeat("─", max(0, innerW-1-dispW(head))))+" ")
+			continue
+		}
 
 		lStyle := dim
 		switch {

@@ -71,6 +71,12 @@ func (m AppModel) View() string {
 	if m.credFormUI.isActive() {
 		out = overlay.Composite(m.credFormUI.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.sshcfgFormUI.isActive() {
+		out = overlay.Composite(m.sshcfgFormUI.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
+	if m.knownAddUI.isActive() {
+		out = overlay.Composite(m.knownAddUI.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	// Above both forms: this menu is OPENED FROM the host form, and a popup
 	// painted under the surface that launched it is a popup that never opened
 	// — which is exactly how it shipped the first time. isActive tests cannot
