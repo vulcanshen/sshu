@@ -16,7 +16,8 @@ const (
 	inputNone inputAction = iota
 	inputRename
 	inputAdd
-	inputGridDims // the ssh grid's custom columns × rows
+	inputGridDims   // the ssh grid's custom columns × rows
+	inputKnownHosts // which names a known_hosts key is trusted for
 )
 
 // inputPopup is one line of text with a question above it — the message class's
@@ -42,6 +43,10 @@ type inputPopup struct {
 	// difference between them is one character at the end. A rule that small has
 	// to be said where the typing happens, not only in the menu that opened it.
 	placeholder string
+	// at is the subject's POSITION, for a list whose rows have no name to
+	// carry — the same field confirmPopup and detailPopup grew, and for the
+	// same reason (§11.40).
+	at int
 
 	layer   int
 	screenW int

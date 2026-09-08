@@ -215,6 +215,14 @@ func SaveTo(path string, f File) error {
 // Atomic because a half-written file loses the only copy; 0600 re-asserted so a
 // file that was widened by hand narrows again on the next save.
 func writeFile0600(path string, out []byte) error {
+	return writeFileMode(path, out, 0o600)
+}
+
+// writeFileMode is writeFile0600 with the permission as an argument, for
+// ~/.ssh/config — a file sshu did not create and whose mode is therefore not
+// sshu's to decide (see SaveSSHConfigTo). The atomicity is the part both
+// callers need.
+func writeFileMode(path string, out []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -228,7 +236,7 @@ func writeFile0600(path string, out []byte) error {
 
 	// Chmod before the rename: CreateTemp makes 0600 already, but be explicit —
 	// this is the permission the finished file inherits.
-	if err := tmp.Chmod(0o600); err != nil {
+	if err := tmp.Chmod(mode); err != nil {
 		tmp.Close()
 		return err
 	}

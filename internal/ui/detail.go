@@ -17,6 +17,8 @@ const (
 	detailNone detailAction = iota
 	detailConnect
 	detailEditCred
+	detailEditSSHCfg
+	detailEditKnown
 )
 
 // detailPopup is the §6.1 VIEWPORT class — the same family as `?` help and the
@@ -46,10 +48,14 @@ type detailPopup struct {
 	// prompt is the question at the foot of the float; accept is the verb the
 	// hint gives Enter. Both empty means there is nothing to commit, and Enter
 	// belongs to the viewport.
-	prompt  string
-	accept  string
-	action  detailAction
-	target  string // the name the action applies to
+	prompt string
+	accept string
+	action detailAction
+	target string // the name the action applies to
+	// at is the same thing for a row that has no name: a ~/.ssh/config block is
+	// identified by where it sits, because two of them may share a pattern and
+	// ssh means something by that (§11.39).
+	at      int
 	top     int
 	layer   int
 	screenW int
@@ -69,6 +75,13 @@ type detailRow struct {
 	label string
 	value string
 	warn  bool
+	// depth indents a row under the one above it, two cells a level.
+	//
+	// The ~/.ssh/config sections are the only three-level thing in this float —
+	// a FILE, the Host blocks inside it, and each block's options — and without
+	// a depth the middle level had nowhere to sit: a heading and a label row
+	// are otherwise one cell apart, which reads as "these are siblings".
+	depth int
 }
 
 func newDetailPopup() detailPopup { return detailPopup{anim: newPopupAnimator("detail")} }
@@ -119,7 +132,8 @@ const maskedSecret = "••••••••"
 // credential as one package rather than a set of defaults (store.Resolve), so
 // the rows it contributes sit together under it rather than being mixed into
 // the connection half.
-func hostDetail(h store.Host, creds []store.Credential) []detailSection {
+func hostDetail(h store.Host, creds []store.Credential, cfg store.SSHConfigFile,
+	timeoutSecs int) []detailSection {
 	conn := detailSection{title: "Connection", rows: []detailRow{
 		{label: "Name", value: h.Name},
 		{label: "Host", value: h.Host},
@@ -156,7 +170,115 @@ func hostDetail(h store.Host, creds []store.Credential) []detailSection {
 			detailRow{label: "User", value: rh.User})
 		auth.rows = append(auth.rows, credSecretRow(rh.Auth, rh.IdentityFile)...)
 	}
-	return []detailSection{conn, auth}
+	return append([]detailSection{conn, auth}, sshConfigSections(h, creds, cfg, timeoutSecs)...)
+}
+
+// sshConfigSections is what ~/.ssh/config will contribute to this host: ONE
+// SECTION PER BLOCK that gets a word in, in the order ssh reads them — so the
+// section nearest the top is the one whose values won.
+//
+// It has to be the union rather than "which block does this host match",
+// because that is what ssh does: it merges every matching block and takes the
+// first value for each keyword. A host normally matches several — its own, and
+// the `Host *` every config ends up with — and takes something from each.
+//
+// The whole thing is absent when the file has nothing to say about this host,
+// which is most of them: a host whose `host` field is a real address usually
+// only meets `Host *`, and one that meets nothing at all draws nothing.
+func sshConfigSections(h store.Host, creds []store.Credential, cfg store.SSHConfigFile,
+	timeoutSecs int) []detailSection {
+	opts := cfg.Effective(h.Host)
+	if len(opts) == 0 {
+		return nil
+	}
+	// Resolved, because that is what buildSSHCmd is handed: a credential host's
+	// user and key come from the credential, and those are the values that go
+	// on the command line and beat the file.
+	rh := h
+	if r, err := store.Resolve(h, creds); err == nil {
+		rh = r
+	}
+	// What sshu puts on the command line, which outranks the file. Keyed by the
+	// keyword it beats, valued by what sshu sends instead — so a row can say
+	// whether it is being overridden with something DIFFERENT, which is the only
+	// case worth a red line. `User vulcan` beaten by `vulcan@` changes nothing,
+	// and colouring it would be crying wolf on every host.
+	type sent struct{ value, phrase string }
+	sends := map[string]sent{
+		"port":           {itoa(rh.Port), "-p " + itoa(rh.Port)},
+		"user":           {rh.User, rh.User + "@"},
+		"connecttimeout": {itoa(timeoutSecs), "-o ConnectTimeout=" + itoa(timeoutSecs)},
+	}
+	if rh.Auth == store.AuthPrivateKey && rh.IdentityFile != "" {
+		sends["identityfile"] = sent{rh.IdentityFile, "-i " + rh.IdentityFile}
+		sends["identitiesonly"] = sent{"yes", "-o IdentitiesOnly=yes"}
+	}
+
+	// One section per FILE, the blocks inside it indented under its name and
+	// their options indented again — three levels, because there are three
+	// things: a file, the blocks in it, and what each block sets.
+	//
+	// Grouped by RUN, not by file outright. The order of these sections IS the
+	// precedence order, and an Include sitting between two Host blocks really
+	// does make ssh read root → included → root. Collecting all of one file's
+	// blocks together would tidy that into a lie about which value won.
+	var out []detailSection
+	curBlock, curFile := -1, -1
+	for _, o := range opts {
+		blk := cfg.Blocks[o.Block]
+		if blk.File() != curFile {
+			curFile, curBlock = blk.File(), -1
+			out = append(out, detailSection{
+				title: glyphFileCog + " " + cfg.Path(curFile),
+			})
+		}
+		sec := &out[len(out)-1]
+		if o.Block != curBlock {
+			curBlock = o.Block
+			// A blank line between blocks of the same file, so two `Host` lines
+			// a few rows apart do not read as one list.
+			if len(sec.rows) > 0 {
+				sec.rows = append(sec.rows, detailRow{})
+			}
+			sec.rows = append(sec.rows, detailRow{value: "Host " + o.From, depth: 1})
+		}
+		// The SAME depth as the Host line above it, not one more: a heading
+		// already sits one cell left of its own labels — that is what
+		// Connection(1)/Name(2) does — so nesting them by depth as well would
+		// step 2 cells then 3, which reads as a level that is not there.
+		row := detailRow{label: o.Key, value: o.Value, depth: 1}
+		// The four sshu passes on the command line are the ones it silently
+		// wins, INCLUDING when it is winning with a default nobody chose. A row
+		// that printed only the file's value would be saying the wrong thing.
+		if mine, ok := sends[strings.ToLower(o.Key)]; ok && !strings.EqualFold(mine.value, o.Value) {
+			row.value, row.warn = o.Value+" — sshu sends "+mine.phrase, true
+		}
+		sec.rows = append(sec.rows, row)
+	}
+
+	// And what could ALSO apply and is not in the list above. A section headed
+	// "what ssh will use" that quietly omits a source is worse than no section:
+	// it would be read as complete, and it is not.
+	//
+	// Includes that sshu DID follow are not here — their blocks are up there
+	// with the rest, under their own file's name. What is left is the ones it
+	// could not: a pattern matching nothing, a file it could not read.
+	//
+	// Named, not counted. "1 file, not read" was both vague and WRONG: the one
+	// counted Include DIRECTIVES, and a single one can be a glob standing for
+	// ten files. What a reader needs is the string to go and look at.
+	var maybe []detailRow
+	for _, inc := range cfg.Unread {
+		maybe = append(maybe, detailRow{label: "Include", value: inc})
+	}
+	for _, cond := range cfg.MatchConditions {
+		maybe = append(maybe, detailRow{label: "Match",
+			value: nameOr(cond, "(no condition)") + " — not evaluated"})
+	}
+	if len(maybe) > 0 {
+		out = append(out, detailSection{title: "~/.ssh/config · may also apply", rows: maybe})
+	}
+	return out
 }
 
 // credDetail is the contents for one credential: the auth half only, which is
@@ -179,12 +301,14 @@ func credSecretRow(auth store.AuthMethod, identity string) []detailRow {
 	return []detailRow{{label: "Password", value: maskedSecret}}
 }
 
-// labelW is the widest label; a section heading is not a label.
+// labelW is the widest label AT ITS OWN INDENT; a section heading is not a
+// label. Counting the indent is what keeps an indented label from running into
+// the value column that was sized without it.
 func (m detailPopup) labelW() int {
 	w := 0
 	for _, s := range m.sections {
 		for _, r := range s.rows {
-			w = max(w, dispW(r.label))
+			w = max(w, dispW(r.label)+2*r.depth)
 		}
 	}
 	return w
@@ -244,6 +368,7 @@ func (m detailPopup) view() string {
 	end := min(len(all), m.top+vis)
 	rows := make([]string, 0, vis)
 	for _, r := range all[m.top:end] {
+		pad := strings.Repeat(" ", 2*r.depth)
 		if r.label == "" {
 			// A heading, a spacer, or the warning that has no field name — all
 			// three are one full-width line rather than an empty label column.
@@ -251,14 +376,14 @@ func (m detailPopup) view() string {
 			if r.warn {
 				style = red
 			}
-			rows = append(rows, style.Render(padRight(" "+r.value, innerW)))
+			rows = append(rows, style.Render(padRight(" "+pad+r.value, innerW)))
 			continue
 		}
 		value := txt.Render(padRight(truncate(r.value, valueW), valueW))
 		if r.warn {
 			value = red.Render(padRight(truncate(r.value, valueW), valueW))
 		}
-		rows = append(rows, dim.Render(padRight("  "+r.label, labelCol))+value)
+		rows = append(rows, dim.Render(padRight("  "+pad+r.label, labelCol))+value)
 	}
 
 	// The offer sits under a blank line, at the foot of the box and outside the
@@ -291,7 +416,7 @@ func (m AppModel) openHost() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, m.toast.show("No host selected", toastError)
 	}
-	c := detailPopup{title: nameOr(h.Name, "host"), sections: hostDetail(h, m.creds.creds)}
+	c := detailPopup{title: nameOr(h.Name, "host"), sections: hostDetail(h, m.creds.creds, m.sshcfg.file, m.cfg.Seconds())}
 	// The offer is only made when it can be kept. A host whose credential is
 	// gone cannot be connected to, and the row inside already says which
 	// credential and what it costs, in red — that is the refusal, said once and

@@ -24,6 +24,16 @@ func TestPrefNavSwapsContentAsTheCursorMoves(t *testing.T) {
 		t.Errorf("moving to credentials should show them:\n%s", v)
 	}
 	m = pressA(m, "j")
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Config") ||
+		!strings.Contains(v, "~/.ssh/config") {
+		t.Errorf("moving to config should show ~/.ssh/config:\n%s", v)
+	}
+	m = pressA(m, "j")
+	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] KnownHosts") ||
+		!strings.Contains(v, "~/.ssh/known_hosts") {
+		t.Errorf("moving to known hosts should show ~/.ssh/known_hosts:\n%s", v)
+	}
+	m = pressA(m, "j")
 	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Logs") {
 		t.Errorf("moving to logs should show them:\n%s", v)
 	}
@@ -71,7 +81,7 @@ func TestUnreadErrorsAreDisclosedAndClearedByLooking(t *testing.T) {
 		t.Errorf("the nav's logs row must carry the count, got %q", row)
 	}
 
-	m = pressA(m, "1", "j", "j") // nav → credentials → logs: now on screen
+	m = pressA(m, "1", "j", "j", "j", "j") // nav → … → known hosts → logs: now on screen
 	if m.log.unreadErrors() != 0 {
 		t.Errorf("having the logs on screen is reading them, unread = %d", m.log.unreadErrors())
 	}
@@ -88,7 +98,8 @@ func TestPrefTabPreservesFrame(t *testing.T) {
 		for _, keys := range [][]string{
 			{}, {"1"}, {"1", "j"}, {"1", "j", "j"},
 			{"1", "j", "enter"}, {"2"},
-			{"1", "j", "j", "j"}, {"1", "G", "enter"},
+			{"1", "j", "j", "j"}, {"1", "j", "j", "j", "j"},
+			{"1", "j", "j", "j", "j", "j"}, {"1", "j", "j", "enter"}, {"1", "G", "enter"},
 		} {
 			m := pressA(sized(sample(), w, h), keys...)
 			got := m.View()
@@ -122,10 +133,10 @@ func TestNavDimsWhenTheContentHasTheKeyboard(t *testing.T) {
 	}
 	blue, quiet := ansiOf(t, focusColor), ansiOf(t, borderDim)
 
-	if h := prefNavHead("Events", 16, true); !strings.Contains(h, blue) {
+	if h := prefNavHead("Others", 16, true); !strings.Contains(h, blue) {
 		t.Errorf("a focused category header should wear the structure blue, got %q", h)
 	}
-	if h := prefNavHead("Events", 16, false); strings.Contains(h, blue) || !strings.Contains(h, quiet) {
+	if h := prefNavHead("Others", 16, false); strings.Contains(h, blue) || !strings.Contains(h, quiet) {
 		t.Errorf("an unfocused header should recede to the border's dim, got %q", h)
 	}
 
@@ -155,7 +166,7 @@ func TestClearLogsAsksThenEmptiesPanelAndFile(t *testing.T) {
 	m.log.errorf("something broke")
 	m.log.info("and then something else")
 
-	m = pressA(m, "1", "j", "j", "enter") // nav → logs → the content
+	m = pressA(m, "1", "j", "j", "j", "j", "enter") // nav → logs → the content
 	if m.pref.item != prefLogs || m.pref.focus != panelPrefContent {
 		t.Fatal("setup: expected the logs content focused")
 	}
@@ -205,7 +216,7 @@ func TestClearLogsKeepsEverythingWhenTheFileRefuses(t *testing.T) {
 	m.log.clearSink = func() error { return errors.New("applogs.yaml: read-only") }
 	m.log.info("one thing happened")
 
-	m = pressA(m, "1", "j", "j", "enter", "C", "enter")
+	m = pressA(m, "1", "j", "j", "j", "j", "enter", "C", "enter")
 	if len(m.log.entries) != 1 {
 		t.Fatalf("the entries must survive a refused clear, got %d", len(m.log.entries))
 	}
@@ -218,7 +229,7 @@ func TestClearLogsKeepsEverythingWhenTheFileRefuses(t *testing.T) {
 // the hosts table keeps where there is no row to delete.
 func TestAnEmptyLogOffersNothingToClear(t *testing.T) {
 	m := appWith(sample(), nil)
-	m = pressA(m, "1", "j", "j", "enter")
+	m = pressA(m, "1", "j", "j", "j", "j", "enter")
 	if len(m.log.entries) != 0 {
 		t.Fatalf("setup: the log should be empty, has %d", len(m.log.entries))
 	}

@@ -193,7 +193,7 @@ func TestPrefPanelsWearTheirTitles(t *testing.T) {
 	}
 	// And the nav lists every visible section by name, under its category
 	// header — while the masked Operation section stays off screen.
-	for _, want := range []string{"SSH", "Hosts", "Credentials", "Events", "Logs"} {
+	for _, want := range []string{"SSH", "Hosts", "Credentials", "Others", "Logs"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the nav does not offer %q", want)
 		}

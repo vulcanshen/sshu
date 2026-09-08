@@ -51,6 +51,21 @@ type AppModel struct {
 	hosts      hostsModel
 	creds      credsModel
 	saveCreds  func([]store.Credential) error
+	sshcfg     sshcfgModel
+	// saveSSHConfig returns the file as it now stands ON DISK, whether the write
+	// went through or was refused because another editor got there first — see
+	// persistSSHCfg. The other two savers only report failure, because nothing
+	// else writes hosts.yaml.
+	saveSSHConfig func(store.SSHConfigFile) (store.SSHConfigFile, error)
+	known         knownModel
+	// saveKnownHosts has the same contract as saveSSHConfig, and needs it
+	// more: ssh appends to known_hosts on every first connect, so a refusal
+	// because somebody else wrote first is routine rather than exotic.
+	saveKnownHosts func(store.KnownHostsFile) (store.KnownHostsFile, error)
+	// pendingKey is a host key that has been fetched and not yet trusted. It
+	// outlives the form for the reason pendingEdit outlives its popup: the
+	// question is asked after that box is gone.
+	pendingKey pendingHostKey
 	ssh        sshModel
 	sftp       sftpModel
 	transfers  transferModel
@@ -64,22 +79,24 @@ type AppModel struct {
 
 	// Floats. At most one of form / confirm / help is up at a time, optionally
 	// over the Space menu; the toast rides on top of everything.
-	spaceMenu   spaceMenu
-	splash      splashModel
-	hostPicker  spaceMenu
-	credPicker  spaceMenu
-	transfersUI transfersPopup
-	log         appLog
-	viewer      viewerPopup
-	detail      detailPopup
-	editorUI    editorPopup
-	help        helpPopup
-	form        hostForm
-	credFormUI  credForm
-	picker      filePicker
-	confirm     confirmPopup
-	input       inputPopup
-	toast       toastModel
+	spaceMenu    spaceMenu
+	splash       splashModel
+	hostPicker   spaceMenu
+	credPicker   spaceMenu
+	transfersUI  transfersPopup
+	log          appLog
+	viewer       viewerPopup
+	detail       detailPopup
+	editorUI     editorPopup
+	help         helpPopup
+	form         hostForm
+	credFormUI   credForm
+	sshcfgFormUI sshcfgForm
+	knownAddUI   knownAddForm
+	picker       filePicker
+	confirm      confirmPopup
+	input        inputPopup
+	toast        toastModel
 
 	// pendingG holds the first half of the gg chord. A chord is a shortcut for an
 	// action that already exists, so it costs no core-key slot (§A.0.Y).
@@ -93,29 +110,31 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		cfg: cfg,
 		// The tab opens ON its content — the hosts table, exactly where the
 		// old hosts tab put you. The nav is chrome you visit (1, or Tab).
-		pref:        prefModel{focus: panelPrefContent},
-		exportPage:  newExportPage(),
-		importPage:  newImportPage(),
-		hosts:       hostsModel{hosts: hosts},
-		ssh:         newSSHModel(),
-		sftp:        newSFTPModel(),
-		transfersUI: newTransfersPopup(),
-		log:         newAppLog(),
-		viewer:      newViewerPopup(),
-		detail:      newDetailPopup(),
-		editorUI:    newEditorPopup(),
-		hostPicker:  newHostPicker(),
-		credPicker:  newCredPicker(),
-		save:        save,
-		spaceMenu:   newSpaceMenu(),
-		splash:      newSplashModel(),
-		help:        newHelpPopup(),
-		form:        newHostForm(),
-		credFormUI:  newCredForm(),
-		picker:      newFilePicker(),
-		confirm:     newConfirmPopup(),
-		input:       newInputPopup(),
-		toast:       newToast(),
+		pref:         prefModel{focus: panelPrefContent},
+		exportPage:   newExportPage(),
+		importPage:   newImportPage(),
+		hosts:        hostsModel{hosts: hosts},
+		ssh:          newSSHModel(),
+		sftp:         newSFTPModel(),
+		transfersUI:  newTransfersPopup(),
+		log:          newAppLog(),
+		viewer:       newViewerPopup(),
+		detail:       newDetailPopup(),
+		editorUI:     newEditorPopup(),
+		hostPicker:   newHostPicker(),
+		credPicker:   newCredPicker(),
+		save:         save,
+		spaceMenu:    newSpaceMenu(),
+		splash:       newSplashModel(),
+		help:         newHelpPopup(),
+		form:         newHostForm(),
+		credFormUI:   newCredForm(),
+		sshcfgFormUI: newSSHCfgForm(),
+		knownAddUI:   newKnownAddForm(),
+		picker:       newFilePicker(),
+		confirm:      newConfirmPopup(),
+		input:        newInputPopup(),
+		toast:        newToast(),
 	}
 	m.ssh.timeout, m.sftp.timeout = cfg.Timeout(), cfg.Timeout()
 	return m
@@ -147,6 +166,28 @@ func (m AppModel) WithLog(tail []store.LogEntry, sink func(store.LogEntry) error
 // not calling this at all.
 func (m AppModel) WithStartupError(msg string) AppModel {
 	m.log.errorf(msg)
+	return m
+}
+
+// WithSSHConfig wires ~/.ssh/config in: the parsed file, and how to write it.
+//
+// Separate from WithCredentials because it is a separate decision — this is the
+// one file sshu manages that it did not create, and a build or a test that
+// leaves it out simply has no Config panel content rather than a broken one.
+func (m AppModel) WithSSHConfig(f store.SSHConfigFile,
+	save func(store.SSHConfigFile) (store.SSHConfigFile, error)) AppModel {
+	m.sshcfg.file = f
+	m.saveSSHConfig = save
+	return m
+}
+
+// WithKnownHosts wires ~/.ssh/known_hosts in: the parsed file, and how to
+// write it. Separate from WithSSHConfig because they are separate files with
+// separate failure modes, and a caller that has one need not have the other.
+func (m AppModel) WithKnownHosts(f store.KnownHostsFile,
+	save func(store.KnownHostsFile) (store.KnownHostsFile, error)) AppModel {
+	m.known.file = f
+	m.saveKnownHosts = save
 	return m
 }
 
@@ -191,6 +232,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.setSize(m.w, m.h)
 		m.form.setSize(m.w, m.h)
 		m.credFormUI.setSize(m.w, m.h)
+		m.sshcfgFormUI.setSize(m.w, m.h)
+		m.knownAddUI.setSize(m.w, m.h)
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
@@ -211,11 +254,25 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help.anim.tick(msg),
 			m.form.anim.tick(msg),
 			m.credFormUI.anim.tick(msg),
+			m.sshcfgFormUI.anim.tick(msg),
+			m.knownAddUI.anim.tick(msg),
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
 			m.input.anim.tick(msg),
 			m.toast.anim.tick(msg),
 		)
+
+	case hostKeyScannedMsg:
+		return m.hostKeyScanned(msg)
+
+	case knownScanTickMsg:
+		// Only while something is out: an idle sshu must not be repainting for
+		// a spinner nobody is looking at.
+		if !m.knownAddUI.scanning {
+			return m, nil
+		}
+		m.knownAddUI.spin++
+		return m, knownScanTick()
 
 	case splashTickMsg, splashIdentityMsg, splashHintMsg:
 		var cmd tea.Cmd
@@ -589,6 +646,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.formKey(msg)
 	case m.credFormUI.anim.owns():
 		return m.credFormKey(msg)
+	case m.sshcfgFormUI.anim.owns():
+		return m.sshcfgFormKey(msg)
+	case m.knownAddUI.anim.owns():
+		return m.knownAddKey(msg)
 	case m.input.anim.owns():
 		return m.inputKey(msg)
 	case m.confirm.anim.owns():
@@ -615,6 +676,8 @@ func (m AppModel) inputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.doAdd(value)
 	case inputGridDims:
 		return m.applyGridDims(value)
+	case inputKnownHosts:
+		return m.doRenameKnown(m.input.at, value)
 	}
 	return m, tea.Batch(m.closeStack(), m.input.close())
 }
@@ -642,6 +705,10 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.form.close()
 	case m.credFormUI.isActive():
 		return m, m.credFormUI.close()
+	case m.sshcfgFormUI.isActive():
+		return m, m.sshcfgFormUI.close()
+	case m.knownAddUI.isActive():
+		return m, m.knownAddUI.close()
 	case m.input.isActive():
 		return m, m.input.close()
 	case m.confirm.isActive():
@@ -663,6 +730,7 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 // finished with (§7.1).
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.credFormUI.close(),
+		m.sshcfgFormUI.close(), m.knownAddUI.close(),
 		m.confirm.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
 		m.editorUI.close(), m.spaceMenu.close())
@@ -904,6 +972,7 @@ func (m AppModel) inPty() bool {
 // one exception to the entry keys closing what they opened.
 func (m AppModel) textFloat() bool {
 	return m.form.anim.owns() || m.credFormUI.anim.owns() ||
+		m.sshcfgFormUI.anim.owns() || m.knownAddUI.anim.owns() ||
 		m.picker.anim.owns() || m.input.anim.owns()
 }
 
@@ -954,6 +1023,7 @@ func (m *AppModel) relistSides() {
 // the action commits, not when the animation finishes.
 func (m AppModel) popupOpen() bool {
 	return m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
+		m.sshcfgFormUI.anim.owns() || m.knownAddUI.anim.owns() ||
 		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
 		m.spaceMenu.anim.owns() || m.hostPicker.anim.owns() ||
 		m.credPicker.anim.owns() || m.transfersUI.anim.owns() ||
@@ -1073,6 +1143,10 @@ func (m AppModel) menuItems() []menuItem {
 	switch m.pref.item {
 	case prefCreds:
 		return m.credsMenuItems()
+	case prefSSHConfig:
+		return m.sshcfgMenuItems()
+	case prefKnownHosts:
+		return m.knownMenuItems()
 	case prefLogs:
 		if len(m.log.entries) == 0 {
 			return []menuItem{
@@ -1185,6 +1259,10 @@ func (m AppModel) detailCommit() (tea.Model, tea.Cmd) {
 		return m.doConnect(m.detail.target)
 	case detailEditCred:
 		return m.doEditCred(m.detail.target)
+	case detailEditSSHCfg:
+		return m.doEditSSHCfg(m.detail.at)
+	case detailEditKnown:
+		return m.doEditKnown(m.detail.at)
 	}
 	return m, nil
 }
@@ -1218,6 +1296,12 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.saveEditForced()
 	case confirmClearLogs:
 		return m.doClearLogs()
+	case confirmDeleteSSHCfg:
+		return m.doDeleteSSHCfg(m.confirm.at)
+	case confirmDeleteKnown:
+		return m.doDeleteKnown(m.confirm.at)
+	case confirmTrustHostKey:
+		return m.doTrustHostKey()
 	}
 	return m, m.closeStack()
 }
@@ -1377,6 +1461,13 @@ func (m AppModel) pickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.credFormUI.fields[cIdentity].caret = len([]rune(path))
 		m.credFormUI.focus = cIdentity
 		m.syncCredFormError()
+		return m, m.picker.close()
+	}
+	if m.sshcfgFormUI.isActive() {
+		m.sshcfgFormUI.fields[sfIdentity].value = path
+		m.sshcfgFormUI.fields[sfIdentity].caret = len([]rune(path))
+		m.sshcfgFormUI.focus = sfIdentity
+		m.syncSSHCfgFormError()
 		return m, m.picker.close()
 	}
 	m.form.fields[fIdentity].value = path

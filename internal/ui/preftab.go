@@ -24,6 +24,8 @@ type prefItem int
 const (
 	prefHosts prefItem = iota
 	prefCreds
+	prefSSHConfig
+	prefKnownHosts
 	prefLogs
 	prefExport
 	prefImport
@@ -34,6 +36,16 @@ func (p prefItem) label() string {
 	switch p {
 	case prefCreds:
 		return "Credentials"
+	case prefSSHConfig:
+		// Not "SSH config": it sits under the SSH header already, and the two
+		// words together would read as sshu's own config.yaml, which is the one
+		// thing this panel is not.
+		return "Config"
+	case prefKnownHosts:
+		// One word, because it is one thing: the file ssh calls known_hosts.
+		// "Known" alone would not say what of, and "Known hosts" reads as two
+		// nav rows at a glance.
+		return "KnownHosts"
 	case prefLogs:
 		return "Logs"
 	case prefExport:
@@ -46,15 +58,20 @@ func (p prefItem) label() string {
 
 // prefSections groups the nav rows under category headers — kbu's sidebar
 // shape. A header is decoration: the cursor never lands on one, and j/k walk
-// the items straight through it. SSH is the data connections run on, Events
-// is what happened, Operation is what sshu can do to its own config as a
-// whole.
+// the items straight through it. SSH is the data connections run on —
+// sshu's own AND ~/.ssh/config, which sshu launches the real ssh against;
+// Others is everything that is neither, and Operation is what sshu can do to
+// its own config as a whole.
+//
+// It read "Events" while Logs was the only thing under it. That was a label
+// for one row rather than for a category, and it stopped being true the moment
+// anything that is not an event needed somewhere to live.
 var prefSections = []struct {
 	header string
 	items  []prefItem
 }{
-	{"SSH", []prefItem{prefHosts, prefCreds}},
-	{"Events", []prefItem{prefLogs}},
+	{"SSH", []prefItem{prefHosts, prefCreds, prefSSHConfig, prefKnownHosts}},
+	{"Others", []prefItem{prefLogs}},
 	// Operation (Export / Import) is MASKED until its design settles: the
 	// enum keeps the tail values, the pages stay compiled and tested, but
 	// the nav neither draws the section nor stops on its items. Unmasking
@@ -130,6 +147,8 @@ func (m *AppModel) syncPrefSizes() {
 	_, _, rightW, rightH := m.pref.panes()
 	m.hosts.setSize(rightW, rightH)
 	m.creds.setSize(rightW, rightH)
+	m.sshcfg.setSize(rightW, rightH)
+	m.known.setSize(rightW, rightH)
 }
 
 // prefShowed runs whenever the pref tab's content may have changed. Landing
@@ -156,6 +175,10 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 	switch m.pref.item {
 	case prefCreds:
 		return m.credsKey(k)
+	case prefSSHConfig:
+		return m.sshcfgKey(k)
+	case prefKnownHosts:
+		return m.knownKey(k)
 	case prefExport, prefImport:
 		// The page claimed its keys in handleKey (textPage) before the global
 		// vocabulary ran; nothing is left to do here.
@@ -281,6 +304,10 @@ func (m AppModel) prefContent(w, h int) string {
 	switch m.pref.item {
 	case prefCreds:
 		return m.creds.view(title, focused)
+	case prefSSHConfig:
+		return m.sshcfg.view(title, focused)
+	case prefKnownHosts:
+		return m.known.view(title, focused)
 	case prefExport:
 		innerW, innerH := w-2, h-2
 		body := m.exportPage.body(exportIntro, exportWarn, "export", focused, innerW)
@@ -304,6 +331,10 @@ func (m AppModel) prefStatus() string {
 	switch m.pref.item {
 	case prefCreds:
 		return m.creds.status()
+	case prefSSHConfig:
+		return m.sshcfg.status()
+	case prefKnownHosts:
+		return m.known.status()
 	case prefExport:
 		// What the bundle would hold, so the slot answers "is it worth it".
 		return plural(len(m.hosts.hosts), "host") + " · " + plural(len(m.creds.creds), "credential")

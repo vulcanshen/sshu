@@ -110,6 +110,16 @@ var (
 	glyphMonitor    = string(rune(0xf0379)) // nf-md-monitor
 	glyphMonitorOff = string(rune(0xf0d90)) // nf-md-monitor_off
 	glyphGrid       = string(rune(0xf0570)) // nf-md-view_grid — the custom-grid prompt
+	// glyphFileCog heads a ~/.ssh/config section — in a host's detail and in the
+	// Config panel's own float. It says "a settings FILE" in one cell, which is
+	// what that heading is for: the block below it came from somewhere, and the
+	// somewhere is a path.
+	//
+	// The OUTLINE cut, because this glyph sits on a dim heading line rather
+	// than in a lit column: the filled one carries more ink than a line that is
+	// deliberately receding should. Both codepoints were read out of the
+	// installed font's cmap (md-file_cog / md-file_cog_outline), not remembered.
+	glyphFileCog = string(rune(0xf107c)) // nf-md-file_cog_outline
 	// glyphHistory marks a cell showing scrollback rather than live output. An
 	// up arrow was the obvious pick and the wrong one: it says which DIRECTION
 	// the view moved, when the thing that has to be unmistakable is WHAT is on

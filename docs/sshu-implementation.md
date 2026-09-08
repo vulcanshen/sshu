@@ -167,7 +167,7 @@ liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[M]anage` | `[1] sshu` nav(SSH / Events 分類)+ `[2]` 內容(Hosts / Credentials / Logs;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
+| `[M]anage` | `[1] sshu` nav(SSH / Others 分類)+ `[2]` 內容(Hosts / Credentials / Config / KnownHosts / Logs;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
 | `[F]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
 | `[S]SH` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **30 欄**(一列要完整說出 `<glyph><user>@<host>:<port> #<N>`,design §11.28),strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬);**zoom 時焦點格獨佔整個網格區**,其餘不畫也不 resize |
 
@@ -474,6 +474,53 @@ credentials 的掛 `detailEditCred`;沒有 offer 時三個欄位都空著,浮層
 
 `confirmConnect` 因此整個移除:`askConnect` 是它唯一的生產者。
 
+`~/.ssh/config` 的區塊也掛同一個 offer(`detailEditSSHCfg`),但帶的是
+`detailPopup.at`(位置)而不是 `target` —— 那份清單的列**沒有名字可以指認**,
+兩個區塊可以是同一個 `Host` pattern(design §11.39)。`confirmPopup` 為了
+`confirmDeleteSSHCfg` 也多了同一個欄位。
+
+### 6.2.2 欄位數不固定的表單(design §11.39)
+
+`sshcfgForm` 是第一個 `fields` 長度會變的 form:五個固定欄 → 一列分隔線 → 這個
+`Host` 區塊現有的每個關鍵字各一列 → 一列 `+ add option`。
+
+四條實作約束:
+
+- **`formField` 多一個 `separator bool`。** 分隔線是一整列的規尺,不是「被停用的
+  欄位」—— 走 `!enabled` 那條分支會畫出 `—`,看起來像被關掉的欄位。`menuItem`
+  早就有同名欄位,所以這是既有形狀的第二個使用者,不是新發明。
+- **`opts []store.SSHOption` 與分隔線以下的欄位一一對齊。** `Key` 是**檔案自己的
+  拼法**、`At` 是它在檔案的第幾行(1-based,0 = 還不在檔案裡)。少了 `At`,存檔就
+  只能整塊重寫,外科手術式寫回會整條失效。固定欄的同兩件事放在 `fixed
+  [sfFixedCount]store.SSHOption` —— **陣列不是 map**,因為這個 model 每個按鍵都被
+  整份複製一次。
+- **`window()` 自己捲,不能只靠 `capRows`。** 其他兩個 form 高度固定,這個不是。
+  `capRows` 是從尾端砍,砍掉的欄位**還是 Tab 得到** —— 一個按得到卻看不到的欄位。
+  `vis = screenH-8`(`capRows` 給 `screenH-6`,`formBody` 自己會加空白列與錯誤列)。
+- **`takeAddRow()` 只在 `Tab` / `Enter` 觸發,而且是純函式式的插入。** `m` 是值,
+  所以 `fields` 與 `opts` 一起 append 再 `copy` 位移,兩者永遠不會錯位。
+
+### 6.2.3 一個會等網路的 form(design §11.40)
+
+`knownAddForm` 是唯一一個在原地等**網路**的浮層。`[A]` 送出後不關閉:
+`scanning = true` → `tea.Batch(scanHostKeyCmd(...), knownScanTick())`,答案以
+`hostKeyScannedMsg` 回到 UI loop。
+
+四條實作約束:
+
+- **`scanning` 期間 `update()` 直接不收鍵。** 回來的答案是關於**送出去的那個位址**;
+  底下被改掉,確認框就會指著另一台機器。
+- **spinner 那一行是**取代**錯誤列,不是多加一行。** `rows[len(rows)-1] = …`,
+  盒子才不會在開始工作的瞬間改變高度。
+- **tick 只在 `scanning` 為真時續期。** `knownScanTickMsg` 進來先看 flag,否則
+  一個閒置的 sshu 會為了沒人在看的 spinner 一直重畫。
+- **盒子會為了錯誤變寬。** `want = max(labelW+38, dispW(err)+6)`。兩個欄位算出來
+  的盒子很窄,而落進去的是網路錯誤 —— `dial tcp 127.0.0.1:1: connect: connection
+  refused` 整句才是答案,一半不是。(真機驗證時抓到的,不是想出來的。)
+
+寫入的決定不在這個 form 裡:`hostKeyScanned` 只把指紋放進 `confirmTrustHostKey`,
+`pendingKey` 帶著金鑰活過表單的關閉 —— 跟 `pendingEdit` 活過它的浮層同一個理由。
+
 ### 6.3 破壞性動作一律先問
 
 Delete host、Close session、Quit(有 live session 或進行中傳輸時)、sftp 的 `x` /
@@ -620,6 +667,13 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | pty **選取模式**:`Alt+v` 凍結該格(`copySnapshot` = scrollback 尾巴被當下 grid 蓋掉)、border 轉黃、`hjkl`/`u`/`d` 走游標、`v`/`V` 選、`y` 寫本機剪貼簿(`pbcopy` / `wl-copy` / `xclip` / `xsel`)並結束 | `ui/copymode.go` `ui/clipboard.go` `ui/pty_unix.go` `ui/sshtab.go` |
 | manage:nav(分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
+| manage → SSH → **Config**:`~/.ssh/config` 的 `Host` 區塊 CRUD。**外科手術式寫回**(只重建被編輯的行,註解 / `Match` / 全域選項 / 未知關鍵字 byte 不動)、位置即身分(同名區塊合法)、**`Include` 跟進去**(就地展開、glob 排序、相對於 `~/.ssh`、16 層上限、循環會停;被 include 的區塊照樣可編、寫回它自己的檔;`Add` 一律進主檔;只寫改過的檔)、存檔前**逐檔**比對磁碟(別人先寫就拒絕並端出他那份)、保留各檔原有權限 | `store/sshconfig.go` `ui/sshcfglist.go` `ui/sshcfgkeys.go` `ui/sshcfgform.go` |
+| manage → SSH → **KnownHosts**:`~/.ssh/known_hosts` 的 CRUD。一筆 = 一行、改名只 splice 那一行的第一欄、**刪除不帶走上面的註解**(與 Config 相反:這裡的註解標的是一整串)、hashed 名字顯示為 `(hashed)`、`@revoked` 上警示色、存檔前比對磁碟 | `store/knownhosts.go` `ui/knownlist.go` `ui/knownkeys.go` |
+| host 明細的 **`Via ~/.ssh/config` 聚集**：`SSHConfigFile.Effective(host)` 把每一個命中的區塊合併、每個關鍵字取第一個值；一個貢獻者一個 section、照檔案順序(即優先權順序)；**值真的不同才標紅**；什麼都沒命中就整段不畫；`Include` / `Match` 強制揭露為「not shown」(design §11.41) | `store/sshconfig.go Effective` `ui/detail.go sshConfigSections` |
+| **ssh pattern 比對器**：`*` / `?` / `!` 否定 / 多 pattern / 不分大小寫；迴圈式 glob。`filepath.Match` 錯兩件(沒有 `!`、`*` 不跨 `/`)，有測試直接斷言它不同意 | `store/sshconfig.go Matches` |
+| **刪 Host 區塊時警告受影響的 sshu host**：`HostName` 來自這塊的 →「會連不上」；只是命中的 →「少繼承選項」。credential 不列入(使用者裁定：它是 sshu 自己的儲存方式，不抵達 ssh config) | `ui/sshcfgkeys.go hostsThroughBlock` |
+| **`[A]` 抓 host key**:握手到 host key callback 就 `errEnough` 中止(**認證之前**),回傳 wire-format base64 + `SHA256:` 指紋;指紋由 store 從 base64 獨立再算一次,兩者必須相等 | `remote/hostkey.go` `store/knownhosts.go Fingerprint` |
+| **欄位數不固定的 form**:固定欄 + 分隔線 + 現有選項各一列 + `+ add option`;自己捲(`window()`),不靠 `capRows` 從尾端砍 | `ui/sshcfgform.go` `ui/form.go formField.separator` |
 | 「選值欄位」互動:空欄 Enter 開選單、**有值 Enter 送出**、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
 | app log 落地 applogs.yaml(append-only、自我修剪、0600);tail 開機讀回;`[C]lear logs` 先清檔(留警告標頭)再清記憶體 | `store/applog.go` `ui/applog.go` `ui/preftab.go` |
 | 子行程 registry:任何退出路徑(含 SIGINT/SIGTERM/SIGHUP)不留孤兒 ssh | `ui/procreg.go` `cmd/sshu/main.go` |
@@ -666,6 +720,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[1]` nav | `j`/`k` · `Enter` | 選條目(分類 header 直接跳過;內容即換)/ 鍵盤給內容 |
 | `[2]` Hosts | **`Enter`** · `A` · `E` · `D` · `X` · `/` | **Enter = `detailPopup`(§6.1 viewport 類)+ 腳底 offer `Connect to "<name>"?`**;密碼固定寬遮罩、credential 就地解析,解析失敗就不給 offer(design §11.29)/ Add / Edit / **Duplicate**(`openDuplicate` = `openEdit` + 清空 `editing`,design §11.35)/ **Delete** / Search |
 | `[2]` Credentials | **`Enter`** · **`E`** · `A` · `D` · `X` | **Enter = `detailPopup` + 腳底 offer `Edit "<name>"?`**(只有 auth 那一段;名字在浮層標題)/ Edit(直達表單)/ Add / **Duplicate**(design §11.35)/ **Delete**(先問,列出引用數) |
+| `[2]` KnownHosts | **`Enter`** · `E` · `A` · `X` | `~/.ssh/known_hosts` 的每一筆(design §11.40)。offer 一樣帶 `at int`。**Edit 走 `inputPopup`**(一個問題,§6.1)、`inputKnownHosts`;**Add 走 `remote.ScanHostKey`** → `hostKeyScannedMsg` → `confirmTrustHostKey`,寫入前什麼都不動;**沒有 `[D]uplicate`** |
+| `[2]` Config | **`Enter`** · `E` · `A` · `D` · `X` | `~/.ssh/config` 的 `Host` 區塊(design §11.39)。**Enter = `detailPopup` + 腳底 offer `Edit "<pattern>"?`**;offer 帶的是 `at int`(位置)不是 `target string` —— 兩個區塊可以同名 / Edit(`sshcfgForm`,**欄位數不固定**,見 §6.2.2)/ Add(接檔尾)/ Duplicate / **Delete**(先問,數出一起消失的選項行數) |
 | `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 

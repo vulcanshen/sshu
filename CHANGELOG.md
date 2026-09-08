@@ -1,5 +1,158 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **`~/.ssh/config` is now a panel: manage → SSH → Config.** It is the one file
+  sshu manages that is not sshu's, and it earned a panel because it was already
+  running half the app invisibly — tab `[3]` launches the real `ssh`, which
+  reads this file, so `HostName`, `ProxyJump` and everything else in it already
+  decide what a session does. (Tab `[2]`/`[4]` speak SFTP themselves and read
+  none of it, which is a real asymmetry the panel makes visible.)
+
+  One row per `Host` block, `Enter` for the whole of it, `[E]dit` /
+  `[D]uplicate` / `[X]` / `[A]dd`.
+
+  ```
+   Host          HostName                User      File
+   office        10.20.0.1               staff     ~/.ssh/config.d/work
+   *                                                 ~/.ssh/config
+   gw            198.51.100.10           vulcan    ~/.ssh/config
+   prod          prod.example.internal   deploy    ~/.ssh/config
+  ```
+
+  The `File` column appears only when `Include` actually brought in a second
+  file, and it carries the WHOLE path, cut from the front — two included files
+  both called `hosts` are exactly what it exists to tell apart.
+
+  **Editing a block changes only that block's lines.** Comments, `Match`
+  blocks, the global options above the first `Host`, and every keyword sshu has
+  never heard of come back byte-for-byte — including the indentation and the
+  `Key=Value` separator you used. A change to one value is a one-line diff.
+
+  The form carries whatever the block actually holds: five permanent rows
+  (`Host`, `HostName`, `User`, `Port`, `IdentityFile`), then one row per
+  keyword already in the block, then `+ add option`. That is what makes a
+  `Host *` block editable — the shape every macOS config has, whose contents
+  are entirely outside those five.
+
+  ```
+  ╭─  Edit Host block ─────────────────╮
+  │  Host              *                │
+  │  HostName                           │
+  │  User                               │
+  │  Port                               │
+  │  IdentityFile                       │
+  │  ─ other options ─────────────────  │
+  │  AddKeysToAgent    yes              │
+  │  UseKeychain       yes              │
+  │  + add option                       │
+  ╰─ Tab next  Enter save  Esc cancel ──╯
+  ```
+
+  Details that follow from the file being somebody else's:
+
+  - **A repeated `Host` pattern is kept.** ssh takes the first value it finds
+    for each keyword, so two `Host prod` blocks both apply — the opposite of
+    `hosts.yaml`, where a repeat is unreachable and gets dropped on load.
+  - **Clearing a field removes its line.** There is no keyword-without-argument
+    in this file, so that is the only gesture that could mean "take this out".
+  - **`Include` is followed.** Its blocks are listed and editable like any
+    other; they just live in another file, and every question about them says
+    which — the `File` column when the tree spans more than one, the whole
+    path in the detail float, and the file's own name in the delete
+    confirmation. A save writes only the files that changed. `[A]` always
+    writes to `~/.ssh/config` itself, because an include tree has no obvious
+    home for something new. An Include that resolves to nothing is still
+    disclosed, by name.
+  - **A save is refused if another editor got there first**, and the refusal
+    puts their file on screen — sshu rewrites the whole file, and vim, VS Code
+    and a dotfiles pull all write here too.
+  - **The file keeps the mode it had.** ssh only objects when others can *write*
+    it; a config deliberately left at 0644 is not sshu's to narrow. A file sshu
+    creates is 0600.
+
+- **`~/.ssh/known_hosts` is a panel too: manage → SSH → KnownHosts.** This is
+  the file with teeth — sshu already verifies against it and **refuses a
+  connection outright** when a known host's key has changed, deliberately
+  without offering a yes/no. Until now the only way out of that refusal was
+  `ssh-keygen -R` in another terminal.
+
+  ```
+   Host                  Type        Fingerprint
+   [198.51.100.10]:2222  ed25519     xK9vQ2mF7pLc…
+   gw.example.com        rsa         a4Tz1nHb0sWd…
+   @revoked old.corp     ed25519     Rr8kM3vY6qEu…
+   (hashed)              ecdsa-256   Lp2wN9xJ4tZa…
+  ```
+
+  Same line-preserving discipline as Config, and it matters more: a real
+  known_hosts is mostly annotation. One entry is one line; a rename rewrites
+  that line's first field and nothing else.
+
+  - **`[A]` fetches the key instead of asking you to type it.** It opens the
+    connection far enough to see the host key, **stops before authenticating**,
+    and shows the SHA256 fingerprint. Nothing is written until you accept — the
+    same shape as ssh's own first-connect question, and for the same reason.
+  - **`[E]` changes which names a key is trusted for.** The key itself is never
+    editable: retyping 68 characters of base64 is not an edit, it is a new key,
+    and that is what `[A]` is for.
+  - **`[X]` is the one you came for.** It names the fingerprint and says the
+    next connection there will ask again.
+  - **There is no `[D]uplicate`**, and that is deliberate: it would mean
+    trusting one key under a second name, which the comma-separated name field
+    already does in one line.
+  - **Deleting an entry leaves the comment above it** — the opposite of the
+    Config panel. A comment over a `Host` block titles that block; a comment in
+    known_hosts sits over a *run* of entries.
+  - **Hashed names say so.** `|1|…` is an HMAC and the hostname cannot be read
+    back from the file; the row shows `(hashed)` and the status line counts
+    them, so those cells do not read as a rendering fault.
+  - **`@revoked` rides in front of the name, in the warning colour.** A row that
+    reads as trusted when it is the opposite is the one mistake this panel must
+    not make.
+  - **A save is refused if ssh got there first** — which is routine here, since
+    ssh appends on every first connect — and the refusal puts the file as it now
+    stands on screen.
+
+- **A host's detail now says what `~/.ssh/config` will actually do to it.**
+  sshu passes `hosts.yaml`'s fields to ssh as command-line flags, and those
+  outrank the file — so `Port` is sshu's while `HostName` is the file's, and a
+  host whose `host` field is a config alias lands somewhere neither of them
+  said on its own.
+
+  ```
+  │ ~/.ssh/config · Host *                            │
+  │  AddKeysToAgent         yes                       │
+  │  StrictHostKeyChecking  ask                       │
+  │                                                   │
+  │ ~/.ssh/config · Host gw                           │
+  │  HostName               198.51.100.10             │
+  │  Port                   2222 — sshu sends -p 22   │
+  │                                                   │
+  │ ~/.ssh/config · not shown                         │
+  │  Include                1 file, not read          │
+  ```
+
+  It is the UNION of every matching block with the first value winning,
+  because that is what ssh does — a host normally matches several. One
+  section per contributing block, in file order, which is precedence order.
+  A value sshu overrides is marked only when the two actually differ, a value
+  a later block would have shadowed is not listed at all, the whole thing is
+  absent when nothing matches, and it discloses the `Include` and `Match`
+  sources it could not read.
+
+- **Deleting a `Host` block warns which sshu hosts it breaks** — "1 sshu host
+  resolves through it and will not connect" when the block supplies their
+  `HostName`, or the milder "2 sshu hosts inherit options from it" otherwise.
+
+### Changed
+
+- The `[M]anage` nav's second category is **Others** rather than Events. It was
+  a label for the one row under it rather than for a category, and it stopped
+  being true the moment anything that is not an event needed somewhere to live.
+
 ## [1.4.2] — 2026-09-08
 
 Enter on a row now shows you the row and offers the thing Enter was for, in one

@@ -48,7 +48,7 @@ tab 用一個 shift 過的裸字母切換 —— **`M` / `F` / `S`** —— 而�
  [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
-**`[M]anage`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類:**SSH**(Hosts、Credentials)、**Events**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
+**`[M]anage`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類 —— 外加一個不屬於它的檔案:**SSH**(Hosts、Credentials、Config、KnownHosts)、**Others**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。**Config** 就是 `~/.ssh/config` 本身 —— tab `[3]` 早就在讀它了,因為 sshu 是去啟動真的 `ssh` —— 一列一個 `Host` 區塊(`Include` 會跟進去,所以清單涵蓋這棵樹真正有的每一個檔案),表單會帶上那個區塊剛好用到的每一個關鍵字。編一個區塊只會動到它自己的那幾行:註解、`Match` 區塊、以及 sshu 沒聽過的關鍵字都原樣通過。而每一台 host 自己的明細會說出這份檔案對它做了什麼 —— 所有命中區塊的聚集、每個關鍵字取第一個值，並標出哪些被 sshu 的命令列蓋掉了。**KnownHosts** 就是 `~/.ssh/known_hosts` —— 決定「你講話的對象是不是你以為的那台機器」的檔案,也是 sshu 在金鑰變了時直接拒絕連線的依據。`[X]` 就是那個拒絕的出路;`[A]` 去問那台機器要金鑰、**在認證之前停下**、把指紋給你看過才寫。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
 
 **`[F]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。傳輸進行時,右上角的 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線同時兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
 
@@ -161,7 +161,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 
 ### `[M]anage`
 
-左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Logs**,分在 SSH / Events 兩個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。鍵盤一交出去,整片 nav 就暗下來變成「`[2]` 在顯示什麼」的圖例;唯一還亮著的是未讀錯誤數。
+左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Config**、**KnownHosts**、**Logs**,分在 SSH / Others 兩個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。鍵盤一交出去,整片 nav 就暗下來變成「`[2]` 在顯示什麼」的圖例;唯一還亮著的是未讀錯誤數。
 
 | 鍵 | 動作 |
 |---|---|
