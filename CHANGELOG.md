@@ -47,10 +47,10 @@
 
 - **Two rows in the `Alt+Enter` menu for a whole chain at once**, offered only
   when there is one below you, and with no hotkey — sweeping a whole chain
-  should not have a fast path. *Zoom max + lock every layer* runs exactly the
+  should not have a fast path. *Zoom max + lock* runs exactly the
   sequence you can already type by hand (zoom, lock, zoom, lock), which is a
   2N-step interleave whose order matters, because a locked layer can no longer
-  be zoomed. *Unzoom + release every layer* is the way back.
+  be zoomed. *Unzoom + release* is the way back.
 
   The innermost layer is deliberately never locked: locking it would pass every
   chord on to its remote shell, so at the moment the display finally belongs to

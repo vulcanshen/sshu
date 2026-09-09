@@ -5004,9 +5004,20 @@ app 變成行緩衝、每個鍵都要等 Enter —— **形同壞掉,而測試�
 sshu → ssh localhost → sshu → ssh localhost → shell
 ```
 
-最外層選單:`2  self-a   unlocked · enter to lock` → 按 Enter → **`locked · enter to
-release`** → 再按 → 回到 `unlocked`。命令穿過 ssh、被內層的 filter 在 bubbletea 之前
-抽出、執行,新狀態再由 §11.44 的報告帶回來把那一列翻過去。使用者從頭到尾沒有走進去。
+最外層選單:`󰿇 2  self-a … lock` → 按 Enter → **`󰍁 2  self-a … release`** → 再按 →
+回到開鎖。命令穿過 ssh、被內層的 filter 在 bubbletea 之前抽出、執行,新狀態再由
+§11.44 的報告帶回來把那一列翻過去。使用者從頭到尾沒有走進去。
+
+> 這一列原本寫 `unlocked · enter to lock`。使用者判定不好,對:狀態是一個**看**
+> 就該知道的事,卻要一個字一個字讀,而且那句話把狀態說了兩次(自己說一次、
+> 動詞裡再說一次)。改成**狀態當 glyph、放在最前面**,hint 只留目的地(§11.30)。
+>
+> glyph 是 `nf-md-lock_outline` / `nf-md-lock_open_variant_outline`
+> (U+F0341 / U+F0FC7,兩個 codepoint 都從安裝字型的 cmap 讀出來)。取捨過程:
+> 使用者先指定 `fa-lock` / `fa-lock_open`,**沒有採用** —— `fa-lock` 在這專案
+> 已經是 `glyphLock`、意思是「password 認證」(§B 的 glyph band)。改議 md 之後
+> 使用者再指定 outline 這一對,採用:成對、同一套,而且是**線框**,不會跟這個
+> 選單標題上那顆實心鎖搶。
 
 #### broadcast 何時退場(使用者實測抓到的)
 
@@ -5273,10 +5284,16 @@ Alt+Z                    第 2 層 zoommax
 所以 `Alt+Enter` 選單多兩列,**都沒有熱鍵**(同 §11.26 的判斷:掃全域的動作
 不該有快捷路徑):
 
-| 列 | 做什麼 |
-|---|---|
-| `Zoom max + lock every layer` | 每一層 zoommax;**除了最內層**,每一層 lock |
-| `Unzoom + release every layer` | 每一層回到正常、全部解鎖 |
+| 列 | hint | 做什麼 |
+|---|---|---|
+| `Zoom max + lock` | `all but the innermost` | 每一層 zoommax;**除了最內層**,每一層 lock |
+| `Unzoom + release` | `back to normal` | 每一層回到正常、全部解鎖 |
+
+標籤不重複 `chain` 一字 —— 上面的 header 已經說了。第一版的 hint 寫
+`all but the innermost, which keeps the chords`,在實機上**被截成
+`which keeps th…`**:一個看不完的說明等於沒有說明,而且它撐寬了整個浮層。
+同一輪把上面兩列的 hint 也收短(`keys pass through` / `chords come back`),
+浮層從 72 欄縮到 39 欄。
 
 **它不是新的控制**,是那串手動操作的逐字重播。每一個中間狀態都是使用者自己
 按得出來的,所以它不會製造任何「手動到不了、因此無法推理」的狀態。這一點是
