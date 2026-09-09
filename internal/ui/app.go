@@ -1187,6 +1187,18 @@ func (m AppModel) applyNestCmd(msg nestCmdMsg) (tea.Model, tea.Cmd) {
 	if s == nil {
 		return m, nil
 	}
+	// Switched on, not compared against one: this read `want := Verb == lock`
+	// while there were exactly two verbs, which quietly made every OTHER verb
+	// a release. The zoom verbs would have unlocked the layer they were sent
+	// to (§11.47).
+	switch msg.Verb {
+	case nestVerbZoomMax:
+		m.ssh.setZoom(zoomMax)
+		return m, nil
+	case nestVerbUnzoom:
+		m.ssh.setZoom(zoomOff)
+		return m, nil
+	}
 	want := msg.Verb == nestVerbLock
 	if s.locked == want {
 		return m, nil
@@ -1251,6 +1263,23 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 			key:  nestRowKey(i),
 		})
 	}
+	// The macro, offered only where there is a chain to run it on: with
+	// nothing inside, both rows would be Alt+Z with extra steps.
+	//
+	// No letter, on the same grounds as §11.26's Close all sessions — an
+	// action that sweeps a whole chain should not have a fast path. What it
+	// saves is the interleave, not a decision: the sequence it runs is one the
+	// user can type by hand, and every state it passes through is one they
+	// could have reached (§11.47).
+	if len(chain) > 1 {
+		items = append(items, menuItem{separator: true},
+			menuItem{label: "whole chain", header: true},
+			menuItem{label: "Zoom max + lock every layer", key: chainMaxKey,
+				hint: "all but the innermost, which keeps the chords"},
+			menuItem{label: "Unzoom + release every layer", key: chainOffKey,
+				hint: "the whole chain back to normal"})
+	}
+
 	m.lockMenu.setItems(items, glyphPtyLock+" "+nameOr(s.host.Name, "pty"), 1)
 	for i, it := range items {
 		if !it.disabled {
@@ -1259,6 +1288,66 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 		}
 	}
 	return m.lockMenu.open()
+}
+
+// The macro rows. Multi-character on purpose: the menu brackets a hotkey only
+// when the key is a letter of the label, so these render as plain rows and no
+// keypress can reach them by accident.
+const (
+	chainMaxKey = "chainmax"
+	chainOffKey = "chainoff"
+)
+
+// zoomChain is the whole macro: every layer full screen, every layer but the
+// innermost locked. It is exactly the sequence the user can already type —
+// Alt+Z, lock, Alt+Z, lock — and it adds no state that could not be reached by
+// hand. That is the reason it is a row rather than new behaviour on the chord:
+// what it saves is a 2N-step interleave whose ORDER matters, because a locked
+// layer can no longer be zoomed and has to be released first (§11.47).
+//
+// The innermost is deliberately not locked. Locking it would pass every chord
+// on to its remote shell, so at the exact moment the display finally belongs
+// to one terminal, none of sshu's keys would reach the layer drawing it.
+//
+// Nothing here waits for anything: the commands ride the hop channel, which
+// every layer forwards regardless of its own lock (§11.45), and a stage is
+// stored while the geometry is derived — so a layer that is resized by this
+// layer going full screen lands in the right place whichever order it sees
+// the two events in.
+func (m *AppModel) zoomChain(on bool) tea.Cmd {
+	s := m.ssh.currentSession()
+	if s == nil || s.pty == nil {
+		return m.lockMenu.close()
+	}
+	chain := m.nestChain()
+	last := len(chain) - 1
+	zoom, lock := nestVerbZoomMax, nestVerbLock
+	if !on {
+		zoom, lock = nestVerbUnzoom, nestVerbRelease
+	}
+	for i := 1; i <= last; i++ {
+		s.pty.writeRaw(nestCmdEncode(i-1, zoom))
+		if !on || i < last {
+			s.pty.writeRaw(nestCmdEncode(i-1, lock))
+		}
+	}
+	if on {
+		m.ssh.setZoom(zoomMax)
+	} else {
+		m.ssh.setZoom(zoomOff)
+	}
+	// The chain can shrink between opening the menu and choosing a row. With
+	// nothing left inside, this layer IS the innermost and must not be locked.
+	if want := on && last > 0; s.locked != want {
+		s.locked = want
+		if want {
+			m.log.info("chain zoomed and locked: " + s.host.Name +
+				" — alt+enter releases")
+		} else {
+			m.log.info("chain restored: " + s.host.Name)
+		}
+	}
+	return m.lockMenu.close()
 }
 
 // nestRowKey addresses one inner layer from the menu. Not a letter: these
@@ -1314,7 +1403,16 @@ func (m AppModel) lockMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.lockMenu.close()
 	}
 	if strings.HasPrefix(key, "layer") {
-		return m, m.sendNestCmd(key)
+		cmd := m.sendNestCmd(key)
+		return m, cmd
+	}
+	switch key {
+	case chainMaxKey:
+		cmd := m.zoomChain(true)
+		return m, cmd
+	case chainOffKey:
+		cmd := m.zoomChain(false)
+		return m, cmd
 	}
 	switch key {
 	case "L":

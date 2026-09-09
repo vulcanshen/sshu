@@ -162,7 +162,7 @@ func (m sshModel) gridArea() (w, h int) {
 	// height — derived, not stored, because a stage change is not a resize and
 	// a stored copy would go stale on every transition that does not pass
 	// through setSize (§11.47).
-	if m.zoomAt() == zoomFull {
+	if m.zoomAt() == zoomMax {
 		return m.w, max(1, m.h+chromeRows)
 	}
 	_, rightW := m.panes()
@@ -297,20 +297,27 @@ func (m *sshModel) applyGeometry() {
 type zoomStage int
 
 const (
-	zoomOff  zoomStage = iota // the grid, as laid out
-	zoomGrid                  // the focused cell fills the grid area
-	zoomFull                  // ...and then the chrome comes off too
+	zoomOff   zoomStage = iota // the grid, as laid out
+	zoomPanel                  // the focused cell fills the grid area
+	zoomMax                    // ...and then the chrome comes off too
 )
 
 // zoomAt is the stage actually in force. The stored stage is what was asked
 // for; this is what the grid can honour. A stage only exists while a cell has
 // the keyboard, and the grid stage only while there is a second cell to give
 // up — a stored stage must never outlive the grid it was asked for.
+// inCell reports whether a grid cell holds the keyboard. Every zoom question
+// starts here: a stage is about the terminal being worked in, and there is no
+// such terminal otherwise.
+func (m sshModel) inCell() bool {
+	return m.focus == panelPty && m.focusPty >= 0 && m.focusPty < len(m.shown)
+}
+
 func (m sshModel) zoomAt() zoomStage {
-	if m.focus != panelPty || m.focusPty < 0 || m.focusPty >= len(m.shown) {
+	if !m.inCell() {
 		return zoomOff
 	}
-	if m.zoom == zoomGrid && len(m.shown) <= 1 {
+	if m.zoom == zoomPanel && len(m.shown) <= 1 {
 		return zoomOff
 	}
 	return m.zoom
@@ -318,12 +325,12 @@ func (m sshModel) zoomAt() zoomStage {
 
 // fullScreen reports whether the cell has taken the whole display, chrome
 // included. The app asks before it composes a frame there is no room for.
-func (m sshModel) fullScreen() bool { return m.zoomAt() == zoomFull }
+func (m sshModel) maxed() bool { return m.zoomAt() == zoomMax }
 
 // zoomInset is the border a zoomed cell still pays for: two rows and two
 // columns, or nothing at all once it is full screen.
 func (m sshModel) zoomInset() int {
-	if m.zoomAt() == zoomFull {
+	if m.zoomAt() == zoomMax {
 		return 0
 	}
 	return 2
@@ -340,11 +347,11 @@ func (m sshModel) nextZoom() zoomStage {
 	switch m.zoomAt() {
 	case zoomOff:
 		if len(m.shown) > 1 {
-			return zoomGrid
+			return zoomPanel
 		}
-		return zoomFull
-	case zoomGrid:
-		return zoomFull
+		return zoomMax
+	case zoomPanel:
+		return zoomMax
 	}
 	return zoomOff
 }
@@ -354,8 +361,8 @@ func (m sshModel) nextZoom() zoomStage {
 // second cell to give up, so a second check here would be a rule nothing can
 // observe — and two places deciding the same thing is how they drift apart.
 func (m sshModel) prevZoom() zoomStage {
-	if m.zoomAt() == zoomFull {
-		return zoomGrid
+	if m.zoomAt() == zoomMax {
+		return zoomPanel
 	}
 	return zoomOff
 }
@@ -365,10 +372,10 @@ func (m sshModel) prevZoom() zoomStage {
 // than the state (§A.1).
 func (m sshModel) nextZoomLabel() string {
 	switch m.nextZoom() {
-	case zoomGrid:
-		return "zoom"
-	case zoomFull:
-		return "full screen"
+	case zoomPanel:
+		return "zoom panel"
+	case zoomMax:
+		return "zoom max"
 	}
 	return "unzoom"
 }
@@ -378,10 +385,23 @@ func (m sshModel) nextZoomLabel() string {
 // always does: the full-screen stage is always available, because there is
 // always chrome left to take off.
 func (m *sshModel) cycleZoom() bool {
-	if m.focus != panelPty || m.focusPty < 0 || m.focusPty >= len(m.shown) {
+	if !m.inCell() {
 		return false
 	}
-	m.zoom = m.nextZoom()
+	m.setZoom(m.nextZoom())
+	return true
+}
+
+// setZoom puts the stage something else asked for — the command channel, or
+// the chord. Callers have already established that a cell holds the keyboard:
+// cycleZoom asks inCell outright, and the command path goes through
+// currentSession, which returns nil on exactly that condition. Repeating the
+// check here would be a rule nothing could ever observe.
+func (m *sshModel) setZoom(st zoomStage) bool {
+	if m.zoom == st {
+		return false
+	}
+	m.zoom = st
 	m.applyGeometry()
 	return true
 }
@@ -943,7 +963,7 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 	// is the difference between a nest that costs five rows per layer and one
 	// that costs nothing at all (§11.47). gridView draws only the focused cell
 	// in that state, so this is never asked about a neighbour.
-	full := m.zoomAt() == zoomFull
+	full := m.zoomAt() == zoomMax
 	innerW, innerH := w-2, h-2
 	if full {
 		innerW, innerH = w, h
@@ -959,13 +979,13 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 	}
 	body := fitLines(rows, innerW, innerH)
 	if full {
-		m.markFullScreen(body, s)
+		m.markMaxed(body, s)
 		return strings.Join(body, "\n")
 	}
 	return panelChromeTone(innerW, body, m.cellTitle(s, i, innerW), m.cellTone(s, i))
 }
 
-// markFullScreen paints sshu's own disclosures over a full-screen cell.
+// markMaxed paints sshu's own disclosures over a full-screen cell.
 //
 // In here they are OVERLAYS, never reservations, and that distinction is the
 // whole design: a reserved row costs one line PER LAYER and puts back exactly
@@ -974,7 +994,7 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 // of the same geometry, so they land on top of one another and the picture
 // carries exactly one — and the outermost, which paints last, is the one that
 // wins (§11.47).
-func (m sshModel) markFullScreen(body []string, s *session) {
+func (m sshModel) markMaxed(body []string, s *session) {
 	// Selection mode first. It replaces the meaning of every key under the
 	// user's fingers, and the footer that would have said so is not on screen
 	// here. Covering the bottom row is free while the mode is up, because the
@@ -1002,12 +1022,12 @@ func (m sshModel) zoomBadge(s *session) string {
 	}
 	label := " sshu"
 	if n > 1 {
-		label += " ×" + itoa(n)
+		label += " " + glyphNestDepth + " " + itoa(n)
 	}
 	if s.locked {
 		label += " " + glyphPtyLock
 	}
-	return lipgloss.NewStyle().Foreground(dimColor).Render(label + " ")
+	return lipgloss.NewStyle().Foreground(nestColor).Render(label + " ")
 }
 
 // overlayRight paints mark onto row r, flush right, covering what was under

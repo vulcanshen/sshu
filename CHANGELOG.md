@@ -45,6 +45,21 @@
   bottom row. The page is frozen while the mode is up, so the row it covers is
   not going anywhere.
 
+- **Two rows in the `Alt+Enter` menu for a whole chain at once**, offered only
+  when there is one below you, and with no hotkey — sweeping a whole chain
+  should not have a fast path. *Zoom max + lock every layer* runs exactly the
+  sequence you can already type by hand (zoom, lock, zoom, lock), which is a
+  2N-step interleave whose order matters, because a locked layer can no longer
+  be zoomed. *Unzoom + release every layer* is the way back.
+
+  The innermost layer is deliberately never locked: locking it would pass every
+  chord on to its remote shell, so at the moment the display finally belongs to
+  one terminal, none of sshu's keys would reach the layer drawing it.
+
+  It adds no state you could not reach by hand. That is why it is a row and not
+  new behaviour on `Alt+Z`, which still means "this layer" — the same as every
+  other chord.
+
 ## [1.5.0] — 2026-09-09
 
 The two files in `~/.ssh` that were already steering sshu are panels now, and

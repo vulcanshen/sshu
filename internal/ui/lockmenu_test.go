@@ -251,7 +251,7 @@ func TestAltEnterNoLongerZooms(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { m.ssh.stopAll() })
-	if m.ssh.nextZoom() != zoomGrid {
+	if m.ssh.nextZoom() != zoomPanel {
 		t.Fatal("setup: two cells should put the grid stage first")
 	}
 	// alpha takes Alt+Enter before the zoom branch could. (A mutation re-adding
@@ -263,7 +263,7 @@ func TestAltEnterNoLongerZooms(t *testing.T) {
 	}
 	m = pressA(m, "esc") // the menu away; the keyboard is back in the pty
 	m = pressA(m, "alt+z")
-	if m.ssh.zoomAt() != zoomGrid {
+	if m.ssh.zoomAt() != zoomPanel {
 		t.Error("alt+z is where zoom lives now")
 	}
 }
