@@ -28,12 +28,17 @@ const nestCmdOSC = "7181"
 // layer or in need of forwarding.
 type nestCmdMsg struct {
 	Hop  int    // 0 means "you"; anything else is forwarded one hop shorter
-	Verb string // nestVerbLock / nestVerbRelease
+	Verb string // one of the nestVerb constants
 }
 
+// The verbs. Lock and release drive §11.43's per-layer lock; zoommax and
+// unzoom drive §11.47's stage, so the chain macro can replay by hand exactly
+// what the user would have typed layer by layer.
 const (
 	nestVerbLock    = "lock"
 	nestVerbRelease = "release"
+	nestVerbZoomMax = "zoommax"
+	nestVerbUnzoom  = "unzoom"
 )
 
 // maxNestHop refuses an address that could only be a mistake or a loop. Sixteen
@@ -59,7 +64,7 @@ func nestCmdParse(payload string) (nestCmdMsg, bool) {
 		return nestCmdMsg{}, false
 	}
 	switch f[2] {
-	case nestVerbLock, nestVerbRelease:
+	case nestVerbLock, nestVerbRelease, nestVerbZoomMax, nestVerbUnzoom:
 		return nestCmdMsg{Hop: hop, Verb: f[2]}, true
 	}
 	return nestCmdMsg{}, false

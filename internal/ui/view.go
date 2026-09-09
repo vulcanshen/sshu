@@ -32,7 +32,7 @@ func (m AppModel) View() string {
 	// at EVERY layer, which is what put a ceiling on how deep the nesting
 	// could go, and this state is how that ceiling comes off (§11.47).
 	var out string
-	if m.tab == tabSSH && m.ssh.fullScreen() {
+	if m.tab == tabSSH && m.ssh.maxed() {
 		out = m.panel()
 	} else {
 		// The rule carries the transfer bar on every tab; the green status only

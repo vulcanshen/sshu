@@ -25,7 +25,7 @@ func TestAltZWalksThreeStages(t *testing.T) {
 	}
 
 	m = pressA(m, "alt+z")
-	if m.ssh.zoomAt() != zoomGrid {
+	if m.ssh.zoomAt() != zoomPanel {
 		t.Fatalf("the first press fills the grid, stage=%d", m.ssh.zoomAt())
 	}
 	if got := cellFrames(m.ssh.gridView()); got != 1 {
@@ -33,7 +33,7 @@ func TestAltZWalksThreeStages(t *testing.T) {
 	}
 
 	m = pressA(m, "alt+z")
-	if m.ssh.zoomAt() != zoomFull {
+	if m.ssh.zoomAt() != zoomMax {
 		t.Fatalf("the second press goes full screen, stage=%d", m.ssh.zoomAt())
 	}
 	if got := cellFrames(m.ssh.gridView()); got != 0 {
@@ -58,7 +58,7 @@ func TestOneCellSkipsTheGridStage(t *testing.T) {
 		t.Fatalf("setup: expected one cell, got %d", len(m.ssh.shown))
 	}
 	m = pressA(m, "alt+z")
-	if m.ssh.zoomAt() != zoomFull {
+	if m.ssh.zoomAt() != zoomMax {
 		t.Fatalf("one cell goes straight to full screen, stage=%d", m.ssh.zoomAt())
 	}
 	m = pressA(m, "alt+z")
@@ -86,7 +86,7 @@ func TestAnUnlockedCellNeverSeesAltZ(t *testing.T) {
 	if strings.Contains(sinkBytes(t, sink), "\x1bz") {
 		t.Error("alt+z reached the remote; it belongs to this layer now")
 	}
-	if m.ssh.zoomAt() != zoomFull {
+	if m.ssh.zoomAt() != zoomMax {
 		t.Errorf("...and it should have zoomed instead, stage=%d", m.ssh.zoomAt())
 	}
 }
@@ -155,7 +155,7 @@ func TestFullScreenPreservesTheFrame(t *testing.T) {
 			return m.ssh.sessions[0].pty.hasSpoken()
 		})
 		m = pressA(m, "alt+z")
-		if m.ssh.zoomAt() != zoomFull {
+		if m.ssh.zoomAt() != zoomMax {
 			t.Fatalf("%dx%d: expected full screen, stage=%d", w, h, m.ssh.zoomAt())
 		}
 		// Both overlays: the badge, and then the selection legend over it.
@@ -189,12 +189,12 @@ func TestFullScreenPreservesTheFrame(t *testing.T) {
 func TestAltEscWalksBackOneStageAtATime(t *testing.T) {
 	m := twoOnGrid(t)
 	m = pressA(m, "alt+z", "alt+z")
-	if m.ssh.zoomAt() != zoomFull {
+	if m.ssh.zoomAt() != zoomMax {
 		t.Fatalf("setup: expected full screen, stage=%d", m.ssh.zoomAt())
 	}
 
 	m = pressA(m, "alt+esc")
-	if m.ssh.zoomAt() != zoomGrid {
+	if m.ssh.zoomAt() != zoomPanel {
 		t.Errorf("the first alt+esc drops to the grid zoom, stage=%d", m.ssh.zoomAt())
 	}
 	if m.ssh.focus != panelPty {
@@ -255,7 +255,7 @@ func TestSteeringInsideAZoomKeepsIt(t *testing.T) {
 	was := m.ssh.focusPty
 
 	m = pressA(m, "alt+left")
-	if m.ssh.zoomAt() != zoomGrid {
+	if m.ssh.zoomAt() != zoomPanel {
 		t.Errorf("moving between cells should not drop the zoom, stage=%d", m.ssh.zoomAt())
 	}
 	if m.ssh.focusPty == was {
@@ -284,7 +284,7 @@ func TestAGridZoomDoesNotOutliveItsGrid(t *testing.T) {
 	m := twoOnGrid(t)
 	waitFor(t, "the remote to answer", func() bool { return m.inPty() })
 	m = pressA(m, "alt+z")
-	if m.ssh.zoomAt() != zoomGrid {
+	if m.ssh.zoomAt() != zoomPanel {
 		t.Fatalf("setup: expected the grid stage, stage=%d", m.ssh.zoomAt())
 	}
 
@@ -327,7 +327,7 @@ func TestTheBadgeNamesItselfInFullScreen(t *testing.T) {
 	}
 	// Not before, either — the badge belongs to the state, not to the tab.
 	m = pressA(m, "alt+z")
-	if v := ansi.Strip(m.View()); strings.Contains(v, "sshu \u00d7") {
+	if v := ansi.Strip(m.View()); strings.Contains(v, "sshu "+glyphNestDepth) {
 		t.Error("the badge should be gone once the chrome is back")
 	}
 }
@@ -339,8 +339,9 @@ func TestTheBadgeNamesItselfInFullScreen(t *testing.T) {
 func TestTheBadgeCountsTheStack(t *testing.T) {
 	m, _ := reportingSink(t, `\033]7180;1;inner-host:0\033\\`)
 	m = pressA(m, "alt+z")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "sshu \u00d72") {
-		t.Errorf("two layers should be counted:\n%s", v)
+	want := "sshu " + glyphNestDepth + " 2"
+	if v := ansi.Strip(m.View()); !strings.Contains(v, want) {
+		t.Errorf("two layers should be counted as %q:\n%s", want, v)
 	}
 }
 
@@ -355,6 +356,36 @@ func TestTheBadgeCarriesTheLock(t *testing.T) {
 	m.ssh.currentSession().locked = true
 	if !strings.Contains(ansi.Strip(m.View()), glyphPtyLock) {
 		t.Error("a locked full-screen cell must still say it is locked")
+	}
+}
+
+// Lavender, and asserted — a colour nothing checks is a colour that quietly
+// becomes grey.
+//
+// The VALUE is pinned, not just the variable, for the reason theme_test gives:
+// deriving the expected sequence from nestColor alone would make this agree
+// with whatever the code happens to say. And it is pinned against dimColor
+// specifically, because grey is what the badge was before and what it would
+// fall back to.
+func TestTheBadgeIsLavender(t *testing.T) {
+	withColour(t)
+	const lavenderHex = "#b4befe"
+	if string(nestColor) != lavenderHex {
+		t.Fatalf("the badge must be lavender %s, got %s", lavenderHex, nestColor)
+	}
+	lavender, dim := ansiOf(t, nestColor), ansiOf(t, dimColor)
+	if lavender == dim {
+		t.Fatal("the fixture is broken: the two colours must differ")
+	}
+
+	m := openOne(t)
+	m = pressA(m, "alt+z")
+	v := m.View()
+	if !strings.Contains(v, lavender) {
+		t.Error("the badge should be rendered in lavender")
+	}
+	if strings.Contains(v, dim) {
+		t.Error("...and nothing on a full-screen cell should still be drawing in grey")
 	}
 }
 
@@ -394,8 +425,8 @@ func TestTheFooterTracksTheZoom(t *testing.T) {
 	if !strings.Contains(foot, "leave pty") {
 		t.Errorf("unzoomed, alt+esc leaves the pty: %q", foot)
 	}
-	if !strings.Contains(foot, "alt+z") || !strings.Contains(foot, "zoom") {
-		t.Errorf("with two cells the grid stage is next: %q", foot)
+	if !strings.Contains(foot, "alt+z") || !strings.Contains(foot, "zoom panel") {
+		t.Errorf("with two cells the panel stage is next: %q", foot)
 	}
 
 	m = pressA(m, "alt+z")
@@ -403,15 +434,15 @@ func TestTheFooterTracksTheZoom(t *testing.T) {
 	if !strings.Contains(foot, "leave zoom") {
 		t.Errorf("zoomed, alt+esc leaves the zoom: %q", foot)
 	}
-	if !strings.Contains(foot, "full screen") {
-		t.Errorf("and the next press is the full one: %q", foot)
+	if !strings.Contains(foot, "zoom max") {
+		t.Errorf("and the next press is the max one: %q", foot)
 	}
 
 	// One cell: the grid stage is skipped, so the row must not promise a zoom
 	// that will not happen.
 	one := openOne(t)
 	waitFor(t, "the remote to answer", func() bool { return one.inPty() })
-	if !strings.Contains(one.footer(), "full screen") {
-		t.Errorf("a grid of one goes straight to full screen: %q", one.footer())
+	if !strings.Contains(one.footer(), "zoom max") {
+		t.Errorf("a grid of one goes straight to zoom max: %q", one.footer())
 	}
 }

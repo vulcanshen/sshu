@@ -362,3 +362,125 @@ func TestTheChordStillBroadcastsToASilentCell(t *testing.T) {
 	m = pressA(m, "alt+enter")
 	waitSink(t, sink, "\x1b\r")
 }
+
+// ---------------------------------------------------------------- the macro
+
+// runChainRow drives the menu the way a user does — open it, put the cursor on
+// a row, run it — but FINDS the row by key instead of counting presses. A test
+// that counted would be pinned to the number of rows, and the number of rows
+// depends on how deep the chain is.
+func runChainRow(t *testing.T, m AppModel, key string) AppModel {
+	t.Helper()
+	m = pressA(m, "alt+enter")
+	if !m.lockMenu.isActive() {
+		t.Fatal("alt+enter should open the layer menu")
+	}
+	idx := -1
+	for i, it := range m.lockMenu.items {
+		if it.key == key {
+			idx = i
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("no row with key %q in the menu", key)
+	}
+	m.lockMenu.cursor = idx
+	return pressA(m, "enter")
+}
+
+// The macro replays the sequence a user can already type, in one selection:
+// every layer maxed, every layer but the innermost locked. The innermost is
+// the whole point of the exception — locking it would pass every chord on to
+// its remote shell, so the moment the display finally belongs to one terminal,
+// none of sshu's keys would reach the layer drawing it.
+func TestTheChainMacroMaxesAllAndLocksAllButTheInnermost(t *testing.T) {
+	m, sink := reportingSink(t, `\033]7180;1;mid:0;inner:0\033\\`)
+	m = runChainRow(t, m, chainMaxKey)
+
+	if m.ssh.zoomAt() != zoomMax {
+		t.Errorf("this layer should be maxed, stage=%d", m.ssh.zoomAt())
+	}
+	if !m.ssh.sessions[0].locked {
+		t.Error("this layer should be locked — it is not the innermost")
+	}
+	// hop 0 is the middle layer: maxed AND locked, so the chords keep going.
+	waitSink(t, sink, nestCmdEncode(0, nestVerbZoomMax))
+	waitSink(t, sink, nestCmdEncode(0, nestVerbLock))
+	// hop 1 is the innermost: maxed, and never locked.
+	waitSink(t, sink, nestCmdEncode(1, nestVerbZoomMax))
+	if strings.Contains(sinkBytes(t, sink), nestCmdEncode(1, nestVerbLock)) {
+		t.Error("the innermost layer must not be locked — it would lose every chord")
+	}
+}
+
+// The way back releases everything, including the layer that was never locked:
+// release is idempotent, and a restore that had to know which layers it had
+// skipped would be keeping a second copy of the chain.
+func TestTheChainMacroRestoresEveryLayer(t *testing.T) {
+	m, sink := reportingSink(t, `\033]7180;1;mid:0;inner:0\033\\`)
+	m = runChainRow(t, m, chainMaxKey)
+	m = runChainRow(t, m, chainOffKey)
+
+	if m.ssh.zoomAt() != zoomOff {
+		t.Errorf("this layer should be back to normal, stage=%d", m.ssh.zoomAt())
+	}
+	if m.ssh.sessions[0].locked {
+		t.Error("...and released")
+	}
+	waitSink(t, sink, nestCmdEncode(0, nestVerbUnzoom))
+	waitSink(t, sink, nestCmdEncode(0, nestVerbRelease))
+	waitSink(t, sink, nestCmdEncode(1, nestVerbUnzoom))
+	waitSink(t, sink, nestCmdEncode(1, nestVerbRelease))
+}
+
+// With nothing inside, both rows would be Alt+Z with extra steps.
+func TestTheChainRowsNeedAChain(t *testing.T) {
+	m := openOne(t)
+	m = pressA(m, "alt+enter")
+	for _, it := range m.lockMenu.items {
+		if it.key == chainMaxKey || it.key == chainOffKey {
+			t.Errorf("a chain row on a layer with nothing inside it: %q", it.label)
+		}
+	}
+}
+
+// The dispatch used to read `want := Verb == lock`, which made every other verb
+// a release. That was harmless with two verbs and a silent unlock with four:
+// the command that maxes a layer would have unlocked it on the way.
+func TestAZoomCommandIsNotARelease(t *testing.T) {
+	m, _ := reportingSink(t, `\033]7180;1;inner-host:0\033\\`)
+	m.ssh.sessions[0].locked = true
+
+	mm, _ := m.applyNestCmd(nestCmdMsg{Hop: 0, Verb: nestVerbZoomMax})
+	m = mm.(AppModel)
+	if !m.ssh.sessions[0].locked {
+		t.Error("a zoom command must not touch the lock")
+	}
+	if m.ssh.zoomAt() != zoomMax {
+		t.Errorf("...but it must set the stage, stage=%d", m.ssh.zoomAt())
+	}
+}
+
+// A command must not arm a stage where the chord could not have set one. The
+// layer it reaches may have no cell holding the keyboard at all, and a stage
+// stored then would spring into being later — when the user walked into a cell
+// for some entirely unrelated reason (§11.47).
+//
+// The guard doing the work is applyNestCmd's `s == nil`: currentSession
+// returns nil precisely when no cell holds the keyboard, so the command is
+// dropped before it can reach the stage at all. This test first asserted a
+// second check inside setZoom, which was never reached — it passed without
+// exercising anything, and a mutation is what said so.
+func TestACommandCannotArmAZoomOffTheGrid(t *testing.T) {
+	m := openOne(t)
+	m.ssh.setFocus(panelSessions)
+
+	mm, _ := m.applyNestCmd(nestCmdMsg{Hop: 0, Verb: nestVerbZoomMax})
+	m = mm.(AppModel)
+
+	m.ssh.setFocus(panelPty)
+	if m.ssh.zoomAt() != zoomOff {
+		t.Errorf("walking into a cell must not land in a zoom nobody asked for, stage=%d",
+			m.ssh.zoomAt())
+	}
+}

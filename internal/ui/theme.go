@@ -21,6 +21,13 @@ var (
 	// This spends the band that was pencilled in for "user footprint" (§B), so
 	// pins / recent connections will need a colour of their own.
 	editColor = lipgloss.Color("#b4befe") // lavender
+	// the full-screen badge (§11.47). Lavender, and the same hex as editColor
+	// rather than a band of its own: §B forbids borrowing a band because the
+	// user would have to learn which meaning a colour carries where, and these
+	// two never share a surface — the badge exists only once the chrome is
+	// gone, and a field under edit is drawn inside a float with its own frame.
+	// Named separately so the sharing is deliberate and greppable.
+	nestColor = editColor
 	// neutral text.
 	textColor = lipgloss.Color("#cdd6f4") // text
 	dimColor  = lipgloss.Color("#6c7086") // overlay0: glyphs, hints, secondary
@@ -62,6 +69,11 @@ const (
 // reserved for warning/error and a peach "password" would read as "this host is
 // broken" (§B).
 var (
+	// The full-screen badge's depth marker: an arrow turning inward, because
+	// the number after it counts layers going IN, not a multiplication.
+	// Codepoint read out of the installed Nerd Font's cmap, not remembered.
+	glyphNestDepth = string(rune(0xf43e)) // nf-oct-arrow_down_right
+
 	capLeft  = string(rune(0xe0b6)) // powerline round-left  — capsule start
 	capRight = string(rune(0xe0b4)) // powerline round-right — capsule end
 	// The tab strip's inner dividers. The HARD one is a filled triangle and
