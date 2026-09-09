@@ -432,17 +432,27 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Alt+Enter is the LAYER key (§11.43). It does two things, in this order:
-	// forwards itself into the pty — so that in a chain of nested sshus every
-	// layer opens its menu, each naming its own state — and then opens this
-	// layer's lock menu. Unconditional on both counts: making either half
-	// depend on state leaves some layer unreachable at depth 3, or a locked
-	// layer with no way to say so.
+	// Alt+Enter is the LAYER key. It always opens THIS layer's menu; whether it
+	// also forwards a copy depends on one question — can this layer address
+	// what is inside it?
+	//
+	// A cell that has REPORTED can be addressed (§11.45), so the menu here
+	// already lists it and forwarding would only stack a second menu on a layer
+	// the user can drive from where they are. A cell that has NOT reported is a
+	// plain shell or a sshu too old to speak, and for that the original
+	// broadcast is the only way in: every layer opens its own menu and the user
+	// peels outermost-first (§11.43).
+	//
+	// The two rules meet cleanly at a mixed chain, because each layer asks the
+	// question about its OWN cell: new→new→old addresses the middle from the
+	// top, and the middle still broadcasts to reach the old one.
 	if msg.Alt && msg.Type == tea.KeyEnter && m.ptyFocused() {
 		if m.inPty() {
 			// Only once the remote is reading. Before that ssh is not consuming
 			// stdin, and the bytes would be delivered minutes later.
-			m.ssh.currentSession().pty.write(msg)
+			if _, addressable := m.ssh.currentSession().pty.nestChain(); !addressable {
+				m.ssh.currentSession().pty.write(msg)
+			}
 		}
 		return m, m.openLockMenu()
 	}

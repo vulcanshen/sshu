@@ -759,7 +759,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | ssh 子行程 | — | **顏色深度轉發**(design §11.46):`sshEnv` 帶 `LC_SSHU_COLORTERM`、`buildSSHCmd` 加 `-o SendEnv=`;遠端 `ui.AdoptForwardedColor()` 在 render 之前只填空不覆蓋。`ui/session.go` |
 | 格子(pty) | — | **巢狀定址**(design §11.45):`ui.NestInput` 包住 stdin,在 bubbletea 之前抽出 `OSC 7181`;`applyNestCmd` hop 0 執行、否則減一 `writeRaw` 往內送;filter 必須滿足 `term.File`,否則 raw mode 不會啟動。`ui/nestcmd.go` |
 | 格子(pty) | — | **巢狀通報**(design §11.44):`View()` 每幀夾一段 `OSC 7180`;`readLoop` 把同一個 `buf` 分流給 `nestScanner`;離開 alt screen 即 `reset()`。`ui/nestreport.go` |
-| 格子(pty) | `Alt+Enter` | **layer 鍵**(design §11.43):無條件「轉發進 pty + 開本層 lock 選單」;`session.locked` 時所有鍵 `pty.write` 穿透,alpha 是唯一例外;選單是第三個 `spaceMenu` 實例,兩列一 dim = 每層自己的狀態顯示器 |
+| 格子(pty) | `Alt+Enter` | **layer 鍵**(design §11.43、§11.45):一律開本層 lock 選單;**只在那一格沒回報過時**才轉發進 pty(回報過就用選單直接定址);`session.locked` 時所有鍵 `pty.write` 穿透,alpha 是唯一例外;選單是第三個 `spaceMenu` 實例,兩列一 dim = 每層自己的狀態顯示器 |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | **`PgUp`/`PgDown`** | 遠端**不在** alt screen 時捲這一格的歷史(`scrollback`,10000 行上限;`readLoop` 存的是**進來的 bytes**,不是回頭讀 vt10x 的列 —— 那些列早就被清掉了);在 alt screen 時原封送給遠端,讓 vim / less 自己翻頁(design §11.19) |
 | 格子(pty) | `Alt+Esc` | **一次剝一層**:選取模式中先離開它,zoom 中先離開 zoom(鍵盤留在格子裡),再按才收回鍵盤、回 `[1]`(design §11.25) |

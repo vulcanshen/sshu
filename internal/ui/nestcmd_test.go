@@ -329,3 +329,36 @@ func TestTheFilterStillLooksLikeTheTerminalItWraps(t *testing.T) {
 		t.Error("a non-file reader must not claim to be stdin")
 	}
 }
+
+// Once a layer can be ADDRESSED, the chord stops broadcasting to it: its state
+// is a row in this menu, and a second menu on the far side would be a popup
+// nobody asked for on a layer the user can already drive from here.
+func TestTheChordStopsBroadcastingOnceALayerCanBeAddressed(t *testing.T) {
+	m, sink := reportingSink(t, `\033]7180;1;inner-host:0\033\\`)
+	before := sinkBytes(t, sink)
+
+	m = pressA(m, "alt+enter")
+	if !m.lockMenu.isActive() {
+		t.Fatal("the menu should still open here")
+	}
+	// Give a forward every chance to show up before concluding it did not.
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if sinkBytes(t, sink) != before {
+			t.Fatalf("the chord was forwarded to a layer that can be addressed: %q",
+				strings.TrimPrefix(sinkBytes(t, sink), before))
+		}
+	}
+}
+
+// And it still broadcasts to a cell that said nothing — a plain shell, or a
+// sshu too old to report. That is the only way into such a layer, so losing it
+// would strand exactly the users an upgrade should not strand.
+func TestTheChordStillBroadcastsToASilentCell(t *testing.T) {
+	m, sink := lockApp(t)
+	if _, reported := m.ssh.sessions[0].pty.nestChain(); reported {
+		t.Fatal("setup: this stand-in must not report")
+	}
+	m = pressA(m, "alt+enter")
+	waitSink(t, sink, "\x1b\r")
+}
