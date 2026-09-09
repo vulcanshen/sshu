@@ -9,7 +9,7 @@
 
 **Language**: English · [繁體中文](README-zh_TW.md)
 
-**A terminal front end for ssh and sftp** — `Tab` / `Enter` / `Esc` / `Space` / `?` drive everything. Keep your hosts in one file, open as many shells as you like, and move files between any two machines side by side. No hotkey memorization, no setup, no learning curve.
+**A terminal front end for ssh and sftp** — `Tab` / `Enter` / `Esc` / `Space` / `?` drive everything. Keep your hosts in one file, open as many shells as you like, and move files between any two machines side by side. Install it on the server too and it nests — sshu inside sshu, at any depth, with no layer costing you a row of screen. No hotkey memorization, no setup, no learning curve.
 
 > _When in doubt, hit_ **`Space`**.
 
