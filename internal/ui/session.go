@@ -44,6 +44,14 @@ type session struct {
 	// timedOut marks a session sshu stopped itself, because ssh got past the
 	// part its own ConnectTimeout covers and then said nothing at all.
 	timedOut bool
+	// locked makes this cell a transparent pipe: every key sshu would take —
+	// the whole Alt namespace, PgUp/PgDn — passes to the remote instead, so a
+	// NESTED sshu on the far side gets its own chords back. The one exception
+	// is Alt+Enter, which opens the lock menu at every layer (§11.43); it is
+	// the key that releases this, so it is the one key lock cannot swallow.
+	// Per session, not per app: locking the cell that leads to serverA says
+	// nothing about the cell that leads to serverX.
+	locked bool
 	// appliedCols/Rows is the grid-cell geometry last pushed to the PTY, so a
 	// reflow only SIGWINCHes the sessions whose numbers actually changed.
 	appliedCols, appliedRows int

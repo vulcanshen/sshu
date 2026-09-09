@@ -120,6 +120,12 @@ var (
 	// deliberately receding should. Both codepoints were read out of the
 	// installed font's cmap (md-file_cog / md-file_cog_outline), not remembered.
 	glyphFileCog = string(rune(0xf107c)) // nf-md-file_cog_outline
+	// glyphPtyLock marks a LOCKED cell — one whose keys all pass to the remote
+	// so a nested sshu can use its own chords (§11.43). A different lock from
+	// glyphLock on purpose: that one is fa-lock and means "password auth" in
+	// the tables, and one shape carrying two meanings is what §B forbids.
+	// Verified against the installed font's cmap (md-lock), not remembered.
+	glyphPtyLock = string(rune(0xf033e)) // nf-md-lock
 	// glyphHistory marks a cell showing scrollback rather than live output. An
 	// up arrow was the obvious pick and the wrong one: it says which DIRECTION
 	// the view moved, when the thing that has to be unmistakable is WHAT is on

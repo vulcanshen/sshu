@@ -867,8 +867,13 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 func (m sshModel) cellTitle(s *session, i, innerW int) string {
 	t := s.host.User + "@" + s.host.Host
 	mark := ""
+	// The lock leads: a cell whose keys all pass through is the single most
+	// important thing to know about it before typing (§11.43).
+	if s.locked {
+		mark = " " + glyphPtyLock
+	}
 	if n := s.pty.scrolledBy(); n > 0 {
-		mark = " " + glyphHistory + " " + itoa(n)
+		mark += " " + glyphHistory + " " + itoa(n)
 	}
 	return truncate(t, max(0, innerW-2-dispW(mark))) + mark
 }

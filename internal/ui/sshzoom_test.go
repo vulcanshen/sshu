@@ -20,7 +20,7 @@ func TestAltEnterFillsTheGridWithOneCell(t *testing.T) {
 		t.Fatalf("setup: expected two cells on the grid, got %d", got)
 	}
 
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	if !m.ssh.zoomed {
 		t.Fatal("alt+enter should have zoomed")
 	}
@@ -42,7 +42,7 @@ func TestZoomingResizesTheRemote(t *testing.T) {
 	s := m.ssh.shownSessions()[m.ssh.focusPty]
 	before := s.appliedCols
 
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	if s.appliedCols <= before {
 		t.Errorf("the zoomed cell should have been widened: %d -> %d", before, s.appliedCols)
 	}
@@ -51,7 +51,7 @@ func TestZoomingResizesTheRemote(t *testing.T) {
 		t.Errorf("the zoomed cell should span the grid: %d, want %d", s.appliedCols, gw-2)
 	}
 
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	if s.appliedCols != before {
 		t.Errorf("unzooming should put it back: %d, want %d", s.appliedCols, before)
 	}
@@ -61,7 +61,7 @@ func TestZoomingResizesTheRemote(t *testing.T) {
 // two levels away is how it stops being predictable.
 func TestAltEscLeavesTheZoomBeforeThePty(t *testing.T) {
 	m := twoOnGrid(t)
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	if !m.ssh.zoomed {
 		t.Fatal("setup: expected a zoom")
 	}
@@ -88,7 +88,7 @@ func TestAltEscLeavesTheZoomBeforeThePty(t *testing.T) {
 // for a second time.
 func TestLeavingTheGridClearsTheZoom(t *testing.T) {
 	m := twoOnGrid(t)
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	m.ssh.setFocus(panelSessions)
 	if m.ssh.zoomed {
 		t.Error("leaving the grid should clear the zoom")
@@ -109,7 +109,7 @@ func TestAltEnterIsTheRemotesWithOneCell(t *testing.T) {
 		t.Error("a single cell has nothing to zoom")
 	}
 
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	if m.ssh.zoomed {
 		t.Error("alt+enter must not zoom a grid of one")
 	}
@@ -126,7 +126,7 @@ func TestAnUnusedAltEnterReachesTheRemote(t *testing.T) {
 	s := m.ssh.sessions[0]
 	waitFor(t, "the stand-in to answer", func() bool { return s.pty.hasSpoken() })
 
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	waitFor(t, "the chord to arrive at the remote", func() bool {
 		return strings.Contains(strings.Join(s.pty.render(80, 24), ""), "^[")
 	})
@@ -136,7 +136,7 @@ func TestAnUnusedAltEnterReachesTheRemote(t *testing.T) {
 // next terminal is one you want to read just as closely.
 func TestSteeringInsideAZoomKeepsIt(t *testing.T) {
 	m := twoOnGrid(t)
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	was := m.ssh.focusPty
 
 	m = pressA(m, "alt+left")
@@ -172,11 +172,11 @@ func TestTheFooterTracksTheZoom(t *testing.T) {
 	if !strings.Contains(foot, "leave pty") {
 		t.Errorf("unzoomed, alt+esc leaves the pty: %q", foot)
 	}
-	if !strings.Contains(foot, "alt+enter") || !strings.Contains(foot, "zoom") {
+	if !strings.Contains(foot, "alt+z") || !strings.Contains(foot, "zoom") {
 		t.Errorf("with two cells the zoom should be disclosed: %q", foot)
 	}
 
-	m = pressA(m, "alt+enter")
+	m = pressA(m, "alt+z")
 	foot = m.footer()
 	if !strings.Contains(foot, "leave zoom") {
 		t.Errorf("zoomed, alt+esc leaves the zoom: %q", foot)
@@ -187,7 +187,7 @@ func TestTheFooterTracksTheZoom(t *testing.T) {
 
 	// One cell: nothing to zoom, nothing offered.
 	one := openOne(t)
-	if strings.Contains(one.footer(), "alt+enter") {
+	if strings.Contains(one.footer(), "alt+z") {
 		t.Errorf("a grid of one must not advertise a zoom: %q", one.footer())
 	}
 }

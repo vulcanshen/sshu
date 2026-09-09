@@ -119,7 +119,7 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
 ### §A.2 Non-contextual track — `?` help
 
 全域動作一張表:core key、`q` / `Ctrl+C`、導覽詞彙,外加 **ssh grid 那組只在
-`[5]` 有效的鍵**(`Alt+arrows` / `Alt+Enter` / `Alt+Esc` / `PgUp`·`PgDn`)——
+`[5]` 有效的鍵**(`Alt+arrows` / `Alt+Z` / `Alt+Enter` / `Alt+Esc` / `PgUp`·`PgDn`)——
 那個 panel 連 `?` 都送給遠端,從裡面打不開 help,所以只能在這裡先學到
 (design §A.2 追記)。**可以疊在別的浮層上開** ——
 §A.2 承諾 help 在任何 surface 都到得了,而一個迷路的使用者最可能站的地方,正是他
@@ -660,7 +660,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
-| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Enter zoom**(一格佔滿,Alt+Esc 一次剝一層)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
+| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Z zoom**(一格佔滿,Alt+Esc 一次剝一層)、**Alt+Enter layer 鍵**(巢狀 sshu 的 per-session lock,design §11.43)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | pty emulator **回答終端機查詢**(`CSI 6n` / `OSC 11`)—— writer 接回 master,否則格子裡任何發問的程式都卡滿 5 秒 timeout | `ui/pty_unix.go startPty` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
 | pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
@@ -755,11 +755,13 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[1]` sessions(游標走出框就自己捲,§11.24;**一個 item 固定兩行**,所以 `listRows` 是 `innerH / sshItemH`、`revealCursor` 仍是 `scrollTo`,design §11.32)| `H`/`Tab` · `Enter` · `C` · `D` · **(menu only)** | **`[H]ide`**(menu 只印 `H`;`Tab` 是這個 panel 的慣例,照樣能按,design §11.30)/ 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問,**完成後留在清單、游標落在新的那條**,design §11.23)/ **Close all sessions**(只在 Space menu、刻意沒有熱鍵,先問且問題帶數量,design §11.26);j/k 掃過時,游標 session 的格子外框在網格上同步亮 —— 用 `handColor` 而非 focusColor,藍色只留給「鍵盤在這裡」(design §11.22) |
 | `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**欄數**(一個數字 1-9;列數由 `ceil(n/c)` 推出,舊的 rows 只是下限、近乎沒作用,design §11.31) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
-| 格子(pty) | `Alt+Enter` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25) |
+| 格子(pty) | `Alt+Z` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25;由 `Alt+Enter` 搬來,§11.43) |
+| 格子(pty) | — | **巢狀通報**(design §11.44):`View()` 每幀夾一段 `OSC 7180`;`readLoop` 把同一個 `buf` 分流給 `nestScanner`;離開 alt screen 即 `reset()`。`ui/nestreport.go` |
+| 格子(pty) | `Alt+Enter` | **layer 鍵**(design §11.43):無條件「轉發進 pty + 開本層 lock 選單」;`session.locked` 時所有鍵 `pty.write` 穿透,alpha 是唯一例外;選單是第三個 `spaceMenu` 實例,兩列一 dim = 每層自己的狀態顯示器 |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | **`PgUp`/`PgDown`** | 遠端**不在** alt screen 時捲這一格的歷史(`scrollback`,10000 行上限;`readLoop` 存的是**進來的 bytes**,不是回頭讀 vt10x 的列 —— 那些列早就被清掉了);在 alt screen 時原封送給遠端,讓 vim / less 自己翻頁(design §11.19) |
 | 格子(pty) | `Alt+Esc` | **一次剝一層**:選取模式中先離開它,zoom 中先離開 zoom(鍵盤留在格子裡),再按才收回鍵盤、回 `[1]`(design §11.25) |
-| 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格供複製;再按一次離開。模式開著時 `Alt+方向鍵` / `Alt+Enter` 不作用,是刻意的模態(design §11.33) |
+| 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格供複製;再按一次離開。模式開著時 `Alt+方向鍵` / `Alt+Z` 不作用,是刻意的模態(design §11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `u`/`d` · `v`/`V` · `y` · `Esc` | 游標(撞邊界捲凍結的頁面)/ 半頁 / char / line 選取 / 複製並結束 / 先丟選取再離開。**其餘所有鍵一律吞掉**,不送遠端 |
 
 ### 全域
