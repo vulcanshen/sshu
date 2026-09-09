@@ -28,6 +28,9 @@ The inspiration is [Termius](https://termius.com/) — a GUI SSH client, not ano
 ### The ssh grid — cells, layouts, held-Alt arrows
 ![ssh grid](docs/demo-grid.gif)
 
+### sshu inside sshu — the whole chain, driven from the outermost layer
+![nested sshu](docs/demo-nest.gif)
+
 ## Five keys to drive sshu
 
 | Key | Behavior |
@@ -250,6 +253,8 @@ Inside it the cell stops following the remote — the session keeps running and 
 - **Zero learning curve** — every action surfaces through the `Space` menu, in context, on every panel. The menu and the letter hotkey are generated from one table, so a hotkey that is not in the menu cannot exist.
 - **Menus in two regions** — `item` (what happens to the row under the cursor, named by that row) and `panel` (what happens to this side). A menu with only one region stays flat.
 - **A grid of concurrent ssh sessions** — each a real `ssh` in an embedded PTY, any number on screen at once, arranged horizontally, vertically or in a custom rows × columns. Each cell's remote is told its own size, and only when it actually changes. Ended sessions leave the grid and release their emulator immediately; the keyboard never silently lands in another remote.
+- **sshu inside sshu, at any depth, and it costs nothing** — installing it on the server too is one command, so nesting is what happens naturally rather than a scenario to avoid. `Alt+Enter` locks a layer and every chord falls through to the one inside it; each layer announces itself up the chain, so the outermost lists the whole stack and can lock any layer in it directly, without walking in. And `Alt+Z`'s last stage takes sshu's own chrome and border off, which is what makes a layer free: before it, five rows went to every layer and the third one had four usable rows on an 80×24 terminal. One menu row does the whole chain at once.
+
 - **Reusable credentials** — a user plus how that user authenticates, saved once in `credentials.yaml` and referenced by any number of hosts with `auth: credential`. Resolution happens at the doors: the connect confirmation shows who the session will actually run as, and a dangling reference fails there with a sentence, not inside ssh.
 - **Two-sided sftp** — local ↔ remote ↔ remote through one `FS` interface. Marks are per side; a mark is an absolute path, so it follows a rename and is dropped when the file is deleted.
 - **Recursive subtree search** — `/` walks the whole tree beneath the current directory, **breadth-first** (over SFTP each directory is a round trip, so what is near arrives first), streaming, cancellable, capped, and drawn **in place**. `Enter` takes you to a result with the cursor already on it, so from there marking and transferring it needs nothing new.
