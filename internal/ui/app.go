@@ -79,7 +79,11 @@ type AppModel struct {
 
 	// Floats. At most one of form / confirm / help is up at a time, optionally
 	// over the Space menu; the toast rides on top of everything.
-	spaceMenu    spaceMenu
+	spaceMenu spaceMenu
+	// lockMenu is the Alt+Enter float: Lock / Release for the focused cell.
+	// A spaceMenu instance like the pickers, with its own animator so its
+	// ticks cannot collide with the real Space menu's.
+	lockMenu     spaceMenu
 	splash       splashModel
 	hostPicker   spaceMenu
 	credPicker   spaceMenu
@@ -125,6 +129,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		credPicker:   newCredPicker(),
 		save:         save,
 		spaceMenu:    newSpaceMenu(),
+		lockMenu:     spaceMenu{anim: newPopupAnimator("lockmenu")},
 		splash:       newSplashModel(),
 		help:         newHelpPopup(),
 		form:         newHostForm(),
@@ -229,6 +234,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.detail.setSize(m.w, m.h)
 		m.editorUI.setSize(m.w, m.h)
 		m.spaceMenu.setSize(m.w, m.h)
+		m.lockMenu.setSize(m.w, m.h)
 		m.help.setSize(m.w, m.h)
 		m.form.setSize(m.w, m.h)
 		m.credFormUI.setSize(m.w, m.h)
@@ -245,6 +251,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// own, so two popups animating at once cannot eat each other's ticks.
 		return m, tea.Batch(
 			m.spaceMenu.anim.tick(msg),
+			m.lockMenu.anim.tick(msg),
 			m.hostPicker.anim.tick(msg),
 			m.credPicker.anim.tick(msg),
 			m.transfersUI.anim.tick(msg),
@@ -418,6 +425,30 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Alt+Enter is the LAYER key (§11.43). It does two things, in this order:
+	// forwards itself into the pty — so that in a chain of nested sshus every
+	// layer opens its menu, each naming its own state — and then opens this
+	// layer's lock menu. Unconditional on both counts: making either half
+	// depend on state leaves some layer unreachable at depth 3, or a locked
+	// layer with no way to say so.
+	if msg.Alt && msg.Type == tea.KeyEnter && m.ptyFocused() {
+		if m.inPty() {
+			// Only once the remote is reading. Before that ssh is not consuming
+			// stdin, and the bytes would be delivered minutes later.
+			m.ssh.currentSession().pty.write(msg)
+		}
+		return m, m.openLockMenu()
+	}
+
+	// A locked cell is a transparent pipe: EVERYTHING passes, including the
+	// chords the branches below this one would have taken — Alt+Esc, Alt+Z,
+	// Alt+v, the arrows, PgUp/PgDn. That is the whole meaning of the lock,
+	// and Alt+Enter above is its only exception (§11.43).
+	if m.inPty() && m.ssh.currentSession().locked {
+		m.ssh.currentSession().pty.write(msg)
+		return m, nil
+	}
+
 	// Alt+v freezes the focused cell and puts a selection cursor on it, so its
 	// text can be swept to the system clipboard. It is a chord because every
 	// bare key in a pty belongs to the remote, and v because that is the key
@@ -434,12 +465,15 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// dropped: window managers own Alt+1..9 on the LOCAL side — AeroSpace,
 	// tiling tools — so the chords never even reached sshu.) Alt+arrows are
 	// dead keys in a bare terminal, which is what makes them takeable.
-	// Alt+Enter fills the screen with the focused cell. Enter is "go in" all
-	// over sshu, and this is going further in — which is also why Alt+Esc, the
-	// key that comes back OUT, is what leaves it (§11.25). With one cell on the
-	// grid there is nothing to zoom, so the chord is not taken and travels on
-	// to the remote like any other.
-	if m.tab == tabSSH && !m.popupOpen() && msg.Alt && msg.Type == tea.KeyEnter {
+	// Alt+Z fills the screen with the focused cell — z because that is what
+	// zoom is called everywhere (tmux's own zoom is prefix-z), and no longer
+	// Alt+Enter because the layer key needed the most bulletproof chord on
+	// the keyboard (§11.43): zoom failing costs a nicety, the layer key
+	// failing traps somebody in a locked chain. With one cell on the grid
+	// there is nothing to zoom, so the chord is not taken and travels on to
+	// the remote like any other (§11.25).
+	if m.tab == tabSSH && !m.popupOpen() && msg.Alt &&
+		msg.Type == tea.KeyRunes && string(msg.Runes) == "z" {
 		if m.ssh.toggleZoom() {
 			return m, nil
 		}
@@ -659,6 +693,8 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case m.spaceMenu.anim.owns():
 		return m.menuKey(msg)
+	case m.lockMenu.anim.owns():
+		return m.lockMenuKey(msg)
 	}
 	return m.panelKey(msg)
 }
@@ -721,6 +757,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.help.close()
 	case m.spaceMenu.isActive():
 		return m, m.spaceMenu.close()
+	case m.lockMenu.isActive():
+		return m, m.lockMenu.close()
 	}
 	return m, nil
 }
@@ -733,7 +771,7 @@ func (m *AppModel) closeStack() tea.Cmd {
 		m.sshcfgFormUI.close(), m.knownAddUI.close(),
 		m.confirm.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
-		m.editorUI.close(), m.spaceMenu.close())
+		m.editorUI.close(), m.spaceMenu.close(), m.lockMenu.close())
 }
 
 // ------------------------------------------------------------- panel level
@@ -1025,7 +1063,7 @@ func (m AppModel) popupOpen() bool {
 	return m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
 		m.sshcfgFormUI.anim.owns() || m.knownAddUI.anim.owns() ||
 		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
-		m.spaceMenu.anim.owns() || m.hostPicker.anim.owns() ||
+		m.spaceMenu.anim.owns() || m.lockMenu.anim.owns() || m.hostPicker.anim.owns() ||
 		m.credPicker.anim.owns() || m.transfersUI.anim.owns() ||
 		m.viewer.anim.owns() || m.editorUI.anim.owns() || m.detail.anim.owns()
 }
@@ -1109,6 +1147,95 @@ const (
 	menuItemRegion  = "item operation"
 	menuPanelRegion = "panel operation"
 )
+
+// openLockMenu builds and opens the Alt+Enter float for the focused cell.
+//
+// Two rows, one of them disabled — deliberately, against the one-row rule
+// (§11.16): in a nested chain this menu opens at EVERY layer, and the pair
+// is what lets each layer display its own state at a glance. The dim row is
+// not a dead action, it is the state indicator; the cursor starts on the
+// one that can run.
+func (m *AppModel) openLockMenu() tea.Cmd {
+	s := m.ssh.currentSession()
+	if s == nil {
+		return nil
+	}
+	items := []menuItem{
+		{label: "Lock PTY", key: "L",
+			hint: "every key passes to the remote", disabled: s.locked},
+		{label: "Release PTY", key: "R",
+			hint: "this sshu takes its chords back", disabled: !s.locked},
+	}
+	// The chain, when there is one below this layer. Header rows: they are
+	// not actions — locking layer 3 from here would need a command channel
+	// this has no way to reach (§11.44). What they remove is the counting:
+	// the depths and their states are on screen instead of in the user's
+	// head, and each layer is still acted on with its own menu.
+	if chain := m.nestChain(); len(chain) > 1 {
+		items = append(items, menuItem{separator: true},
+			menuItem{label: "layers", header: true})
+		for i, l := range chain {
+			name := "this sshu"
+			if i > 0 {
+				// Row i runs on the machine row i-1 leads to.
+				name = chain[i-1].Host
+			}
+			state := "unlocked"
+			if l.Locked {
+				state = "locked"
+			}
+			items = append(items, menuItem{
+				label:  itoa(i+1) + "  " + name + " — " + state,
+				header: true,
+			})
+		}
+	}
+	m.lockMenu.setItems(items, glyphPtyLock+" "+nameOr(s.host.Name, "pty"), 1)
+	for i, it := range items {
+		if !it.disabled {
+			m.lockMenu.cursor = i
+			break
+		}
+	}
+	return m.lockMenu.open()
+}
+
+// lockMenuKey drives the Alt+Enter float.
+func (m AppModel) lockMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// The entry chord closes its own float (§A.1) — and does NOT forward
+	// again: a second broadcast from here would stack a second menu on every
+	// inner layer that still has its first one open.
+	if msg.Alt && msg.Type == tea.KeyEnter {
+		return m, m.lockMenu.close()
+	}
+	var key string
+	m.lockMenu, key, _ = m.lockMenu.update(msg)
+	if key == "" {
+		return m, nil
+	}
+	s := m.ssh.currentSession()
+	if s == nil {
+		return m, m.lockMenu.close()
+	}
+	switch key {
+	case "L":
+		if s.locked {
+			// The disabled row answers rather than ignoring (§A.1).
+			return m, m.toast.show("Already locked", toastInfo)
+		}
+		s.locked = true
+		m.log.info("pty locked: " + s.host.Name + " — keys pass through, alt+enter releases")
+		return m, m.lockMenu.close()
+	case "R":
+		if !s.locked {
+			return m, m.toast.show("Not locked", toastInfo)
+		}
+		s.locked = false
+		m.log.info("pty released: " + s.host.Name)
+		return m, m.lockMenu.close()
+	}
+	return m, nil
+}
 
 // menuTitle names the surface the Space menu belongs to — the focused PANEL,
 // not the tab. In a split tab "what can I do here" depends on which panel you

@@ -60,6 +60,9 @@ type ptyTerm struct {
 	// scrollOff is how many lines back from live the panel is showing. 0 is
 	// live — the only state the emulator itself knows anything about.
 	scrollOff int
+	// nest collects what a sshu on the far side says about itself, out of
+	// the same bytes the emulator is drawing from (§11.44).
+	nest nestScanner
 }
 
 // maxScrollback caps the history a single session keeps. Sessions run whether
@@ -118,6 +121,17 @@ func (p *ptyTerm) readLoop() {
 			if p.term != nil {
 				_, _ = p.term.Write(buf[:n])
 				p.capture(buf[:n])
+				// The same bytes, read a second way: a nested sshu's report
+				// rides in this stream (§11.44). Fed AFTER the emulator so the
+				// alt-screen test below sees the state these bytes just set.
+				p.nest.feed(buf[:n])
+				// A full-screen program left the screen — so whatever was
+				// reporting is gone, and its chain would go stale rather than
+				// wrong-but-honest. Quitting the inner sshu back to its shell is
+				// exactly this, and it is the only signal that it happened.
+				if p.term.Mode()&vt10x.ModeAltScreen == 0 {
+					p.nest.reset()
+				}
 			}
 			p.mu.Unlock()
 			p.spoke.Store(true)
@@ -356,6 +370,19 @@ func (p *ptyTerm) lastWords() string {
 // Scrolling back is for reading; the moment you type you are talking to the far
 // end again, and typing into a screen that is showing five minutes ago is how
 // a command gets sent somewhere its author cannot see.
+// nestChain is what a sshu on the far side last said about itself and
+// everything below it, and whether anything said anything at all. No report
+// means a plain shell over there — or a sshu too old to speak, which has to
+// look the same, because both mean "assume nothing".
+func (p *ptyTerm) nestChain() ([]nestLayer, bool) {
+	if p == nil {
+		return nil, false
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.nest.chain()
+}
+
 func (p *ptyTerm) write(msg tea.KeyMsg) {
 	if p == nil || p.ptmx == nil {
 		return

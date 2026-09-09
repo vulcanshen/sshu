@@ -40,6 +40,9 @@ func (m AppModel) View() string {
 	if m.spaceMenu.isActive() {
 		out = overlay.Composite(m.spaceMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.lockMenu.isActive() {
+		out = overlay.Composite(m.lockMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.hostPicker.isActive() {
 		out = overlay.Composite(m.hostPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
@@ -92,7 +95,36 @@ func (m AppModel) View() string {
 	if m.toast.isActive() {
 		out = overlay.Composite(m.toast.view(), out, overlay.Center, overlay.Bottom, 0, -2)
 	}
-	return out
+	// Every frame carries the announcement. It costs ~40 invisible bytes and
+	// buys idempotence: a parent that missed one report gets the next one,
+	// with no edge to lose and no channel to keep alive (§11.44).
+	return out + m.nestAnnounce()
+}
+
+// nestAnnounce is what this sshu tells whatever is drawing it — which is a
+// parent sshu, or a terminal that will consume the sequence and print
+// nothing. Sent unconditionally BECAUSE it cannot ask: being seen is the
+// whole point, and a report nobody reads costs the bytes and nothing else.
+//
+// One entry per sshu, this one first: where its focused cell leads, and
+// whether that cell is passing every key through. A parent prepends its own
+// entry and passes the result up, so the outermost assembles the whole
+// chain without anybody knowing how deep they are.
+func (m AppModel) nestAnnounce() string {
+	return nestEncode(m.nestChain())
+}
+
+// nestChain is this sshu's own entry followed by everything below it.
+func (m AppModel) nestChain() []nestLayer {
+	s := m.ssh.currentSession()
+	if s == nil || s.state != sessLive {
+		return nil
+	}
+	chain := []nestLayer{{Host: nameOr(s.host.Name, s.host.Host), Locked: s.locked}}
+	if inner, ok := s.pty.nestChain(); ok {
+		chain = append(chain, inner...)
+	}
+	return chain
 }
 
 // status is the right-hand slot of the capsule row: whatever the active tab
@@ -148,6 +180,12 @@ func (m AppModel) footer() string {
 		if m.ssh.zoomed {
 			out = "leave zoom"
 		}
+		// A LOCKED cell keeps only one key, so the row says only that: every
+		// other entry would be a lie — the same honesty rule this row already
+		// follows about the remote's keys (§11.43).
+		if s := m.ssh.currentSession(); s != nil && s.locked {
+			return keyLegend([][2]string{{"alt+enter", "release"}}, m.w)
+		}
 		pairs := [][2]string{{"alt+esc", out}}
 		// Offered only where it would do something: one cell already fills the
 		// grid, and there the chord belongs to the remote (§11.25).
@@ -156,7 +194,7 @@ func (m AppModel) footer() string {
 			if m.ssh.zoomed {
 				zoom = "unzoom"
 			}
-			pairs = append(pairs, [2]string{"alt+enter", zoom})
+			pairs = append(pairs, [2]string{"alt+z", zoom})
 		}
 		// And the scrollback keys, but only where they would do something: they
 		// are the remote's while a full-screen program is up, and there is
@@ -171,6 +209,10 @@ func (m AppModel) footer() string {
 		// at all — a bare `?` in here belongs to the remote, so the footer is
 		// the only live disclosure the pty has (§11.33, §11.19).
 		pairs = append(pairs, [2]string{"alt+v", "select"})
+		// After alt+v, not before: §11.33 ruled that select must survive a
+		// cramped footer, and the lock chord — a nested-session tool — is the
+		// rarer need of the two.
+		pairs = append(pairs, [2]string{"alt+enter", "lock"})
 		pairs = append(pairs, [2]string{"alt+" + arrowGlyphs + arrowUpDown, "cell"})
 		return keyLegend(pairs, m.w)
 	}

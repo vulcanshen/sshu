@@ -4692,6 +4692,221 @@ Include 完全不跟 / 被 include 的區塊接在最後而不是就地展開 / 
 
 「狀態列不說有幾個檔」則是真的沒有測試,補了一個。
 
+### 11.43 巢狀 sshu —— lock 一層,鍵就穿過去
+
+#### 使用者發現的場景
+
+> 「local sshu -> server 1 sshu -> server 2 sshu (跳板機的使用場景),這種情況,
+> 當使用 alt+esc 的時候,會離開 local 的那層 pty,但使用者會想要離開『某一層』的
+> pty」
+
+而且他對根因的判斷是對的:`Alt+Esc` **必須**由第一層觸發 —— 讓它 pass 進 pty 的話
+永遠沒有人處理它。外層先贏不是缺陷,是唯一能收斂的規則;要解決的是**怎麼往內遞**。
+
+問題也不只一個鍵:外層吃掉的是**整個 Alt 命名空間**。巢狀的內層 sshu 不是「難離開」,
+是 `Alt+方向鍵`/`Alt+Z`/`Alt+v` 全部到不了 —— 幾乎整個不能用。
+
+**巢狀不是誤用。** 使用者的定調:「用 sshu 就是可以不要去搞 ~/.ssh/config 裡面的
+東西……在 server 上安裝 sshu 就是一行指令的事情,所以 sshu 巢狀使用是 sshu 方便
+使用的正面肯定」。叫這種使用者去寫 `ProxyJump` 等於叫他去做 sshu 存在的理由。
+
+#### tmux 怎麼「解決」:它沒有,它讓你數
+
+`C-b C-b d`:外層吃第一個前綴、把第二個原樣送進去。**N 個前綴到第 N 層,使用者自己
+數。** 實務上大家做的是每層換前綴(local `C-b`、remote `C-a`),或那個有名的 nested
+配方:一個鍵把外層**整張鍵表關掉**、status bar 換色,再按一次收回來。
+
+sshu 比 tmux 多一個資源:**每一層都是同一支程式**,各層可以合作。
+
+#### 設計(使用者的,不是我的)
+
+- **lock 是 per-session 的狀態**:locked = 這個格子是透明管道,所有和絃穿透。
+- **`Alt+Enter` 是 layer 鍵**:按下時**每一層**都做同一件事 —— 把和絃原樣轉發進
+  自己的 pty,**並且**開自己的 lock 選單。選單兩列([L]ock / [R]elease),不可用的
+  那列 dim,游標停在可用的那列 —— 每層的選單自己說出自己的狀態。
+
+我先提的版本(alpha 在 locked 層是唯一不穿透的鍵)**自相矛盾,且各讀法各死一邊**:
+「只開不傳」深度 2 封頂(alpha 永遠停在 local,serverA 的選單開不了);「只傳不開」
+locked 層永遠解不了鎖。使用者指出後收斂到唯一解:**開 + 傳,無條件,每層一樣** ——
+同時滿足「任何深度每層可達」與「永不被困」的無狀態規則只有這一個。
+
+#### broadcast 自動變成由外而內的佇列
+
+N 個選單同時開,但**選單開著時鍵盤是選單的** —— j/k/Enter 不再進 pty,內層選單全部
+凍結排隊。外層一關,pty focus 下普通鍵本來就全部流進 pty,剛好落在下一個開著的選單
+上。**嚴格由外往內、一次一個、零跨層協調。** 不想要的選單一個 Esc —— 那不是垃圾,
+是排到它了;也**不能**自動代關,自動關會殺掉「操作內層選單」這條路。
+
+深度 3 全程:
+
+```
+lock 到第二層:  alt+enter → L選單:Enter(Lock) → A選單:Enter(Lock) → B選單:Esc
+之後:          alt+esc 穿過 L、穿過 A —— B 的 sshu 離開它的 pty
+解鎖回家:      alt+enter → L選單(游標在 Release):Enter → A選單同 → B選單:Esc
+```
+
+#### zoom 讓位:`Alt+Z`
+
+layer 鍵要放在**最不能失敗**的和絃上:lock 之後所有和絃穿透,唯一出口就是 alpha ——
+**alpha 壞掉 = 被困**;zoom 的鍵壞掉 = 少個方便。`Alt+Enter` 在線路上是 `ESC`+`CR`,
+兩個最古老的控制字元,任何終端機、任何 ssh hop 都原樣過,而且在這台機器上已被 zoom
+實證過;`Alt+字母` 受 option-as-meta 影響,風險等級放 zoom 剛好。紅利:tmux 的 zoom
+就是 `z`(`C-b z`),`Alt+Z` 是借來的肌肉記憶;`Alt+Esc`/`Alt+Enter` 也成了一對 ——
+從這層出去 vs 進入層的管理。
+
+已知代價:alpha 會漏進最內層的非 sshu 遠端(`ESC CR`,vim 裡=離開 insert + 動一行,
+shell 裡多半無害);Windows Terminal 拿 `Alt+Enter` 切全螢幕(sshu 不跑 Windows,但
+「從 Windows Terminal ssh 過來用」的人會按不到 —— 這問題 zoom 時代就有)。
+
+#### 實作的骨架
+
+- `session.locked`(per-session);alpha 分支在**所有** ssh 和絃之前:轉發(僅
+  `inPty` —— 遠端還沒讀 stdin 前寫入會遲到)再開選單;緊接著 locked 穿透 guard:
+  `inPty && locked` → 一切 `pty.write`,唯一例外是 alpha 自己。
+- 選單是第三個 `spaceMenu` 實例(animator `lockmenu`)。**兩列、一列 dim,刻意違反
+  §11.16 的一列規則**:在巢狀鏈裡這個選單每層都開,dim 的那列不是死動作,是**狀態
+  顯示器** —— 游標的起點 + dim 的方向就是這一層的狀態。disabled 列被按下時回答原因
+  (§A.1)。alpha 打在自己選單上=關閉且**不再轉發**(再廣播會在每個內層疊第二個
+  選單)。
+- locked 的格子 title 戴 `nf-md-lock`(U+F033E,查 cmap;**不是** password 的
+  fa-lock —— 一個形狀兩個意思是 §B 禁止的);footer 整列換成只剩
+  `alt+enter release`,因為其他每一條都成了謊話 —— 跟選取模式同一條誠實規則。
+  未 locked 的 pty footer 揭露 `alt+enter lock`,位置在 `alt+v` 之後:§11.33 裁定
+  過窄 footer 下 select 必須活著,而 lock 是兩者中較少用的那個。
+- 測試用「把 stdin 錄進檔案的 fake ssh」驗 **byte 級**轉發 —— stand-in 要先
+  `stty raw`:canonical mode 會把 `ESC ESC` 扣在 line buffer、把 `CR` 改寫成
+  `NL`(ICRNL),什麼都驗不到(memory 裡那條 pty 教訓的重演)。
+
+#### mutation(10 個全抓)與兩個一開始沒抓到的
+
+alpha 不轉發 / alpha 不開選單 / lock 不穿透 / 關選單時再廣播 / 游標不落在可用列 /
+disabled 列照樣翻狀態 / lock 翻全部 session / locked footer 還在賣被吞掉的鍵 /
+unlocked footer 不揭露 / title 不戴鎖。
+
+- 「lock 翻全部 session」一開始活下來 —— per-session 測試 lock 時**只有一條 session
+  存在**,翻一條跟翻全部無法區分。本輪**第五次** fixture 沒製造出情境。
+- 「Alt+Enter 又 zoom」這個 mutation 被**移除**而不是補測試:pty focus 下 alpha 分支
+  在 zoom 之前搶走和絃,pty 之外 `canZoom` 為 false —— 它復活的分支從任何 focus 都
+  不可達,行為無差異。查證過才下的結論(mutation 自己也會沒意義)。
+
+#### 實機驗證(真 ssh、真 sshd)
+
+demos rig 的 container:alt+enter 開選單(游標在 Lock)→ Lock → footer 只剩
+`alt+enter release` → 遠端跑 `stty raw -echo; cat -v` → alt+esc、alt+z、再一次
+alt+enter → 遠端印出 **`^[^[^[z^[^M`** —— 三個和絃連同轉發的 alpha 本身**原樣穿過
+ssh 抵達**;locked 選單游標在 Release → Release → alt+esc 回到 `[1]`。循環閉合。
+
+### 11.44 巢狀 sshu 的自我通報 —— 最外層看得到整條鏈
+
+#### 使用者的問題
+
+> 「我的想法是,如果最外層就可能知道有多少內層,那是否可以在最外層的 menu 上面作功夫」
+
+§11.43 的 broadcast 能到任何深度,但代價是**使用者要一層一層剝**、而且每按一次 alpha
+就在每層留下一個選單。如果最外層知道底下有什麼,選單就能直接把整條鏈畫出來。
+
+#### 機制:你早就見過它 —— 終端機標題
+
+遠端程式改得動你本機的分頁標題,靠的是在**自己的輸出裡**夾一段 `ESC ] 0 ; 名字 BEL`。
+那段跟畫面文字走同一條管道,但不印出任何東西:認得的拿去用,不認得的吞掉。
+
+巢狀 sshu 用同一招,換一段自己的暗號。`readLoop`(`pty_unix.go`)本來就在讀那條
+stream —— 不讀就畫不出格子 —— 所以只要在餵給 vt10x 的同一個 `buf` 上**分流一份**去掃。
+
+```
+buf ──┬──→ vt10x        照常畫成畫面(不認得暗號,忽略)
+      └──→ nestScanner  認出「sshu, self-b, locked」→ 記在這一格上
+```
+
+#### 沒有人需要知道自己有多深
+
+這是讓整件事變簡單的關鍵。每一層只報告**自己**的一筆(我的焦點格通往哪台、我有沒有
+在穿透),然後把**小孩告訴它的接在後面**:
+
+```
+layer 3 → layer 2：「self-c, unlocked」
+layer 2 → layer 1：「self-b, locked」+ 轉述的那句
+layer 1 → 一份報告就是整條鏈,深度自己數
+```
+
+於是**不需要 env var、不依賴 sshd 的 `AcceptEnv`**,也沒有任何一層需要全域視野。
+顯示時第 i 列的名字取自第 i-1 列的目標(它就是「第 i 層跑在哪台機器上」),狀態取自
+第 i 列自己。
+
+#### 載體怎麼選(全部實測,不是憑印象)
+
+| 候選 | 判決 |
+|---|---|
+| **`OSC 7180` + ST** | **採用**。tmux 3.7b 與 vt10x 皆完全無聲 |
+| `OSC 7180` + BEL | 同樣無聲,保留為**可接受的結尾**(不少軟體只寫 BEL) |
+| `OSC 777` | 淘汰 —— rxvt 系的通知慣例佔用中,不是無主號碼 |
+| `DCS` | 淘汰 —— tmux 的 `allow-passthrough` 專門管它,行為隨設定變 |
+| `APC` | 淘汰 —— kitty 的圖形協定用 APC |
+
+驗法:一支探針腳本印出五種形式夾在可見 marker 之間,分別餵給真的 tmux pane
+(`capture-pane` 讀螢幕)與真的 pty(`oscprobe_test.go` 讀 `screenLines()`)。
+兩邊都只剩 marker。
+
+**Ghostty 沒有直接驗**:使用者的終端機一啟動就進 tmux,開不出沒有 tmux 的分頁。而
+tmux 不轉發不認得的 OSC,所以在這台機器上序列到不了 Ghostty —— 殘留風險只對「不開
+tmux 的別人」存在,記在這裡而不是假裝驗過了。
+
+#### 每一幀都夾,而不是狀態改變時才送
+
+約 40 個隱形 bytes,買到的是**冪等**:漏掉一次,下一幀補上。沒有邊緣可丟、沒有通道
+要維持、沒有重連要處理。
+
+#### 離開 alt screen 就忘掉那條鏈
+
+內層 sshu 被關掉、退回它的 shell —— 這是唯一的信號。沒有這條,外層會抱著一份描述
+「已經不存在的東西」的鏈不放,而**過期比誠實的錯還糟**。
+
+#### 順帶查清楚的一件事:內外層 popup 顏色不同
+
+使用者發現巢狀時兩層的 popup 顏色不一樣,推論「內層的選單其實畫在 root 上」。**不是。**
+同一支 binary、同一個 layer 1,差別只在 `COLORTERM`:
+
+| 環境 | 邊框送出的 bytes |
+|---|---|
+| `COLORTERM=truecolor` | `38;2;163;192;250` —— 真的 `#A4C0FA` |
+| 未設 | `38;5;147` —— 量化成 xterm-256 |
+
+**ssh 不轉送 `COLORTERM`**(只自動送 `TERM`),所以遠端的 sshu 判定自己只有 256 色,
+**整個 UI 的每個顏色都被量化**,不只 popup。是色深假象,不是 z-order 事實。修法很小
+(`LC_*` 是 sshd 預設 `AcceptEnv` 收的,可以搭順風車),尚未做。
+
+#### 實機驗證
+
+`ssh localhost` 免密可用,所以內層是**同一個 darwin binary**,不必跨編譯:
+
+```
+sshu → ssh localhost → sshu → ssh localhost → shell
+```
+
+外層的 lock 選單列出 `1 this sshu — unlocked` / `2 self-a — unlocked`;去 lock 內層,
+外層那一列立刻變成 **`locked`**。狀態穿過 ssh、穿過 vt10x、被外層從同一條 byte stream
+掃出來 —— 是活的資料,不是一次性偵測。
+
+#### mutation:11 個,4 個一開始活下來
+
+- **1 個是 fixture 沒造出情境**:測「ESC 不是 ST 就放棄」用的輸入後面根本沒有終止符,
+  掃到底本來就回 -1 —— 有沒有那條規則都會過。補上尾巴的 ST 才真的測到。
+- **3 個是沒測到接線**:`readLoop` 不掃了、`View()` 不夾了、不把自己那筆放最前面了。
+  純 codec 的單元測試一個都抓不到,補了一個走真 pty 的端對端測試,一次蓋住三個。
+- 自己的一個錯:alt-screen 測試我把序列寫進 `ptmx` —— 那是 child 的 **stdin**,不會
+  變成輸出。改成讓遠端自己 `printf`。
+
+#### 還沒做:Control
+
+最外層現在**看得到**整條鏈,但只能操作自己這一層 —— 那些是 header 列,不是動作。
+下一步已經定案(使用者的提案):命令帶一個 hop 數,**每層減一,減到 0 的那層執行**。
+`tea.WithInput` 讓 sshu 可以在 bubbletea 之前先把私有命令從 stdin 抽掉,所以外→內
+的通道跟這裡的內→外是**同一個形狀、反方向**。屆時 alpha 不再 broadcast,選單只開在
+最外層。要釘的三件事:lock **不可以**吃掉命令(它不是按鍵,filter 在按鍵處理之上);
+ack 免費(狀態變化下一幀就由本節的通道帶回來);**只對自己聽過的 hop 送命令** ——
+舊版 sshu 會把命令 bytes 當按鍵解析,可能在別人的機器上觸發隨機動作,而版本號和
+「鏈只到會講話的那層為止」就是擋法。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -4764,7 +4979,8 @@ Include 完全不跟 / 被 include 的區塊接在最後而不是就地展開 / 
 | 格子(pty) | `PgUp`/`PgDown`(遠端**在** alt screen) | 送給遠端 —— vim / less 自己翻頁 |
 | 格子(pty) | 任何會送到遠端的鍵 | 順手把畫面拉回 live |
 | 格子(pty) | 按住 **`Alt`+`←→↑↓`** | 往鄰格移動(邊緣 clamp,pty 內也有效;**zoom 中照走且留在 zoom**) |
-| 格子(pty) | **`Alt+Enter`** | **zoom** —— 這一格佔滿整個網格區;只有一格時屬於遠端(§11.25) |
+| 格子(pty) | **`Alt+Z`** | **zoom** —— 這一格佔滿整個網格區;只有一格時屬於遠端(§11.25;由 `Alt+Enter` 搬來,§11.43) |
+| 格子(pty) | **`Alt+Enter`** | **layer 鍵**(§11.43)—— 轉發進 pty(巢狀的每層都開)+ 開本層的 Lock/Release 選單;locked 的格子所有鍵穿透,這是唯一例外 |
 | 格子(pty) | **`Alt+Esc`** | 一次剝一層:**先離開選取模式**,再離開 zoom,再收回鍵盤、回 `[1]` |
 | 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格、border 轉黃,再按一次(或 `Alt+Esc`)離開(§11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `u`/`d` | 游標(撞邊界捲頁)/ 上下半頁 |

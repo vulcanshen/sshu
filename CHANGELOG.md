@@ -147,7 +147,36 @@
   resolves through it and will not connect" when the block supplies their
   `HostName`, or the milder "2 sshu hosts inherit options from it" otherwise.
 
+- **A nested sshu now tells the one outside it what is going on.** The lock
+  menu lists the whole chain — every layer and whether it is passing keys
+  through — so the depths are on screen instead of in your head. It rides in
+  the output stream the way a program has always set a terminal title:
+  invisible to anything that does not recognise it, verified silent against
+  tmux and against sshu's own emulator. Nobody has to know how deep they
+  are — each sshu reports itself and passes on what it heard — so there is
+  no environment variable to forward and nothing to configure on the far
+  side. A sshu too old to speak simply says nothing, and the layer above it
+  behaves exactly as it does today.
+
+- **Nested sshu works now: Alt+Enter locks a cell into a transparent pipe.**
+  Run sshu on the server too — the reason to nest is that installing sshu is
+  one command, while ProxyJump is the config file you were avoiding — and the
+  outer sshu used to eat the whole Alt namespace, leaving the inner one
+  unusable. Alt+Enter opens a two-row menu, `[L]ock / [R]elease`; locked,
+  every key passes through, so the inner sshu's Alt+Esc, Alt+arrows and
+  selection mode all work. The chord also forwards itself, so in a chain it
+  opens the menu at every layer, each naming its own state — deal with them
+  outside-in, no counting. A locked cell wears a lock in its title and its
+  footer offers only the release, because every other entry would be a lie.
+  Verified end-to-end against a real sshd: the chords arrive byte-for-byte.
+
 ### Changed
+
+- **Zoom moved from `Alt+Enter` to `Alt+Z`** (tmux's own zoom key). The layer
+  chord had to be the most bulletproof one on the keyboard — ESC+CR passes
+  every terminal and every ssh hop verbatim — because once a cell is locked,
+  Alt+Enter is the only key that can unlock it: zoom failing costs a nicety,
+  the layer key failing traps you.
 
 - The `[M]anage` nav's second category is **Others** rather than Events. It was
   a label for the one row under it rather than for a category, and it stopped

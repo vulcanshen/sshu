@@ -15,7 +15,7 @@ import (
 // Every animator name in the app. A popup missing from this list never
 // finishes opening under test, so its content renders as nothing and the
 // test passes for the wrong reason.
-var animTargets = []string{"spacemenu", "hostpicker", "credpicker", "help", "form",
+var animTargets = []string{"spacemenu", "lockmenu", "hostpicker", "credpicker", "help", "form",
 	"picker", "transfers", "credform", "sshcfgform", "knownadd", "viewer", "editor", "confirm",
 	"input", "toast", "detail"}
 
