@@ -383,6 +383,22 @@ func (p *ptyTerm) nestChain() ([]nestLayer, bool) {
 	return p.nest.chain()
 }
 
+// writeRaw puts bytes on the child's stdin that did not come from a key.
+// Separate from write BECAUSE it is not a keystroke: it must not reset the
+// scroll position, and it must not be shaped by anything that reasons about
+// what the user pressed (§11.45).
+func (p *ptyTerm) writeRaw(s string) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	ptmx := p.ptmx
+	p.mu.Unlock()
+	if ptmx != nil {
+		_, _ = ptmx.Write([]byte(s))
+	}
+}
+
 func (p *ptyTerm) write(msg tea.KeyMsg) {
 	if p == nil || p.ptmx == nil {
 		return

@@ -756,6 +756,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**欄數**(一個數字 1-9;列數由 `ceil(n/c)` 推出,舊的 rows 只是下限、近乎沒作用,design §11.31) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
 | 格子(pty) | `Alt+Z` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25;由 `Alt+Enter` 搬來,§11.43) |
+| 格子(pty) | — | **巢狀定址**(design §11.45):`ui.NestInput` 包住 stdin,在 bubbletea 之前抽出 `OSC 7181`;`applyNestCmd` hop 0 執行、否則減一 `writeRaw` 往內送;filter 必須滿足 `term.File`,否則 raw mode 不會啟動。`ui/nestcmd.go` |
 | 格子(pty) | — | **巢狀通報**(design §11.44):`View()` 每幀夾一段 `OSC 7180`;`readLoop` 把同一個 `buf` 分流給 `nestScanner`;離開 alt screen 即 `reset()`。`ui/nestreport.go` |
 | 格子(pty) | `Alt+Enter` | **layer 鍵**(design §11.43):無條件「轉發進 pty + 開本層 lock 選單」;`session.locked` 時所有鍵 `pty.write` 穿透,alpha 是唯一例外;選單是第三個 `spaceMenu` 實例,兩列一 dim = 每層自己的狀態顯示器 |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |

@@ -269,6 +269,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toast.anim.tick(msg),
 		)
 
+	// A command from the layer outside this one (§11.45). Hop 0 is us;
+	// anything else is passed one hop further in. This runs BEFORE any key
+	// handling and is unaffected by the lock: a locked cell passes KEYS
+	// through, and this is not a key — a lock that swallowed the addressing
+	// would make every layer under a locked one unreachable.
+	case nestCmdMsg:
+		return m.applyNestCmd(msg)
 	case hostKeyScannedMsg:
 		return m.hostKeyScanned(msg)
 
@@ -1148,6 +1155,38 @@ const (
 	menuPanelRegion = "panel operation"
 )
 
+// applyNestCmd performs a command addressed to this layer, or forwards it
+// one hop shorter. Forwarding needs a live cell to forward INTO; without
+// one the command is dropped, because the chain it was addressed along no
+// longer exists.
+func (m AppModel) applyNestCmd(msg nestCmdMsg) (tea.Model, tea.Cmd) {
+	s := m.ssh.currentSession()
+	if msg.Hop > 0 {
+		if s == nil || s.state != sessLive || s.pty == nil {
+			return m, nil
+		}
+		s.pty.writeRaw(nestCmdEncode(msg.Hop-1, msg.Verb))
+		return m, nil
+	}
+	if s == nil {
+		return m, nil
+	}
+	want := msg.Verb == nestVerbLock
+	if s.locked == want {
+		return m, nil
+	}
+	s.locked = want
+	// Logged like the local action, because from this machine's side it is
+	// indistinguishable from one — and a state that changed with nobody at
+	// this keyboard is exactly what a log is for.
+	if want {
+		m.log.info("pty locked from an outer sshu: " + s.host.Name)
+	} else {
+		m.log.info("pty released from an outer sshu: " + s.host.Name)
+	}
+	return m, nil
+}
+
 // openLockMenu builds and opens the Alt+Enter float for the focused cell.
 //
 // Two rows, one of them disabled — deliberately, against the one-row rule
@@ -1171,24 +1210,30 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 	// this has no way to reach (§11.44). What they remove is the counting:
 	// the depths and their states are on screen instead of in the user's
 	// head, and each layer is still acted on with its own menu.
-	if chain := m.nestChain(); len(chain) > 1 {
-		items = append(items, menuItem{separator: true},
-			menuItem{label: "layers", header: true})
-		for i, l := range chain {
-			name := "this sshu"
-			if i > 0 {
-				// Row i runs on the machine row i-1 leads to.
-				name = chain[i-1].Host
-			}
-			state := "unlocked"
-			if l.Locked {
-				state = "locked"
-			}
-			items = append(items, menuItem{
-				label:  itoa(i+1) + "  " + name + " — " + state,
-				header: true,
-			})
+	// The layers below this one, each its own action (§11.45). Layer 1 is
+	// NOT listed: the two rows above already are it, and a row that repeated
+	// them would be two ways to do one thing with no way to tell which.
+	chain := m.nestChain()
+	for i, l := range chain {
+		if i == 0 {
+			continue // this sshu — the letters above
 		}
+		if i == 1 {
+			items = append(items, menuItem{separator: true},
+				menuItem{label: "inner layers", header: true})
+		}
+		verb, state := "lock", "unlocked"
+		if l.Locked {
+			verb, state = "release", "locked"
+		}
+		items = append(items, menuItem{
+			// Row i runs on the machine row i-1 leads to.
+			label: itoa(i+1) + "  " + chain[i-1].Host,
+			// Named by the side it goes to (§11.30), with the side it is on
+			// alongside — this row is the only place that state is visible.
+			hint: state + " · enter to " + verb,
+			key:  nestRowKey(i),
+		})
 	}
 	m.lockMenu.setItems(items, glyphPtyLock+" "+nameOr(s.host.Name, "pty"), 1)
 	for i, it := range items {
@@ -1198,6 +1243,41 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 		}
 	}
 	return m.lockMenu.open()
+}
+
+// nestRowKey addresses one inner layer from the menu. Not a letter: these
+// rows are generated from what the far side reported, so there is no fixed
+// set to assign letters from and no letter to teach (§4.2 covers the two
+// actions above, which ARE fixed).
+func nestRowKey(i int) string { return "layer" + itoa(i) }
+
+// sendNestCmd addresses the layer a menu row names. Row i is i-1 hops in,
+// so the layer one below this one is hop 0 — the cell this sshu is already
+// writing keystrokes into.
+//
+// No acknowledgement is asked for and none is needed: the target's new
+// state comes back up the reporting channel on its next frame, so the row
+// changes by itself once the change is real. A row that flipped on send
+// would be claiming something it had not been told (§11.45).
+func (m *AppModel) sendNestCmd(key string) tea.Cmd {
+	i, err := strconv.Atoi(strings.TrimPrefix(key, "layer"))
+	if err != nil || i < 1 {
+		return m.lockMenu.close()
+	}
+	c := m.nestChain()
+	if i >= len(c) {
+		return m.lockMenu.close() // the chain shrank while the menu was open
+	}
+	s := m.ssh.currentSession()
+	if s == nil || s.pty == nil {
+		return m.lockMenu.close()
+	}
+	verb := nestVerbLock
+	if c[i].Locked {
+		verb = nestVerbRelease
+	}
+	s.pty.writeRaw(nestCmdEncode(i-1, verb))
+	return m.lockMenu.close()
 }
 
 // lockMenuKey drives the Alt+Enter float.
@@ -1216,6 +1296,9 @@ func (m AppModel) lockMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	s := m.ssh.currentSession()
 	if s == nil {
 		return m, m.lockMenu.close()
+	}
+	if strings.HasPrefix(key, "layer") {
+		return m, m.sendNestCmd(key)
 	}
 	switch key {
 	case "L":
