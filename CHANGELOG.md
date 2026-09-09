@@ -14,7 +14,8 @@ needed the most reliable chord on the keyboard, because once a cell is locked
 the layer key failing traps you. `Alt+Z` is what tmux calls zoom. If a window
 manager on your machine already claims it (AeroSpace does), unbind it there.
 
-The demo GIFs are from 1.4.2 and do not show any of this yet.
+All three demos are re-recorded on this build, against a synthetic home so a
+recording cannot show anybody's real `~/.ssh`.
 
 ### Added
 
