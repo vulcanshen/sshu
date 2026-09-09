@@ -147,6 +147,11 @@
   resolves through it and will not connect" when the block supplies their
   `HostName`, or the milder "2 sshu hosts inherit options from it" otherwise.
 
+- **A sshu reached over ssh no longer loses its colours.** ssh forwards TERM
+  and nothing else, so the far side decided it had 256 colours and quantised
+  every colour in its UI — which is why a nested sshu's popups looked subtly
+  wrong next to the outer one's. The depth now travels with the connection.
+
 - **And the outermost sshu can now act on any layer it can see.** Pick an
   inner layer in the lock menu and it locks or releases, however deep it is:
   the command carries a hop count, every layer subtracts one and passes it

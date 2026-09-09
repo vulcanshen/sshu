@@ -17,6 +17,10 @@ import (
 )
 
 func main() {
+	// Before anything renders: a sshu started by another one over ssh has no
+	// COLORTERM, and would quantise its whole UI to 256 colours (§11.46).
+	ui.AdoptForwardedColor()
+
 	// `sshu version` prints the build version and exits — checked before
 	// anything else, so it answers even with a broken config.
 	if len(os.Args) > 1 && os.Args[1] == "version" {
