@@ -99,7 +99,12 @@ func main() {
 	if len(dupCreds) > 0 {
 		app = app.WithStartupWarning(dupeWarning("credentials.yaml", dupCreds))
 	}
-	p := tea.NewProgram(app, tea.WithAltScreen())
+	// stdin goes through sshu first: a parent sshu addresses a layer with an
+	// escape sequence, and Bubble Tea would decode it into keystrokes of its
+	// own (design §11.45). Everything that is not a command passes through.
+	in, pump := ui.NestInput(os.Stdin)
+	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithInput(in))
+	go pump(func(m any) { p.Send(m) })
 
 	// SIGHUP is the terminal window closing. Bubble Tea does not catch it, and
 	// the default action would end sshu with every child ssh still running —

@@ -147,6 +147,14 @@
   resolves through it and will not connect" when the block supplies their
   `HostName`, or the milder "2 sshu hosts inherit options from it" otherwise.
 
+- **And the outermost sshu can now act on any layer it can see.** Pick an
+  inner layer in the lock menu and it locks or releases, however deep it is:
+  the command carries a hop count, every layer subtracts one and passes it
+  on, and the layer that receives zero performs it. Nothing opens anywhere
+  but the outermost menu and nobody counts. No acknowledgement is asked for
+  — the target's new state comes back on its next frame, so the row changes
+  once the change is real rather than when the key was pressed.
+
 - **A nested sshu now tells the one outside it what is going on.** The lock
   menu lists the whole chain — every layer and whether it is passing keys
   through — so the depths are on screen instead of in your head. It rides in
