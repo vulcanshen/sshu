@@ -78,6 +78,13 @@ func buildSSHCmd(h store.Host, self string, timeoutSecs int) *exec.Cmd {
 	// produced a corpse with no explanation attached to it.
 	args := []string{"-p", strconv.Itoa(h.Port),
 		"-o", "ConnectTimeout=" + strconv.Itoa(timeoutSecs)}
+	// Ask ssh to carry the colour depth (§11.46). Named explicitly rather
+	// than relying on the user's ssh_config having "SendEnv LC_*" — many do,
+	// not all, and a colour that depends on a config file nobody edited is a
+	// colour that is wrong on somebody's machine for no reason they can see.
+	if os.Getenv("COLORTERM") != "" {
+		args = append(args, "-o", "SendEnv="+colorEnv)
+	}
 	if h.Auth == store.AuthPrivateKey && h.IdentityFile != "" {
 		args = append(args, "-i", store.ExpandTilde(h.IdentityFile))
 		// With an explicit key, stop ssh from silently trying every agent
@@ -108,6 +115,14 @@ func sshEnv(h store.Host, self string) []string {
 		"TERM=xterm-256color",
 		"LC_ALL="+envOr("LC_ALL", "en_US.UTF-8"),
 	)
+	// ssh forwards TERM by itself and nothing else, so a sshu on the far side
+	// sees 256 colours and quantises EVERY colour in its UI — the same border
+	// that leaves here as 38;2;163;192;250 arrives as 38;5;147. The smuggling
+	// channel is the one every terminal already uses for this: sshd's default
+	// AcceptEnv takes LC_*, which is how iTerm2 gets LC_TERMINAL across too.
+	if v := os.Getenv("COLORTERM"); v != "" {
+		env = append(env, colorEnv+"="+v)
+	}
 	if h.Auth == store.AuthPassword && h.Password != "" && self != "" {
 		env = append(env,
 			"SSH_ASKPASS="+self,
@@ -116,6 +131,24 @@ func sshEnv(h store.Host, self string) []string {
 		)
 	}
 	return env
+}
+
+// colorEnv is the name the depth travels under. LC_ so sshd accepts it, and
+// SSHU in the middle so it cannot be mistaken for a locale by anything that
+// reads LC_* for what it is actually for.
+const colorEnv = "LC_SSHU_COLORTERM"
+
+// AdoptForwardedColor is called before anything renders: if this sshu was
+// started by another one over ssh, COLORTERM is missing and the depth is
+// waiting in the variable that DID survive. Only ever fills a gap — a real
+// COLORTERM is the local terminal speaking for itself and wins (§11.46).
+func AdoptForwardedColor() {
+	if os.Getenv("COLORTERM") != "" {
+		return
+	}
+	if v := os.Getenv(colorEnv); v != "" {
+		_ = os.Setenv("COLORTERM", v)
+	}
 }
 
 func envOr(key, fallback string) string {
