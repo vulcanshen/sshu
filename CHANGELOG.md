@@ -1,23 +1,36 @@
 # Changelog
 
-## [Unreleased]
+## [1.5.1] — 2026-09-09
+
+1.5.0 made sshu inside sshu work. It did not make it usable past about three
+layers, because every layer spent five rows on its own chrome and border. This
+release is that arithmetic removed.
+
+Changes since 1.5.0.
+
+**`Alt+Z` is no longer forwarded to the remote on a grid of one.** It used to
+be, because there was nothing left to zoom there. There is always chrome to
+take off now, so the chord is sshu's wherever a cell holds the keyboard — and
+an inner sshu is zoomed the way it is sent anything else, by locking the layer
+above it.
 
 ### Changed
 
-- **`Alt+Z` is a three-stage cycle now: the grid, the whole screen, back to
-  normal.** The middle stage is what it always did — the focused cell fills the
-  grid area. The new one takes sshu's own chrome and the cell's border off as
-  well, so the remote has every row and column the display has.
+- **`Alt+Z` is a three-stage cycle now: *zoom panel*, *zoom max*, back to
+  normal.** Zoom panel is what it always did — the focused cell fills the grid
+  area. Zoom max takes sshu's own chrome and the cell's border off as well, so
+  the remote has every row and column the display has. The footer names what
+  the next press does, so the cycle is readable without counting.
 
   That last stage exists because nesting was only theoretically unlimited.
   Every layer of sshu costs five rows — three of chrome, two of border — so on
   an 80×24 terminal the third layer had four usable rows and the fourth would
-  not render at all. Full screen makes a layer cost nothing, at any depth.
+  not render at all. Zoom max makes a layer cost nothing, at any depth.
 
   A stage that would not change the picture is skipped: with one cell on the
-  grid the first press goes straight to full screen, because "one cell fills
-  the grid" would look exactly like no zoom at all, and a cycle with an
-  invisible stop reads as a key that did nothing.
+  grid the first press goes straight to zoom max, because "one cell fills the
+  grid" would look exactly like no zoom at all, and a cycle with an invisible
+  stop reads as a key that did nothing.
 
 - **`Alt+Esc` walks the cycle backwards, one stage per press**, and hands the
   keyboard back only once there are no stages left — the same rule it already
@@ -38,7 +51,7 @@
   said "1 live session will be closed" while three were about to go; it now
   adds "2 nested sshu layers will go down with it."
 
-- **A badge in full screen**, top right: `sshu`, the depth of the stack, and
+- **A badge in zoom max**, top right: `sshu`, the depth of the stack, and
   the lock glyph when that layer is passing every key through. It is painted
   over the output rather than in a row of its own — a reserved row would cost
   one line per layer and put back exactly the compression full screen removes.
@@ -49,7 +62,7 @@
   is the only layer that can see the whole chain, and it is also the one whose
   paint lands on top.
 
-- **Selection mode keeps its key legend in full screen**, overlaid on the
+- **Selection mode keeps its key legend in zoom max**, overlaid on the
   bottom row. The page is frozen while the mode is up, so the row it covers is
   not going anywhere.
 
