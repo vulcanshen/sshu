@@ -25,15 +25,26 @@ func (m AppModel) View() string {
 		return m.splash.render(m.w, m.h)
 	}
 
-	// The rule carries the transfer bar on every tab; the green status only
-	// where the summary itself lives (the file-transfer tab).
-	pct, moving := m.transfers.progress()
-	out := strings.Join([]string{
-		tabRow(m.w, tabLabels, int(m.tab), m.status(), moving && m.tab == tabFT),
-		tabRule(m.w, pct, moving),
-		m.panel(),
-		m.footer(),
-	}, "\n")
+	// A full-screen cell replaces the whole frame — the same shape as the
+	// splash above, and for a harder reason. Locking the chrome rows at one
+	// line each (§1.3) is what stops the panel shifting under a resize; it was
+	// never a promise that they are always drawn. A nested sshu pays for them
+	// at EVERY layer, which is what put a ceiling on how deep the nesting
+	// could go, and this state is how that ceiling comes off (§11.47).
+	var out string
+	if m.tab == tabSSH && m.ssh.fullScreen() {
+		out = m.panel()
+	} else {
+		// The rule carries the transfer bar on every tab; the green status only
+		// where the summary itself lives (the file-transfer tab).
+		pct, moving := m.transfers.progress()
+		out = strings.Join([]string{
+			tabRow(m.w, tabLabels, int(m.tab), m.status(), moving && m.tab == tabFT),
+			tabRule(m.w, pct, moving),
+			m.panel(),
+			m.footer(),
+		}, "\n")
+	}
 
 	// Bottom to top. The Space menu goes down first so anything it launches
 	// lands above it and Esc unwinds in the order the user built the stack.
@@ -127,6 +138,20 @@ func (m AppModel) nestChain() []nestLayer {
 	return chain
 }
 
+// copyLegendPairs is selection mode's own keys. It has two homes — the footer,
+// and an overlay on the bottom row when the cell is full screen and there is no
+// footer to put it in — and one list, because a mode disclosed two different
+// ways in two places is a mode documented wrong in one of them (§11.33, §A.1).
+func copyLegendPairs() [][2]string {
+	return [][2]string{
+		{"y", "copy"},
+		{"v/V", "select"},
+		{"hjkl", "move"},
+		{"u/d", "half page"},
+		{"alt+v", "leave"},
+	}
+}
+
 // status is the right-hand slot of the capsule row: whatever the active tab
 // wants to say about itself, in one line.
 func (m AppModel) status() string {
@@ -163,13 +188,7 @@ func (m AppModel) footer() string {
 		// fingers means something different in there, and a row still offering
 		// the pty's keys would be describing a panel that is not on screen.
 		if m.ssh.copy.on {
-			return keyLegend([][2]string{
-				{"y", "copy"},
-				{"v/V", "select"},
-				{"hjkl", "move"},
-				{"u/d", "half page"},
-				{"alt+v", "leave"},
-			}, m.w)
+			return keyLegend(copyLegendPairs(), m.w)
 		}
 		// The tab keys are NOT offered: they are bare letters now, and in here a
 		// bare letter is the remote's (§11.21). What is left is sshu's own Alt
@@ -177,7 +196,7 @@ func (m AppModel) footer() string {
 		// Alt+Esc peels one layer at a time, so the row says which layer it
 		// would take off if it were pressed right now.
 		out := "leave pty"
-		if m.ssh.zoomed {
+		if m.ssh.zoomAt() != zoomOff {
 			out = "leave zoom"
 		}
 		// A LOCKED cell keeps only one key, so the row says only that: every
@@ -187,15 +206,6 @@ func (m AppModel) footer() string {
 			return keyLegend([][2]string{{"alt+enter", "release"}}, m.w)
 		}
 		pairs := [][2]string{{"alt+esc", out}}
-		// Offered only where it would do something: one cell already fills the
-		// grid, and there the chord belongs to the remote (§11.25).
-		if m.ssh.canZoom() {
-			zoom := "zoom"
-			if m.ssh.zoomed {
-				zoom = "unzoom"
-			}
-			pairs = append(pairs, [2]string{"alt+z", zoom})
-		}
 		// And the scrollback keys, but only where they would do something: they
 		// are the remote's while a full-screen program is up, and there is
 		// nothing to page through until more has been said than fits (§11.19).
@@ -209,9 +219,20 @@ func (m AppModel) footer() string {
 		// at all — a bare `?` in here belongs to the remote, so the footer is
 		// the only live disclosure the pty has (§11.33, §11.19).
 		pairs = append(pairs, [2]string{"alt+v", "select"})
-		// After alt+v, not before: §11.33 ruled that select must survive a
-		// cramped footer, and the lock chord — a nested-session tool — is the
-		// rarer need of the two.
+		// Both of the next two sit AFTER alt+v, because §11.33 ruled that
+		// select must survive a cramped footer — and it nearly stopped doing
+		// so when the zoom label grew. "full screen" is longer than "zoom",
+		// and at 40 columns, where the row fits exactly two pairs, that
+		// difference was enough to drop select off the end (§11.47).
+		//
+		// The zoom is named by what the NEXT press does: the cycle has three
+		// stops, and one label for all of them would be describing the key
+		// rather than the state. It is offered unconditionally now — there is
+		// always chrome left to take off, so there is no longer a grid on
+		// which the chord does nothing.
+		pairs = append(pairs, [2]string{"alt+z", m.ssh.nextZoomLabel()})
+		// Last of the three: the lock chord is a nested-session tool, the
+		// rarest need of the group.
 		pairs = append(pairs, [2]string{"alt+enter", "lock"})
 		pairs = append(pairs, [2]string{"alt+" + arrowGlyphs + arrowUpDown, "cell"})
 		return keyLegend(pairs, m.w)
