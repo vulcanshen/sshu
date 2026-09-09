@@ -225,10 +225,10 @@ first. The top-right summary spins while anything is in flight.
 | *(no key — `Space` menu only)* | **Close all sessions** — ends every one of them, asking first with the count in the question. Deliberately without a letter: closing everything is destructive and rare, and a letter is what a hand finds by accident on a list it was only scrolling |
 | `D` | Duplicate — a second session to the same host (asks first). The keyboard **stays on the list**, with the cursor on the new session: the Enter you pressed was on a confirmation, and only an Enter on a row means "take me in" |
 | **`PgUp` / `PgDown`** | **Page through this cell's history** — while the remote is not in the alt screen; anything you type snaps back to live |
-| **`Alt+Z`** | **Zoom** — this cell fills the whole grid. With only one cell there is nothing to zoom, so the chord goes to the remote instead |
+| **`Alt+Z`** | **Bigger, in stages** — first this cell fills the grid, then it takes the whole screen with sshu's own chrome and border off, then back to normal. A stage that would not change the picture is skipped, so a single cell goes straight to full screen. That last stage is what makes nesting free: an inner sshu costs no rows at all |
 | **`Alt+Enter`** | **Lock/release** — for a NESTED sshu on the far side. Locked, this cell passes every key through, so the inner sshu's own chords all work; the menu opens at every layer of a chain, each naming its own state, and Alt+Enter is the one key a lock cannot swallow |
-| **`Alt+arrows`** | Steer to the neighbouring cell — spatial, so nothing has to be numbered. Inside a zoom it still steers, and stays zoomed |
-| **`Alt+Esc`** | **Out, one layer at a time** — the first press leaves selection mode, then a zoom, then takes the keyboard back from the remote (back to the list, side column returns) |
+| **`Alt+arrows`** | Steer to the neighbouring cell — spatial, so nothing has to be numbered. Inside a zoom it still steers, and stays at the same stage |
+| **`Alt+Esc`** | **Out, one layer at a time** — selection mode first, then the zoom stages one by one, then the keyboard comes back from the remote (back to the list, side column returns) |
 | **`Alt+v`** | **Selection mode** — freeze this cell and copy out of it. Press it again (or `Alt+Esc`) to leave |
 | *(in selection mode)* `hjkl` · `u`/`d` | Move the cursor — past the top or bottom edge it scrolls the frozen page — and half a screen at a time |
 | *(in selection mode)* `v` / `V` · `y` · `Esc` | Select by cell / by line (the same key again clears it) · copy to the clipboard and leave · drop the selection, then the mode |

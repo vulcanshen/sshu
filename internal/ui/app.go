@@ -482,16 +482,24 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// dropped: window managers own Alt+1..9 on the LOCAL side — AeroSpace,
 	// tiling tools — so the chords never even reached sshu.) Alt+arrows are
 	// dead keys in a bare terminal, which is what makes them takeable.
-	// Alt+Z fills the screen with the focused cell — z because that is what
-	// zoom is called everywhere (tmux's own zoom is prefix-z), and no longer
-	// Alt+Enter because the layer key needed the most bulletproof chord on
-	// the keyboard (§11.43): zoom failing costs a nicety, the layer key
-	// failing traps somebody in a locked chain. With one cell on the grid
-	// there is nothing to zoom, so the chord is not taken and travels on to
-	// the remote like any other (§11.25).
+	// Alt+Z walks the zoom forward one stage — z because that is what zoom is
+	// called everywhere (tmux's own zoom is prefix-z), and no longer Alt+Enter
+	// because the layer key needed the most bulletproof chord on the keyboard
+	// (§11.43): zoom failing costs a nicety, the layer key failing traps
+	// somebody in a locked chain.
+	//
+	// It is taken wherever a cell has the keyboard, including a grid of one.
+	// The old rule let it through to the remote there, on the grounds that a
+	// key which visibly does nothing reads as broken — true then, when the
+	// grid area was everything a zoom could take. The full-screen stage takes
+	// the chrome as well, and there is always chrome, so there is no longer a
+	// grid on which this chord does nothing (§11.47).
+	//
+	// A LOCKED cell never reaches this branch, which is how an inner sshu is
+	// zoomed: lock the layer above it and the chord travels down (§11.43).
 	if m.tab == tabSSH && !m.popupOpen() && msg.Alt &&
 		msg.Type == tea.KeyRunes && string(msg.Runes) == "z" {
-		if m.ssh.toggleZoom() {
+		if m.ssh.cycleZoom() {
 			return m, nil
 		}
 	}
@@ -520,14 +528,12 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// PTY holds focus, which is the only place it means anything.
 	if msg.Type == tea.KeyEscape && msg.Alt {
 		if m.ptyFocused() {
-			// One step at a time, outward. A zoom is a layer the user put
-			// themselves inside, so the key that comes back out takes it off
-			// first and hands the keyboard back second — pressing it once and
-			// landing two levels away is how a way-out key stops being
-			// predictable (§11.25).
-			if m.ssh.zoomed {
-				m.ssh.zoomed = false
-				m.ssh.applyGeometry()
+			// One step at a time, outward. Each zoom stage is a layer the
+			// user put themselves inside, so the key that comes back out takes
+			// ONE off and hands the keyboard back only once there are none
+			// left — pressing it once and landing two levels away is how a
+			// way-out key stops being predictable (§11.25, §11.47).
+			if m.ssh.unzoomOne() {
 				return m, nil
 			}
 			m.ssh.setFocus(panelSessions)

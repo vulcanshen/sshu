@@ -110,11 +110,11 @@ type sshModel struct {
 	// focusPty is the cell holding the keyboard — an index into shown, only
 	// meaningful while focus == panelPty.
 	focusPty int
-	// zoomed gives the focused cell the whole grid area, the other cells no
-	// area at all. It only exists while the keyboard is IN a cell (setFocus
-	// clears it otherwise): zooming is about the terminal you are working in,
-	// and there is no such terminal when the list has the keyboard (§11.25).
-	zoomed bool
+	// zoom is how much of the display the focused cell has taken. It only
+	// exists while the keyboard is IN a cell (setFocus clears it otherwise):
+	// zooming is about the terminal you are working in, and there is no such
+	// terminal when the list has the keyboard (§11.25).
+	zoom zoomStage
 
 	layout layoutMode
 	gridC  int // custom's column count; the rows follow
@@ -157,6 +157,14 @@ func (m sshModel) stripVisible() bool { return m.h >= layoutRows+5 }
 // layout strip lives at the bottom of the LEFT column, so the right side is
 // nothing but terminals.
 func (m sshModel) gridArea() (w, h int) {
+	// Full screen: the grid IS the display. The panel was handed the app's
+	// height minus the chrome, so adding the chrome back is exactly the app's
+	// height — derived, not stored, because a stage change is not a resize and
+	// a stored copy would go stale on every transition that does not pass
+	// through setSize (§11.47).
+	if m.zoomAt() == zoomFull {
+		return m.w, max(1, m.h+chromeRows)
+	}
 	_, rightW := m.panes()
 	return rightW, max(1, m.h)
 }
@@ -242,7 +250,7 @@ func (m *sshModel) setFocus(p sshPanel) {
 	// leaving, whatever the reason for the move.
 	m.copy.stop()
 	if p != panelPty {
-		m.zoomed = false
+		m.zoom = zoomOff
 	}
 	m.focus = p
 	m.applyGeometry()
@@ -263,9 +271,10 @@ func (m *sshModel) applyGeometry() {
 	// they are not being drawn, and a SIGWINCH makes a remote repaint — telling
 	// five hidden shells to redraw on the way into a zoom is work nobody asked
 	// for and nobody sees.
-	if m.zoomed && m.canZoom() {
+	if m.zoomAt() != zoomOff {
 		s := shown[m.focusPty]
-		cellCols, cellRows := max(1, gw-2), max(1, gh-2)
+		in := m.zoomInset()
+		cellCols, cellRows := max(1, gw-in), max(1, gh-in)
 		if s.pty != nil && (cellCols != s.appliedCols || cellRows != s.appliedRows) {
 			s.pty.resize(cellCols, cellRows)
 			s.appliedCols, s.appliedRows = cellCols, cellRows
@@ -283,21 +292,109 @@ func (m *sshModel) applyGeometry() {
 	}
 }
 
-// canZoom reports whether zooming would change anything. One cell already fills
-// the grid, so the key is not offered there and not taken there either — it goes
-// to the remote instead, which is better than a key that visibly does nothing.
-func (m sshModel) canZoom() bool {
-	return m.focus == panelPty && len(m.shown) > 1 &&
-		m.focusPty >= 0 && m.focusPty < len(m.shown)
+// zoomStage is how much of the display the focused cell has taken. Alt+Z walks
+// forward through these and Alt+Esc walks back, one stop at a time (§11.47).
+type zoomStage int
+
+const (
+	zoomOff  zoomStage = iota // the grid, as laid out
+	zoomGrid                  // the focused cell fills the grid area
+	zoomFull                  // ...and then the chrome comes off too
+)
+
+// zoomAt is the stage actually in force. The stored stage is what was asked
+// for; this is what the grid can honour. A stage only exists while a cell has
+// the keyboard, and the grid stage only while there is a second cell to give
+// up — a stored stage must never outlive the grid it was asked for.
+func (m sshModel) zoomAt() zoomStage {
+	if m.focus != panelPty || m.focusPty < 0 || m.focusPty >= len(m.shown) {
+		return zoomOff
+	}
+	if m.zoom == zoomGrid && len(m.shown) <= 1 {
+		return zoomOff
+	}
+	return m.zoom
 }
 
-// toggleZoom flips the zoom and re-sizes the remote to match. Reports whether it
-// took the keystroke.
-func (m *sshModel) toggleZoom() bool {
-	if !m.canZoom() {
+// fullScreen reports whether the cell has taken the whole display, chrome
+// included. The app asks before it composes a frame there is no room for.
+func (m sshModel) fullScreen() bool { return m.zoomAt() == zoomFull }
+
+// zoomInset is the border a zoomed cell still pays for: two rows and two
+// columns, or nothing at all once it is full screen.
+func (m sshModel) zoomInset() int {
+	if m.zoomAt() == zoomFull {
+		return 0
+	}
+	return 2
+}
+
+// nextZoom is where Alt+Z goes from here, SKIPPING any stage that would not
+// change the picture. With one cell on the grid there is no grid stage to
+// visit — it would look exactly like no zoom at all, and a cycle with an
+// invisible stop reads as a key that did nothing the first time you pressed
+// it. That is also why the old rule is gone: "one cell has nothing to zoom"
+// was true when the grid area was all a zoom could take, and stopped being
+// true the moment a zoom could take the chrome as well (§11.47).
+func (m sshModel) nextZoom() zoomStage {
+	switch m.zoomAt() {
+	case zoomOff:
+		if len(m.shown) > 1 {
+			return zoomGrid
+		}
+		return zoomFull
+	case zoomGrid:
+		return zoomFull
+	}
+	return zoomOff
+}
+
+// prevZoom is the stage Alt+Esc drops back to. It deliberately does NOT
+// repeat nextZoom's skip: zoomAt already downgrades a grid stage that has no
+// second cell to give up, so a second check here would be a rule nothing can
+// observe — and two places deciding the same thing is how they drift apart.
+func (m sshModel) prevZoom() zoomStage {
+	if m.zoomAt() == zoomFull {
+		return zoomGrid
+	}
+	return zoomOff
+}
+
+// nextZoomLabel names what the NEXT press does. The cycle has three stops, and
+// a row reading "zoom" at every one of them would be describing the key rather
+// than the state (§A.1).
+func (m sshModel) nextZoomLabel() string {
+	switch m.nextZoom() {
+	case zoomGrid:
+		return "zoom"
+	case zoomFull:
+		return "full screen"
+	}
+	return "unzoom"
+}
+
+// cycleZoom advances one stage and re-sizes the remote to match. Reports
+// whether it took the keystroke — which, while a cell has the keyboard, it
+// always does: the full-screen stage is always available, because there is
+// always chrome left to take off.
+func (m *sshModel) cycleZoom() bool {
+	if m.focus != panelPty || m.focusPty < 0 || m.focusPty >= len(m.shown) {
 		return false
 	}
-	m.zoomed = !m.zoomed
+	m.zoom = m.nextZoom()
+	m.applyGeometry()
+	return true
+}
+
+// unzoomOne takes ONE stage off, reporting whether there was one to take. The
+// way out walks the cycle backwards for the same reason it peels a nested
+// layer one at a time: the stages are layers the user put themselves inside,
+// and a way-out key that skips one stops being predictable (§11.25).
+func (m *sshModel) unzoomOne() bool {
+	if m.zoomAt() == zoomOff {
+		return false
+	}
+	m.zoom = m.prevZoom()
 	m.applyGeometry()
 	return true
 }
@@ -761,7 +858,7 @@ func (m sshModel) gridView() string {
 	// Zoomed: one cell, the whole area. Nothing else is drawn — that is the
 	// point, and it is also why the zoom needs no marker of its own. A grid
 	// showing exactly one terminal is not a state anyone has to be told about.
-	if m.zoomed && m.canZoom() {
+	if m.zoomAt() != zoomOff {
 		return m.cellView(shown[m.focusPty], m.focusPty, gw, gh)
 	}
 
@@ -841,7 +938,16 @@ func (m sshModel) cellTone(s *session, i int) borderTone {
 
 // cellView is one grid cell: a bordered terminal.
 func (m sshModel) cellView(s *session, i, w, h int) string {
+	// Full screen takes the border off as well. sshu's own frame is the last
+	// thing between the remote and the edge of the display, and taking it off
+	// is the difference between a nest that costs five rows per layer and one
+	// that costs nothing at all (§11.47). gridView draws only the focused cell
+	// in that state, so this is never asked about a neighbour.
+	full := m.zoomAt() == zoomFull
 	innerW, innerH := w-2, h-2
+	if full {
+		innerW, innerH = w, h
+	}
 	var rows []string
 	switch {
 	case m.copy.on && m.copy.sessID == s.id:
@@ -851,8 +957,75 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 	default:
 		rows = s.pty.render(innerW, innerH)
 	}
-	return panelChromeTone(innerW, fitLines(rows, innerW, innerH),
-		m.cellTitle(s, i, innerW), m.cellTone(s, i))
+	body := fitLines(rows, innerW, innerH)
+	if full {
+		m.markFullScreen(body, s)
+		return strings.Join(body, "\n")
+	}
+	return panelChromeTone(innerW, body, m.cellTitle(s, i, innerW), m.cellTone(s, i))
+}
+
+// markFullScreen paints sshu's own disclosures over a full-screen cell.
+//
+// In here they are OVERLAYS, never reservations, and that distinction is the
+// whole design: a reserved row costs one line PER LAYER and puts back exactly
+// the compression this state exists to remove, while a covered cell costs the
+// same few cells at any depth. Every layer draws its badge at the same corner
+// of the same geometry, so they land on top of one another and the picture
+// carries exactly one — and the outermost, which paints last, is the one that
+// wins (§11.47).
+func (m sshModel) markFullScreen(body []string, s *session) {
+	// Selection mode first. It replaces the meaning of every key under the
+	// user's fingers, and the footer that would have said so is not on screen
+	// here. Covering the bottom row is free while the mode is up, because the
+	// page is frozen — that is the same reason the mode exists (§11.33).
+	if m.copy.on && m.copy.sessID == s.id && len(body) > 0 {
+		w := dispW(body[len(body)-1])
+		overlayRight(body, len(body)-1, padRight(keyLegend(copyLegendPairs(), w), w))
+		return
+	}
+	overlayRight(body, 0, m.zoomBadge(s))
+}
+
+// zoomBadge is what a full-screen sshu says about itself: that it is one, how
+// deep the stack is, and whether this layer is passing every key through.
+//
+// The depth is countable only from outside. The report travels inward-out
+// (§11.44), so a layer knows what is INSIDE it and nothing about what is
+// outside — and the outermost, the only one that can see the whole chain, is
+// also the one whose paint wins. The number is therefore right wherever it
+// ends up being read.
+func (m sshModel) zoomBadge(s *session) string {
+	n := 1
+	if inner, ok := s.pty.nestChain(); ok {
+		n += len(inner)
+	}
+	label := " sshu"
+	if n > 1 {
+		label += " ×" + itoa(n)
+	}
+	if s.locked {
+		label += " " + glyphPtyLock
+	}
+	return lipgloss.NewStyle().Foreground(dimColor).Render(label + " ")
+}
+
+// overlayRight paints mark onto row r, flush right, covering what was under
+// it. The row keeps its exact width: the frame invariant does not tolerate a
+// stray column, and a badge is not an excuse (§1.2).
+func overlayRight(body []string, r int, mark string) {
+	if r < 0 || r >= len(body) {
+		return
+	}
+	w, mw := dispW(body[r]), dispW(mark)
+	if mw > w {
+		return
+	}
+	// The reset is not decoration: the remote may leave a colour open at the
+	// cut, and without it the badge would be painted in whatever that was.
+	cut := clipANSI(body[r], w-mw)
+	body[r] = cut + "\x1b[0m" +
+		strings.Repeat(" ", max(0, w-mw-dispW(cut))) + mark
 }
 
 // cellTitle names the cell by what it is. It used to lead with an [Alt][N]
@@ -887,8 +1060,9 @@ func (m sshModel) focusedCellSize() (w, h int) {
 	if len(shown) == 0 {
 		return 0, 0
 	}
-	if m.zoomed && m.canZoom() {
-		return gw - 2, gh - 2
+	if m.zoomAt() != zoomOff {
+		in := m.zoomInset()
+		return gw - in, gh - in
 	}
 	cols, rows := m.gridDims(len(shown))
 	ws, hs := splitEven(gw, cols), splitEven(gh, rows)

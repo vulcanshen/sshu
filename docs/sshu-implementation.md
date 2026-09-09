@@ -169,7 +169,7 @@ liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
 |---|---|---|
 | `[M]anage` | `[1] sshu` nav(SSH / Others 分類)+ `[2]` 內容(Hosts / Credentials / Config / KnownHosts / Logs;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
 | `[F]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
-| `[S]SH` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **30 欄**(一列要完整說出 `<glyph><user>@<host>:<port> #<N>`,design §11.28),strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬);**zoom 時焦點格獨佔整個網格區**,其餘不畫也不 resize |
+| `[S]SH` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **30 欄**(一列要完整說出 `<glyph><user>@<host>:<port> #<N>`,design §11.28),strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬);**zoom 時焦點格獨佔整個網格區**,其餘不畫也不 resize;**滿版階(§11.47)連 chrome 三列與邊框都不畫,`gridArea` 回 `m.h+chromeRows`,揭露改用 overlay** |
 
 **窄寬門檻是推導的,不是另一個會忘記同步的常數**:`sshNarrowW = sshLeftW + 28`
 (pty 至少留 28 欄才值得留 split)、`sftpNarrowW = 72`(1:1 分割低於此只畫 focus
@@ -660,7 +660,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` `[v]iew`:文字(chroma 上色 + 行號)/ hex / 目錄一層,64 KiB 上限,ESC 一律吃掉 | `ui/viewer.go` `ui/highlight.go` `remote/peek.go` |
 | `[2]` `[e]dit`:`$VISUAL`/`$EDITOR`/`vi`,遠端抓下來→編→原子寫回,沒改不寫、被改過先問 | `ui/edit.go` `ui/editorcmd.go` `remote/edit.go` |
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
-| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Z zoom**(一格佔滿,Alt+Esc 一次剝一層)、**Alt+Enter layer 鍵**(巢狀 sshu 的 per-session lock,design §11.43)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
+| ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Z zoom**(三階段:網格區 → 滿版 → 正常,空轉階跳過;Alt+Esc 逐階退回,design §11.47)、**Alt+Enter layer 鍵**(巢狀 sshu 的 per-session lock,design §11.43)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | pty emulator **回答終端機查詢**(`CSI 6n` / `OSC 11`)—— writer 接回 master,否則格子裡任何發問的程式都卡滿 5 秒 timeout | `ui/pty_unix.go startPty` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
 | pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
@@ -755,14 +755,14 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[1]` sessions(游標走出框就自己捲,§11.24;**一個 item 固定兩行**,所以 `listRows` 是 `innerH / sshItemH`、`revealCursor` 仍是 `scrollTo`,design §11.32)| `H`/`Tab` · `Enter` · `C` · `D` · **(menu only)** | **`[H]ide`**(menu 只印 `H`;`Tab` 是這個 panel 的慣例,照樣能按,design §11.30)/ 顯示並進入(side 收起)/ Close(先問)/ Duplicate(先問,**完成後留在清單、游標落在新的那條**,design §11.23)/ **Close all sessions**(只在 Space menu、刻意沒有熱鍵,先問且問題帶數量,design §11.26);j/k 掃過時,游標 session 的格子外框在網格上同步亮 —— 用 `handColor` 而非 focusColor,藍色只留給「鍵盤在這裡」(design §11.22) |
 | `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(即生效)/ custom 問**欄數**(一個數字 1-9;列數由 `ceil(n/c)` 推出,舊的 rows 只是下限、近乎沒作用,design §11.31) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
-| 格子(pty) | `Alt+Z` | zoom —— 這一格佔滿網格區,`applyGeometry` 只 resize 它;一格時不攔截(design §11.25;由 `Alt+Enter` 搬來,§11.43) |
+| 格子(pty) | `Alt+Z` | zoom,三階段循環 —— 網格區 → **滿版**(無 chrome、無邊框,badge/legend 用 overlay)→ 正常;`nextZoom` 跳過空轉階,`applyGeometry` 只 resize 焦點格;**永遠攔截**,送進內層要先鎖這一層(design §11.47) |
 | ssh 子行程 | — | **顏色深度轉發**(design §11.46):`sshEnv` 帶 `LC_SSHU_COLORTERM`、`buildSSHCmd` 加 `-o SendEnv=`;遠端 `ui.AdoptForwardedColor()` 在 render 之前只填空不覆蓋。`ui/session.go` |
 | 格子(pty) | — | **巢狀定址**(design §11.45):`ui.NestInput` 包住 stdin,在 bubbletea 之前抽出 `OSC 7181`;`applyNestCmd` hop 0 執行、否則減一 `writeRaw` 往內送;filter 必須滿足 `term.File`,否則 raw mode 不會啟動。`ui/nestcmd.go` |
 | 格子(pty) | — | **巢狀通報**(design §11.44):`View()` 每幀夾一段 `OSC 7180`;`readLoop` 把同一個 `buf` 分流給 `nestScanner`;離開 alt screen 即 `reset()`。`ui/nestreport.go` |
 | 格子(pty) | `Alt+Enter` | **layer 鍵**(design §11.43、§11.45):一律開本層 lock 選單;**只在那一格沒回報過時**才轉發進 pty(回報過就用選單直接定址);`session.locked` 時所有鍵 `pty.write` 穿透,alpha 是唯一例外;選單是第三個 `spaceMenu` 實例,兩列一 dim = 每層自己的狀態顯示器 |
 | 格子(pty) | 按住 `Alt`+`←→↑↓` | 往鄰格移動(邊緣 clamp) |
 | 格子(pty) | **`PgUp`/`PgDown`** | 遠端**不在** alt screen 時捲這一格的歷史(`scrollback`,10000 行上限;`readLoop` 存的是**進來的 bytes**,不是回頭讀 vt10x 的列 —— 那些列早就被清掉了);在 alt screen 時原封送給遠端,讓 vim / less 自己翻頁(design §11.19) |
-| 格子(pty) | `Alt+Esc` | **一次剝一層**:選取模式中先離開它,zoom 中先離開 zoom(鍵盤留在格子裡),再按才收回鍵盤、回 `[1]`(design §11.25) |
+| 格子(pty) | `Alt+Esc` | **一次剝一層**:選取模式中先離開它,zoom 中**逐階**退回(`unzoomOne`,鍵盤留在格子裡),階段退完才收回鍵盤、回 `[1]`(design §11.25、§11.47) |
 | 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格供複製;再按一次離開。模式開著時 `Alt+方向鍵` / `Alt+Z` 不作用,是刻意的模態(design §11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `u`/`d` · `v`/`V` · `y` · `Esc` | 游標(撞邊界捲凍結的頁面)/ 半頁 / char / line 選取 / 複製並結束 / 先丟選取再離開。**其餘所有鍵一律吞掉**,不送遠端 |
 

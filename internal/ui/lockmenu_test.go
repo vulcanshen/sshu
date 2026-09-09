@@ -96,9 +96,11 @@ func TestALockedCellPassesEveryChordThrough(t *testing.T) {
 	}
 	waitSink(t, sink, "\x1b\x1b")
 
-	// Alt+Z: normally zoom. Locked, it travels.
+	// Alt+Z: normally zoom. Locked, it travels — which is also the only way an
+	// INNER sshu is ever zoomed, since the chord is taken by every unlocked
+	// layer above it (§11.47).
 	m = pressA(m, "alt+z")
-	if m.ssh.zoomed {
+	if m.ssh.zoomAt() != zoomOff {
 		t.Error("alt+z must not zoom a locked cell")
 	}
 	waitSink(t, sink, "\x1bz")
@@ -249,20 +251,19 @@ func TestAltEnterNoLongerZooms(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { m.ssh.stopAll() })
-	if !m.ssh.canZoom() {
-		t.Fatal("setup: two cells should make zoom meaningful")
+	if m.ssh.nextZoom() != zoomGrid {
+		t.Fatal("setup: two cells should put the grid stage first")
 	}
-	// alpha takes Alt+Enter before the zoom branch could — and off the pty,
-	// canZoom is false anyway. (A mutation re-adding KeyEnter to the zoom
-	// branch is therefore UNOBSERVABLE, not untested: the branch it revives
-	// is unreachable from every focus. Checked, not assumed.)
+	// alpha takes Alt+Enter before the zoom branch could. (A mutation re-adding
+	// KeyEnter to the zoom branch is therefore UNOBSERVABLE, not untested: the
+	// branch it revives is unreachable from every focus. Checked, not assumed.)
 	m = pressA(m, "alt+enter")
-	if m.ssh.zoomed {
+	if m.ssh.zoomAt() != zoomOff {
 		t.Error("alt+enter must not zoom from the pty")
 	}
 	m = pressA(m, "esc") // the menu away; the keyboard is back in the pty
 	m = pressA(m, "alt+z")
-	if !m.ssh.zoomed {
+	if m.ssh.zoomAt() != zoomGrid {
 		t.Error("alt+z is where zoom lives now")
 	}
 }
