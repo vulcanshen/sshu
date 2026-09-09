@@ -4903,6 +4903,34 @@ sshu → ssh localhost → sshu → ssh localhost → shell
 外層那一列立刻變成 **`locked`**。狀態穿過 ssh、穿過 vt10x、被外層從同一條 byte stream
 掃出來 —— 是活的資料,不是一次性偵測。
 
+#### 報告的第二個用途:quit 的代價
+
+使用者問:巢狀時最外層 quit 了,其他層會怎樣?**實測三層**(3 個 sshu + 3 個
+ssh client):按下去之後六個行程全部結束,沒有殘留。這不是 sshu 主動做的 ——
+`stop()` 只 SIGKILL 本機那個 ssh,連線一斷遠端 sshd 就 HUP 掉它那個 session、
+內層 sshu 死;內層一結束,**它自己的 pty master 也關閉**,kernel 對 slave 的
+前景行程組送 HUP,再往內一跳。一跳一跳,跟闔上筆電時遠端程式的下場一樣。
+
+但確認框原本只說 `1 live session will be closed` —— 對這一層為真,對那個按鍵
+則是誤導。而這一層**明明知道**:它正用同一份報告畫滿版的 badge。所以
+`quitCost()` 多一行:
+
+```
+1 live session will be closed.
+2 nested sshu layers will go down with it.
+Quit sshu?
+```
+
+計數**不能**用 `nestChain()`,雖然看起來就是它。那個是**對外的報告**,只描述
+焦點格,而 `currentSession()` 在鍵盤離開網格時就回 nil —— 那正是按得到 `q` 的
+唯一位置(格子裡的裸 `q` 是遠端的)。照那樣寫,這行只會出現在測試裡、在 app 裡
+永遠不出現。第一版就是這樣寫的,實機一按就抓到。改成走 `nestedLayers()`:掃
+**每一個** live session 的報告,因為 quit 關的是全部。
+
+> 已知的暫態:實機上有一次按 `q` 沒有這一行,同樣操作重複三次都正常、未能重現。
+> 來源就是這條通道的性質(§11.45 的無 ack 設計)—— **還沒回報過的層不算**。
+> 這跟 lock 選單少一列內層是同一件事,不是這一行特有的。
+
 #### mutation:11 個,4 個一開始活下來
 
 - **1 個是 fixture 沒造出情境**:測「ESC 不是 ST 就放棄」用的輸入後面根本沒有終止符,
