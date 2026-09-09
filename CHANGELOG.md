@@ -1,6 +1,20 @@
 # Changelog
 
-## [Unreleased]
+## [1.5.0] — 2026-09-09
+
+The two files in `~/.ssh` that were already steering sshu are panels now, and
+sshu running inside sshu — which is what happens the moment you install it on
+the server too — stopped being a thing you fight.
+
+Changes since 1.4.2.
+
+**Breaking: `Alt+Enter` no longer zooms — zoom is `Alt+Z`.** The layer key
+needed the most reliable chord on the keyboard, because once a cell is locked
+`Alt+Enter` is the only key that can unlock it: zoom failing costs a nicety,
+the layer key failing traps you. `Alt+Z` is what tmux calls zoom. If a window
+manager on your machine already claims it (AeroSpace does), unbind it there.
+
+The demo GIFs are from 1.4.2 and do not show any of this yet.
 
 ### Added
 
