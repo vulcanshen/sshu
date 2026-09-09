@@ -138,6 +138,17 @@ var (
 	// the tables, and one shape carrying two meanings is what §B forbids.
 	// Verified against the installed font's cmap (md-lock), not remembered.
 	glyphPtyLock = string(rune(0xf033e)) // nf-md-lock
+	// The layer menu's state markers: one padlock per inner layer, leading the
+	// row (§11.45). An outline PAIR, so "not locked" reads as the same kind of
+	// lock in the other position rather than as a different idea — and outline
+	// rather than filled so they do not compete with the solid padlock this
+	// menu already carries in its own title.
+	//
+	// fa-lock/fa-lock_open were the first ask and were turned down: fa-lock is
+	// already glyphLock, which means "password auth" in the hosts table (§B).
+	// Both codepoints below read out of the installed font's cmap.
+	glyphLayerLock = string(rune(0xf0341)) // nf-md-lock_outline
+	glyphLayerOpen = string(rune(0xf0fc7)) // nf-md-lock_open_variant_outline
 	// glyphHistory marks a cell showing scrollback rather than live output. An
 	// up arrow was the obvious pick and the wrong one: it says which DIRECTION
 	// the view moved, when the thing that has to be unmistakable is WHAT is on

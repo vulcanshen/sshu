@@ -1229,9 +1229,9 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 	}
 	items := []menuItem{
 		{label: "Lock PTY", key: "L",
-			hint: "every key passes to the remote", disabled: s.locked},
+			hint: "keys pass through", disabled: s.locked},
 		{label: "Release PTY", key: "R",
-			hint: "this sshu takes its chords back", disabled: !s.locked},
+			hint: "chords come back", disabled: !s.locked},
 	}
 	// The chain, when there is one below this layer. Header rows: they are
 	// not actions — locking layer 3 from here would need a command channel
@@ -1250,16 +1250,19 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 			items = append(items, menuItem{separator: true},
 				menuItem{label: "inner layers", header: true})
 		}
-		verb, state := "lock", "unlocked"
+		// The state LEADS, as a padlock. "unlocked · enter to lock" had to be
+		// read word by word to answer a question the eye can settle in one
+		// glance, and it spent the hint column saying the state twice over —
+		// once as itself and once inside the verb.
+		mark, verb := glyphLayerOpen, "lock"
 		if l.Locked {
-			verb, state = "release", "locked"
+			mark, verb = glyphLayerLock, "release"
 		}
 		items = append(items, menuItem{
 			// Row i runs on the machine row i-1 leads to.
-			label: itoa(i+1) + "  " + chain[i-1].Host,
-			// Named by the side it goes to (§11.30), with the side it is on
-			// alongside — this row is the only place that state is visible.
-			hint: state + " · enter to " + verb,
+			label: mark + " " + itoa(i+1) + "  " + chain[i-1].Host,
+			// Which leaves the hint to name only the destination (§11.30).
+			hint: verb,
 			key:  nestRowKey(i),
 		})
 	}
@@ -1274,10 +1277,10 @@ func (m *AppModel) openLockMenu() tea.Cmd {
 	if len(chain) > 1 {
 		items = append(items, menuItem{separator: true},
 			menuItem{label: "whole chain", header: true},
-			menuItem{label: "Zoom max + lock every layer", key: chainMaxKey,
-				hint: "all but the innermost, which keeps the chords"},
-			menuItem{label: "Unzoom + release every layer", key: chainOffKey,
-				hint: "the whole chain back to normal"})
+			menuItem{label: "Zoom max + lock", key: chainMaxKey,
+				hint: "all but the innermost"},
+			menuItem{label: "Unzoom + release", key: chainOffKey,
+				hint: "back to normal"})
 	}
 
 	m.lockMenu.setItems(items, glyphPtyLock+" "+nameOr(s.host.Name, "pty"), 1)

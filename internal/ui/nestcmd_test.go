@@ -484,3 +484,31 @@ func TestACommandCannotArmAZoomOffTheGrid(t *testing.T) {
 			m.ssh.zoomAt())
 	}
 }
+
+// The row's state is a glyph now, and it leads. It is the only thing on that
+// row saying which way the toggle goes, so both directions are pinned — and
+// pinned to the md pair, because fa-lock already means "password auth" in the
+// hosts table and the menu's own title is an md padlock.
+//
+// Scoped to the row (glyph + the layer number) rather than to the view: the
+// title carries a padlock unconditionally, so a bare Contains would pass on
+// the title alone.
+func TestAnInnerLayerRowShowsItsStateAsAGlyph(t *testing.T) {
+	open, _ := reportingSink(t, `\033]7180;1;inner-host:0\033\\`)
+	v := ansi.Strip(pressA(open, "alt+enter").lockMenu.view())
+	if !strings.Contains(v, glyphLayerOpen+" 2") {
+		t.Errorf("an unlocked layer should lead with the open padlock:\n%s", v)
+	}
+	if strings.Contains(v, glyphLayerLock+" 2") {
+		t.Errorf("...and not with the closed one:\n%s", v)
+	}
+
+	shut, _ := reportingSink(t, `\033]7180;1;inner-host:1\033\\`)
+	v = ansi.Strip(pressA(shut, "alt+enter").lockMenu.view())
+	if !strings.Contains(v, glyphLayerLock+" 2") {
+		t.Errorf("a locked layer should lead with the closed padlock:\n%s", v)
+	}
+	if strings.Contains(v, glyphLayerOpen+" 2") {
+		t.Errorf("...and not with the open one:\n%s", v)
+	}
+}
