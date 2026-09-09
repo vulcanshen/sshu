@@ -991,10 +991,49 @@ func (m AppModel) quitCost() []string {
 	if n := m.ssh.liveCount(); n > 0 {
 		lines = append(lines, plural(n, "live session")+" will be closed.")
 	}
+	// Measured, not assumed: quitting the outermost of a three-deep nest ended
+	// all three sshu processes and all three ssh clients. Nothing here does
+	// that — killing the local ssh drops the connection, sshd HUPs the layer
+	// on the far side, that layer exiting closes ITS pty master, and the
+	// kernel HUPs the next ssh down. One hop at a time, all the way in.
+	//
+	// So the count above is true about this layer and misleading about the
+	// keystroke: it said "1 live session" while three were about to go. This
+	// layer already knows better — it is drawing the depth in the full-screen
+	// badge from the same report (§11.44) — and a confirmation that knows the
+	// cost and states a smaller one is the one kind of dialog worth nothing.
+	if n := m.nestedLayers(); n > 0 {
+		lines = append(lines, plural(n, "nested sshu layer")+" will go down with it.")
+	}
 	if n := m.transfers.runningCount(); n > 0 {
 		lines = append(lines, plural(n, "running transfer")+" will be cancelled.")
 	}
 	return lines
+}
+
+// nestedLayers counts the sshu layers running inside this one — across EVERY
+// live session, not just the focused one, because quitting closes all of them.
+//
+// nestChain() cannot answer this even though it looks like it should. That one
+// is the OUTWARD report: it describes the focused cell, and currentSession
+// returns nil the moment the keyboard leaves the grid — which is exactly where
+// it is when q is pressed, since a bare q inside a cell belongs to the remote.
+// Asking it here would have put the line on screen in tests and nowhere else.
+func (m AppModel) nestedLayers() int {
+	n := 0
+	for _, s := range m.ssh.sessions {
+		// The pty is the whole guard. A state check alongside it would read
+		// like the one in nestChain but could never fire: reap sets sessEnded,
+		// nils the pty and drops the session from this slice in one pass, so a
+		// member of it with the pty still attached is live by construction.
+		if s.pty == nil {
+			continue
+		}
+		if inner, ok := s.pty.nestChain(); ok {
+			n += len(inner)
+		}
+	}
+	return n
 }
 
 // quit is the single exit. Every way out goes through it — q, the quit confirm

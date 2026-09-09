@@ -512,3 +512,45 @@ func TestAnInnerLayerRowShowsItsStateAsAGlyph(t *testing.T) {
 		t.Errorf("...and not with the open one:\n%s", v)
 	}
 }
+
+// ------------------------------------------------------------------ quitting
+
+// Quitting the outermost takes the whole chain down with it — measured on a
+// three-deep nest: three sshu processes and three ssh clients, all gone.
+// Nothing in sshu does that; killing the local ssh drops the connection, sshd
+// HUPs the layer on the far side, and that layer exiting HUPs the next one in.
+//
+// So the confirmation has to count them. It said "1 live session" while three
+// were about to go.
+func TestQuitCountsTheNestedLayers(t *testing.T) {
+	m, _ := reportingSink(t, `\033]7180;1;mid:0;inner:0\033\\`)
+
+	// Off the grid, which is the ONLY place q can be pressed: inside a cell a
+	// bare q belongs to the remote. This is where the first attempt failed —
+	// it asked nestChain(), which describes the focused cell and reads empty
+	// here, so the line appeared in tests and never in the app.
+	m.ssh.setFocus(panelSessions)
+
+	var got string
+	for _, l := range m.quitCost() {
+		if strings.Contains(l, "nested sshu") {
+			got = l
+		}
+	}
+	if !strings.Contains(got, "2 nested sshu layers") {
+		t.Errorf("the two inner layers should be counted, got %q from %v",
+			got, m.quitCost())
+	}
+}
+
+// ...and says nothing about layers when there are none, rather than a line
+// reading "0".
+func TestQuitSaysNothingAboutLayersWithoutAChain(t *testing.T) {
+	m := openOne(t)
+	m.ssh.setFocus(panelSessions)
+	for _, l := range m.quitCost() {
+		if strings.Contains(l, "nested sshu") {
+			t.Errorf("no chain, no line about one: %q", l)
+		}
+	}
+}

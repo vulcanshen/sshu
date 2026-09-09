@@ -30,6 +30,14 @@
 
 ### Added
 
+- **The quit confirmation counts the nested layers.** Quitting the outermost
+  sshu of a chain takes the whole chain with it — measured three deep, all
+  three sshu processes and all three ssh clients ended. Nothing in sshu does
+  that: killing the local ssh drops the connection, sshd hangs up the layer on
+  the far side, and that layer exiting hangs up the next ssh in. The dialog
+  said "1 live session will be closed" while three were about to go; it now
+  adds "2 nested sshu layers will go down with it."
+
 - **A badge in full screen**, top right: `sshu`, the depth of the stack, and
   the lock glyph when that layer is passing every key through. It is painted
   over the output rather than in a row of its own — a reserved row would cost
