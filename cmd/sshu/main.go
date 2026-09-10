@@ -72,6 +72,19 @@ func main() {
 	// changed. Missing is the ordinary empty state.
 	knownHosts, knownErr := store.LoadKnownHosts()
 
+	// The key that seals the passwords exists from the FIRST RUN, not from the
+	// first save. A key that appears the moment a password is first written is
+	// a key the user has no reason to know about until they have already lost
+	// it — and losing it loses every password it sealed.
+	//
+	// Not fatal if it cannot be made: sshu still runs, and every host that
+	// authenticates by key is unaffected. The complaint goes where startup
+	// complaints go.
+	keyErr := ""
+	if _, err := store.EnsureKey(); err != nil {
+		keyErr = "key file: " + err.Error()
+	}
+
 	// sshu's own files are brought up to today's format here, once, at a moment
 	// the user is present for — rather than on whatever their next edit happens
 	// to be, which would put a format change inside an unrelated action.
@@ -128,6 +141,25 @@ func main() {
 	for _, n := range versionNotes {
 		app = app.WithStartupWarning(n)
 	}
+	if keyErr != "" {
+		app = app.WithStartupError(keyErr)
+	}
+	// A password whose ciphertext would not open. The entry keeps its sealed
+	// value — putting the right key back recovers it — so this is news rather
+	// than a loss, and it has to be said out loud or the next failed connection
+	// is a mystery.
+	for _, j := range []struct {
+		file  string
+		names []string
+	}{{"hosts.yaml", hosts.UnreadableSecrets}, {"credentials.yaml", credsFile.UnreadableSecrets}} {
+		for _, name := range j.names {
+			app = app.WithStartupWarningFor(name,
+				j.file+": this password could not be decrypted",
+				"It has been left exactly as it is, so nothing is lost. Restoring the key "+
+					"file it was sealed with will open it again.",
+				"The key file is "+keyPathForMessage()+".")
+		}
+	}
 	// stdin goes through sshu first: a parent sshu addresses a layer with an
 	// escape sequence, and Bubble Tea would decode it into keystrokes of its
 	// own (design §11.45). Everything that is not a command passes through.
@@ -167,6 +199,17 @@ func main() {
 // through a file for which ones, and the whole reason to say anything is that
 // they go and fix it. A name appearing twice in the list is not a bug in the
 // message: it means that name was in the file three times.
+// keyPathForMessage is the key's path for a message to the user. A failure to
+// work it out is not worth a second error inside the first one — the sentence
+// simply gets vaguer.
+func keyPathForMessage() string {
+	p, err := store.KeyPath()
+	if err != nil {
+		return "in sshu's config directory"
+	}
+	return store.FoldHome(p)
+}
+
 // reconcileVersions upgrades sshu's own files in place, and reports anything
 // it could not settle. It never stops startup: a version problem is about the
 // FILE, and refusing to run would take away the tool the user needs to look at

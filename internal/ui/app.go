@@ -234,6 +234,17 @@ func (m AppModel) WithStartupWarning(msg string) AppModel {
 	return m
 }
 
+// WithStartupWarningFor is the same for something that IS about a host. An
+// unreadable password knows which machine it belongs to, and Errors has a
+// column for exactly that — leaving it blank would waste the one field that
+// makes the panel scannable.
+//
+// cause is the row; more is what Enter opens.
+func (m AppModel) WithStartupWarningFor(host, cause string, more ...string) AppModel {
+	m.errors.warn(host, "", cause, more...)
+	return m
+}
+
 func (m AppModel) Init() tea.Cmd { return nil }
 
 func (m AppModel) panelHeight() int { return m.h - chromeRows }
