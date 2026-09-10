@@ -180,7 +180,7 @@ func (m AppModel) doDeleteCred(name string) (tea.Model, tea.Cmd) {
 	m.hosts.creds = creds
 	m.creds.cursor = min(m.creds.cursor, max(0, len(creds)-1))
 	m.creds.ensureVisible()
-	m.log.info(fmt.Sprintf("credential %q deleted", name))
+	m.activity.add(fmt.Sprintf("credential %q deleted", name))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Deleted %q", name), toastInfo))
 }
@@ -270,7 +270,7 @@ func (m AppModel) commitCredForm() (tea.Model, tea.Cmd) {
 		}
 	}
 	m.creds.ensureVisible()
-	m.log.info(fmt.Sprintf("credential %q %s (%s, %s)", c.Name, verb, c.User, c.Auth))
+	m.activity.add(fmt.Sprintf("credential %q %s (%s, %s)", c.Name, verb, c.User, c.Auth))
 
 	cmds := []tea.Cmd{m.closeStack(),
 		m.toast.show(fmt.Sprintf("Saved %q", c.Name), toastInfo)}
@@ -279,7 +279,7 @@ func (m AppModel) commitCredForm() (tea.Model, tea.Cmd) {
 	if old := m.credFormUI.editing; old != "" && old != c.Name {
 		if n := m.hostsUsing(old); n > 0 {
 			warnLine := fmt.Sprintf("%s still reference credential %q", plural(n, "host"), old)
-			m.log.warn(warnLine)
+			m.errors.warn("", "", warnLine)
 			cmds[1] = m.toast.show(warnLine, toastError)
 		}
 	}

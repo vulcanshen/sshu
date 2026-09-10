@@ -281,10 +281,10 @@ func (m AppModel) persistSSHCfg(next store.SSHConfigFile, at int, logLine, toast
 	m.sshcfg.ensureVisible()
 
 	if err != nil {
-		m.log.warn(err.Error())
+		m.errors.warn("", "", err.Error())
 		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
 	}
-	m.log.info(logLine)
+	m.activity.add(logLine)
 	return m, tea.Batch(m.closeStack(), m.toast.show(toastLine, toastInfo))
 }
 

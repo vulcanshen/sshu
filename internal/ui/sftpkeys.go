@@ -289,7 +289,7 @@ func (m AppModel) sftpDisconnect() (tea.Model, tea.Cmd) {
 	s.disconnect()
 	// The matching event to "connected to": the log is where you go to find out
 	// what this side was pointed at before it was pointed at nothing.
-	m.log.info("sftp: disconnected from " + host)
+	_ = host // disconnecting is neither a connection result nor a change
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show("Disconnected from "+host, toastInfo))
 }
@@ -330,7 +330,9 @@ func (m AppModel) hostPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	h, err := store.Resolve(m.hosts.hosts[i], m.creds.creds)
 	if err != nil {
-		m.log.errorf(err.Error())
+		// A credential that is not there: the connection never starts, so
+		// History has no attempt to record — nothing reached the network.
+		m.errors.errorf(name, "", err.Error())
 		return m, tea.Batch(m.hostPicker.close(), m.toast.show(err.Error(), toastError))
 	}
 	dial := m.sftp.startDial(sd, h)
@@ -363,11 +365,12 @@ func (m AppModel) sftpConnected(msg sftpConnectedMsg) (tea.Model, tea.Cmd) {
 
 	if msg.err != nil {
 		s.fs, s.host, s.err = nil, "", msg.err.Error()
-		m.log.errorf("sftp: " + name + " · " + msg.err.Error())
+		m.history.add(name, m.userForHost(name), false)
+		m.errors.errorf(name, m.userForHost(name), "sftp: "+name+" · "+msg.err.Error())
 		return m, m.toast.show(msg.err.Error(), toastError)
 	}
 	s.connect(msg.fs)
-	m.log.info("sftp: connected to " + msg.fs.Label())
+	m.history.add(name, m.userForHost(name), true)
 	// A side that has just connected is something to keep current.
 	return m, m.sftp.startWatch()
 }

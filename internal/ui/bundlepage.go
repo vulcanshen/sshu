@@ -188,7 +188,7 @@ func (m AppModel) doExport() (tea.Model, tea.Cmd) {
 	sum := plural(len(m.hosts.hosts), "host") + " · " + plural(len(m.creds.creds), "credential")
 	p.err, p.errIdx = "", -1
 	p.done = "Exported " + sum + " → " + store.FoldHome(path)
-	m.log.info("exported " + sum + " to " + store.FoldHome(path))
+	m.activity.add("exported " + sum + " to " + store.FoldHome(path))
 	return m, m.toast.show("Exported → "+store.FoldHome(path), toastInfo)
 }
 
@@ -239,6 +239,6 @@ func (m AppModel) doImport() (tea.Model, tea.Cmd) {
 	}
 	p.err, p.errIdx = "", -1
 	p.done = sum
-	m.log.info(strings.ToLower(sum[:1]) + sum[1:] + " from " + store.FoldHome(store.ExpandTilde(path)))
+	m.activity.add(strings.ToLower(sum[:1]) + sum[1:] + " from " + store.FoldHome(store.ExpandTilde(path)))
 	return m, m.toast.show(sum, toastInfo)
 }

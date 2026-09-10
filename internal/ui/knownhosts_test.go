@@ -281,9 +281,9 @@ func TestASaveRefusedByAnotherWriterPutsTheirFileOnScreen(t *testing.T) {
 	if got := diskText(t, p); got != theirs {
 		t.Fatalf("their write must survive:\n%s", got)
 	}
-	if n := len(m.log.entries); n == 0 ||
-		!strings.Contains(m.log.entries[n-1].msg, "changed on disk") {
-		t.Errorf("the refusal must be recorded, log is %+v", m.log.entries)
+	if n := len(m.errors.entries); n == 0 ||
+		!strings.Contains(m.errors.entries[n-1].text, "changed on disk") {
+		t.Errorf("the refusal must be recorded, log is %+v", m.errors.entries)
 	}
 	if len(m.known.file.Entries) != 5 {
 		t.Errorf("the panel should be showing their file, got %d entries",
