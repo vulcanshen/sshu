@@ -31,7 +31,7 @@ func TestAFailureIsInBothJournalsSayingDifferentThings(t *testing.T) {
 		t.Errorf("the REASON belongs to Errors alone, history has it: %q", hist)
 	}
 
-	errs := ansi.Strip(strings.Join(e.allRows(90), "\n"))
+	errs := ansi.Strip(strings.Join(e.body(90, 8), "\n"))
 	if !strings.Contains(errs, "Connection refused") {
 		t.Errorf("errors should carry the reason: %q", errs)
 	}
@@ -52,7 +52,7 @@ func TestOnlyErrorsCountAsUnread(t *testing.T) {
 		t.Errorf("an error must raise it, unread = %d", got)
 	}
 	// ...and both are still shown: the panel holds more than the badge counts.
-	if body := ansi.Strip(strings.Join(m.allRows(90), "\n")); !strings.Contains(body, "line 3") {
+	if body := ansi.Strip(strings.Join(m.body(90, 8), "\n")); !strings.Contains(body, "line 3") {
 		t.Errorf("the warning must still be in the panel: %q", body)
 	}
 }
@@ -66,8 +66,10 @@ func TestWarningsAndErrorsAreToldApartByColour(t *testing.T) {
 	warnOnly.warn("", "", "a note")
 	errOnly.errorf("", "", "a failure")
 
-	w := strings.Join(warnOnly.allRows(90), "")
-	e := strings.Join(errOnly.allRows(90), "")
+	wr, _ := warnOnly.current()
+	er, _ := errOnly.current()
+	w := warnOnly.row(wr, false, 90)
+	e := errOnly.row(er, false, 90)
 	if !strings.Contains(w, ansiOf(t, peachColor)) {
 		t.Errorf("a warning's timestamp should be peach: %q", w)
 	}
@@ -148,13 +150,13 @@ func TestActivityKeepsWhatWasChanged(t *testing.T) {
 	m.add(`host "prod-web-01" added (deploy@10.0.3.14:22)`)
 	m.add(`credential "ops" deleted`)
 
-	rows := ansi.Strip(strings.Join(m.allRows(90), "\n"))
+	rows := ansi.Strip(strings.Join(m.body(90, 8), "\n"))
 	if !strings.Contains(rows, `host "prod-web-01" added`) ||
 		!strings.Contains(rows, `credential "ops" deleted`) {
 		t.Errorf("both changes should be here: %q", rows)
 	}
-	// Newest first, like every journal.
-	if first := ansi.Strip(m.allRows(90)[0]); !strings.Contains(first, "deleted") {
+	// Newest first, like every journal — row 0 is the header.
+	if first := ansi.Strip(m.body(90, 8)[1]); !strings.Contains(first, "deleted") {
 		t.Errorf("newest first, got %q", first)
 	}
 }
@@ -205,8 +207,10 @@ func TestABrokenSinkComplainsOnceAndKeepsGoing(t *testing.T) {
 	if calls != 1 {
 		t.Errorf("a broken sink should be tried once, got %d calls", calls)
 	}
-	body := ansi.Strip(strings.Join(m.allRows(90), "\n"))
-	if n := strings.Count(body, "stay in memory only"); n != 1 {
+	// The complaint's own row shows its cause; the sentence about what happens
+	// next is the detail behind it, like any other entry.
+	body := ansi.Strip(strings.Join(m.body(90, 10), "\n"))
+	if n := strings.Count(body, "cannot be written"); n != 1 {
 		t.Errorf("the complaint should appear exactly once, got %d:\n%s", n, body)
 	}
 	for _, want := range []string{"first", "second", "third"} {
@@ -226,7 +230,7 @@ func TestPreloadedEntriesAreNotUnread(t *testing.T) {
 	if got := m.unreadErrors(); got != 0 {
 		t.Errorf("what was already on disk is not news, unread = %d", got)
 	}
-	if body := ansi.Strip(strings.Join(m.allRows(90), "\n")); !strings.Contains(body, "old failure") {
+	if body := ansi.Strip(strings.Join(m.body(90, 8), "\n")); !strings.Contains(body, "old failure") {
 		t.Errorf("it should still be shown: %q", body)
 	}
 }
