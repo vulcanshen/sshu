@@ -19,7 +19,7 @@ The inspiration is [Termius](https://termius.com/) — a GUI SSH client, not ano
 
 ## Demo
 
-### The manage tab — hosts, credentials, logs, and a connect
+### The manage tab — seven sections in three groups, a failure opened in full, and a connect
 ![manage](docs/demo-manage.gif)
 
 ### Two-sided file transfer — marks, a real transfer, the rule as its progress bar
