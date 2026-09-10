@@ -335,7 +335,7 @@ func TestEmptyStateDisclosesEntryPoints(t *testing.T) {
 	}
 }
 
-// The footer is the only disclosure channel for the two VTP entry keys.
+// The footer is the only disclosure channel for the two entry keys.
 func TestFooterDisclosesEntryKeys(t *testing.T) {
 	got := sized(sample(), 78, 24).View()
 	for _, want := range []string{"space", "menu", "?", "help"} {

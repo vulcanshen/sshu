@@ -31,7 +31,7 @@ func (m *helpPopup) setSize(w, h int) { m.screenW, m.screenH = w, h }
 type helpEntry struct{ key, desc string }
 
 // helpContent is the whole global vocabulary. The core keys are listed first
-// because they are the five a user has to hold to walk the app (§A.0.Y).
+// because they are the five a user has to hold to walk the app (§A.0.K).
 var helpContent = []helpEntry{
 	{"", "Core keys"},
 	{"M · F · S", "switch tab"},

@@ -174,9 +174,15 @@ func (m AppModel) panel() string {
 	return m.prefView()
 }
 
-// footer is the mandatory disclosure channel for both VTP entry keys (§A.1 /
+// footer is the mandatory disclosure channel for both entry keys (§A.1 /
 // §A.2). A user who never opened a README learns from this row that Space and ?
-// exist — without it the entry keys are unreachable and X collapses.
+// exist — without it the entry keys are unreachable and nothing else says they
+// are there.
+//
+// That last clause used to read "and X collapses", after the principle's
+// disclosure score. The score was removed from the principle entirely, so the
+// sentence pointed at something that no longer exists — the CLAIM survives it,
+// because it never depended on a number.
 func (m AppModel) footer() string {
 	// While the remote holds the keyboard every other entry in this row is a lie
 	// — space, ?, the digits, q all travel to the far end. So the row says the one

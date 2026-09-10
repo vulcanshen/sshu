@@ -148,7 +148,7 @@ func animRows(a popupAnimator, rows []string) []string {
 //
 // The hint is not decoration — it is the standing disclosure of what this
 // surface can do, and it is what lets a text-entry popup opt out of the Space
-// entry key without opening a VTP hole (§4.5).
+// entry key without opening a hole in the principle (§4.5).
 func drawPopupBox(bc lipgloss.Color, title, hint string, rows []string, innerW int) string {
 	return drawPopupBoxPad(bc, title, hint, rows, innerW, true)
 }
