@@ -286,34 +286,30 @@ exit 255`)
 	}
 }
 
-// A long entry is scrollable to its end: the viewport counts rendered ROWS, and
-// one entry is not one row.
-func TestTheLogScrollsThroughALongEntry(t *testing.T) {
+// More entries than the panel is tall: the cursor walks them and the view
+// follows, so the oldest is reachable. One entry is one row now, so this is a
+// list scrolling under a cursor rather than a viewport over rendered lines.
+func TestTheErrorsCursorReachesTheOldest(t *testing.T) {
 	m := sshApp(t, sample())
-	long := make([]string, 30)
-	for i := range long {
-		long[i] = "line " + itoa(i)
+	const n, h = 30, 12
+	for i := range n {
+		m.errors.errorf("host"+itoa(i), "u", "failure "+itoa(i))
 	}
-	m.errors.errorf("", "", "something went wrong", long...)
 
-	const w, h = 80, 12
-	rows := len(m.errors.allRows(w))
-	if rows < 30 {
-		t.Fatalf("%d rendered rows, want the whole entry", rows)
+	// Walk to the end. n-1 presses from the newest lands on the oldest — the
+	// list is a ring, so one more would be back at the top.
+	for range n - 1 {
+		m.errors.handleKey("j", h)
 	}
-	for range 40 {
-		m.errors.scrollKey("j", w, h)
+	if m.errors.cursor != n-1 {
+		t.Fatalf("cursor is at %d, want %d", m.errors.cursor, n-1)
 	}
 	if m.errors.top == 0 {
-		t.Error("j never scrolled")
+		t.Error("walking past the bottom never scrolled the panel")
 	}
-	if m.errors.top > rows-h {
-		t.Errorf("scrolled past the end: top=%d rows=%d", m.errors.top, rows)
-	}
-	// The last line is reachable.
-	body := ansi.Strip(strings.Join(m.errors.body(w, h), "\n"))
-	if !strings.Contains(body, "line 29") {
-		t.Errorf("the end of the entry is unreachable:\n%s", body)
+	body := ansi.Strip(strings.Join(m.errors.body(80, h), "\n"))
+	if !strings.Contains(body, "failure 0") {
+		t.Errorf("the oldest entry is unreachable:\n%s", body)
 	}
 }
 
@@ -1143,33 +1139,45 @@ func TestPanelTitlesAreCapsulesUnderTheRule(t *testing.T) {
 
 // The app log is a view. Nothing in it can be selected, so nothing in it can be
 // acted on — j/k scroll it rather than moving a cursor that does not exist.
-func TestTheAppLogIsAViewNotAList(t *testing.T) {
+// ONE of the three journals has a cursor, and it is the one with somewhere to
+// go: Errors puts the cause in the row and the whole of it behind Enter.
+// History and Activity have nothing behind a row, and a cursor that cannot be
+// committed is a cursor that looks broken — so they scroll instead.
+func TestOnlyErrorsHasACursor(t *testing.T) {
 	withColour(t)
 	m := sshApp(t, sample())
 	for i := range 12 {
-		m.errors.errorf("", "", "prod-web-0"+itoa(i%9+1)+" · Connection refused")
+		m.errors.errorf("prod-web-0"+itoa(i%9+1), "deploy", "Connection refused")
+		m.history.add("prod-web-0"+itoa(i%9+1), "deploy", i%2 == 0)
+		m.activity.add("host \"prod-web-0" + itoa(i%9+1) + "\" added")
 	}
 
-	// No row is ever painted as a cursor.
-	box := strings.Join(m.errors.body(96, 8), "\n") // shorter than the rows, so it scrolls
-	for name, bg := range map[string]string{
-		"cursor": ansiBgOf(t, handColor), "green": ansiBgOf(t, liveColor),
+	if box := strings.Join(m.errors.body(96, 8), "\n"); !strings.Contains(box, ansiBgOf(t, rowSelColor)) {
+		t.Error("Errors should paint the row under its cursor")
+	}
+	for name, box := range map[string]string{
+		"history":  strings.Join(m.history.body(96, 8), "\n"),
+		"activity": strings.Join(m.activity.body(96, 8), "\n"),
 	} {
-		if strings.Contains(box, bg) {
-			t.Errorf("the log must not paint a %s bar — it has no cursor", name)
+		for what, bg := range map[string]string{
+			"selection": ansiBgOf(t, rowSelColor), "cursor": ansiBgOf(t, handColor),
+		} {
+			if strings.Contains(box, bg) {
+				t.Errorf("%s has nothing behind a row and must not paint a %s bar", name, what)
+			}
 		}
 	}
 
-	// j/k scroll the view, and it does not wrap.
-	before := m.errors.top
-	m.errors.scrollKey("j", 96, 8)
-	if m.errors.top != before+1 {
-		t.Errorf("j should scroll, top=%d want %d", m.errors.top, before+1)
+	// j/k scroll those two, and the view does not wrap.
+	before := m.history.top
+	m.history.scrollKey("j", 8)
+	if m.history.top != before+1 {
+		t.Errorf("j should scroll history, top=%d want %d", m.history.top, before+1)
 	}
-	m.errors.scrollKey("k", 96, 8)
-	m.errors.scrollKey("k", 96, 8)
-	if m.errors.top != 0 {
-		t.Errorf("k should scroll back and clamp, top=%d", m.errors.top)
+	m.history.scrollKey("k", 8)
+	m.history.scrollKey("k", 8)
+	if m.history.top != 0 {
+		t.Errorf("k should scroll back and clamp, top=%d", m.history.top)
 	}
 }
 

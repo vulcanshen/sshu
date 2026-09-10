@@ -86,6 +86,21 @@ func (m *viewerPopup) open(layer int, title string) tea.Cmd {
 	return m.anim.open()
 }
 
+// showText opens the viewer on text that is already in hand: no load, no
+// note, nothing to wait for. An error entry is the caller — everything the far
+// end printed was recorded when it happened, and Enter is only asking to see
+// the rest of what the row had no room for.
+//
+// It reuses this popup rather than adding a seventh kind, because "a scrollable
+// block of text in a frame" is exactly what this one already is. gen still
+// moves, so a load in flight from a previous open cannot land on top of it.
+func (m *viewerPopup) showText(layer int, title string, lines []string) tea.Cmd {
+	m.gen++
+	m.layer, m.title, m.top = layer, title, 0
+	m.lines, m.note, m.kind = lines, "", viewText
+	return m.anim.open()
+}
+
 // onLoaded installs a finished preview, unless the user has moved on.
 func (m *viewerPopup) onLoaded(msg viewLoadedMsg) {
 	if msg.gen != m.gen {

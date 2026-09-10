@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/vulcanshen/sshu/internal/store"
@@ -200,19 +202,64 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 		if k == "C" && m.journalCount() > 0 {
 			return m.askClearJournal()
 		}
-		_, _, rightW, rightH := m.pref.panes()
-		w, h := max(1, rightW-2), max(1, rightH-2)
+		_, _, _, rightH := m.pref.panes()
+		h := max(1, rightH-2)
 		switch m.pref.item {
 		case prefErrors:
-			m.errors.scrollKey(k, w, h)
+			// Errors is the one journal with a cursor, because it is the one
+			// with somewhere to go: the row shows the cause and Enter opens
+			// everything the far end said. History and Activity have nothing
+			// behind a row, so they scroll instead — a cursor that cannot be
+			// committed is a cursor that looks broken.
+			if k == "enter" {
+				return m.openErrorDetail()
+			}
+			m.errors.handleKey(k, h)
 		case prefHistory:
-			m.history.scrollKey(k, w, h)
+			m.history.scrollKey(k, h)
 		default:
-			m.activity.scrollKey(k, w, h)
+			m.activity.scrollKey(k, h)
 		}
 		return m, nil
 	}
 	return m.hostsKey(k)
+}
+
+// openErrorDetail shows the whole of the entry under the cursor. The row keeps
+// the cause and nothing else — the words that say WHY are at the end of
+// somebody else's error message, and a host key mismatch is fifteen lines with
+// the fingerprint in the middle, so the panel stays scannable and the rest
+// lives one keystroke away.
+//
+// The title is the machine, because that is what you were looking for when you
+// put the cursor here.
+func (m AppModel) openErrorDetail() (tea.Model, tea.Cmd) {
+	e, ok := m.errors.current()
+	if !ok {
+		return m, nil
+	}
+	title := jField(e.host)
+	if strings.TrimSpace(e.user) != "" {
+		title += " · " + e.user
+	}
+	// WRAPPED, not clipped. The viewer passes its rows straight through to be
+	// clipped ANSI-aware, which is right for a line of source and wrong for
+	// this: the words that say why are at the END of somebody else's error
+	// message ("…port 22: Connection refused"), so cutting the tail throws away
+	// the only part anybody opened this for. wrapPlain rather than wrapText,
+	// because preferring a separator inside machine output wastes a third of
+	// every line.
+	// Indented by one, which the viewer does not do for itself: it passes rows
+	// straight through because a line of source has to keep its own column, and
+	// prose set hard against a border reads as damage.
+	inner := max(8, popupInnerW(m.w, viewerW)-2)
+	var lines []string
+	for _, para := range strings.Split(e.text, "\n") {
+		for _, l := range wrapPlain(para, inner) {
+			lines = append(lines, " "+l)
+		}
+	}
+	return m, m.viewer.showText(m.layer(), title, lines)
 }
 
 // journalCount and journalFile answer "which one am I on" for the places that

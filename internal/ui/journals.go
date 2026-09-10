@@ -14,16 +14,16 @@ import (
 // connected to, what you changed. One free-text line per event, three levels,
 // no columns. That is the right shape for none of the three.
 //
-// Errors keeps the thing the log was actually for — everything the far end
-// said before it gave up — but puts the WHO and WHEN in columns above it, so a
-// panel of failures can be scanned rather than read. History is one fixed row
-// per connection attempt and nothing else, so a machine's record reads down a
-// column. Activity is what you changed, which is a sentence and needs no
-// columns at all.
+// All three are TABLES now, with named columns, because every one of them is
+// scanned rather than read — you are looking for a machine, a time, or a
+// result, and prose makes you read each entry to find out whether it is the
+// one. One entry is one row in all three, so a panel can be counted down a
+// column.
 //
-// All three are viewports (§6.1): newest first, no cursor, nothing in them can
-// be acted on, and scrolling is over RENDERED ROWS rather than over entries —
-// one error is not one row.
+// Errors is the one with somewhere further to go: its rows carry a cause, and
+// the whole of what the far end printed is behind Enter. That split is what
+// lets the panel be scannable AND keep the fifteen lines of a host key
+// mismatch — the two things a single free-text log could not do at once.
 
 // journalCap bounds each journal in memory, matching store.journalKeep so a
 // panel never shows less than its file remembers.
@@ -86,30 +86,43 @@ const (
 	// what you are scanning for.
 	jMinHostW = 8
 	jMinUserW = 5
+	// The header row every journal carries, and the reason the panels can be
+	// scanned: "which column is this" answered once at the top instead of
+	// guessed at on every row.
+	jHeaderRows = 1
 )
 
-// jHostUserW shares the space left after the fixed columns between host and
-// user. fixed is whatever else the row spends besides the leading space, the
-// time column and the gap after it.
+// jCols is the width of the host and user columns, and of whatever takes the
+// rest of the row — a cause, an action, or nothing.
 //
 // Two columns come off the top, not one: a leading space AND a trailing one.
 // Without the second, a value that exactly fills its column touches the panel
 // border — "success" is seven cells and the result column is seven, so History
 // was the row that showed it.
-func jHostUserW(innerW, fixed int) (hostW, userW int) {
-	free := innerW - 2 - jTimeW - jGap - fixed
+func jCols(innerW, tailFixed int, wantTail bool) (hostW, userW, tailW int) {
+	free := innerW - 2 - jTimeW - jGap - tailFixed
+	if wantTail {
+		free -= jGap
+	}
 	if free < jMinHostW+jGap+jMinUserW {
 		// No room for two columns. The host takes what there is: a row that
 		// cannot say which machine is a row that says nothing.
-		return max(1, free), 0
+		return max(1, free), 0, 0
 	}
 	free -= jGap
+	hostW = max(jMinHostW, free*30/100)
+	userW = max(jMinUserW, free*20/100)
+	if wantTail {
+		tailW = max(1, free-hostW-userW)
+		return hostW, userW, tailW
+	}
+	// No tail column: host and user split what there is, host taking more.
 	hostW = max(jMinHostW, free*60/100)
 	userW = max(jMinUserW, free-hostW)
 	if over := hostW + userW - free; over > 0 {
 		hostW = max(jMinHostW, hostW-over)
 	}
-	return hostW, userW
+	return hostW, userW, 0
 }
 
 // jNone stands in for a host or user an entry does not have — a config file
@@ -127,6 +140,13 @@ func jField(s string) string {
 
 func jTime(t time.Time) string { return t.Format("15:04:05") }
 
+// jHeader draws a journal's column names. Dim, because it is a label and never
+// the thing being read — the same register the hosts table's header wears.
+func jHeader(innerW int, cells ...string) string {
+	dim := lipgloss.NewStyle().Foreground(dimColor)
+	return dim.Render(padRight(" "+strings.Join(cells, spaces(jGap)), innerW))
+}
+
 // ------------------------------------------------------------------- errors
 
 type errorRec struct {
@@ -134,16 +154,25 @@ type errorRec struct {
 	host  string
 	user  string
 	level errLevel // levelWarn | levelError
-	text  string   // may span lines
+	// cause is the headline, one line: what a row shows and a toast could hold.
+	cause string
+	// text is the whole of it, cause included — everything the far end printed
+	// before it gave up. Behind Enter, because a row of it would be unreadable
+	// and a panel of rows of it was what the old log looked like.
+	text string
 }
 
 // errorsModel is manage → Logs → Errors.
 type errorsModel struct {
-	entries []errorRec // oldest first; the view reads it backwards
+	entries []errorRec // oldest first; the table reads it backwards
 	// unread counts ERRORS since the panel was last on screen. Warnings do not
 	// count: the badge means "something failed", and diluting it with "something
 	// was mentioned" is how a badge stops being looked at.
 	unread int
+	// cursor and top index the table NEWEST FIRST, which is the order it is
+	// drawn in. Errors is the one journal with a cursor, because it is the one
+	// with somewhere to go: Enter opens what the row could not fit.
+	cursor int
 	top    int
 
 	// sink writes each entry through to errors.yaml. Nil in tests. sinkBroken
@@ -157,14 +186,34 @@ type errorsModel struct {
 func (m errorsModel) unreadErrors() int { return m.unread }
 func (m *errorsModel) markRead()        { m.unread = 0 }
 
-// add records one failure. The text is sanitised and capped here, exactly as
-// the app log did it, because this is still where other machines' output lands.
-func (m *errorsModel) add(level errLevel, host, user, msg string, more ...string) {
-	text := joinSanitised(msg, more...)
+// at maps a row on screen — newest first — back to the entry behind it.
+func (m errorsModel) at(i int) (errorRec, bool) {
+	if i < 0 || i >= len(m.entries) {
+		return errorRec{}, false
+	}
+	return m.entries[len(m.entries)-1-i], true
+}
+
+// current is the entry under the cursor, which is what Enter opens.
+func (m errorsModel) current() (errorRec, bool) { return m.at(m.cursor) }
+
+// add records one failure. cause is the headline; more is everything else the
+// far end said. Both are sanitised and capped here, because this is where
+// other machines' output lands.
+func (m *errorsModel) add(level errLevel, host, user, cause string, more ...string) {
+	text := joinSanitised(cause, more...)
 	if text == "" {
 		return
 	}
-	e := errorRec{at: time.Now(), host: host, user: user, level: level, text: text}
+	// The headline is the first line of what was recorded, not the raw
+	// argument: sanitising can empty it, and a row showing a cause the panel
+	// does not have would be a row pointing at nothing.
+	head := text
+	if i := strings.IndexByte(head, '\n'); i >= 0 {
+		head = head[:i]
+	}
+	e := errorRec{at: time.Now(), host: host, user: user, level: level,
+		cause: head, text: text}
 	m.entries = append(m.entries, e)
 	if len(m.entries) > journalCap {
 		m.entries = m.entries[len(m.entries)-journalCap:]
@@ -172,24 +221,32 @@ func (m *errorsModel) add(level errLevel, host, user, msg string, more ...string
 	if level == levelError {
 		m.unread++
 	}
+	// A new entry arrives at the TOP of a newest-first table, so a cursor
+	// resting anywhere below it would drift onto a different row without
+	// moving. It follows the shift instead, unless it is already at the top —
+	// where "newest" is where it wants to be anyway.
+	if m.cursor > 0 {
+		m.cursor = min(m.cursor+1, len(m.entries)-1)
+	}
 	// Written through AFTER the in-memory append: whatever happens to the disk,
 	// the panel shows the event.
 	if m.sink != nil && !m.sinkBroken {
 		if err := m.sink(store.ErrorEntry{At: e.at, Host: host, User: user,
-			Level: level.name(), Error: text}); err != nil {
+			Level: level.name(), Cause: head, Error: text}); err != nil {
 			m.sinkBroken = true
 			m.entries = append(m.entries, errorRec{at: time.Now(), level: levelWarn,
-				text: "errors.yaml: " + sanitizeLine(err.Error()) + " — new entries stay in memory only"})
+				cause: "errors.yaml cannot be written",
+				text:  "errors.yaml: " + sanitizeLine(err.Error()) + " — new entries stay in memory only"})
 		}
 	}
 }
 
-func (m *errorsModel) errorf(host, user, msg string, more ...string) {
-	m.add(levelError, host, user, msg, more...)
+func (m *errorsModel) errorf(host, user, cause string, more ...string) {
+	m.add(levelError, host, user, cause, more...)
 }
 
-func (m *errorsModel) warn(host, user, msg string, more ...string) {
-	m.add(levelWarn, host, user, msg, more...)
+func (m *errorsModel) warn(host, user, cause string, more ...string) {
+	m.add(levelWarn, host, user, cause, more...)
 }
 
 func (m *errorsModel) preload(tail []store.ErrorEntry) {
@@ -198,8 +255,17 @@ func (m *errorsModel) preload(tail []store.ErrorEntry) {
 	}
 	out := make([]errorRec, 0, len(tail))
 	for _, e := range tail {
+		// A file written before Errors had a cause column still opens: the
+		// headline is the first line of what it does have.
+		cause := e.Cause
+		if cause == "" {
+			cause = e.Error
+			if i := strings.IndexByte(cause, '\n'); i >= 0 {
+				cause = cause[:i]
+			}
+		}
 		out = append(out, errorRec{at: e.At, host: e.Host, user: e.User,
-			level: levelNamed(e.Level), text: e.Error})
+			level: levelNamed(e.Level), cause: cause, text: e.Error})
 	}
 	m.entries = append(out, m.entries...)
 }
@@ -210,80 +276,106 @@ func (m *errorsModel) clear() error {
 			return err
 		}
 	}
-	m.entries, m.top, m.unread = nil, 0, 0
+	m.entries, m.top, m.cursor, m.unread = nil, 0, 0, 0
 	return nil
 }
 
-func (m *errorsModel) scrollKey(k string, innerW, innerH int) {
-	n := len(m.allRows(innerW))
-	m.top = moveScroll(m.top, max(0, n-innerH), k, innerH)
+// handleKey walks the rows. Same vocabulary as every other list in the app, so
+// a key added there lands here too (nav.go).
+func (m *errorsModel) handleKey(k string, innerH int) {
+	if len(m.entries) == 0 {
+		return
+	}
+	m.cursor = moveCursor(m.cursor, len(m.entries), k, m.visibleRows(innerH))
+	m.ensureVisible(innerH)
 }
 
-// allRows draws every entry newest first: one column row naming when, where
-// and as whom, then the failure itself wrapped underneath.
+func (m errorsModel) visibleRows(innerH int) int { return max(1, innerH-jHeaderRows) }
+
+func (m *errorsModel) ensureVisible(innerH int) {
+	vis := m.visibleRows(innerH)
+	if m.cursor < m.top {
+		m.top = m.cursor
+	}
+	if m.cursor >= m.top+vis {
+		m.top = m.cursor - vis + 1
+	}
+	m.top = max(0, m.top)
+}
+
+// row draws one entry: when, where, as whom, and why in one line.
 //
-// The columns are the change from the old log. A panel of failures used to be
-// a wall of prose you had to read to find which machine each one was about;
-// the machine is the first thing you want and it is now in a fixed place.
-//
-// The text is WRAPPED rather than truncated, which the columns above it are
-// not: these are somebody else's error messages, and the part that says why is
-// at the END of them ("…port 22: Connection refused"), so cutting the tail
-// throws away the only words anybody opened this panel to read.
-func (m errorsModel) allRows(innerW int) []string {
+// The cause is TRUNCATED where every other column is padded, and that is the
+// trade this panel makes: a row you can scan, with the whole of it one Enter
+// away. The old shape wrapped the failure under its own columns, which kept
+// every word and made a panel of failures unscannable.
+func (m errorsModel) row(e errorRec, selected bool, innerW int) string {
+	hostW, userW, causeW := jCols(innerW, 0, true)
+
+	plain := " " + padRight(jTime(e.at), jTimeW) + spaces(jGap) + padRight(jField(e.host), hostW)
+	if userW > 0 {
+		plain += spaces(jGap) + padRight(jField(e.user), userW)
+	}
+	if causeW > 0 {
+		plain += spaces(jGap) + padRight(e.cause, causeW)
+	}
+
+	if selected {
+		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(rowSelColor)
+		return bar.Render(padRight(plain, innerW))
+	}
+
+	// The timestamp carries the level, because it is the one cell every entry
+	// has. Red is "something is wrong", peach is "worth knowing" — the two
+	// bands §11.48 separated, used here for exactly that split.
+	stamp := lipgloss.NewStyle().Foreground(e.level.colour())
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
-	hostW, userW := jHostUserW(innerW, 0)
 
-	// The message is indented under the columns rather than under the
-	// timestamp, so an entry reads as one block. Below the width where that
-	// leaves less room for words than for blank, it goes back to the margin.
-	msgW, indent := innerW-1-jGap, jGap
-	if msgW < 2*jGap {
-		msgW, indent = max(2, innerW-1), 0
+	out := " " + stamp.Render(padRight(jTime(e.at), jTimeW)) +
+		spaces(jGap) + txt.Render(padRight(jField(e.host), hostW))
+	if userW > 0 {
+		out += spaces(jGap) + dim.Render(padRight(jField(e.user), userW))
 	}
-
-	var rows []string
-	for i := len(m.entries) - 1; i >= 0; i-- {
-		e := m.entries[i]
-		// The timestamp carries the level, because it is the one cell every
-		// entry has. Red is "something is wrong", peach is "worth knowing" —
-		// the two bands §11.48 separated, used here for exactly that split.
-		stamp := lipgloss.NewStyle().Foreground(e.level.colour())
-
-		head := " " + stamp.Render(jTime(e.at)) + spaces(jGap) +
-			txt.Render(padRight(jField(e.host), hostW))
-		if userW > 0 {
-			head += spaces(jGap) + dim.Render(padRight(jField(e.user), userW))
-		}
-		rows = append(rows, clipANSI(head, innerW))
-
-		for _, para := range strings.Split(e.text, "\n") {
-			// wrapPlain, not wrapText: this is somebody else's output, and
-			// preferring a separator in it wastes a third of every line.
-			for _, line := range wrapPlain(para, msgW) {
-				rows = append(rows, spaces(indent)+dim.Render(line))
-			}
-		}
+	if causeW > 0 {
+		out += spaces(jGap) + txt.Render(padRight(e.cause, causeW))
 	}
-	return rows
+	return out + spaces(max(0, innerW-dispW(plain)))
 }
 
 func (m errorsModel) body(innerW, innerH int) []string {
-	rows := m.allRows(innerW)
-	if len(rows) == 0 {
+	if len(m.entries) == 0 {
 		return emptyBody(innerW, innerH, "Nothing has failed",
 			emptyHint("Refused connections, failed transfers and edits that could not be written back land here", ""))
 	}
-	top := clamp(m.top, 0, max(0, len(rows)-1))
-	return fitLines(rows[top:min(len(rows), top+innerH)], innerW, innerH)
+	hostW, userW, causeW := jCols(innerW, 0, true)
+	cells := []string{padRight("Time", jTimeW), padRight("Host", hostW)}
+	if userW > 0 {
+		cells = append(cells, padRight("User", userW))
+	}
+	if causeW > 0 {
+		cells = append(cells, padRight("Cause", causeW))
+	}
+
+	out := make([]string, 0, innerH)
+	out = append(out, jHeader(innerW, cells...))
+	vis := m.visibleRows(innerH)
+	top := clamp(m.top, 0, max(0, len(m.entries)-1))
+	for i := top; i < len(m.entries) && len(out) < top+vis+jHeaderRows; i++ {
+		e, ok := m.at(i)
+		if !ok {
+			break
+		}
+		out = append(out, m.row(e, i == m.cursor, innerW))
+	}
+	return fitLines(out, innerW, innerH)
 }
 
 func (m errorsModel) status() string {
 	if len(m.entries) == 0 {
 		return "no errors"
 	}
-	return journalEntries(len(m.entries))
+	return itoa(m.cursor+1) + "/" + journalEntries(len(m.entries))
 }
 
 // ------------------------------------------------------------------ history
@@ -347,8 +439,8 @@ func (m *historyModel) clear() error {
 	return nil
 }
 
-func (m *historyModel) scrollKey(k string, innerW, innerH int) {
-	m.top = moveScroll(m.top, max(0, len(m.entries)-innerH), k, innerH)
+func (m *historyModel) scrollKey(k string, innerH int) {
+	m.top = moveScroll(m.top, max(0, len(m.entries)-(innerH-jHeaderRows)), k, innerH)
 }
 
 // rows is one line per attempt, newest first. Fixed height on purpose: this
@@ -360,7 +452,7 @@ func (m historyModel) rows(innerW int) []string {
 	ok := lipgloss.NewStyle().Foreground(liveColor)
 	bad := lipgloss.NewStyle().Foreground(warnColor)
 
-	hostW, userW := jHostUserW(innerW, jResultW+jGap)
+	hostW, userW, _ := jCols(innerW, jResultW+jGap, false)
 
 	out := make([]string, 0, len(m.entries))
 	for i := len(m.entries) - 1; i >= 0; i-- {
@@ -369,7 +461,7 @@ func (m historyModel) rows(innerW int) []string {
 		if !e.ok {
 			style, word = bad, store.ResultFail
 		}
-		row := " " + dim.Render(jTime(e.at)) + spaces(jGap) +
+		row := " " + dim.Render(padRight(jTime(e.at), jTimeW)) + spaces(jGap) +
 			txt.Render(padRight(jField(e.host), hostW))
 		if userW > 0 {
 			row += spaces(jGap) + dim.Render(padRight(jField(e.user), userW))
@@ -385,9 +477,18 @@ func (m historyModel) body(innerW, innerH int) []string {
 		return emptyBody(innerW, innerH, "No connections yet",
 			emptyHint("Every ssh and sftp connection is recorded here, with its result", ""))
 	}
+	hostW, userW, _ := jCols(innerW, jResultW+jGap, false)
+	cells := []string{padRight("Time", jTimeW), padRight("Host", hostW)}
+	if userW > 0 {
+		cells = append(cells, padRight("User", userW))
+	}
+	cells = append(cells, padRight("Result", jResultW))
+
 	rows := m.rows(innerW)
 	top := clamp(m.top, 0, max(0, len(rows)-1))
-	return fitLines(rows[top:min(len(rows), top+innerH)], innerW, innerH)
+	out := append([]string{jHeader(innerW, cells...)},
+		rows[top:min(len(rows), top+max(1, innerH-jHeaderRows))]...)
+	return fitLines(out, innerW, innerH)
 }
 
 func (m historyModel) status() string {
@@ -467,45 +568,35 @@ func (m *activityModel) clear() error {
 	return nil
 }
 
-func (m *activityModel) scrollKey(k string, innerW, innerH int) {
-	n := len(m.allRows(innerW))
-	m.top = moveScroll(m.top, max(0, n-innerH), k, innerH)
+func (m *activityModel) scrollKey(k string, innerH int) {
+	m.top = moveScroll(m.top, max(0, len(m.entries)-(innerH-jHeaderRows)), k, innerH)
 }
 
-func (m activityModel) allRows(innerW int) []string {
+func (m activityModel) rows(innerW int) []string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
+	actionW := max(1, innerW-2-jTimeW-jGap)
 
-	msgW, indent := innerW-1-jTimeW-jGap, 1+jTimeW+jGap
-	if msgW < jTimeW {
-		msgW, indent = max(2, innerW-1), 0
-	}
-
-	var rows []string
+	out := make([]string, 0, len(m.entries))
 	for i := len(m.entries) - 1; i >= 0; i-- {
 		e := m.entries[i]
-		first := true
-		for _, line := range wrapPlain(e.action, msgW) {
-			if first {
-				rows = append(rows, clipANSI(" "+dim.Render(jTime(e.at))+spaces(jGap)+
-					txt.Render(line), innerW))
-				first = false
-				continue
-			}
-			rows = append(rows, spaces(indent)+txt.Render(line))
-		}
+		out = append(out, clipANSI(" "+dim.Render(padRight(jTime(e.at), jTimeW))+
+			spaces(jGap)+txt.Render(padRight(e.action, actionW)), innerW))
 	}
-	return rows
+	return out
 }
 
 func (m activityModel) body(innerW, innerH int) []string {
-	rows := m.allRows(innerW)
-	if len(rows) == 0 {
+	if len(m.entries) == 0 {
 		return emptyBody(innerW, innerH, "Nothing changed yet",
 			emptyHint("Hosts, credentials, ~/.ssh files, transfers and edits are recorded here", ""))
 	}
+	actionW := max(1, innerW-2-jTimeW-jGap)
+	rows := m.rows(innerW)
 	top := clamp(m.top, 0, max(0, len(rows)-1))
-	return fitLines(rows[top:min(len(rows), top+innerH)], innerW, innerH)
+	out := append([]string{jHeader(innerW, padRight("Time", jTimeW), padRight("Action", actionW))},
+		rows[top:min(len(rows), top+max(1, innerH-jHeaderRows))]...)
+	return fitLines(out, innerW, innerH)
 }
 
 func (m activityModel) status() string {

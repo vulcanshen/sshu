@@ -41,7 +41,20 @@ type ErrorEntry struct {
 	Host  string    `yaml:"host,omitempty"`
 	User  string    `yaml:"user,omitempty"`
 	Level string    `yaml:"level"` // warn | error
-	Error string    `yaml:"error"` // may span lines
+	// Cause is the headline — one line, what the table shows and what a toast
+	// could hold. Error is the whole of it, Cause included: everything the far
+	// end printed before it gave up, which is fifteen lines for a host key
+	// mismatch and one for a refused connection.
+	//
+	// The repeat is deliberate. Cause could be derived from Error's first line
+	// and is stored anyway, so the file is readable by hand without the reader
+	// having to know that rule — and so a headline that is NOT the first line
+	// stays possible later without a format change.
+	//
+	// An entry written before this column existed has no Cause, and the UI
+	// falls back to Error's first line rather than showing a blank.
+	Cause string `yaml:"cause,omitempty"`
+	Error string `yaml:"error"` // may span lines
 }
 
 // HistoryEntry is one connection attempt. Result only — the reason lives in
