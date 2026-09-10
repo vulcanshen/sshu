@@ -51,7 +51,7 @@ When in doubt, press `Space`. Letter hotkeys exist for speed, and every one of t
  [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
-**`[M]anage`** — everything that is sshu's own, under one nav — plus one file that is not: **SSH** (Hosts, Credentials, Config, KnownHosts) and **Others** (Logs). Hosts are a table over `hosts.yaml`, two lines each — the row, and your own tags under it — shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Tags are yours: space separated, never interpreted, and searchable with `/`, so `prod` pulls up the group at once. The one colour on a row marks a port that is not 22. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. **Config** is `~/.ssh/config` itself — the file tab `[3]` is already reading, since sshu launches the real `ssh` — listed one `Host` block per row — `Include` followed, so the list spans every file the tree really has — with a form that carries whatever keywords that block happens to use. Editing one changes only its own lines: comments, `Match` blocks and keywords sshu has never heard of come through untouched. A host's own detail says what this file will do to it — the union of every matching block, first value winning, with the ones sshu's command line overrides marked. **KnownHosts** is `~/.ssh/known_hosts` — the file that decides whether you are talking to the machine you meant, and the one sshu already refuses connections over when a key has changed. `[X]` is the way out of that refusal; `[A]` asks a host for its key, stops before authenticating, and shows you the fingerprint before writing anything. Logs are everything that happened while you were not looking, persisted to disk — and `[C]lear logs` empties them, `applogs.yaml` included.
+**`[M]anage`** — sshu's own data and the two `~/.ssh` files it edits, under one nav in three groups: **SSHU** (Hosts, Credentials — files sshu owns and writes), **SSH** (Config, KnownHosts — files ssh owns, which sshu only reads and edits in place), and **Logs** (Errors, Connections, Changes). Hosts are a table over `hosts.yaml`, two lines each — the row, and your own tags under it — shedding columns as the terminal narrows; `[A]dd` / `[E]dit` open a form with live validation, `Enter` connects. Tags are yours: space separated, never interpreted, and searchable with `/`, so `prod` pulls up the group at once. The one colour on a row marks a port that is not 22. Credentials are reusable identities (user + auth) that hosts can reference with `auth: credential`. **Config** is `~/.ssh/config` itself — the file tab `[3]` is already reading, since sshu launches the real `ssh` — listed one `Host` block per row — `Include` followed, so the list spans every file the tree really has — with a form that carries whatever keywords that block happens to use. Editing one changes only its own lines: comments, `Match` blocks and keywords sshu has never heard of come through untouched. A host's own detail says what this file will do to it — the union of every matching block, first value winning, with the ones sshu's command line overrides marked. **KnownHosts** is `~/.ssh/known_hosts` — the file that decides whether you are talking to the machine you meant, and the one sshu already refuses connections over when a key has changed. `[X]` is the way out of that refusal; `[A]` asks a host for its key, stops before authenticating, and shows you the fingerprint before writing anything. **Logs** is three records rather than one, because one log was answering three questions at once. **Errors** is what went wrong — one row each (time, host, user, cause), and `Enter` opens everything the far end printed, which for a host key mismatch is fifteen lines with the fingerprint in the middle. **Connections** is every ssh and sftp attempt and how it ended, one fixed row each, so a machine's record reads down a column. **Changes** is what you altered: hosts, credentials, `~/.ssh` files, transfers, edits written back. Each has its own file and its own `[C]lear`, which names the file it is about to empty.
 
 **`[F]ile transfer`** — two independent filesystems side by side, 1:1. `local` opens where you launched sshu, so `cd ~/release && sshu` is already looking at the release. Either end can be this machine or a saved host, and both ends can be remote, so upload, download and remote-to-remote are one operation rather than three. Mark what you want, cross to the other side, and send it. While bytes move, the `<done>/<files> · <pct>%` summary in the top right reports in green, and the rule under the tab row doubles as a progress bar — green ink filling from the left with the percentage, on every tab, snapping back to a plain line when the transfer ends. `/` searches the **whole subtree**, not just the directory on screen; `v` reads a file without fetching it and `e` opens one in your own editor.
 
@@ -118,7 +118,9 @@ A few YAML files in one directory, resolved in this order:
 | `$XDG_CONFIG_HOME/sshu` | when set — on macOS too, so you can opt out of `~/Library/Application Support` |
 | otherwise | `os.UserConfigDir()/sshu` |
 
-`hosts.yaml` holds the hosts; `credentials.yaml` holds reusable identities — a name, a user and how that user authenticates — which a host can take wholesale with `auth: credential` + `credential: <name>`, so "who does this connection run as" is written in exactly one place. `applogs.yaml` is the app log's spine on disk. All three are hand-editable YAML, and every write is atomic (temp file + rename) and re-asserts mode `0600`.
+`hosts.yaml` holds the hosts; `credentials.yaml` holds reusable identities — a name, a user and how that user authenticates — which a host can take wholesale with `auth: credential` + `credential: <name>`, so "who does this connection run as" is written in exactly one place. `errors.yaml`, `connections.yaml` and `changes.yaml` are the three records on disk. All of them are hand-editable YAML, and every write is atomic (temp file + rename) and re-asserts mode `0600`.
+
+**Passwords are encrypted** (AES-256-GCM), so a `password:` field reads `ENC:…` rather than the password. The key is `.sshukey` in the same directory — created on the first run, and movable with `SSHU_KEY_FILE`. Read [what that does and does not buy](#passwords-are-encrypted--read-what-that-does-and-does-not-buy) below, because it is not as much as it sounds.
 
 ### Settings — `config.yaml`
 
@@ -130,17 +132,28 @@ Optional, in the same directory, and **sshu never writes it**: a file you have e
 connect_timeout: 15
 ```
 
-A value outside 1–600 is treated as a slipped decimal and the default is used instead. A file that cannot be parsed does not stop sshu from starting — it runs on the defaults and says so in the app log.
+A value outside 1–600 is treated as a slipped decimal and the default is used instead. A file that cannot be parsed does not stop sshu from starting — it runs on the defaults and says so under manage → Errors.
 
-### Passwords are stored in plaintext — read this
+### Passwords are encrypted — read what that does and does not buy
 
-A host with `auth: password` keeps its password in `hosts.yaml` **in the clear**, and a credential with `auth: password` does the same in `credentials.yaml`. That is a deliberate trade, and these are the mitigations:
+A password stored by sshu is sealed with AES-256-GCM before it reaches the disk, so a `password:` field reads `ENC:<base64>` rather than the password. The key lives beside your config as `.sshukey` — created on the first run, `0600`, one line of base64 — and `SSHU_KEY_FILE` moves it elsewhere.
+
+**This is separation, not confidentiality.** What used to leak with one file now takes two:
+
+|  |  |
+|---|---|
+| **protects** | `hosts.yaml` or `credentials.yaml` pasted into a chat, committed by accident, or picked up on its own by a backup — it is ciphertext and says nothing |
+| **does not** | the whole config directory being synced or copied: **the key is in it**. Nor anything else running as you, which reads the key exactly as sshu does |
+
+So the older advice stands unchanged: **keep that directory out of version control, out of syncing folders, out of backups.** Encryption changed the shape of the risk, not its force. Covering the second row means putting the key somewhere the config is not copied with — `SSHU_KEY_FILE` — and that is deliberately not the default, because a key outside the config directory is one you have to remember to back up, and losing it loses every password.
+
+Everything that guarded the plaintext still guards the ciphertext:
 
 - the file is kept at `0600`, re-asserted on every write, and carries a warning header
-- the password is never rendered — the form shows `••••`
+- the password is never rendered — the form shows `••••`, and the credential picker's mask is a fixed width, so it does not leak the length either
 - `SSH_ASKPASS` supplies it to `ssh`, so the secret **never enters a child process's environment** and never appears in `ps`
 
-`0600` does not survive being copied into a backup, a dotfiles repo, or a synced folder. If that matters to you, use `auth: privatekey`, which stores only a path. A keychain-backed `secretStore` is a planned alternative.
+Existing plaintext is sealed on the next start, in place, with no migration step. If you would rather sshu never held a password at all, `auth: privatekey` stores only a path.
 
 ### Host keys
 
@@ -164,7 +177,7 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 
 ### `[M]anage`
 
-The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Config**, **KnownHosts**, **Logs**, grouped under SSH / Others headers the cursor skips over — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content. Hand the keyboard over and the whole nav dims to a legend for what `[2]` is showing; the only thing that stays lit is the unread-error count.
+The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Config**, **KnownHosts**, **Errors**, **Connections**, **Changes**, grouped under SSHU / SSH / Logs headers the cursor skips over — and the content follows the cursor; `Enter` or `2` moves the keyboard to the content. Hand the keyboard over and the whole nav dims to a legend for what `[2]` is showing; the only thing that stays lit is the unread-error count.
 
 | Key | Action |
 |---|---|
@@ -175,7 +188,8 @@ The left nav (`1`) picks a section — **Hosts**, **Credentials**, **Config**, *
 | `D` | **Duplicate** — an Add form arriving with every field already filled in from this row. Nothing is written and no name is invented: the form is complete, so `Enter` means save, and the name it arrives holding is taken by the row it was copied from. The first `Enter` is refused on the Name field, which is where the cursor already is |
 | `X` | Delete it (asks first — deleting a credential counts the hosts that still reference it). `D` used to do this; it means Duplicate everywhere in sshu now, and `x`/`X` means delete everywhere |
 | `/` | hosts: Search — name, user, host, port and tags at once, ranked best-first |
-| `C` | logs: Clear the log (asks first — it erases `applogs.yaml` too) |
+| `C` | Errors / Connections / Changes: Clear **this** record (asks first, and names the file it erases) |
+| `Enter` | Errors: open the whole of what the far end printed |
 
 In the forms: `Tab` / `Shift+Tab` / `↑` `↓` move between fields; `←` `→` switch Auth (password / privatekey / **credential**). Choosing `credential` darkens the User row: the credential supplies the user, and the picker names the key file it will use — or a fixed mask where a password would be.
 
@@ -269,14 +283,15 @@ Inside it the cell stops following the remote — the session keeps running and 
 - **Directories that stay current, cheaply** — SFTP has no change notification, so sshu stats the directory and compares its mtime, and re-lists only when that moves. One small round trip every couple of seconds instead of a full listing, and only while the tab is on screen.
 - **Terminal history that vt10x does not keep** — the emulator is a fixed grid and clears the rows that leave the top, so every chunk read from the PTY is split into lines and filed as it goes in, colours and all. `PgUp` / `PgDown` page through the last 10 000 lines. Nothing is captured while the alt screen is up: a full-screen program repaints its whole window on every keystroke, and capturing that would flush the shell history the buffer exists to hold. `\x1b[3J` — a remote explicitly erasing its scrollback — drops it, `\x1b[2J` does not. Which of the two `clear` sends is decided by `TERM` rather than by the operating system, and sshu pins the pty's `TERM` to `xterm-256color`, whose terminfo carries the erase — so typing `clear` on the far end always drops that session's history. `Ctrl+L` sends only `\x1b[2J` and keeps it: two gestures, two meanings.
 - **A connection that has not answered yet says so** — a grid cell draws the PTY, and ssh prints nothing at all while it waits for TCP, so an unreachable host used to leave an empty box for as long as the OS took to give up. The test is whether the far end has sent a byte, not whether the grid is empty: until it does, the panel names the host and counts the seconds.
-- **Nothing dies silently, and nothing is only said once** — a session that ends badly raises a toast naming the host and **what ssh itself said** (`Connection refused`, not `disconnected`), the grid keeps saying it instead of going blank, and the app log holds **the whole final screen** — a refused connection is one line, but a host key mismatch is fifteen and the fingerprint you need is in the middle of them. The log lives at manage → logs, **persisted to `applogs.yaml`** so it survives the process, and it records more than failures: hosts and credentials changing, connections opening and closing, transfers ending, edits written back. The nav and the footer count the errors you have not read until you look.
+- **Nothing dies silently, and nothing is only said once** — a session that ends badly raises a toast naming the host and **what ssh itself said** (`Connection refused`, not `disconnected`), the grid keeps saying it instead of going blank, and **Errors** holds **the whole final screen** behind `Enter` — a refused connection is one line, but a host key mismatch is fifteen and the fingerprint you need is in the middle of them. The row itself stays one line, so a panel of failures can be scanned rather than read. All three records persist to disk so they survive the process, and the nav and the footer count the errors you have not read until you look.
+- **Three records, not one log** — what failed, what you connected to, what you changed. They want different shapes: a connection is one fixed row so a machine can be counted down a column, while a failure is fifteen lines of somebody else's banner. Together they were each other's noise.
 - **No exit leaves an orphan** — every child ssh runs on its own PTY session, where no signal would reach it on its own. A registry knows them all, and every way out — `q`, `Ctrl+C`, an outside SIGINT/SIGTERM, even the terminal window closing (SIGHUP) — kills them on the way.
 - **Frame stability** — every rendered line is exactly the terminal width, at every size, with any content. Wide characters from a remote, Nerd Font glyphs that measure differently, and CJK filenames are all handled by measuring rather than assuming; there is a test that checks it across sizes, focus states and data.
 - **unix-first, static binary** — macOS + Linux; `CGO_ENABLED=0`.
 
 ## Status
 
-**v1.3.0.** Three tabs on one shifted letter each, the grouped `[1] sshu` nav, reusable credentials with a read-only look at what any row actually holds — `Enter`, with the thing `Enter` was for offered at the foot of it — the persistent app log, the ssh terminal grid with pageable history, and no exit that leaves an orphan. 300+ tests, `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v1.6.0.** Tags on a host and a two-line entry to show them; colour that marks the exception (a port that is not 22) rather than decorating the rule; three records where there was one log; passwords encrypted on disk; and sshu inside sshu at any depth with no layer costing a row of screen. `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 - **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab

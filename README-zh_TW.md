@@ -51,7 +51,7 @@ tab 用一個 shift 過的裸字母切換 —— **`M` / `F` / `S`** —— 而�
  [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
-**`[M]anage`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類 —— 外加一個不屬於它的檔案:**SSH**(Hosts、Credentials、Config、KnownHosts)、**Others**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,**一台兩列** —— 上面那列照舊,下面那列是你自己下的 tag —— 終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。tag 是你的字:空白分隔、sshu 從不解讀,而且 `/` 搜得到,打 `prod` 就把整群撈出來。一列上唯一的顏色標的是**不是 22 的 port**。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。**Config** 就是 `~/.ssh/config` 本身 —— tab `[3]` 早就在讀它了,因為 sshu 是去啟動真的 `ssh` —— 一列一個 `Host` 區塊(`Include` 會跟進去,所以清單涵蓋這棵樹真正有的每一個檔案),表單會帶上那個區塊剛好用到的每一個關鍵字。編一個區塊只會動到它自己的那幾行:註解、`Match` 區塊、以及 sshu 沒聽過的關鍵字都原樣通過。而每一台 host 自己的明細會說出這份檔案對它做了什麼 —— 所有命中區塊的聚集、每個關鍵字取第一個值，並標出哪些被 sshu 的命令列蓋掉了。**KnownHosts** 就是 `~/.ssh/known_hosts` —— 決定「你講話的對象是不是你以為的那台機器」的檔案,也是 sshu 在金鑰變了時直接拒絕連線的依據。`[X]` 就是那個拒絕的出路;`[A]` 去問那台機器要金鑰、**在認證之前停下**、把指紋給你看過才寫。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
+**`[M]anage`** —— sshu 自己的資料,加上它會編輯的兩個 `~/.ssh` 檔案,在同一個 nav 底下分三類:**SSHU**(Hosts、Credentials —— sshu 自己擁有、自己寫的檔)、**SSH**(Config、KnownHosts —— 屬於 ssh 的檔,sshu 只讀它、就地編輯它)、**Logs**(Errors、Connections、Changes)。Hosts 是蓋在 `hosts.yaml` 上的表格,**一台兩列** —— 上面那列照舊,下面那列是你自己下的 tag —— 終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。tag 是你的字:空白分隔、sshu 從不解讀,而且 `/` 搜得到,打 `prod` 就把整群撈出來。一列上唯一的顏色標的是**不是 22 的 port**。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。**Config** 就是 `~/.ssh/config` 本身 —— tab `[3]` 早就在讀它了,因為 sshu 是去啟動真的 `ssh` —— 一列一個 `Host` 區塊(`Include` 會跟進去,所以清單涵蓋這棵樹真正有的每一個檔案),表單會帶上那個區塊剛好用到的每一個關鍵字。編一個區塊只會動到它自己的那幾行:註解、`Match` 區塊、以及 sshu 沒聽過的關鍵字都原樣通過。而每一台 host 自己的明細會說出這份檔案對它做了什麼 —— 所有命中區塊的聚集、每個關鍵字取第一個值，並標出哪些被 sshu 的命令列蓋掉了。**KnownHosts** 就是 `~/.ssh/known_hosts` —— 決定「你講話的對象是不是你以為的那台機器」的檔案,也是 sshu 在金鑰變了時直接拒絕連線的依據。`[X]` 就是那個拒絕的出路;`[A]` 去問那台機器要金鑰、**在認證之前停下**、把指紋給你看過才寫。**Logs 是三本紀錄而不是一本**,因為一本 log 同時在回答三個問題。**Errors** 是什麼壞了 —— 一筆一列(時間、host、user、原因),`Enter` 打開遠端印的全部,host key 不符那種是十五行、指紋夾在中間。**Connections** 是每一次 ssh 與 sftp 的嘗試和它的結果,一筆一列固定寬,所以同一台機器的紀錄可以順著欄位往下數。**Changes** 是你改過什麼:host、credential、`~/.ssh` 的檔、傳輸、編輯寫回。三本各有自己的檔和自己的 `[C]lear`,而確認框會指名它要清掉哪一個。
 
 **`[F]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。傳輸進行時,右上角的 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線同時兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
 
@@ -118,7 +118,9 @@ sshu
 | `$XDG_CONFIG_HOME/sshu` | 有設就用 —— macOS 上也一樣,所以你可以不要 `~/Library/Application Support` |
 | 都沒有 | `os.UserConfigDir()/sshu` |
 
-`hosts.yaml` 放 host;`credentials.yaml` 放可重用的身分 —— 一個名字、一個 user、以及那個 user 怎麼驗證 —— host 用 `auth: credential` + `credential: <名字>` 整包拿走,「這條連線用誰」只寫在一個地方。`applogs.yaml` 是 app log 在磁碟上的脊椎。三個都是可以手改的 YAML,每次寫入都是原子的(暫存檔 + rename)並**重新確立 `0600`**。
+`hosts.yaml` 放 host;`credentials.yaml` 放可重用的身分 —— 一個名字、一個 user、以及那個 user 怎麼驗證 —— host 用 `auth: credential` + `credential: <名字>` 整包拿走,「這條連線用誰」只寫在一個地方。`errors.yaml`、`connections.yaml`、`changes.yaml` 是磁碟上的那三本紀錄。全部都是可以手改的 YAML,每次寫入都是原子的(暫存檔 + rename)並**重新確立 `0600`**。
+
+**密碼是加密的**(AES-256-GCM),所以 `password:` 欄位讀起來是 `ENC:…` 而不是密碼本身。key 是同目錄的 `.sshukey` —— 第一次啟動時建立,`SSHU_KEY_FILE` 可以把它移到別處。它擋得住什麼、擋不住什麼請讀下面那一段,因為沒有聽起來那麼多。
 
 ### 設定 —— `config.yaml`
 
@@ -130,17 +132,28 @@ sshu
 connect_timeout: 15
 ```
 
-超出 1–600 的值一律當成打錯,改用預設。設定檔壞掉不會擋著不讓 sshu 啟動 —— 它用預設值跑,並且在 app log 裡說出來。
+超出 1–600 的值一律當成打錯,改用預設。設定檔壞掉不會擋著不讓 sshu 啟動 —— 它用預設值跑,並且在 manage → Errors 裡說出來。
 
-### 密碼是明文存的 —— 請讀這段
+### 密碼是加密的 —— 請讀清楚它買到什麼、沒買到什麼
 
-`auth: password` 的 host 會把密碼**明文**放在 `hosts.yaml` 裡,`auth: password` 的 credential 在 `credentials.yaml` 裡也一樣。這是一個刻意的取捨,以下是配套:
+sshu 存的密碼在寫進磁碟之前會用 AES-256-GCM 封起來,所以 `password:` 欄位讀起來是 `ENC:<base64>` 而不是密碼。key 就放在 config 旁邊,叫 `.sshukey` —— 第一次啟動時建立、`0600`、一行 base64 —— `SSHU_KEY_FILE` 可以把它移走。
+
+**這是分離,不是機密性。** 原本一個檔就外洩,現在要兩個:
+
+|  |  |
+|---|---|
+| **擋得住** | `hosts.yaml` 或 `credentials.yaml` 被單獨貼進聊天室、誤 commit、被備份單獨撈走 —— 它是密文,什麼都沒說 |
+| **擋不住** | 整個 config 目錄被同步或複製走:**key 就在裡面**。也擋不住你自己底下的其他程式 —— 它讀 key 的方式跟 sshu 一模一樣 |
+
+所以原本那條建議**一個字都沒變**:**那個目錄不要進版控、不要放進同步資料夾、不要進備份。** 加密改變的是風險的形狀,不是它的力道。要蓋掉第二列只有一個辦法 —— 用 `SSHU_KEY_FILE` 把 key 放到 config 不會被一起複製走的地方,而它刻意不是預設:config 目錄之外的 key 是一個你得記得自己備份的東西,而弄丟它等於弄丟每一個密碼。
+
+原本保護明文的每一件事,現在照樣保護密文:
 
 - 檔案維持 `0600`,每次寫入重新確立,而且帶一段警告標頭
-- 密碼永遠不會被畫出來 —— 表單顯示的是 `••••`
+- 密碼永遠不會被畫出來 —— 表單顯示的是 `••••`,而 credential picker 的遮罩是**固定長度**,連長度都不透露
 - 用 `SSH_ASKPASS` 把它交給 `ssh`,所以這個祕密**不會進到子行程的環境變數**,也不會出現在 `ps`
 
-`0600` 撐不過「被複製進備份、dotfiles repo 或同步資料夾」。如果你在意這件事,請用 `auth: privatekey` —— 它只存一條路徑。keychain 撐腰的 `secretStore` 是規劃中的替代方案。
+既有的明文會在下一次啟動時就地封起來,沒有遷移步驟。如果你寧願 sshu 從頭到尾都不要碰密碼,`auth: privatekey` 只存一條路徑。
 
 ### Host key
 
@@ -164,7 +177,7 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 
 ### `[M]anage`
 
-左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Config**、**KnownHosts**、**Logs**,分在 SSH / Others 兩個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。鍵盤一交出去,整片 nav 就暗下來變成「`[2]` 在顯示什麼」的圖例;唯一還亮著的是未讀錯誤數。
+左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Config**、**KnownHosts**、**Errors**、**Connections**、**Changes**,分在 SSHU / SSH / Logs 三個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。鍵盤一交出去,整片 nav 就暗下來變成「`[2]` 在顯示什麼」的圖例;唯一還亮著的是未讀錯誤數。
 
 | 鍵 | 動作 |
 |---|---|
@@ -175,7 +188,8 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `D` | **複製** —— 開一個每一欄都已經從這一列填好的 Add 表單。什麼都還沒寫進檔案,也沒有發明任何名字:表單是完整的,所以 `Enter` 就是存檔,而它帶著的名字被它自己複製的那一列佔著。第一次 `Enter` 一定被擋在 Name 上,而游標本來就在 Name 上 |
 | `X` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它)。這件事原本是 `D`;現在 sshu 裡 `D` 一律是複製、`x`/`X` 一律是刪掉 |
 | `/` | hosts:搜尋 —— name / user / host / port / tags 一起比對,依分數排序 |
-| `C` | logs:清空 log(先問 —— 連 `applogs.yaml` 一起清) |
+| `C` | Errors / Connections / Changes:清空**當前這一本**(先問,而且指名它要清掉哪一個檔) |
+| `Enter` | Errors:打開遠端印的全部內容 |
 
 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。選了 `credential`,User 列會變暗:user 由 credential 供應,而選單會直接說出它要用哪把金鑰 —— 換成密碼的話,那裡是一個固定長度的遮罩。
 
@@ -267,14 +281,15 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 - **目錄保持最新,而且很便宜** —— SFTP 沒有變更通知,所以 sshu 去 stat 目錄、比對 mtime,只有動了才重新列。每隔幾秒一次很小的 round trip,而不是整份重列,而且只在這個 tab 在畫面上的時候做。
 - **vt10x 不留的終端機歷史,自己留** —— 模擬器是一塊固定的 grid,離開頂端的列會被它清掉,所以每一塊從 PTY 讀進來的 bytes 在進模擬器的同時就被切成行存起來,顏色一起留著。`PgUp` / `PgDown` 翻最近 10000 行。alt screen 期間不收:全螢幕程式每按一個鍵就重畫整個視窗,照單全收會把真正值得捲回去的 shell 歷史沖掉。`\x1b[3J`(遠端明確要求清掉 scrollback)會清,`\x1b[2J` 不會。`clear` 送哪一個由 `TERM` 決定、不是由作業系統決定,而 sshu 把 pty 的 `TERM` 釘死成 `xterm-256color`,它的 terminfo 有那個 erase —— 所以在遠端打 `clear` 一定會清掉該 session 的歷史。`Ctrl+L` 只送 `\x1b[2J`,歷史留著:兩個手勢,兩種意思。
 - **還沒接通的連線會說自己在連** —— 格子畫的是 PTY,而 ssh 等 TCP 的時候什麼都不印,所以連不上的主機以前就是一個空框、空到作業系統放棄為止。判準是**對面有沒有送出過 byte**,不是網格空不空:在那之前,panel 會說出對方是誰、以及等了幾秒。
-- **沒有東西會無聲死掉,也沒有東西只講一次** —— 不正常結束的 session 會跳 toast,說是哪一台、以及 **ssh 自己說了什麼**(`Connection refused`,不是 `disconnected`);網格會留著那句話而不是變回空框;app log 保存的是**整個最終畫面** —— 連線被拒是一行,但 host key 不符是十五行,而你要的指紋在中間。log 住在 manage → logs,**落地到 `applogs.yaml`**,重開 app 還在;而且記的不只失敗:host 與 credential 的增刪改、連線的開與關、傳輸的結果、edit 的寫回。nav 與 footer 掛著你還沒讀的錯誤數,看到為止。
+- **沒有東西會無聲死掉,也沒有東西只講一次** —— 不正常結束的 session 會跳 toast,說是哪一台、以及 **ssh 自己說了什麼**(`Connection refused`,不是 `disconnected`);網格會留著那句話而不是變回空框;**Errors** 在 `Enter` 後面保存的是**整個最終畫面** —— 連線被拒是一行,但 host key 不符是十五行,而你要的指紋在中間。列本身維持一行,所以一整面失敗是可以掃的、不是拿來讀的。三本紀錄都落地到磁碟,重開 app 還在;nav 與 footer 掛著你還沒讀的錯誤數,看到為止。
+- **三本紀錄,不是一本 log** —— 什麼壞了、連過什麼、改了什麼。它們要的形狀不一樣:一次連線是一列固定寬,好讓同一台機器順著欄位往下數;而一次失敗是十五行別人的 banner。擠在一起,每一種都是另外兩種的雜訊。
 - **任何離開方式都不留孤兒** —— 每個 ssh 子行程都在自己的 PTY session 上,訊號自己到不了它。一個 registry 認得它們全部,而每一條出路 —— `q`、`Ctrl+C`、外部的 SIGINT/SIGTERM、甚至關掉終端機視窗(SIGHUP)—— 都會順路帶走它們。
 - **frame 不變量** —— 每一條畫出來的線都剛好是終端機的寬度,任何尺寸、任何內容。從遠端來的寬字元、量起來不一樣的 Nerd Font glyph、CJK 檔名,全部靠「量」而不是「猜」;而且有一個測試橫跨尺寸、focus 狀態與資料在檢查它。
 - **unix-first、靜態執行檔** —— macOS + Linux;`CGO_ENABLED=0`。
 
 ## 現況
 
-**v1.3.0。** 三個 tab 各一個 shift 過的字母、分類的 `[1] sshu` nav、可重用的 credentials 與唯讀明細(這一列到底裝了什麼 —— `Enter` 打開,要去哪就在它腳底下問)、落地的 app log、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。300+ 個測試,`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**v1.6.0。** host 上的 tag 與用來裝它的兩列式條目、只標例外而不裝飾常態的顏色(不是 22 的 port)、一本 log 拆成三本紀錄、磁碟上加密的密碼、以及 sshu 裡面再開 sshu 幾層都行而且沒有任何一層吃掉一列畫面。此外仍然是:三個 tab 各一個 shift 過的字母、分類的 nav、可重用的 credentials 與唯讀明細(這一列到底裝了什麼 —— `Enter` 打開,要去哪就在它腳底下問)、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
 - **sftp 側未知 host key 的互動確認** —— 今天是直接拒絕,要先用 ssh tab 接受

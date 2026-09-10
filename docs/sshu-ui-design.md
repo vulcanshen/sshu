@@ -600,7 +600,7 @@ menu、host picker、file picker、Transfers)。
 **`u`/`d` 不繞**,`gg`/`G` 更不用說。半頁是「瞄準」的移動,一個會無聲傳送到清單
 另一端的瞄準比停下來更糟。
 
-**沒有游標的東西也不繞**(`moveScroll`):`!` app log 與 `?` help 是 viewport,
+**沒有游標的東西也不繞**(`moveScroll`):Connections / Changes 與 `?` help 是 viewport,
 捲到底又跳回頂端會讀成故障 —— 因為根本沒有游標可以「繞回去」。
 
 **`u`/`d` 這兩個字母是有代價的**,而且代價落在別人身上 —— 見 §4.4 的保留規則:
@@ -839,7 +839,7 @@ Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製�
 |---|---|---|
 | **menu** | Space menu、**Identity file picker** | 分 region / 清單、cursor-first、選一個執行 |
 | **message** | Delete 確認、Quit 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、**`!` app log**、`[v]iew`、**Enter 明細**(§11.29) | 可捲、沒有游標;**明細的腳底下可以掛一個 offer** |
+| **viewport** | `?` help、**Connections / Changes**、`[v]iew`、**Enter 明細**(§11.29) | 可捲、沒有游標;**明細的腳底下可以掛一個 offer**。**Errors 不在這一格** —— 它有游標,因為 `Enter` 有東西可開(§11.50) |
 | **form** ← **新** | Add host / Edit host / **Edit Host block**(§11.39) | 多欄位、逐欄位 focus、一次提交;**欄位數不必固定** |
 | **input** ← **新** | tab [2] 的 Rename、**KnownHosts 的 `[E]`**(§11.40) | **一行**文字、一個問題、Enter 送出 |
 | **pty** | **tab [3] 的 panel [5]**(ssh session) | 外部程式在 sshu 內 render |
@@ -1344,7 +1344,10 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成**兩格**。所
 一兩欄;不切的代價是整個框壞掉。`TestWideRemoteOutputCannotBreakTheFrame` 用真
 的 pty 印 emoji 來釘住(拿掉 clip 就會量到 92 欄的終端機出現 94 欄的行)。
 
-### 7.1.4 history:先從 panel 變成 popup,再整個變成 app log
+### 7.1.4 history:先從 panel 變成 popup,再整個變成 app log(而後又拆成三本)
+
+> **後續**:這條演進線還有第四步 —— app log 在 §11.49 拆成 Errors / Connections /
+> Changes。底下記的是前三步當時的推理,一字未動。
 
 **第一次(panel → popup)**:`[6]` 不能被操作、大部分時間是空的,卻永久佔掉左欄
 三分之一。開了四五條 session 的時候,擠的是還在用的那個清單。真正有價值的從來不是
