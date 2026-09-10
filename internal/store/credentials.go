@@ -48,8 +48,10 @@ func (c Credential) Validate() error {
 type CredsFile struct {
 	Version     int          `yaml:"version"`
 	Credentials []Credential `yaml:"credentials"`
-	// UnreadableSecrets is the same report File carries, for the same reason.
-	UnreadableSecrets []string `yaml:"-"`
+	// UnreadableSecrets and HadPlaintextSecret are the same reports File
+	// carries, for the same reasons.
+	UnreadableSecrets  []string `yaml:"-"`
+	HadPlaintextSecret bool     `yaml:"-"`
 }
 
 // credsHeader is prepended to every write, for the same reason hosts.yaml has
@@ -130,6 +132,10 @@ func LoadCredsFrom(path string) (CredsFile, []string, error) {
 	for i := range f.Credentials {
 		names[i] = f.Credentials[i].Name
 		secrets[i] = &f.Credentials[i].Password
+		// Asked HERE, before decryptInto rewrites these in place.
+		if p := f.Credentials[i].Password; p != "" && !IsEncrypted(p) {
+			f.HadPlaintextSecret = true
+		}
 	}
 	bad, decErr := decryptInto(names, secrets)
 	if decErr != nil {
