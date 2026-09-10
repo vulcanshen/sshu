@@ -30,7 +30,7 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 
 | tab | 職責 | 狀態 |
 |---|---|---|
-| **[M]anage** | sshu 自己的資料,**外加一個不是它的檔案**;nav 分類:SSH(Hosts、Credentials、**Config = `~/.ssh/config`**,§11.39、**KnownHosts = `~/.ssh/known_hosts`**,§11.40)、Others(Logs)—— 左側 nav `[1] sshu` + 右側內容 `[2]`(Operation 類已實作、遮罩中,見 §11.12) | 已落地 |
+| **[M]anage** | sshu 自己的資料,**外加兩個不是它的檔案**;nav 分三類(§11.49):**SSHU**(Hosts、Credentials —— sshu 自己寫的檔)、**SSH**(**Config = `~/.ssh/config`**,§11.39、**KnownHosts = `~/.ssh/known_hosts`**,§11.40 —— 屬於 ssh、sshu 只讀與就地編輯)、**Logs**(Errors、Connections、Changes)—— 左側 nav `[1] Sections` + 右側內容 `[2]`(Operation 類已實作、遮罩中,見 §11.12) | 已落地 |
 | **[F]ile transfer** | 兩個檔案系統之間的傳輸;內含 `[1]`-`[4]` 四個 panel | 已落地 |
 | **[S]SH** | 多個互動式 session 的**終端網格**;`[1]` sessions、`[2]` layout,格子間按住 Alt 用方向鍵走 | 已落地 |
 
@@ -1320,7 +1320,7 @@ port 不吃這套色 —— 它在非游標列一律 `dimColor`。使用者要�
 
 ### 7.1.2 session 完全不落地
 
-> **v0.2**:**已反轉** —— 失敗連線的完整畫面現在寫進 applogs.yaml(使用者
+> **v0.2**:**已反轉** —— 失敗連線的完整畫面現在寫進 errors.yaml(使用者
 > 裁定「全部落地」),0600 + 警告標頭 + 自我修剪。理由與緩解記在 §11.四;
 > 本節保留當時的推理。
 
@@ -1369,7 +1369,7 @@ vt10x 一個 rune 算一格,但終端機把 emoji 與 CJK 畫成**兩格**。所
 ### 7.1.5 app log —— 一則消息只出現兩秒,等於沒出現過
 
 > **v0.2**:`!` popup 已移除,app log 變成 preference → logs 的**內容
-> panel**,並且**落地到 applogs.yaml**(反轉 §7.1.2「session 完全不落地」——
+> panel**,並且**落地到 errors.yaml**(反轉 §7.1.2「session 完全不落地」——
 > 使用者裁定,代價與緩解見 §11.四)。「看到即已讀」:logs 區上了畫面,未讀
 > 計數就歸零;在那之前 nav 列與 footer 都掛著數字。
 
@@ -1874,9 +1874,18 @@ XDG_CONFIG_HOME 有設   → $XDG_CONFIG_HOME/sshu/
 
 | 檔 | 內容 | 誰維護 |
 |---|---|---|
-| `hosts.yaml` | host 清單 | **[1] hosts tab 的 CRUD** |
-| `config.yaml` | 調校旋鈕 | 手改 `(planned)` |
+| `hosts.yaml` | host 清單 | **manage → Hosts 的 CRUD** |
+| `credentials.yaml` | 可重用的身分 | **manage → Credentials 的 CRUD** |
+| `.sshukey` | 封住密碼的那把 key(§11.51) | app 自動;**唯一不給人讀和手改的檔**,所以是 dotfile |
+| `errors.yaml` | 什麼壞了(§11.49) | app 自動,append |
+| `connections.yaml` | 連過哪些機器、結果如何 | app 自動,append |
+| `changes.yaml` | 改過什麼 | app 自動,append |
+| `config.yaml` | 調校旋鈕 | 手改 |
+| ~~`applogs.yaml`~~ | ~~單一 app log~~ | **已棄用**(§11.49)—— 不讀不寫也不遷移。舊檔留在原地,要不要刪是使用者的事 |
 | `state.yaml` | session 狀態(上次 tab / cursor) | app 自動 `(planned)` |
+
+三本 journal 的檔名跟面板名一致,而那是刻意的:面板叫 Connections、檔案叫
+`history.yaml`,是一次不該有人做的查表(§11.49)。
 
 ### 8.2 `hosts.yaml` schema
 
@@ -1913,35 +1922,61 @@ hosts:
   檔案選擇器寫入時會折回 `~` 形式(`store.FoldHome`),兩者互為反向
 - 寫檔用 **atomic write**(寫 temp → `rename`),避免中途斷電毀掉整份清單
 
-### 8.3 密碼儲存 —— 已決定存在 `hosts.yaml`
+### 8.3 密碼儲存 —— 加密於 `.sshukey`,檔案裡是 `ENC:`
 
-依你的決定,`auth: password` 的密碼**明碼存在 `hosts.yaml`**。這是明確的
-取捨,設計上配套三件事把面積壓到最小:
+**這一段原本寫的是「依你的決定,密碼明碼存在 `hosts.yaml`」,以及一條標著
+`(planned)` 的升級路徑。那個決定已經被取代了**(§11.51),而升級路徑走的不是它
+當時預想的形狀 —— 沒有 `secretStore` 介面、沒有 keychain,而是直接在 store 的
+讀寫兩端加解密。留著這段紀錄是因為「為什麼不是 keychain」本身是個決定,見下。
+
+現在:`auth: password` 的密碼在磁碟上是 `ENC:<base64(nonce‖ciphertext)>`,
+AES-256-GCM,每個值一個新 nonce,key 在同目錄的 `.sshukey`。
+
+原本的三件配套**全部保留**,因為加密沒有取代其中任何一件:
 
 1. **檔案權限固定 `0600`**,每次寫入後重新 `chmod`(即使使用者手動改寬)
-2. **UI 永不顯示明碼** —— 表格的 Auth 欄只顯示 `password` 這個 method 名;form 內
-   一律遮罩成 `••••••••`
+2. **UI 永不顯示明碼** —— 表格的 Auth 欄只顯示 method 名;form 內一律遮罩成
+   `••••••••`;credential picker 顯示**固定長度**的遮罩(連長度都不透露)
 3. **檔頭固定寫一行警告註解**,提醒此檔不可進版控 / 不可同步
 
-> ⚠️ **殘留風險**(已知並接受):`hosts.yaml` 一旦被雲端同步、備份、或誤
-> `git add`,密碼即外洩;0600 擋不了「檔案被整份複製走」。
+> ⚠️ **殘留風險改變了形狀,但沒有消失。**
+>
+> 加密**擋得住**:`hosts.yaml` 或 `credentials.yaml` 被**單獨**貼進 Slack、誤
+> `git add`、被備份單獨撈走 —— 它們是密文,什麼都沒說。
+>
+> 加密**擋不住**:整個 config 目錄被雲端同步或整份複製走 —— **key 就在裡面**。
+> 也擋不住同一個 user 底下的其他程式,它讀 key 的方式跟 sshu 一模一樣。
+>
+> **所以這是分離,不是機密性**:原本一個檔就外洩,現在要兩個。上面這條「不可
+> 同步」的警告因此**完全有效**,一個字都不能拿掉。要蓋掉第二種情況只有一個
+> 辦法:`SSHU_KEY_FILE` 把 key 移到不會被一起複製的地方 —— 而那是你得記得自己
+> 備份的東西,弄丟它等於弄丟每一個密碼,所以刻意不是預設。
 >
 **密碼怎麼送給 ssh**:走 `SSH_ASKPASS` + `SSH_ASKPASS_REQUIRE=force`
 (OpenSSH 8.4+)。ssh 會把 sshu 自己再執行一次、環境變數帶
 `SSHU_ASKPASS_HOST=<name>`,那個模式**只印出該 host 的密碼然後結束**,不啟動
 TUI。
 
-- **密碼不進子行程的環境變數** —— helper 自己重讀 `hosts.yaml`(0600),
-  所以祕密只存在那一個檔裡,不會被複製進一個活著的行程環境中。
+- **密碼不進子行程的環境變數** —— helper 自己重讀 `hosts.yaml`(0600)**並自己
+  解密**,所以祕密只存在那個檔和那把 key 裡,不會被複製進一個活著的行程環境中。
+  這也是為什麼解密收在 store 層而不是 UI 層:helper 是**另一個 process**,如果
+  解密寫在 UI 裡,它拿到的會是密文。
 - **不去比對 pty 裡的 `password:` 提示然後自動打字**:提示文字會隨語系 /
   OpenSSH 版本變,而且那等於把密碼寫進 pty 的 input。
 - helper 失敗(找不到 host、不是 password 認證、檔讀不到)就回非零,ssh 退回
   在 pty 裡提示、使用者自己打 —— 不會卡死。
 
-> **升級路徑(`(planned)`)**:把密碼讀寫抽成一個 `secretStore` 介面,
-> v1 實作 `yamlStore`,之後可直接掛 `keychainStore`(macOS Keychain /
-> libsecret),`hosts.yaml` 改成只存 reference。介面現在就留、之後不用改
-> schema 以外的東西。
+> **那條 `(planned)` 的升級路徑沒有照原樣走,而那是刻意的。** 它預想的是抽一個
+> `secretStore` 介面、之後掛 `keychainStore`(macOS Keychain / libsecret)。
+> keychain 被否決了:sshu 有一半的時間跑在**遠端 Linux 和容器**裡,那裡沒有
+> D-Bus / libsecret,而 macOS 第一次讀 keychain 會跳圖形授權對話框 —— 在 alt
+> screen 底下或 ssh 進來的 session 裡會發生什麼事,沒有人驗過。
+>
+> 介面本身也沒有抽。加解密是 store 讀寫兩端各一次呼叫,而一個只有一種實作的
+> 介面是為了想像中的第二種實作而存在的 —— 真的需要第二種(keychain、主密碼)
+> 時再抽,那時才知道它該長什麼樣。
+>
+> 完整的推理、被否決的 AAD 與機器綁定推導、以及三個會毀資料的坑,見 §11.51。
 
 ---
 
@@ -1961,12 +1996,28 @@ host 端寫 `auth: credential` + `credential: ops-pw`,連線時經
 `store.Resolve` 換成具體的 user+auth;引用斷掉在**確認框那一步**就報錯,
 不會走到 ssh 裡才失敗。刪除/改名 credential 時會數還有幾台 host 引用它。
 
-### 8.5 `applogs.yaml` —— app log 的落地(v0.2)
+### 8.5 三本 journal 的落地 —— `errors` / `connections` / `changes`
 
-裸的 top-level YAML list:記一筆事件=往檔尾 append 一個單元素 list 的
-bytes,熱路徑沒有 read-modify-write,寫到一半掛掉損失一筆而不是整檔。
-超過 1 MiB 自我修剪(條數與位元組雙重上限)。失敗連線的完整畫面在裡面,
-所以比照密碼檔:0600 每次重申 + 警告標頭。
+**這一節原本是 `applogs.yaml` 一個檔。它在 §11.49 拆成三本**,因為一個 log 同時
+在回答三個問題,而那三個問題要的形狀互不相容。**舊檔已棄用,而且不遷移** ——
+一個檔的三半要去三個不同的地方,猜哪一筆是哪一類等於在編造歷史。
+
+**機制三本共用,一行沒變**:裸的 top-level YAML list,記一筆事件 = 往檔尾 append
+一個單元素 list 的 bytes,熱路徑沒有 read-modify-write,寫到一半掛掉損失一筆而
+不是整檔。超過 1 MiB 自我修剪(條數與位元組雙重上限)。
+
+| 檔 | 一筆長什麼樣 |
+|---|---|
+| `errors.yaml` | `at` / `host` / `user` / `level`(warn·error)/ `cause`(一行)/ `error`(全文,可跨行) |
+| `connections.yaml` | `at` / `host` / `user` / `result`(success·fail) |
+| `changes.yaml` | `at` / `action` |
+
+`host` 與 `user` 在 errors 是 `omitempty`:一個 `config.yaml` 解析失敗背後沒有
+機器,寫空字串會讓手讀的人以為有(面板那邊畫 `—`)。
+
+**三本都比照密碼檔:0600 每次重申 + 警告標頭。** errors 裡有失敗連線的完整畫面,
+而 connections 與 changes 指名你連過的機器、用的身分、動過的路徑 —— 沒有一本
+適合離開那個目錄。
 
 ### 8.6 訊號與孤兒(v0.2)
 
@@ -2011,7 +2062,7 @@ sshu/
 │   │   ├── editorcmd.go    $VISUAL/$EDITOR/vi 解析、環境剝除
 │   │   ├── inputpopup.go   一行文字的問句(Rename / Add)
 │   │   ├── confirm.go      破壞性動作與離開的確認
-│   │   ├── applog.go       app log([M]anage → logs 的內容 panel;寫穿 applogs.yaml)
+│   │   ├── journals.go     三本 journal 的 model(Errors / Connections / Changes;各自寫穿自己的檔)
 │   │   ├── procreg.go      子行程 registry + KillChildren(v0.2)
 │   │   ├── empty.go        沒有 item 時的統一空狀態(事實 + 可折行提示)
 │   │   ├── nav.go          清單導覽詞彙:繞回、半頁、保留字母
@@ -2037,7 +2088,8 @@ sshu/
 │       ├── config.go       config.yaml(唯讀:連線預算)
 │       ├── hosts.go        hosts.yaml 讀寫 + 驗證 + Resolve(credential)
 │       ├── credentials.go  credentials.yaml 讀寫 + 驗證(v0.2)
-│       └── applog.go       applogs.yaml append/讀回/自我修剪(v0.2)
+│       ├── journal.go      三本 journal 的 append/讀回/自我修剪(§11.49)
+│       └── crypt.go        .sshukey 與 ENC: 的加解密(§11.51)
 ├── docs/
 │   ├── sshu-ui-design.md       ← 本檔(為什麼)
 │   └── sshu-implementation.md  現在是怎麼做的
@@ -2525,11 +2577,12 @@ icon 含幾個 10×15 的 rect,固定 10px 網格會漏掉 S 的豎筆,實際漏
 條目同一身分,拼法也跟上。
 
 **分類**(kbu sidebar 的形狀):header 是裝飾列 —— 游標永遠不落在上面,
-j/k 直接跨過去 —— 條目縮排一格站在它底下。三類:**SSH**(Hosts、
-Credentials、Config:連線跑在上面的資料)、**Others**(Logs)、
-**Operation**(Export、Import:對 sshu 自己的設定整體做的動作)。header
-用 dim:它是地標不是選項,跟游標搶眼就輸了。enum 與 moveCursor 原封不動
-—— 分類只活在渲染層,「游標即選擇」的機制一行沒改。
+j/k 直接跨過去 —— 條目縮排一格站在它底下。四類(§11.49 從三類再拆):
+**SSHU**(Hosts、Credentials:sshu 自己發明、自己寫的檔)、**SSH**(Config、
+KnownHosts:屬於 ssh 的檔,sshu 只讀它、就地編輯它)、**Logs**(Errors、
+Connections、Changes)、**Operation**(Export、Import:對 sshu 自己的設定整體
+做的動作)。header 用 dim:它是地標不是選項,跟游標搶眼就輸了。enum 與
+moveCursor 原封不動 —— 分類只活在渲染層,「游標即選擇」的機制一行沒改。
 
 **Operation 頁是 panel,不是 popup。** Export / Import 是 nav 游標落腳的
 目的地,跟 Hosts 或 Logs 同級;它們唯一的內容就是一張小表單,再包一層
@@ -2609,9 +2662,10 @@ panel chip 同一組配色**(baseHex 字 + borderDim 底):app 裡「沒被選到
 比對,大小寫不折疊。一個動作不開 action table:一列不是註冊表,menu 那列
 與 panel 那個鍵各寫一次同一個條件就夠了。
 
-**先問**(confirm popup,跟刪 host 同一個形狀):log 是「你沒在看的時候
-發生了什麼」的唯一記錄,而且清掉會連 `applogs.yaml` 一起清。確認句把代價
-寫出來:`38 entries erased, applogs.yaml too.`。
+**先問**(confirm popup,跟刪 host 同一個形狀):journal 是「你沒在看的時候
+發生了什麼」的唯一記錄,而且清掉會連它的檔一起清。確認句把代價寫出來,而且
+**指名是哪一個檔** —— 三本了,光看面板標題說不出哪些位元組要消失:
+`38 entries erased, errors.yaml too.`。清的也只有當前那一本(§11.49)。
 
 **先清檔案,再清記憶體**:順序反過來的話,檔案還在而畫面空了 —— 下次開
 app 全部回來,這是 clear 唯一不能有的結果。檔案拒絕(唯讀、權限)就整批
@@ -5610,6 +5664,318 @@ written by a newer sshu (version 99, this build understands 2)`)。真的變成�
 
 ---
 
+### 11.49 一本 log 同時回答三個問題 —— 拆成 Errors / Connections / Changes
+
+`applogs.yaml` 是一個檔,裝著所有發生過的事,三個層級,一個 free-text 欄位。
+在只有一個問題要回答時那是對的形狀。實際上有三個:
+
+| 問題 | 面板 | 檔案 |
+|---|---|---|
+| 什麼壞了 | **Errors** | `errors.yaml` |
+| 連過哪些機器、結果如何 | **Connections** | `connections.yaml` |
+| 我改過什麼 | **Changes** | `changes.yaml` |
+
+**一個檔沒辦法同時是這三種。** Connections 要的是固定寬度的一列,這樣同一台機器
+的紀錄可以順著欄位往下數;而一筆 error 是十五行別人的 banner。擠在一起的結果是
+每一種有用的形狀都變成另外兩種的雜訊 —— 想找「哪台機器出事」得把整面牆讀過去。
+
+#### `applogs.yaml` 棄用,而且不遷移
+
+使用者的裁定,而且它是對的:一個檔的三半要去三個不同的地方,**遷移程式無法正確
+拆分**。猜哪一筆是哪一類等於在編造歷史,不是保存它。舊檔留在磁碟上不被讀寫,要不
+要刪是使用者的事。
+
+#### 事件的去向 —— 24 個寫入點
+
+| 去向 | 事件 |
+|---|---|
+| **Connections** | ssh session 結束(`s.ok` → success/fail)、sftp 連線成功 / 失敗 |
+| **Errors** | ssh 連線失敗(帶完整最終畫面)、sftp 失敗、transfer 失敗、edit 寫回失敗、啟動錯誤與警告 |
+| **Changes** | host / credential / ssh_config / known_hosts 的增修刪、bundle 匯出入、transfer 完成或取消、edit 存檔 |
+| **不再記錄** | `connecting to`(被 Connections 的結果取代)、sftp 斷線、pty lock / release ×4、chain zoom ×2 |
+
+**丟掉的那八個全是狀態切換,不是改變。** 鎖住一格改變的是鍵盤走向,不是有什麼
+東西存在;Changes 記的是活得比這次 session 久的東西,而一串 lock/release 會把
+它們埋掉。sftp 斷線同理:它既不是連線的**結果**,也不是改變,而 Connections 的
+兩個字(success / fail)沒有第三個位置給它。
+
+#### warn 也住在 Errors,但不算未讀
+
+原本的設計是「Errors 只記 error」。實作時發現有一族事件無處可去:**重複的 host
+名被丟掉**(§11.38)、`config.yaml` 有一行 sshu 認不得、`hosts.yaml` 的版本比
+sshu 新。它們既不是連線也不是變更,而 alt screen 底下 **stderr 看不見**,這是
+它們唯一的管道。
+
+所以 Errors 收 `warn` 和 `error` 兩級,但**只有 error 進未讀計數**。徽章的意思
+是「有東西壞了」;摻進「有東西被提到」就是徽章開始沒人看的方式。
+
+兩者靠**顏色**分辨,用的正好是 §11.48 拆出來的那兩條帶:**red = 出事了**、
+**peach = 值得知道,但沒壞**。舊的 log 兩者都畫紅,所以面板不逐字讀就分不出來。
+
+#### 失敗時兩本都記,而且說的是不同的事
+
+Connections 記**結果**,Errors 記**原因**。一次失敗的連線兩本都有,這是刻意的:
+
+> 把原因也寫進 Connections,等於讓同一次失敗有兩份可能互相矛盾的說法 —— 而那
+> 正是原本那個 log 的樣子。
+
+#### ssh 的紀錄寫在 session **結束**時
+
+因為那是唯一知道答案的時刻,而且 `reap()` 已經在那裡設好 `s.ok`。它給出「一次
+連線恰好一筆」,沒有邊界情況:不會有「connecting 卻永遠沒有結果」的殘缺紀錄,
+也不會有「連上之後又斷線」被記成兩筆。
+
+**唯一的例外是根本沒啟動的 session**(`m.ssh.connect(h)` 就失敗),它記在失敗的
+當場 —— 因為不會有「結束」可以攔它。
+
+#### 兩件由結構保證、而不是靠紀律的事
+
+- **askpass helper 碰不到這些檔**。它在 `store.Load()` **之前**就 `os.Exit`,而
+  三本 journal 是在那之後才載入的。一個被叫來印一次密碼的程式沒有資格改寫紀錄,
+  而那個提早返回讓這件事是事實而不是約定。
+- **解析失敗的 journal 絕不會被寫回**。壞掉的 `credentials.yaml` 回來是一份空
+  文件,把它寫回去等於把「sshu 讀不懂你的檔」變成「sshu 刪掉了你的 credential」。
+
+#### 命名 —— 三種命名邏輯混在一起
+
+第一版的 nav 是 Hosts / Credentials / Config / KnownHosts / Errors / History /
+Activity。使用者指出單複數不一致,而查下去發現問題更深:**那是三種不同的命名
+邏輯**。
+
+| 名字 | 它在指什麼 |
+|---|---|
+| Hosts / Credentials / Errors | 清單裡的**東西**,複數 |
+| Config / KnownHosts | **檔名** —— `~/.ssh/config`、`~/.ssh/known_hosts` |
+| History / Activity | 抽象的**不可數名詞** |
+
+硬要統一會壞:`Configs` 不是那個檔的名字、`Histories` 不是英文、`Activities` 意思
+會變成「多項活動」。全部單數更糟 —— `Host`、`Error` 都在講一個清單。
+
+**解法是讓那兩個抽象名詞說出它們列的東西。** History 的一列是一次**連線**,
+Activity 的一列是一次**變更** → `Connections` / `Changes`。Logs 底下三個全複數、
+完全平行,而且語意更準:**什麼壞了 / 連過什麼 / 改了什麼**。原本那兩個名字根本
+沒說出面板裡有什麼。
+
+`Config` 和 `KnownHosts` **保持原樣**。它們的不一致來自 `~/.ssh` 而不是來自
+sshu,而照抄檔名正是讓人找得到面板在編哪個檔的東西。
+
+**檔名跟著改**(`connections.yaml` / `changes.yaml`)—— 面板跟它的檔對不上,是
+一次不該有人做的查表。schema 一個位元組都沒動。
+
+#### 分組 —— SSHU 與 SSH 是一條真的界線
+
+```
+SSHU   Hosts · Credentials          sshu 自己發明、自己寫的檔
+SSH    Config · KnownHosts          屬於 ssh 的檔,sshu 只讀它、就地編輯它
+Logs   Errors · Connections · Changes
+```
+
+原本四個擠在同一個 `SSH` 標題下,讀起來像四個同類的東西。**它們不是** —— 而
+「編 Config 那一列是在編別人的檔案」正是使用者該相信的事,共用標題默默削弱了它。
+
+#### panel `[1]` 從 `sshu` 改成 `Sections`
+
+不是美觀問題:`SSHU` 變成它**裡面**的一個群組之後,同一個字在兩個層級表示兩件
+不同的事。`Sections` 是程式碼一直以來的叫法(`prefSections`),只是標籤沒跟上。
+
+#### 清除是逐本的
+
+`[C]lear` 清的是**當前這一本**,而且確認框會**指名檔案**(三本了,光看面板標題
+說不出哪些位元組要消失)。一個鍵做的事超過它被按下的那個面板,就是做太多。
+
+#### 未讀徽章只屬於 Errors
+
+Connections 和 Changes 沒有徽章,所以「看過它們」沒有東西可標記 —— 徽章數的是
+失敗,而讀一串成功的連線紀錄,對「失敗有沒有被看到」什麼都沒說。
+
+---
+
+### 11.50 Errors 是一張可以掃的表 —— cause 一列,其餘在 Enter 後面
+
+三本 journal 第一版落地時只有名字像表格。Connections 和 Changes 有欄位但沒有欄位
+**名**;Errors 根本不是表格 —— 每一筆是一列欄位加上底下 wrap 開來的失敗全文。
+那個形狀保住了每一個字,代價是面板沒辦法掃:十筆失敗就是六十行別人的 banner,
+機器名埋在裡面。
+
+所以三本都寫出欄位名,而一筆 error 收成**一列**:
+
+```
+Time      Host                 User          Cause
+11:25:00  db-replica-tokyo     postgres      sftp: db-replica-tokyo · dial tc…
+11:22:14  —                    —             config.yaml: line 3 is not a set…
+11:20:01  prod-web-01          deploy        prod-web-01 · Host key verificat…
+```
+
+cause 放不下就用全 app 同一個 `…` 截斷,而**遠端印的全文在 Enter 後面**。
+
+**這正是原本那個單一 log 做不到的取捨。** 它得在「讀得動」和「留得全」之間選一個,
+而它選了後者 —— 所以要找任何東西都得把全部讀過。一列可以掃 + 一個鍵打開其餘,
+兩個都拿到。
+
+#### `cause` 是存的,不是推導的
+
+它**可以**是 `error` 的第一行,但仍然獨立存進 `errors.yaml`。兩個理由:
+
+1. 手讀那個檔的人不必先知道「cause 是第一行」這條規則
+2. 將來要讓 headline **不等於**第一行,不需要改格式
+
+沒有 `cause` 欄的舊 entry(這個欄位出現之前寫的)會**退回用 `error` 的第一行**,
+而不是顯示空白。journal 沒有 version 欄位、也不需要 —— **容忍舊形狀就是它的機制**。
+
+#### 只有 Errors 有游標
+
+因為它是唯一**有地方可去**的一本:一列顯示 cause,Enter 打開全部。Connections 和
+Changes 的一列背後沒有東西,而**按不下去的游標看起來就是壞的**。
+
+原本那個「log 沒有游標」的測試,現在斷言的正是這件事的反面 —— 同一句話換個方向指。
+
+#### 游標會跟著新進的 entry 移動
+
+新的一筆插在 newest-first 表格的**頂端**,所以停在下面的游標會在沒有動的情況下
+落到別的一列上。它跟著位移,**除非本來就停在最新那一列** —— 那裡「留在原地」正是
+它想要的。
+
+#### 浮層複用既有的 viewer,不新增第七種
+
+「一坨可捲動的文字框」就是 viewer 已經是的東西。跟它顯示檔案有兩處不同:
+
+- **文字先 wrap 過**。viewer 把 rows 直接送去 ANSI-aware 裁切,那對一行原始碼是
+  對的、對別人的錯誤訊息是錯的 —— 說明原因的字在**結尾**(`…port 22: Connection
+  refused`),截掉尾巴就是丟掉開這個面板的唯一理由。用 `wrapPlain` 而不是
+  `wrapText`:在機器輸出裡優先找分隔符會浪費每一行三分之一。
+- **縮排一格**。原始碼要守住自己的欄位,散文貼著邊框讀起來像壞掉。
+
+標題是**機器名**,因為那是你把游標放上去時在找的東西。
+
+#### 兩個我自己的錯
+
+**Connections 的欄寬少算一個 gap。** 一列有三個 gap(time|host、host|user、
+user|result),預算只扣了兩個,`Result` 被邊框吃掉一格。在加欄位名之前完全看不
+出來 —— `fail` 有 padding,而 `success` 剛好七格。
+
+**一個靠巧合通過的測試。** 它斷言 `wrapPlain` 不會把 IP 斷在點上,但 plain wrap
+的契約就是「填滿到寬度,不管落在哪」—— 能不能保住完整的 IP 純粹看 fixture 的字
+剛好落在哪,欄寬一改就破。**刪掉並把理由寫下來**,而不是重新調參數讓它再過一次。
+
+---
+
+### 11.51 密碼不再是明碼 —— AES-256-GCM 與一把獨立的 key
+
+`password:` 欄位在磁碟上變成 `ENC:<base64(nonce‖ciphertext)>`,讀取時拆掉前綴。
+key 在 `.sshukey`,`SSHU_KEY_FILE` 可以移走,啟動時不存在就產生。
+
+#### 先說它買到什麼 —— 不然這是一個聽起來比實際安全的功能
+
+| | |
+|---|---|
+| **擋得住** | `hosts.yaml` 被單獨貼進 Slack、誤 commit、被備份單獨撈走 —— 它是密文,什麼都沒說 |
+| **擋不住** | 整個 config 目錄被同步或複製:**key 就在裡面**。也擋不住同一個 user 底下的任何程式 —— 它讀 key 的方式跟 sshu 一模一樣 |
+
+**所以這是分離,不是機密性**:原本一個檔就外洩,現在要兩個。這值得做,因為上面
+那一列才是祕密真正逃走的地方 —— 但 **§8.3 的警告完全保留**,那個目錄仍然不是能
+拿去同步的東西。
+
+`SSHU_KEY_FILE` 是蓋掉第二列的唯一方法,而它**刻意不是預設**:key 放到 config
+目錄之外,就是一個你得記得自己備份的東西,而弄丟它等於弄丟每一個密碼。
+
+#### 兩個被否決的做法
+
+**機器綁定推導**(key 從 `/etc/machine-id` 算出來、不落地)。它能蓋掉「config 被
+複製到另一台機器」,但 `/etc/machine-id` **每次重建容器就變**,而 sshu 有一半的
+時間在容器和遠端 Linux 上跑;重灌則是每個密碼都沒了、沒有回頭路。
+
+**AAD 綁 host 名**(密文綁定到那一筆的名字,防止被搬到別筆)。手改 YAML 是明確
+支援的入口,而綁了之後**改個名字就會靜默毀掉密碼**。威脅模型也弱:能編那個檔的
+人也能讀那把 key。
+
+#### key 是 dotfile
+
+那個目錄裡**只有它不是給人讀和手改的**。其他每一個檔都邀請你手改(`hosts.yaml`
+的標頭自己這麼說),一把 key 混在同一份列表裡,會被當成又一個可以打開來整理的檔。
+前導的點是這個目錄在說:哪些是你的,哪一個是機械。
+
+內容是**一行 base64**而不是 raw bytes,這樣它可以被讀、被複製到另一台機器、被貼
+進密碼管理器,而不會被任何東西弄壞。
+
+#### 前綴讓升級不需要遷移程式
+
+沒有 `ENC:` 的值就是明文,照讀;封裝發生在**下一次存檔**。所以「舊檔怎麼變成新
+檔」這件事沒有一行專門的程式碼 —— 它是既有的存檔路徑。
+
+#### 版本**沒有**因為加密而推進
+
+第一版推了(hosts → 3、credentials → 2),使用者質疑「既然都用 `ENC:` 判斷了」,
+而他是對的。與其推論,直接從 tag 建了一個 v1.5.1 的 binary 餵它加密過的檔:
+
+```
+v1.5.1 askpass →  ENC:H1jsj77NFcbDrpmqsmXufG5xRY24bC28FzjKYZTn…
+v1.5.1 存回去   →  密文原樣、version 原樣、tags 原樣
+```
+
+它照樣載入、照樣把密文當密碼餵給 ssh。**`version: 3` 一點都沒攔住** ——
+`refuseIfNewer` 只守寫入,而讀取沒人擋。而寫回去時密文完好無損,因為一個它看不懂
+的字串進來什麼樣就出去什麼樣。
+
+**版本存在的理由只有一個:阻止更舊的 sshu 造成它自己不知道的損害。** tag 符合
+(v1.5.1 會把 tags 抹掉),加密不符合。所以那次推進買到的是零 —— 沒有多任何保護,
+對抗的又是不會發生的損害。一個事實兩個來源,而前綴本來就是比較好的那個。
+
+**但版本當時偷偷做著第二件事**,而那才是差點一起丟掉的東西:它是**觸發器**。
+啟動時的自動重寫看的是「版本落後」,而那次重寫正是把既有明文封起來的時刻。退回
+版本之後,已經是當前版本的檔案永遠不會被重寫 —— 不編輯 host 的人,密碼永遠是明文。
+
+那個工作交還給它真正該問的問題:**這個檔有明文密碼嗎?** 這比版本好在兩頭 ——
+手改進去的明文下次啟動也會被封,而版本號回到只表達一件事。
+
+#### 一個讀起來完全正確的錯誤
+
+第一版把那個問題寫成「問載入後的 struct」。它錯得很隱蔽:**解密發生在載入的路上,
+所以記憶體裡的密碼依定義永遠是明文** —— 方法恆回 `true`,啟動時會把兩個檔重寫
+一遍,每次都換新 nonce。
+
+必須在「儲存值還是儲存值」的當下記錄,也就是 `HadPlaintextSecret`。抓到它的是那句
+「載入一個已封的檔,它不該再要求重寫」的斷言。
+
+#### 兩個會毀資料的坑
+
+**解不開的密碼絕不能填空。** 第一版失敗時回空字串 —— 下一次存檔就會把空值寫在
+密文上,**密碼永久消失**。現在失敗回傳**原值**(仍帶前綴),而加密端看到已封的值
+直接放行。祕密留在磁碟上等正確的 key 回來。
+
+**加密前必須複製。** `File` 是值但 `Hosts` 是 slice,而 UI 傳的正是它正在顯示的
+那一份 —— 就地加密會讓畫面上的密碼變成密文,下次編輯就把密文當成使用者輸入存回去。
+有一個以此命名的測試,因為讀程式碼看不出來。
+
+#### 沒有 key 不能讓 app 開不起來
+
+第一版是 load error,而 sshu 直接沒啟動 —— 把使用者鎖在唯一能告訴他出了什麼事的
+程式外面,而那時每一台金鑰認證的 host 其實都好好的。現在是:**每個封起來的祕密
+回報為讀不到,檔案照載,app 照跑**。
+
+分兩種情況,因為它們要的答覆不同:
+
+| 情況 | 行為 |
+|---|---|
+| key **不存在** | 全部列入 `UnreadableSecrets`,不是錯誤 |
+| key 在,但**不是 key** | **是錯誤** —— 有人在那個路徑放了別的東西,那是有明確修法的問題 |
+
+讀不到的那一筆在 Errors 面板出現,**Host 欄有機器名**(§11.50 的欄位剛好用上),
+cause 是一行,Enter 展開完整說明**和 key 的路徑**。
+
+#### 實測
+
+`SSHU_CONFIG` 指到合成目錄,跑真的 binary:
+
+- 明文 v2 config → 啟動一次 → `ENC:` 值,位元組裡找不到密碼
+- **askpass helper**(另一個 process,也正是「解密如果寫在 UI 層就會壞」的那個
+  案例)把密碼原樣印回來
+- 刪掉 key → app 照開、兩筆都被指名、密文位元組完全沒變
+- 放回 key → 密碼又讀得出來
+- 封裝**只發生一次**:連跑三次密文位元組相同 —— 重寫一定會換 nonce,所以這是這裡
+  唯一有意義的檢查
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -5633,12 +5999,14 @@ written by a newer sshu (version 99, this build understands 2)`)。真的變成�
 
 | Surface | 鍵 | 動作 |
 |---|---|---|
-| `[1]` nav | `j`/`k` · `Enter` | 選條目(SSH / Others 分類的 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 —— 鍵盤在 `[2]` 時整片 dim(§11.13) |
-| `[2]` Hosts | **`Enter`** · `E` · `D` · `X` · `A` · `/` | **Enter = 唯讀明細,腳底下是 `Connect to "<name>"?`**(§11.29;只想看就 Esc;credential 斷掉時不給 offer)/ Edit / **Duplicate**(填好的 Add,第一次 Enter 一定撞名字,§11.35)/ **Delete**(確認)/ Add / Search |
+| `[1]` Sections | `j`/`k` · `Enter` | 選條目(**SSHU / SSH / Logs** 三個 header 直接跳過;內容立刻跟著換)/ 鍵盤交給內容 —— 鍵盤在 `[2]` 時整片 dim(§11.13) |
+| `[2]` Hosts | **`Enter`** · `E` · `D` · `X` · `A` · `/` | **一台兩列**:上列 Name/User/Host/Port/Auth,下列 tag(§11.48)。**Enter = 唯讀明細,腳底下是 `Connect to "<name>"?`**(§11.29;只想看就 Esc;credential 斷掉時不給 offer)/ Edit / **Duplicate**(填好的 Add,第一次 Enter 一定撞名字,§11.35)/ **Delete**(確認)/ Add / **Search = name·user·host·port·tags** |
 | `[2]` Credentials | **`Enter`** · **`E`** · `D` · `X` · `A` | **Enter = 唯讀明細,腳底下是 `Edit "<name>"?`**(§11.29)/ **Edit**(§11.34:括號要給單一字母;直達表單)/ **Duplicate**(§11.35)/ **Delete**(確認,列出引用數)/ Add |
 | `[2]` Config | **`Enter`** · `E` · `D` · `X` · `A` | `~/.ssh/config` **及它 `Include` 的每一個檔**的 `Host` 區塊(§11.39、§11.42;檔案多於一個時多一欄 `File`)。**Enter = 唯讀明細(每一個選項 + 在檔案的第幾行),腳底下是 `Edit "<pattern>"?`** / Edit(**動態表單**:五個固定欄 + 這塊現有的每個關鍵字各一列 + `+ add option`;清空欄位 = 刪掉那一行)/ Duplicate / Delete(先問,數出會一起消失的選項行數)/ Add(接在檔尾) |
 | `[2]` KnownHosts | **`Enter`** · `E` · `X` · `A` | `~/.ssh/known_hosts` 的每一筆 host key(§11.40)。**Enter = 唯讀明細(完整 SHA256 指紋 + 第幾行),腳底下是改名的 offer** / **Edit = input 一行**(只改「這把金鑰被信任於哪些名字」,金鑰永不可編)/ **Delete**(先問,顯示指紋)/ **Add = 去問那台機器**(顯示指紋,答應了才寫)。**沒有 `[D]uplicate`** —— 逗號清單已經是它 |
-| `[2]` Logs | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 捲動(viewport,無游標;上畫面即已讀)/ Clear logs(先問;連 applogs.yaml,空 log 時不存在) |
+| `[2]` Errors | `j`/`k`/`u`/`d`/`gg`/`G` · **`Enter`** · `C` | 一筆一列(Time/Host/User/Cause,cause 過長 `…`);**有游標**,因為有地方可去(§11.50)。**Enter = 浮層展開遠端印的全文**(wrap,不截尾)/ Clear errors(先問;連 `errors.yaml`,空的時候不存在)。**上畫面即已讀** —— 未讀徽章只屬於這一本 |
+| `[2]` Connections | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 每一次連線嘗試一列(Time/Host/User/Result,綠 success / 紅 fail)。捲動,**無游標** —— 一列背後沒有東西 / Clear connections(先問;連 `connections.yaml`) |
+| `[2]` Changes | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 你改過什麼,一筆一列(Time/Action)。捲動,無游標 / Clear changes(先問;連 `changes.yaml`) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案,見 §11.12 追記 |
 
 ### Host / credential form

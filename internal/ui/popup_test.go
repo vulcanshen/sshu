@@ -187,7 +187,8 @@ func TestSpaceMenuListsEveryAction(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("action %q (%s) is not in the Space menu — that is a VTP hole", a.label, a.key)
+			t.Errorf("action %q (%s) is not in the Space menu — that is a hole in the principle",
+				a.label, a.key)
 		}
 	}
 }

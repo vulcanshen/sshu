@@ -173,7 +173,7 @@ func tabRow(w int, labels []string, active int, status string, live bool) string
 }
 
 // keyLegend renders the footer's "key desc" pairs. This is the mandatory
-// disclosure channel for the two VTP entry keys (§A.1 / §A.2): a user who never
+// disclosure channel for the two entry keys (§A.1 / §A.2): a user who never
 // read a README learns Space and ? exist by reading this row.
 //
 // When the terminal is too narrow, pairs are dropped from the RIGHT — the entry

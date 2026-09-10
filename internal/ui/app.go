@@ -107,7 +107,14 @@ type AppModel struct {
 	toast        toastModel
 
 	// pendingG holds the first half of the gg chord. A chord is a shortcut for an
-	// action that already exists, so it costs no core-key slot (§A.0.Y).
+	// action that already exists, so it is not a core key and brings no
+	// semantics of its own (§A.0.K).
+	//
+	// This said "costs no core-key slot", from when the principle capped the
+	// count at five. §A.0.K prescribes what each core key MEANS and does not
+	// limit how many there are, so there is no slot to spend — the reason the
+	// chord is not one is that it adds no meaning, not that it fits under a
+	// ceiling.
 	pendingG bool
 }
 
@@ -565,7 +572,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Alt+Esc is sshu's own key, not a VTP core key: it exists because panel [5]
+	// Alt+Esc is sshu's own key, not a core key: it exists because panel [5]
 	// hands the keyboard to a remote program, and something has to be able to
 	// take it back. It is scoped to that one situation — everywhere else it is
 	// just Esc, so it is never a dead key. Disclosed in the footer whenever the
