@@ -1184,7 +1184,7 @@ var hostActions = []hostAction{
 
 	// panel — the table
 	{key: "A", label: "Add", hint: "a new host", panelOp: true, run: AppModel.openCreate},
-	{key: "/", label: "Search", hint: "name, user, host, port", needsHost: true, panelOp: true, run: AppModel.hostsStartFilter},
+	{key: "/", label: "Search", hint: "name, user, host, port, tags", needsHost: true, panelOp: true, run: AppModel.hostsStartFilter},
 }
 
 // hostsApplicable is what panel [1] can do right now. Both the hotkey and the
@@ -1772,13 +1772,49 @@ func (m AppModel) formKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// credValueHint is the third thing the picker says about a credential: WHICH
+// key it uses, or that a password is set.
+//
+// The two halves are deliberately unequal. A key file shows its path, because
+// that is the entire difference between two key credentials and a path is not a
+// secret — cut from the FRONT when it will not fit, since "…/.ssh/id_ed25519"
+// identifies the key and "~/.ssh/id_ed…" does not.
+//
+// A password shows a fixed mask. Not the password, for the obvious reason, and
+// not its length either — the length is itself something a shoulder can use,
+// and preference → credentials already masks to a constant for the same reason
+// (§8.3). The mask is still information: it says a password is there. A missing
+// one says THAT instead, because a password credential with no password is
+// broken, and the list is a better place to find that out than the next failed
+// connection.
+func credValueHint(c store.Credential, w int) string {
+	if c.Auth == store.AuthPrivateKey {
+		if p := strings.TrimSpace(c.IdentityFile); p != "" {
+			return truncateHead(store.FoldHome(p), w)
+		}
+		return "(no key file)"
+	}
+	if strings.TrimSpace(c.Password) == "" {
+		return "(not set)"
+	}
+	return credValueMask
+}
+
+// credValueMask is a constant six cells wide — never the real length.
+const credValueMask = "••••••"
+
 // openCredPicker lists the saved credentials over the form. An empty list is
 // still an answer: it says where credentials come from.
 func (m AppModel) openCredPicker() (tea.Model, tea.Cmd) {
 	items := []menuItem{{label: "use credential", header: true}}
+	// The hint carries a path now, so it needs a ceiling set where the screen
+	// width is known. Left to the menu, an over-long hint widens the box until
+	// it hits the screen and THEN truncates from the right — losing the end of
+	// the path, which is the half that identifies the key.
+	valueW := max(10, m.w/4)
 	for _, c := range m.creds.creds {
 		items = append(items, menuItem{label: c.Name, key: "@" + c.Name,
-			hint: c.User + " · " + string(c.Auth)})
+			hint: c.User + " · " + string(c.Auth) + " · " + credValueHint(c, valueW)})
 	}
 	if len(m.creds.creds) == 0 {
 		items = append(items,

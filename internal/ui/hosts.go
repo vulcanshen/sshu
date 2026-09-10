@@ -44,8 +44,12 @@ func (m *hostsModel) setSize(w, h int) {
 	m.ensureVisible()
 }
 
-// visibleRows is how many host rows fit under the header.
-func (m hostsModel) visibleRows() int { return max(1, m.h-2-headerRows) }
+// visibleRows is how many HOSTS fit under the header — entries, not lines.
+// Everything downstream (the cursor, ensureVisible, the half-page jump) counts
+// entries, so this is the one place the two-line height is divided out.
+func (m hostsModel) visibleRows() int {
+	return max(1, (m.h-2-headerRows)/hostRowLines)
+}
 
 // rowCount is how many rows the table is showing.
 func (m hostsModel) rowCount() int {
@@ -101,11 +105,16 @@ func (m hostsModel) cursorIndex() (int, bool) {
 
 // refilter reruns the match.
 //
-// The haystack is the row's identifying fields joined — name, user, host, port —
-// and NOT the auth method: "password" and "privatekey" are two words shared by
-// most of the table, so matching them would drag in rows that have nothing to do
-// with what was typed. Joining rather than testing each field separately is what
-// lets a query span columns, so "prod 22" finds prod-web-01 on port 22.
+// The haystack is the row's identifying fields joined — name, user, host, port,
+// tags — and NOT the auth method: "password" and "privatekey" are two words
+// shared by most of the table, so matching them would drag in rows that have
+// nothing to do with what was typed. Joining rather than testing each field
+// separately is what lets a query span columns, so "prod 22" finds prod-web-01
+// on port 22.
+//
+// Tags are IN, and they are the reason the field earns its place: a tag is a
+// word the user chose to group hosts by, so pulling the whole group up with one
+// query is what it was written for. A tag you cannot search is decoration.
 func (m *hostsModel) refilter() {
 	type hit struct{ i, score int }
 	var hits []hit
@@ -149,7 +158,8 @@ func (m hostsModel) displayUser(h store.Host) string {
 }
 
 func hostHaystack(h store.Host) string {
-	return h.Name + " " + h.User + " " + h.Host + " " + strconv.Itoa(h.Port)
+	return h.Name + " " + h.User + " " + h.Host + " " + strconv.Itoa(h.Port) +
+		" " + strings.Join(h.Tags, " ")
 }
 
 // filterKey edits the query. Letters type and arrows move — the same split the
@@ -245,12 +255,14 @@ func (m hostsModel) tableBody(innerW, innerH int) []string {
 		out = append(out, tableHeader(c, innerW))
 	}
 
-	for i := m.top; i < m.rowCount() && len(out) < innerH; i++ {
+	// An entry is drawn whole or not at all: a host whose tag line would fall
+	// off the bottom is not shown as a headless row.
+	for i := m.top; i < m.rowCount() && len(out)+hostRowLines <= innerH; i++ {
 		h, ok := m.rowAt(i)
 		if !ok {
 			break
 		}
-		out = append(out, renderHostRow(h, m.displayUser(h), c, i == m.cursor, innerW))
+		out = append(out, renderHostRow(h, m.displayUser(h), c, i == m.cursor, innerW)...)
 	}
 	return out
 }

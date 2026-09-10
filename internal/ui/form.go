@@ -55,6 +55,14 @@ type formField struct {
 	separator bool
 	options   []string
 	sel       int
+	// optional: the row takes part, but blank IS an answer.
+	//
+	// Every other text row is required once enabled, which is what lets
+	// complete() derive the needed set from enabled() instead of keeping a
+	// second list in step. Tags is the first row where "has a value" and "has
+	// been answered" genuinely differ — most hosts have no tags, and that is
+	// not an unfinished form.
+	optional bool
 }
 
 // Field order. Auth comes BEFORE the fields it decides: choosing credential
@@ -69,6 +77,11 @@ const (
 	fUser
 	fIdentity
 	fPassword
+	// Tags is last, and after the auth block on purpose: everything above it
+	// answers "how does this connect", and tags answer "what do I call this
+	// group". Putting it up beside Name would file it under identity, which is
+	// not what it is.
+	fTags
 	fCount
 )
 
@@ -110,6 +123,8 @@ func blankFields() []formField {
 	f[fIdentity] = formField{label: "IdentityFile",
 		placeholder: "enter to browse " + store.FoldHome(identityRoot())}
 	f[fPassword] = formField{label: "Password", mask: true}
+	f[fTags] = formField{label: "Tags", optional: true,
+		placeholder: "space separated — prod tokyo needs-vpn"}
 	for i := range f {
 		f[i].caret = len([]rune(f[i].value))
 	}
@@ -134,6 +149,7 @@ func (m *hostForm) openEdit(h store.Host, layer int) tea.Cmd {
 	f[fCredential].value = h.Credential
 	f[fIdentity].value = h.IdentityFile
 	f[fPassword].value = h.Password
+	f[fTags].value = store.JoinTags(h.Tags)
 	switch h.Auth {
 	case store.AuthPrivateKey:
 		f[fAuth].sel = 1
@@ -199,7 +215,7 @@ func (m hostForm) enabled(i int) bool {
 // together would make Enter refuse to save while never saying why.
 func (m hostForm) complete() bool {
 	for i := range m.fields {
-		if m.enabled(i) && m.fields[i].kind == fieldText &&
+		if m.enabled(i) && m.fields[i].kind == fieldText && !m.fields[i].optional &&
 			strings.TrimSpace(m.fields[i].value) == "" {
 			return false
 		}
@@ -349,6 +365,9 @@ func (m hostForm) host() store.Host {
 		User: strings.TrimSpace(m.fields[fUser].value),
 		Auth: m.auth(),
 	}
+	// Tags belong to the host whatever it authenticates with, so they are set
+	// outside the switch rather than repeated in each arm.
+	h.Tags = store.ParseTags(m.fields[fTags].value)
 	switch h.Auth {
 	case store.AuthPrivateKey:
 		h.IdentityFile = strings.TrimSpace(m.fields[fIdentity].value)

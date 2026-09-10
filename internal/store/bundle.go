@@ -40,7 +40,7 @@ func ExportBundle(path string, hosts File, creds CredsFile) error {
 	if err := creds.Validate(); err != nil {
 		return err
 	}
-	hosts.Version, creds.Version = currentVersion, currentVersion
+	hosts.Version, creds.Version = hostsVersion, credsVersion
 
 	hb, err := yaml.Marshal(hosts)
 	if err != nil {
@@ -87,8 +87,8 @@ func ExportBundle(path string, hosts File, creds CredsFile) error {
 // other file that happens to end in .sshu, and saying so beats importing
 // nothing silently.
 func ImportBundle(path string) (File, CredsFile, error) {
-	hosts := File{Version: currentVersion}
-	creds := CredsFile{Version: currentVersion}
+	hosts := File{Version: hostsVersion}
+	creds := CredsFile{Version: credsVersion}
 
 	zr, err := zip.OpenReader(path)
 	if err != nil {

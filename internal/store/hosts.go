@@ -47,6 +47,14 @@ type Host struct {
 	// Credential names an entry in credentials.yaml when Auth is "credential".
 	// The credential supplies User too, so User may be empty on such a host.
 	Credential string `yaml:"credential,omitempty"`
+	// Tags are the user's own words for grouping hosts — "prod", "tokyo",
+	// "needs-vpn". They carry no meaning to sshu beyond being shown and
+	// searched, which is the point: a field sshu interprets is a field the user
+	// has to learn the rules of.
+	//
+	// Space is the only separator. Everything else is literal, so a tag can be
+	// "web/db" or "k8s:prod" without an escaping rule to remember.
+	Tags []string `yaml:"tags,omitempty"`
 }
 
 // Addr is the ssh-native "user@host:port" rendering, used by the connect
@@ -102,7 +110,26 @@ type File struct {
 	Hosts   []Host `yaml:"hosts"`
 }
 
-const currentVersion = 1
+// hostsVersion and credsVersion count SEPARATELY, and that is the whole point.
+// They were one constant until tags arrived, which changed hosts.yaml and left
+// credentials.yaml byte-for-byte the same — a shared number would have stamped
+// the unchanged file as new too, and an older sshu would refuse a file it can
+// read perfectly well. A version that lies is worse than no version.
+//
+// hosts.yaml v2 adds Host.Tags. An older sshu READS a v2 file fine (yaml drops
+// unknown keys) and then SILENTLY DROPS the tags on its next save, which is why
+// SaveTo now refuses to write over a file newer than itself. That check ships
+// here, so it protects every version after this one — it cannot protect against
+// v1.5.1 and earlier, which have no such check and are already released.
+const (
+	hostsVersion = 2
+	credsVersion = 1
+)
+
+// versionUnset is what a file written before sshu stamped versions parses as.
+// Distinct from 1, because "no version key" and "version: 1" call for the same
+// upgrade but only one of them is a file somebody's sshu actually wrote.
+const versionUnset = 0
 
 // header is prepended to every write. The warning is not decoration: the file
 // can hold plaintext passwords, and 0600 does not survive being copied into a
@@ -145,7 +172,7 @@ func (f File) Index(name string) int {
 func Load() (File, []string, error) {
 	path, err := HostsPath()
 	if err != nil {
-		return File{Version: currentVersion}, nil, err
+		return File{Version: hostsVersion}, nil, err
 	}
 	return LoadFrom(path)
 }
@@ -159,16 +186,21 @@ func Load() (File, []string, error) {
 // what they read it with. The dropped names come back so the caller can say
 // what happened — dropping them silently would be worse than either.
 func LoadFrom(path string) (File, []string, error) {
-	f := File{Version: currentVersion}
+	// A file that is not there is the first run, and a first run writes the
+	// current format — so THAT one is stamped current. A file that IS there
+	// starts at versionUnset and only gets a number if it carries one, because
+	// defaulting a real file to "current" would hide exactly the case the
+	// upgrade exists for.
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return f, nil, nil
+		return File{Version: hostsVersion}, nil, nil
 	}
+	f := File{Version: versionUnset}
 	if err != nil {
-		return f, nil, err
+		return File{Version: hostsVersion}, nil, err
 	}
 	if err := yaml.Unmarshal(raw, &f); err != nil {
-		return File{Version: currentVersion}, nil, fmt.Errorf("%s: %w", path, err)
+		return File{Version: hostsVersion}, nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// A hand-edited file may omit port; fill the default rather than reject the
 	// whole file over a field the user reasonably left out.
@@ -176,6 +208,7 @@ func LoadFrom(path string) (File, []string, error) {
 		if f.Hosts[i].Port == 0 {
 			f.Hosts[i].Port = DefaultPort
 		}
+		f.Hosts[i].Tags = NormalizeTags(f.Hosts[i].Tags)
 	}
 	var dropped []string
 	f.Hosts, dropped = dedupeByName(f.Hosts, func(h Host) string { return h.Name })
@@ -196,17 +229,99 @@ func Save(f File) error {
 }
 
 // SaveTo is Save against an explicit path (tests).
+//
+// It refuses to write over a file stamped NEWER than this build understands.
+// The check reads the file back rather than trusting a flag carried in f,
+// because the UI rebuilds File from its own slice on every save and a flag
+// would not survive the trip — and because the file can also be changed by
+// another sshu while this one is running.
 func SaveTo(path string, f File) error {
 	if err := f.Validate(); err != nil {
 		return err
 	}
-	f.Version = currentVersion
+	if err := refuseIfNewer(path, hostsVersion, "hosts.yaml"); err != nil {
+		return err
+	}
+	f.Version = hostsVersion
 
 	body, err := yaml.Marshal(f)
 	if err != nil {
 		return err
 	}
 	return writeFile0600(path, append([]byte(header), body...))
+}
+
+// NormalizeTags cleans a tag list: blanks dropped, repeats dropped, order kept.
+//
+// Case is NOT folded. The tags are the user's own words and "Prod" is what they
+// typed; searching folds case at the query end, which is where folding belongs.
+// Repeats go because the same tag twice on one host says nothing the once did
+// not, and a hand-edited file is the only way to get one.
+func NormalizeTags(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, t := range in {
+		t = strings.TrimSpace(t)
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ParseTags splits what the user typed into one field. Space is the only
+// separator — every other character is part of a tag, so "k8s:prod" and
+// "web/db" need no escaping rule.
+func ParseTags(s string) []string { return NormalizeTags(strings.Fields(s)) }
+
+// JoinTags is ParseTags' inverse, for putting a saved host back in the form.
+func JoinTags(tags []string) string { return strings.Join(tags, " ") }
+
+// NeedsUpgrade reports whether this file was written by an older sshu and
+// should be rewritten in the current format.
+func (f File) NeedsUpgrade() bool { return f.Version < hostsVersion }
+
+// FromNewerSshu reports the opposite: this file knows things this build does
+// not. Saving it is refused (refuseIfNewer), and this is how the app can say so
+// at startup instead of letting the user edit for ten minutes and hit the
+// refusal on the way out.
+func (f File) FromNewerSshu() bool { return f.Version > hostsVersion }
+
+// NeedsUpgrade reports the same for credentials.yaml.
+func (f CredsFile) NeedsUpgrade() bool { return f.Version < credsVersion }
+
+// FromNewerSshu reports the same for credentials.yaml.
+func (f CredsFile) FromNewerSshu() bool { return f.Version > credsVersion }
+
+// refuseIfNewer stops a save that would downgrade a file written by a newer
+// sshu. An unreadable or unparseable file is NOT refused: the version cannot be
+// established, and refusing then would lock the user out of the one program
+// that can fix the file.
+func refuseIfNewer(path string, current int, what string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var probe struct {
+		Version int `yaml:"version"`
+	}
+	if yaml.Unmarshal(raw, &probe) != nil {
+		return nil
+	}
+	if probe.Version > current {
+		return fmt.Errorf("%s was written by a newer sshu (version %d, this build understands %d) — "+
+			"refusing to overwrite it; upgrade sshu or move the file aside",
+			what, probe.Version, current)
+	}
+	return nil
 }
 
 // writeFile0600 lands out at path atomically, at mode 0600 whatever the file

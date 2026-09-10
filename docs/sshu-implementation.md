@@ -1,21 +1,21 @@
 # sshu — Implementation
 
-[**VTP** — Vulcan's TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/vtp.md)
+[this TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/tui-design/README.md)
 是一套**與領域無關的通用 TUI 設計原則** —— 目標:不看文件、不背 hotkey,靠一套
-跨 surface 不變的基礎操作就能用完整個 app。VTP **不屬於任何單一 app**:kbu 是它
+跨 surface 不變的基礎操作就能用完整個 app。它**不屬於任何單一 app**:kbu 是它
 在 K8s domain 的一個實現、filu 是 filesystem domain 的另一個平行實現、**sshu 是
-ssh domain 的第三個**。三者是 sibling、共用同一套 VTP,不是誰派生自誰。
+ssh domain 的第三個**。三者是 sibling、共用同一套原則,不是誰派生自誰。
 
-本文件是 sshu 對 VTP 的**具體落地紀錄**,結構鏡射同為實現的
+本文件是 sshu 對這套原則的**具體落地紀錄**,結構鏡射同為實現的
 `filu-implementation.md` / `kbu-implementation.md`(平行參照、非上位),逐節對照
-sshu 的實作 —— VTP 是 **interface**、本文件是 sshu 這個 **implementation
-class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做,看這裡。
+sshu 的實作 —— 原則是 **interface**、本文件是 sshu 這個 **implementation
+class**。想知道**為什麼**這樣做、看原則;想知道 sshu **怎麼**做,看這裡。
 
 > **與 `sshu-ui-design.md` 的分工**
 >
 > | 文件 | 回答 |
 > |---|---|
-> | 本檔 | **現在是怎麼做的** —— 逐條對照 VTP、參數、不變量、按鍵全表 |
+> | 本檔 | **現在是怎麼做的** —— 逐條對照原則、參數、不變量、按鍵全表 |
 > | `sshu-ui-design.md` | **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法** |
 >
 > 兩份都跟著程式碼走。要改一個看得見的行為,兩份都要改;被否決的做法留在設計稿
@@ -28,21 +28,19 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 
 ## §A. Implementation in sshu
 
-### §A.0 sshu score 對照
+### §A.0 sshu 揭露對照
 
-| 軸 / 結果 | sshu 值 | 計算 |
-|---|---|---|
-| **X. 揭露程度** | ~1.0 | Space menu 列出當前 focus panel 的 contextual 動作 100%、`?` help 列出全域動作 100%。**menu 與 hotkey 由同一張 action table 產生**,所以「有 hotkey 卻不在 menu」在結構上不可能發生 |
-| **Y. core-key role 數量** | 5 | `Tab` / `Enter` / `Esc` / `Space` / `?`。`Ctrl+C`(硬退;pty / 編輯器內屬於遠端)、`q`(離開)、`Alt+Esc`(從 pty 收回鍵盤)不另計 role —— 見 §A.0.Y |
-| `min(1, 5/Y)` 係數 | 1.0 | Y = 5、無 penalty |
-| **Score** | `~1.0 × 1.0` = **~100%** | |
+| Track | 入口 | 入口自身怎麼被揭露 | 完整性 |
+|---|---|---|---|
+| **Contextual** | `Space` | footer 常駐 legend | 當前 focus panel 的 contextual 動作 100% 在 Space menu 內 |
+| **Non-contextual** | `?` | footer 常駐 legend | 全域動作 100% 在 help popup 內;**可以疊在別的浮層上開**(§A.2) |
 
 **完整性是結構保證,不是紀律。** `hostActions` / `sshActions` / `sftpActions`
 三張表是 letter hotkey 與 Space menu 列的**唯一宣告**:新增一個動作就是往表裡加
 一列,兩邊同時生效。而且 hotkey 與 menu 走同一個 `dispatchKey` —— 兩條路曾經分岔
 過,結果是 tab [3] 的 menu 列跑了 tab [1] 同字母的動作(見設計稿)。
 
-### §A.0.Y sshu core-key 集合(5 個)
+### §A.0.K sshu core-key 語意
 
 | Core-key | sshu 語意 | 對應通用條款 |
 |---|---|---|
@@ -57,9 +55,10 @@ class**。想知道**為什麼**這樣做、看 VTP;想知道 sshu **怎麼**做
 理由(§4.3)—— 才不會有某一個浮層是「忘記做」的那個。唯一例外是**正在被打字的
 浮層**(host form、file picker、Rename 輸入框):那裡的空白就是空白。
 
-`Alt+Esc` 不計 core-key:它只在網格拿著鍵盤時有意義(§4.6),`Alt+方向鍵`
-同理 —— 它們是「裸鍵活不下來的地方」的專用和絃,不佔 role。tab 鍵(`M`/`F`/`S`)
-是裸字母、是全域動作,一樣不佔 role。
+通用 §A.0.K 規定這五個鍵的語意、不限總數。**不是 core-key 的**:`Ctrl+C`
+(硬退;pty / 編輯器內屬於遠端)、`q`(離開)、tab 鍵(`M`/`F`/`S`,裸字母、
+屬全域動作)。`Alt+Esc` 也不是:它只在網格拿著鍵盤時有意義(§4.6),
+`Alt+方向鍵` 同理 —— 它們是「裸鍵活不下來的地方」的專用和絃。
 
 ### §A.1 Contextual track — Space menu
 
@@ -137,7 +136,8 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
 | **subtext1 `#bac2de`** | 清單游標 bar(menu / picker / session) | 不當 panel chrome |
 | **lavender `#b4befe`** | **正在編輯的東西**:form 的當前欄位、sftp 的 cwd、Rename 輸入框 | 不當 popup border |
 | **green `#a6e3a1`** | 正在進行 / 成功:`[5]` 顯示中的 session、sftp marks | 不當裝飾 |
-| **red / peach** | warning / error | **不拿去標 auth method** |
+| **red `#f38ba8`** | error —— 出事了 | **不拿去標 auth method** |
+| **peach `#fab387`** | 注意 —— 沒出事,但不是慣常的答案(目前:非 22 的 port) | 不當 error;**不拿去標 auth method** |
 | **glyph** | 型別訊號(auth 方式、檔案 vs 目錄、mark) | 不拿去表達狀態 |
 | **`[4]` 的前景 / 背景** | 前景 = 正在 `[5]` 顯示;背景 = 游標 | 兩條獨立通道,不互相代替 |
 | **大小寫**(tab [2]) | 作用範圍:小寫 = 游標那一列、大寫 = 整個 panel | 其他 tab 不用它表達範圍 |
@@ -318,7 +318,7 @@ term: vt10x.New(vt10x.WithSize(cols, rows), vt10x.WithWriter(ptmx))
 
 ### 4.1 Core 5 鍵
 
-見 §A.0.Y。
+見 §A.0.K。
 
 ### 4.2 清單導覽詞彙(一份,所有清單共用)
 
@@ -370,7 +370,7 @@ tab [3] 也只剩一個(`[4]`),所以 `Tab` 在那裡唯一的作用是**從 pty
 
 ### 4.5 文字輸入 surface 的例外
 
-form / file picker / Rename 輸入框裡,**空白就是空白、問號就是問號**。這是 §A.0.Y
+form / file picker / Rename 輸入框裡,**空白就是空白、問號就是問號**。這是 §A.0.K
 入口鍵規則的唯一例外,而且判斷收在一個 `m.textFloat()` 裡。
 
 ### 4.6 `Alt+Esc` / 按住 Alt+方向鍵 —— 網格的專用和絃
@@ -652,7 +652,10 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 |---|---|
 | 膠囊 tab bar + 分隔線 + footer,`chromeRows` 鎖死 3 | `ui/chrome.go` `ui/view.go` |
 | `[1]` hosts 表格、responsive 收縮、form + 驗證、identity file picker | `ui/hosts.go` `ui/table.go` `ui/form.go` `ui/filepicker.go` |
-| `[1]` `/` 跨欄 fuzzy 搜尋(不含 auth)、依分數排序 | `ui/hosts.go refilter` |
+| **`[1]` 一筆兩列**:第二列是 tag,`hostRowLines = 2` 固定高度,一筆整畫或不畫;沒 tag 放佔位符(design §11.48) | `ui/table.go renderHostRow tagLineText` `ui/hosts.go visibleRows tableBody` |
+| **逐欄上色**:`tableCells` 回傳分段而非成品字串,header / 選中列走 `plain()`、資料列各欄自己上色;唯一的顏色是非 22 的 port | `ui/table.go rowCells portStyle` |
+| **form 的第三類欄位**:`optional` —— 參與但可留空,`complete()` 跳過它。Tags 是第一個 | `ui/form.go formField.optional fTags` |
+| `[1]` `/` 跨欄 fuzzy 搜尋(**含 tags、不含 auth**)、依分數排序 | `ui/hosts.go refilter hostHaystack` |
 | `[2]` 四 panel、`remote.FS` 一介面兩實作、marks;本機側開在啟動目錄 | `ui/sftptab.go` `remote/fs.go` `remote/edit.go StartDir` |
 | `[2]` `/` 遞迴搜尋:串流、廣度優先、可取消、上限;`Enter` 前往結果 | `remote/search.go` `ui/sftpsearch.go` `ui/sftptab.go enter` |
 | `[2]` 傳輸:先 plan、進度、逐條 cancel、半檔清除 | `remote/copy.go` `ui/transfer.go` |
@@ -680,6 +683,8 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
 | `hosts.yaml`:XDG 解析、atomic 0600 寫入、警告標頭;`auth: credential` + `Resolve` | `store/store.go` `store/hosts.go` |
+| **`tags` 欄位(v2)**:space 唯一分隔、其餘 literal;載入與存檔都跑 `NormalizeTags`(去重去空白、大小寫原樣) | `store/hosts.go Host.Tags NormalizeTags ParseTags JoinTags` |
+| **version 真的有作用**:兩個檔各自計數;讀到舊的開機自動改寫、讀到新的拒絕覆寫(讀不到 / parse 不了就不擋)。askpass helper 在 `store.Load()` 之前就 exit,所以它不寫檔是結構保證(design §11.48) | `store/hosts.go hostsVersion credsVersion refuseIfNewer NeedsUpgrade FromNewerSshu` `cmd/sshu/main.go reconcileVersions` |
 | `credentials.yaml`:與 hosts 同一組緩解;name 唯一、credential 不能再指 credential | `store/credentials.go` |
 | **載入時去重**:兩個檔都跑 `dedupeByName`,保留第一筆、回傳丟掉的名字;不改檔案,只在 app log 記一行 `warn`(design §11.38) | `store/store.go dedupeByName` `store/hosts.go` `store/credentials.go` `cmd/sshu/main.go dupeWarning` `ui/app.go WithStartupWarning` |
 | **明細浮層帶 offer**:`Enter` 開唯讀明細,腳底 `prompt`/`accept` 是連線或編輯的問句;`V` 已還給 splash 彩蛋(design §11.29) | `ui/detail.go` `ui/app.go detailCommit` `ui/credkeys.go doEditCred` |
@@ -783,4 +788,4 @@ sshu 的定位不是「再做一個 ssh 管理器」,而是**第一次開就能�
 系統 —— 但它們共用同一套 core key、同一份導覽詞彙、同一種浮層規則、同一條
 「bracket 印的就是要按的」約定。學會其中一個 tab,另外兩個就已經會了大半。
 
-那才是 VTP 想換到的東西。
+那才是這套原則想換到的東西。

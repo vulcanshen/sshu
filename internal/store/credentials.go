@@ -99,7 +99,7 @@ func CredsPath() (string, error) {
 func LoadCreds() (CredsFile, []string, error) {
 	path, err := CredsPath()
 	if err != nil {
-		return CredsFile{Version: currentVersion}, nil, err
+		return CredsFile{Version: credsVersion}, nil, err
 	}
 	return LoadCredsFrom(path)
 }
@@ -109,16 +109,16 @@ func LoadCreds() (CredsFile, []string, error) {
 // same problem, and a rule that held on one of them but not the other would be
 // the harder thing to remember.
 func LoadCredsFrom(path string) (CredsFile, []string, error) {
-	f := CredsFile{Version: currentVersion}
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return f, nil, nil
+		return CredsFile{Version: credsVersion}, nil, nil
 	}
+	f := CredsFile{Version: versionUnset}
 	if err != nil {
-		return f, nil, err
+		return CredsFile{Version: credsVersion}, nil, err
 	}
 	if err := yaml.Unmarshal(raw, &f); err != nil {
-		return CredsFile{Version: currentVersion}, nil, fmt.Errorf("%s: %w", path, err)
+		return CredsFile{Version: credsVersion}, nil, fmt.Errorf("%s: %w", path, err)
 	}
 	var dropped []string
 	f.Credentials, dropped = dedupeByName(f.Credentials, func(c Credential) string { return c.Name })
@@ -139,7 +139,10 @@ func SaveCredsTo(path string, f CredsFile) error {
 	if err := f.Validate(); err != nil {
 		return err
 	}
-	f.Version = currentVersion
+	if err := refuseIfNewer(path, credsVersion, "credentials.yaml"); err != nil {
+		return err
+	}
+	f.Version = credsVersion
 	body, err := yaml.Marshal(f)
 	if err != nil {
 		return err

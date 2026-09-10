@@ -2,17 +2,17 @@
 
 sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。三者**平行**、共用同一套
-[**VTP** — Vulcan's TUI Design Principle](../../thoughts/vtp.md),不是誰
-派生自誰。
+[this TUI Design Principle](../../thoughts/tui-design/README.md),
+不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
 否決的做法**。它跟著程式碼走 —— 改一個使用者看得見的東西,就在同一輪改這裡。
 
-> **設計權威順序**:**VTP**。`filu-implementation.md` / `kbu-implementation.md`
-> 是**平行實現的參照、不是上位權威**。
+> **設計權威順序**:**通用原則**。`filu-implementation.md` /
+> `kbu-implementation.md` 是**平行實現的參照、不是上位權威**。
 >
 > **範圍**:三個 tab 都已完整設計並落地(§0)。開發順序是
-> **1. hosts → 3. ssh → 2. sftp**;章節本身照 VTP 的條目排,不照那個順序。
+> **1. hosts → 3. ssh → 2. sftp**;章節本身照原則的條目排,不照那個順序。
 
 ---
 
@@ -20,7 +20,7 @@ sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain
 >
 > | 文件 | 回答 |
 > |---|---|
-> | `sshu-implementation.md` | **現在是怎麼做的** —— 逐條對照 VTP、參數、不變量、按鍵全表(結構鏡射 filu / kbu 的同名文件) |
+> | `sshu-implementation.md` | **現在是怎麼做的** —— 逐條對照原則、參數、不變量、按鍵全表(結構鏡射 filu / kbu 的同名文件) |
 > | 本檔 | **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法** |
 >
 > 兩份都跟著程式碼走。要改一個看得見的行為,兩份都要改;被否決的做法留在這裡不刪
@@ -43,18 +43,16 @@ v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是
 
 ---
 
-## §A. VTP 對照
+## §A. 原則對照
 
-### §A.0 score
+### §A.0 揭露
 
-| 軸 | sshu 值 | 說明 |
-|---|---|---|
-| **X. 揭露程度** | ~1.0 | `Space` 列出當前 focus 的全部 contextual 動作;`?` 列出全部全域動作。兩個入口自身由 **footer 常駐揭露** |
-| **Y. core-key role** | **5** | `Tab` / `Enter` / `Esc` / `Space` / `?` |
-| `min(1, 5/Y)` | 1.0 | Y = 5,無 penalty |
-| **Score** | **~100%** | 第一次開就能用完 |
+| Track | 入口 | 揭露 | 完整性 |
+|---|---|---|---|
+| **Contextual** | `Space` | footer 常駐 | 列出當前 focus 的全部 contextual 動作 |
+| **Non-contextual** | `?` | footer 常駐 | 列出全部全域動作 |
 
-### §A.0.Y core-key 集合(5 個,跨 surface 不變)
+### §A.0.K core-key 語意(跨 surface 不變)
 
 > **v0.2**:tab 切換移到 `Alt+p/f/s` 和絃,`1`-`9` 全數改為「當前 tab 的
 > panel 直達」;ssh tab 的 `Tab` 改為顯示開關(§11.一、§11.六)。下表的
@@ -68,13 +66,13 @@ v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是
 | `Space` | §A.1 contextual 入口(Space menu) | §A.1 |
 | `?` | §A.2 non-contextual 入口(help popup) | §A.2 |
 
-**`q` 與 `Ctrl+C` 不各記一個 role**(對齊 filu):`q` = 離開 app,是一個
-**全域動作**(列在 footer + `?` help),不是「取消」role;取消 role 由 `Esc`
+**`q` 與 `Ctrl+C` 不是 core-key**(對齊 filu):`q` = 離開 app,是一個
+**全域動作**(列在 footer + `?` help),不是「取消」;取消語意由 `Esc`
 單獨承載。`Ctrl+C` 是逃生硬退 —— **除了鍵盤在遠端或編輯器手上的時候,那裡它
 是它們的中斷鍵**(§11.20)。**`q` 在任何浮層開著時不生效**(浮層擁有鍵盤),
-避免半套 alias 汙染取消 role。
+避免半套 alias 汙染取消語意(通用 §A.0.K)。
 
-**letter hotkey 不佔 core-key slot**:`e` / `d` / `c` / `s`、導覽 `h j k l`
+**letter hotkey 不是 core-key**:`e` / `d` / `c` / `s`、導覽 `h j k l`
 `gg` `G` 都是入口內動作的加速捷徑。
 
 ### §A.1 Contextual track — Space menu
@@ -129,16 +127,30 @@ sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
 | **lavender `#b4befe`**(`editColor`) | **正在編輯的 form 列**(label + value + caret 一起) | list cursor(那是 `handColor`)、popup border、panel border |
 | **crust `#11111b`** | (不再使用 —— tab bar 沒亮的段用 base,見 §1.1) | — |
 | **overlay0 `#6c7086`**(`dimColor`) | 次要文字、region header、停用欄位 | — |
-| **Peach / Red** | warning / error override | 不參與 popup layer scale;**不拿去標 auth method** |
+| **Red `#f38ba8`**(`warnColor`) | **error** —— 出事了 | 不參與 popup layer scale;**不拿去標 auth method** |
+| **Peach `#fab387`**(`peachColor`) | **注意** —— 沒出事,但不是慣常的答案。目前唯一用途:**非 22 的 port**(§11.48) | 不當 error(那是 red);**不拿去標 auth method** |
 | popup border 色 | popup layer 明度(`popupLayerColor`) | 不 hardcode |
 | `[X]label` bracket | letter hotkey 揭露 | 純 label 不加 bracket |
 | `Esc` | 關閉 / 取消 | 永遠不當「確認」 |
 | Nerd Font glyph | **欄位型別訊號**(這一列是什麼欄位) | 不當熱鍵 signal、不當純裝飾 |
 
-**點名一個決定:auth method 不用顏色編碼。** 直覺會想把 `password` 染成
-peach、`privatekey` 染成綠,但 peach/red 已被 warning/error override 專職
-佔用(§2.4),借用會讓使用者看到 password 卡以為「這台有問題」。改由
-**glyph 區分**(鎖 vs 鑰匙)+ 文字,兩者都是內容訊號、不動色彩層。
+**點名一個決定:auth method 不用顏色編碼。** 這條在 §11.48 被重新檢查過一次,
+結論不變,但**理由換了**,因為原本那個理由已經不成立。
+
+原本寫的是:peach/red 被 warning/error 專職佔用,借用會讓人看到 password 以為
+「這台有問題」。§11.48 把 peach 分出來給「非 22 的 port」之後,那條路等於承認
+peach 可以標非錯誤的東西 —— 所以它不再能用來擋 auth 上色。
+
+站得住的是另外三條,而且**與挑哪個顏色無關**:
+
+1. **顏色標例外才有用,標常態沒用。** 每一列都有 auth,三種值平均分佈,整欄花花
+   的結果是沒有任何一列跳得出來。port 剛好相反:二十台裡可能只有兩台不是 22。
+2. **會稀釋 port 的橘。** 未選取的列只允許舉一個訊號;右邊一旦也有顏色,那個唯一
+   的彩點就不唯一了。
+3. **auth 已經被 glyph 編碼了**(鎖 / 鑰匙 / cred)。同一個資訊編兩次,而 §B 的
+   分工本來就是「glyph = 欄位型別訊號」。
+
+原本那條「peach password 會讀成壞掉」仍然是真的,只是它現在是第四條、不是第一條。
 
 ---
 
@@ -559,7 +571,7 @@ sshu 是必要而非可選。
 
 ## §4. 互動
 
-### 4.1 Core 5 鍵(見 §A.0.Y)
+### 4.1 Core key 語意(見 §A.0.K)
 
 語意在任何 surface 不變。
 
@@ -659,7 +671,7 @@ menu、host picker、file picker、Transfers)。
 cursor 驅動,不另設 half-page)。
 
 **完整性 audit**:新增任何 contextual 動作,必須同步在 Space menu 加 entry。
-只綁 letter hotkey = VTP 破洞。
+只綁 letter hotkey = 原則破洞。
 
 **這個包含關係是單向的。** 「每一個 letter hotkey 都是 menu 的一列」不等於
 「每一列都有 letter hotkey」—— core key 的列(`Enter` / `Tab`)本來就沒有,
@@ -762,7 +774,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 > 遠端(§11.20),所以 pty 內屬於 sshu 的鍵只剩三組:`Alt+Esc`、`Alt+方向鍵`、
 > 以及非 alt-screen 時的 `PgUp`/`PgDn`(§11.19)。
 
-**這條不是 VTP core key,也不計入 §A.0.Y 的 5 個 role。** 理由:panel [5] 把
+**這條不是 core key。** 理由:panel [5] 把
 鍵盤整個交給遠端程式,五個 core key 在那裡全部失效(`Tab` `Enter` `Esc`
 `Space` `?` 都會送出去),所以需要一把「把鍵盤要回來」的鑰匙。它的作用對象是
 「sshu 對鍵盤的所有權」,不是任何 focus 裡的東西,也不是全域動作 —— 兩條 track
@@ -788,7 +800,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 ### 4.5 `Space` / `?` 在文字輸入 surface 內的例外(§0 規則擴充)
 
 `Space` 是 §A.1 入口,但在 **host form 的文字欄位**內,`Space` 必須輸入
-空白字元。這不是 VTP 破洞,而是規則擴充:
+空白字元。這不是原則破洞,而是規則擴充:
 
 - **origin UX**:`Space` 入口要回答「我在這裡能做什麼」。
 - **在 form 內**,這個問題由 **border hint 常駐揭露**回答
@@ -1871,7 +1883,7 @@ XDG_CONFIG_HOME 有設   → $XDG_CONFIG_HOME/sshu/
 ```yaml
 # sshu hosts —— 由 [1] hosts tab 管理,手改也可以。
 # 本檔權限固定 0600(內含連線密碼,見下方警告)。
-version: 1
+version: 2
 hosts:
   - name: prod-web-01
     host: 10.0.3.14
@@ -1879,6 +1891,7 @@ hosts:
     user: deploy
     auth: privatekey                 # privatekey | password
     identity_file: ~/.ssh/id_ed25519
+    tags: [prod, tokyo, frontend]    # v2 新增,選填(§11.48)
 
   - name: db-replica
     host: db.internal.corp
@@ -1889,6 +1902,11 @@ hosts:
 ```
 
 - **`name` 就是 key**,全域唯一;CRUD 以 name 定位,不另設 id(簡單優先)
+- **`version` 從 v1.6.0 起真的有作用**,而且 `hosts.yaml` 與 `credentials.yaml`
+  **各自計數**(`hostsVersion` / `credsVersion`)。讀到比自己舊的會**開機時自動
+  改寫成當前格式**,讀到比自己新的**拒絕覆寫**。細節與它救不到的那一半見 §11.48
+- **`tags` 選填**,字串陣列。space 是唯一分隔符,其餘字元一律 literal;載入時去
+  重、去空白,大小寫原樣保留
 - `auth` 是**扁平字串**、不是巢狀 map;`identity_file` / `password` 是
   依 `auth` 值二選一的兄弟欄位
 - `identity_file` 支援 `~` 展開(`store.ExpandTilde`);由 form 的 `Tab`
@@ -2069,7 +2087,7 @@ embedded terminal 的 `creack/pty` + `hinshun/vt10x`、連線的
 | **`~/.ssh/known_hosts` 面板**(表格 + 明細 + 改名 + 刪除) | 已落地(§11.40) | `ui/knownlist.go` `ui/knownkeys.go` `store/knownhosts.go` |
 | **`[A]` 去抓 host key**(握手到看見金鑰為止、認證前中止、顯示指紋才寫) | 已落地 | `remote/hostkey.go ScanHostKey` `ui/knownform.go` |
 
-**VTP 破洞已補**:`Space` 與 `?` 現在在任何 tab(含未實作的 [2]/[3])都會回應
+**原則破洞已補**:`Space` 與 `?` 現在在任何 tab(含未實作的 [2]/[3])都會回應
 —— 沒有具體動作時 menu 仍列出「no actions here yet」,符合 §A.1 衍生規則。
 X 回到 ~1.0。
 
@@ -5396,6 +5414,199 @@ badge 掉鎖頭、overlay 不守列寬、選取模式失去 legend、`unzoomOne`
 > 另有一個 mutation **本身無效**:把 macro 裡送 lock 的那行整段刪掉,只會讓
 > `lock` 變成未使用變數、編譯失敗。編譯失敗證明不了任何事,改成把那一行留在
 > 一個 `if false` 的死分支裡。
+
+---
+
+### 11.48 host 的 tag —— 一筆兩列,以及一個終於有作用的 version
+
+hosts 表格從一列一筆變成**兩列一筆**:第一列照舊(Name / User / Host / Port /
+Auth),第二列是這台機器的 tag。同時,`hosts.yaml` 的 `version` 從裝飾品變成真的
+會被讀的東西。
+
+#### 為什麼是 tag,而不是分組 / 資料夾 / 顏色標籤
+
+tag 對 sshu **沒有任何意義**,這正是它的價值。sshu 只做兩件事:顯示它、讓它可以
+被搜。凡是 sshu 會去解讀的欄位,使用者就得學一套規則;tag 不解讀,所以沒有規則
+要學。
+
+分隔符只有 **space**,其他字元全部 literal。所以 `k8s:prod`、`web/db`、
+`ap-northeast-1` 都是一個 tag,不需要跳脫規則。這條是使用者當場裁定的,而它剛好
+也是最省事的一條:唯一要記的是「空白會斷開」。
+
+正規化在 `store.NormalizeTags`,**載入時和表單存檔時都會過一次** —— 手改檔案跟用
+表單是同等支援的入口,兩邊的清潔標準不該不同:
+
+- 空白與純空白項丟掉
+- **重複的丟掉**(同一個 tag 標兩次不多說任何事)
+- **大小寫原樣保留**。`Prod` 是使用者打的,sshu 沒資格改寫它;折疊在**查詢端**
+  做,那才是折疊該待的地方
+
+#### 一律兩列,即使沒有 tag
+
+可變列高(有 tag 才兩列)看起來省空間,實際上要付三筆帳:
+
+1. `visibleRows()`、`ensureVisible()`、半頁跳(`u`/`d`)現在全部**數「筆」**。
+   高度一變動,三者都得改成累加計算。
+2. 清單會在游標移動時**跳動** —— 從有 tag 的一筆走到沒 tag 的一筆,底下所有列的
+   位置都會變。混合列高的清單最難掃的就是這個。
+3. 「省下來的空間」其實不是白費:空的第二列把每一筆**分開**了,而原本那個密集的
+   一列式表格從來沒有這個好處。
+
+代價老實說:同樣高度的面板**可見筆數砍半**。80×24 原本看得到 19 台,現在 9 台。
+這是換來的東西的價錢,不是意外。
+
+`hostRowLines = 2` 是唯一寫下這個高度的地方,`tableBody` 用
+`len(out)+hostRowLines <= innerH` 保證**一筆要嘛整筆畫、要嘛不畫** —— 最後一筆只
+剩一行時寧可留白,不畫一個沒有 tag 列的斷頭列。
+
+#### 沒有 tag 的那一列放佔位符,不是空白
+
+先做的是留空白,實機看過之後改掉:空白會讓有 tag 的那一筆看起來**多長出一列**,
+而不是**把一列填滿**。放一個 dim 的 `—`(前面仍有 tag glyph),那一列的存在就變成
+這筆的固定形狀,tag 只是它的內容。
+
+#### tag 進搜尋 —— 它存在的理由
+
+`hostHaystack` 加進 tags。`/` 的揭露文字(Space menu 的 `[/] Search` hint)同步
+改成 `name, user, host, port, tags`。
+
+**不能搜的 tag 是裝飾。** tag 是使用者自己挑來分群的詞,`/prod` 一次撈出整群正是
+它被寫下來的目的。這跟 auth **不**進 haystack 的理由剛好互補:`password` /
+`privatekey` 是滿表都有的字,拿來配對只會拖進不相干的列;tag 則是為了配對而存在
+的字。
+
+#### 配色 —— 從「每欄一個語意色」收斂到「身分同色 + 一個例外」
+
+這一段有一輪完整的來回,值得記下來,因為兩個被否決的版本都不是隨手提的。
+
+**第一版(我提的,被否決):三層明暗。** Name 白、Host 抬到 `handColor`、User /
+Port 維持 dim。否決的理由很準:那等於宣稱「host 比 user 重要」,而那個階級是**我
+強加的**,不是真的。
+
+**第二版(使用者提的,自己撤回):每欄一個語意色。** Name 白、User 黃、Host 綠、
+Port 22 dim / 非 22 橘、Auth lavender。查過 §B 之後撤回 —— 黃(`selectColor`)、
+綠(`liveColor`)、lavender(`editColor`)各自有主人,而 lavender 是真的會撞:host
+form 是**置中浮層,`popupLayerColor` 只調 popup 邊框明度、不壓暗背景**,所以表單開
+著時底下露出來的 auth 欄和前景正在編輯的那一列會**同框**,正是 §B 那條規則要防的
+情況。
+
+**定案:身分同白,例外上色。**
+
+| 欄位 | 色 | 為什麼 |
+|---|---|---|
+| Name / User / Host | `textColor` 白 | 三個是同一件事 ——「這台是誰」—— 讀成一組 |
+| Port `= 22` | `dimColor` | 常態,不值得佔用注意力 |
+| Port `≠ 22` | `peachColor` 橘 | **例外**,整列唯一的彩點 |
+| Auth | dim + glyph | 型別靠 glyph,不靠色 |
+| Tag 列 | `dimColor` | 分類,不是身分 |
+| 游標選中 | 整筆兩列反白,**一律不上色** | 見下 |
+
+name 不會因為 user / host 也變白就失去錨點 —— name 的錨點是**位置**(所有列最左欄
+對齊),不是顏色。顏色在這裡的工作是分開「身分」與「次要」,不是在身分內部排名。
+
+**選中的那一筆丟掉所有欄位色。** 逐欄的色回答「這是什麼值」,反白條回答「你在
+這」。一列扛不了兩個,而且扛了也是反白條贏 —— 那就乾脆只留反白條。兩列**都**要
+反白,不然那一筆看起來像被撕成兩半。
+
+#### §B 的 Peach / Red 其實是兩條帶
+
+原本 §B 把 peach 和 red 綁成一條「warning / error override」。非 22 的 port 逼出了
+它們的差別:
+
+- **red = 出事了**
+- **peach = 沒出事,但不是慣常的答案**
+
+非標準 port 正好是第二種。所以這不是「借用 warning 帶」,是**那條帶本來就是兩條,
+只是一直沒有案例把它們分開**。§B 已改寫。
+
+連帶地,「auth 不用顏色編碼」那條決定的**理由被換掉**了(結論不變),見 §B 該段。
+
+#### form:第三類欄位
+
+`formField` 多了 `optional bool`。這是必要的,因為 `complete()` 的整個設計是
+「**需要的欄位集 = enabled 的欄位集**」—— 不維護第二份清單,所以不會失步。
+
+Tags 是第一個把「有值」和「已回答」真正分開的欄位:**多數 host 沒有 tag,而那不是
+一份沒填完的表單**。所以 `optional` 是承認有第三類,而不是在 `complete()` 裡塞一個
+`i != fTags` 的特例 —— 後者會讓那句「不維護第二份清單」變成謊話。
+
+欄位放在**最後一欄**(Credential 之後)。上面每一欄都在回答「怎麼連」,tag 回答
+「我把這群叫什麼」;放到 Name 旁邊會把它歸進身分,而它不是。
+
+host detail 浮層同理:**只在有 tag 時**多一列,放在第一個 section(那個 section 其實
+是「這筆記錄是什麼」,Name 也在那裡,兩者都不是連線參數)。空的 Tags 列會讀成
+「這欄留白了」,而沒有 tag 是答案、不是遺漏 —— 跟表單標 optional 是同一個判斷。
+
+#### credential picker 的第三段
+
+選單本來就顯示 `user · auth`,這次補上 value。兩型**刻意不對等**:
+
+| auth | 顯示 | 為什麼 |
+|---|---|---|
+| `privatekey` | 路徑,放不下時**從前面截**(`truncateHead`) | 路徑不是祕密,而且兩條 key 型 credential 的差別全在這。`…/.ssh/id_ed25519` 認得出來,`~/.ssh/id_ed…` 認不出來 |
+| `password` | 固定六格遮罩 `••••••` | 不顯示內容,**也不顯示長度** —— 長度本身就是旁邊的人能用的東西。§8.3 的 credentials 頁早就是固定遮罩,同一個理由 |
+| `password` 但空 | `(not set)` | 一條沒設密碼的 password credential 是壞的,清單是比「下次連線失敗」更好的發現地點 |
+| `privatekey` 但空 | `(no key file)` | 同上 |
+
+上限寬度由 `openCredPicker` 用 `m.w/4` 給,而不是交給選單 —— 交給選單的話,過長的
+hint 會把浮層撐到螢幕寬**然後從右邊截**,砍掉的正好是路徑裡能認人的那一半。
+
+#### version:從裝飾品變成有作用
+
+改之前 grep 過整包:`Version` 只在存檔時被**無條件覆寫**成 `currentVersion`,載入時
+解析出來就丟掉,**沒有任何一處拿它做過判斷**。所以「推進 version」原本等於「把 1
+改成 2」,沒有任何行為差別。要先讓它有作用,推進才有意義。
+
+**兩個檔拆開各自計數。** `hostsVersion = 2` / `credsVersion = 1`。這一輪
+`hosts.yaml` 因為 tags 改了格式,`credentials.yaml` **一個位元組都沒動** —— 共用一
+個常數的話它會被無謂標成 2,更舊的 sshu 就會拒絕一個它其實讀得懂的檔。**會說謊的
+version 比沒有 version 更糟。** `TestHostsAndCredentialsCarryTheirOwnVersions` 釘住
+這件事,而且在兩個數字相等時會 `t.Fatal` 說自己瞎了 —— 否則哪天有人把常數合回去,
+測試會靜靜地過。
+
+**新讀舊 → 開機自動升級。** `main.go` 的 `reconcileVersions` 在載入之後、建 app 之前
+跑一次,把舊檔改寫成當前格式。三個細節:
+
+- **只在 TUI 路徑。** askpass helper 在 `store.Load()` **之前**就 `os.Exit` 了 —— 它
+  跑在 ssh 的認證流程中途,一個被叫來印一次密碼的程式沒有資格改寫設定檔。那個提早
+  返回讓這件事是**結構保證**,不是約定。
+- **`credsErr != nil` 就什麼都不寫。** 解析失敗的 `credentials.yaml` 會回一份空文件,
+  把它寫回去等於把「sshu 讀不懂你的檔」變成「sshu 刪掉了你的 credential」。
+- **升級失敗不致命**,只記 app log。version 的問題是**檔案的**問題,拒絕啟動等於把
+  使用者唯一能拿來看那個檔的工具也收走。
+
+**舊讀新 → 拒絕覆寫。** `refuseIfNewer` 在 `SaveTo` / `SaveCredsTo` 裡**重讀磁碟上的
+檔**比對 version。重讀而不是信任 `f` 上的旗標,有兩個理由:UI 每次存檔都用自己的
+slice 重建 `File`,旗標活不過那趟;而且檔案也可能在 sshu 執行期間被另一個 sshu 改過。
+**檔案讀不到或 parse 不了就不擋** —— version 無從確立,而這時擋下來等於把使用者鎖在
+唯一能修那個檔的程式外面。
+
+**這一層保護救不到 v1.5.1 和更早的版本。** 它們沒有這個檢查,而且已經發布了 —— 降級
+回去照樣會靜默抹掉 tags(yaml 讀得懂未知欄位,struct 沒有那個欄位,存檔時就沒了)。
+能做的只有兩件:這版加上檢查,讓**往後**的降級是安全的;以及在 CHANGELOG 明寫這次
+降級的代價。
+
+**已知並接受:「這個檔比較新」的警告只進 app log,不跳 toast。** 跟既有的 startup
+訊息(重複名稱、config 解析失敗)走同一條路 —— alt screen 底下 stderr 看不見,所以
+抱怨都去 app log。這代表使用者可能編輯了十分鐘才在存檔時撞牆。接受的理由:這個情境
+只有降級才會遇到,很罕見;而存檔失敗時的訊息本身已經把話說完了(`hosts.yaml was
+written by a newer sshu (version 99, this build understands 2)`)。真的變成困擾再說。
+
+#### 實測
+
+`SSHU_CONFIG` 指到合成目錄,`tmux` 裡跑真的 binary,`capture-pane -e` 讀回 ANSI:
+
+- 兩列、截斷 `…`、佔位符 `—` 都對
+- `5432` 與 `2222` 帶 `38;2;250;179;135`(peach),`22` 是 dim ✓
+- name / user / host 三格都是 `38;2;205;214;243`(text)✓
+- 選中那一筆**兩列**都是 `48;2;137;179;250` 藍底 + 深字,**沒有**任何欄位色 ✓
+- tag glyph 的 UTF-8 是 `F3 B0 93 BB` = **U+F04FB**,與從安裝字型 cmap 讀到的
+  `nf-md-tag_multiple` 相符(glyph 名字記錯過三次,一律讀 cmap)
+- credential picker 四種情況全中:完整路徑 / `••••••` / `…oduction-deploy-key-2026` /
+  `(not set)`
+- `version: 1` 的檔開機後變成 `version: 2`,資料完整、標頭補回
+- `version: 99` 的檔**沒有被改**,app log 有一筆 warn
+
 
 ---
 

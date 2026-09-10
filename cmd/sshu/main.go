@@ -68,6 +68,16 @@ func main() {
 	// changed. Missing is the ordinary empty state.
 	knownHosts, knownErr := store.LoadKnownHosts()
 
+	// sshu's own files are brought up to today's format here, once, at a moment
+	// the user is present for — rather than on whatever their next edit happens
+	// to be, which would put a format change inside an unrelated action.
+	//
+	// This is the ONLY place it happens. The askpass helper returned above,
+	// before store.Load: it runs inside ssh's authentication, and a program
+	// invoked to print one password has no business rewriting configuration.
+	// The early exit is what makes that structural instead of a convention.
+	versionNotes := reconcileVersions(hosts, credsFile, credsErr)
+
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
 	}
@@ -102,6 +112,9 @@ func main() {
 	}
 	if len(dupCreds) > 0 {
 		app = app.WithStartupWarning(dupeWarning("credentials.yaml", dupCreds))
+	}
+	for _, n := range versionNotes {
+		app = app.WithStartupWarning(n)
 	}
 	// stdin goes through sshu first: a parent sshu addresses a layer with an
 	// escape sequence, and Bubble Tea would decode it into keystrokes of its
@@ -142,6 +155,39 @@ func main() {
 // through a file for which ones, and the whole reason to say anything is that
 // they go and fix it. A name appearing twice in the list is not a bug in the
 // message: it means that name was in the file three times.
+// reconcileVersions upgrades sshu's own files in place, and reports anything
+// it could not settle. It never stops startup: a version problem is about the
+// FILE, and refusing to run would take away the tool the user needs to look at
+// it.
+//
+// credsErr matters. A credentials.yaml that failed to parse comes back as an
+// empty document, and writing that back would turn "sshu could not read your
+// file" into "sshu deleted your credentials". Nothing is written for a file
+// that did not load.
+func reconcileVersions(hosts store.File, creds store.CredsFile, credsErr error) []string {
+	var out []string
+	if hosts.FromNewerSshu() {
+		out = append(out, "hosts.yaml was written by a newer sshu — it is shown as read, "+
+			"but saving will be refused. Upgrade sshu.")
+	} else if hosts.NeedsUpgrade() {
+		if err := store.Save(hosts); err != nil {
+			out = append(out, "hosts.yaml could not be upgraded: "+err.Error())
+		}
+	}
+	if credsErr != nil {
+		return out
+	}
+	if creds.FromNewerSshu() {
+		out = append(out, "credentials.yaml was written by a newer sshu — it is shown as read, "+
+			"but saving will be refused. Upgrade sshu.")
+	} else if creds.NeedsUpgrade() {
+		if err := store.SaveCreds(creds); err != nil {
+			out = append(out, "credentials.yaml could not be upgraded: "+err.Error())
+		}
+	}
+	return out
+}
+
 func dupeWarning(file string, names []string) string {
 	quoted := make([]string, len(names))
 	for i, n := range names {
