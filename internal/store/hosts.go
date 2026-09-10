@@ -117,6 +117,15 @@ type File struct {
 	// use, which fails at connect time, and the secret is still on disk for
 	// the right key to open later.
 	UnreadableSecrets []string `yaml:"-"`
+	// HadPlaintextSecret records that the FILE still held a password in the
+	// clear, and it has to be recorded at read time because it stops being
+	// answerable afterwards: decryption happens on the way in, so every
+	// password in memory is plaintext by definition.
+	//
+	// A method asking the loaded struct was tried and was wrong in the way
+	// that matters — it answered "yes" always, so startup would have rewritten
+	// the file on every single run. The test that pins this is what caught it.
+	HadPlaintextSecret bool `yaml:"-"`
 }
 
 // hostsVersion and credsVersion count SEPARATELY, and that is the whole point.
@@ -130,18 +139,31 @@ type File struct {
 // SaveTo now refuses to write over a file newer than itself. That check ships
 // here, so it protects every version after this one — it cannot protect against
 // v1.5.1 and earlier, which have no such check and are already released.
-// v3 (and credentials v2) is encrypted passwords: a password field MAY be
-// "ENC:…" rather than plaintext. May, not must — a plaintext value is still
-// read, which is exactly what makes the upgrade need no migration step. The
-// version is what tells an older sshu to keep its hands off: it would hand the
-// ciphertext to ssh as though it were the password.
+// ENCRYPTED PASSWORDS DID NOT MOVE THESE NUMBERS, and the reason is worth
+// keeping because the opposite was tried first.
 //
-// Upgrading is automatic and happens at startup (main.go reconcileVersions):
-// an older file is loaded, its plaintext passwords read, and the whole thing
-// written back sealed.
+// A version exists to stop an older sshu doing damage it cannot know it is
+// doing. Tags qualify: v1.5.1 reads a v2 file, does not see the key, and drops
+// the tags on its next save. Encryption does not. Measured, not reasoned —
+// v1.5.1 was built from the tag and handed a sealed file:
+//
+//	it loads it, hands "ENC:…" to ssh as the password, and the connection
+//	fails — which a version number cannot prevent, because refuseIfNewer only
+//	guards WRITES and nothing stopped it reading;
+//	and it writes the file back with the ciphertext intact, because a string
+//	it does not understand still goes out the way it came in.
+//
+// So the version would have bought nothing at all: no protection it does not
+// already have, against damage that does not happen. The "ENC:" prefix is what
+// tells sealed from plain, at both ends, and a number saying the same thing
+// again is a second source of truth to keep in step.
+//
+// What the version WAS doing here, quietly, was triggering the startup
+// rewrite that seals existing plaintext. That job moved to the thing it is
+// actually about — HasPlaintextSecret, which asks the data.
 const (
-	hostsVersion = 3
-	credsVersion = 2
+	hostsVersion = 2
+	credsVersion = 1
 )
 
 // versionUnset is what a file written before sshu stamped versions parses as.
@@ -239,6 +261,10 @@ func LoadFrom(path string) (File, []string, error) {
 	for i := range f.Hosts {
 		names[i] = f.Hosts[i].Name
 		secrets[i] = &f.Hosts[i].Password
+		// Asked HERE, before decryptInto rewrites these in place.
+		if p := f.Hosts[i].Password; p != "" && !IsEncrypted(p) {
+			f.HadPlaintextSecret = true
+		}
 	}
 	bad, decErr := decryptInto(names, secrets)
 	if decErr != nil {

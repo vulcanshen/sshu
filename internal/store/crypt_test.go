@@ -254,10 +254,14 @@ func TestSavingDoesNotSealTheCallersCopy(t *testing.T) {
 	}
 }
 
-// An older file is plaintext and reads fine; saving it back seals it. This is
-// the upgrade, and it needs no migration code — the prefix is what tells the
-// two apart.
-func TestAnOlderPlaintextFileIsSealedOnItsNextSave(t *testing.T) {
+// A plaintext password reads fine and is sealed on the next save. No migration
+// code and no version bump: the prefix is what tells the two apart.
+//
+// The file here is at the CURRENT version on purpose. Encryption deliberately
+// did not move the version number, so "needs sealing" cannot be inferred from
+// it — HasPlaintextSecret is the question, and this is the case that proves it
+// has to be asked separately.
+func TestAPlaintextPasswordIsSealedOnItsNextSave(t *testing.T) {
 	keyIn(t)
 	p := filepath.Join(t.TempDir(), "hosts.yaml")
 	os.WriteFile(p, []byte(`version: 2
@@ -277,14 +281,29 @@ hosts:
 	if out.Hosts[0].Password != "s3cr3t" {
 		t.Fatalf("a plaintext password should read straight through, got %q", out.Hosts[0].Password)
 	}
-	if !out.NeedsUpgrade() {
-		t.Error("a v2 file should ask to be upgraded")
+	if out.NeedsUpgrade() {
+		t.Error("this file is at the current version — encryption did not move it")
+	}
+	if !out.HadPlaintextSecret {
+		t.Fatal("a file holding a plaintext password must say so")
 	}
 	if err := SaveTo(p, out); err != nil {
 		t.Fatal(err)
 	}
 	if raw := mustRead(t, p); strings.Contains(raw, "s3cr3t") {
-		t.Errorf("the upgrade left the password in the clear:\n%s", raw)
+		t.Errorf("saving left the password in the clear:\n%s", raw)
+	}
+
+	// ...and once sealed it stops asking, or startup would rewrite the file on
+	// every single run. This is the assertion that caught the first version,
+	// which asked the loaded struct — where the password is plaintext by
+	// definition, because loading is what decrypts it.
+	sealedFile, _, _ := LoadFrom(p)
+	if sealedFile.HadPlaintextSecret {
+		t.Error("a sealed file must not keep asking to be rewritten")
+	}
+	if sealedFile.Hosts[0].Password != "s3cr3t" {
+		t.Errorf("...while still reading back as the password: %q", sealedFile.Hosts[0].Password)
 	}
 }
 
@@ -333,7 +352,7 @@ func TestAnUnreadableSecretIsReportedAndKept(t *testing.T) {
 // make sshu refuse a config of key-only hosts that it can read perfectly well.
 func TestAFileWithoutSecretsNeedsNoKey(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "hosts.yaml")
-	os.WriteFile(p, []byte(`version: 3
+	os.WriteFile(p, []byte(`version: 2
 hosts:
   - name: web
     host: h

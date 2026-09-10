@@ -93,7 +93,7 @@ func main() {
 	// before store.Load: it runs inside ssh's authentication, and a program
 	// invoked to print one password has no business rewriting configuration.
 	// The early exit is what makes that structural instead of a convention.
-	versionNotes := reconcileVersions(hosts, credsFile, credsErr)
+	versionNotes := reconcileFiles(hosts, credsFile, credsErr)
 
 	save := func(list []store.Host) error {
 		return store.Save(store.File{Hosts: list})
@@ -210,23 +210,34 @@ func keyPathForMessage() string {
 	return store.FoldHome(p)
 }
 
-// reconcileVersions upgrades sshu's own files in place, and reports anything
-// it could not settle. It never stops startup: a version problem is about the
-// FILE, and refusing to run would take away the tool the user needs to look at
-// it.
+// reconcileFiles rewrites sshu's own files in place where they need it, and
+// reports anything it could not settle. It never stops startup: these are
+// problems about the FILE, and refusing to run would take away the tool the
+// user needs to look at it.
+//
+// TWO reasons to rewrite, and they are different questions:
+//
+//	NeedsUpgrade         the file is in an older FORMAT
+//	HadPlaintextSecret   the file held a password in the clear
+//
+// The second used to be folded into the first — encryption moved the version
+// number, and the version moving is what triggered the rewrite. That was
+// indirect and it was wrong: asking the data means a password typed into the
+// file by hand gets sealed on the next start too, and it leaves the version
+// number meaning only "an older build would damage this".
 //
 // credsErr matters. A credentials.yaml that failed to parse comes back as an
 // empty document, and writing that back would turn "sshu could not read your
 // file" into "sshu deleted your credentials". Nothing is written for a file
 // that did not load.
-func reconcileVersions(hosts store.File, creds store.CredsFile, credsErr error) []string {
+func reconcileFiles(hosts store.File, creds store.CredsFile, credsErr error) []string {
 	var out []string
 	if hosts.FromNewerSshu() {
 		out = append(out, "hosts.yaml was written by a newer sshu — it is shown as read, "+
 			"but saving will be refused. Upgrade sshu.")
-	} else if hosts.NeedsUpgrade() {
+	} else if hosts.NeedsUpgrade() || hosts.HadPlaintextSecret {
 		if err := store.Save(hosts); err != nil {
-			out = append(out, "hosts.yaml could not be upgraded: "+err.Error())
+			out = append(out, "hosts.yaml could not be rewritten: "+err.Error())
 		}
 	}
 	if credsErr != nil {
@@ -235,9 +246,9 @@ func reconcileVersions(hosts store.File, creds store.CredsFile, credsErr error) 
 	if creds.FromNewerSshu() {
 		out = append(out, "credentials.yaml was written by a newer sshu — it is shown as read, "+
 			"but saving will be refused. Upgrade sshu.")
-	} else if creds.NeedsUpgrade() {
+	} else if creds.NeedsUpgrade() || creds.HadPlaintextSecret {
 		if err := store.SaveCreds(creds); err != nil {
-			out = append(out, "credentials.yaml could not be upgraded: "+err.Error())
+			out = append(out, "credentials.yaml could not be rewritten: "+err.Error())
 		}
 	}
 	return out
