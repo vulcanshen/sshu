@@ -159,18 +159,18 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 
 	// And the log kept it, in the words the remote used — as the newest entry,
 	// after the "connecting" event that opened the attempt.
-	last := m.log.entries[len(m.log.entries)-1]
-	if last.level != logError {
-		t.Fatalf("the newest entry should be the failure, got level %d: %q", last.level, last.msg)
+	last := m.errors.entries[len(m.errors.entries)-1]
+	if last.level != levelError {
+		t.Fatalf("the newest entry should be the failure, got level %d: %q", last.level, last.text)
 	}
-	if !strings.Contains(last.msg, "Connection refused") {
-		t.Errorf("the entry lost the reason: %q", last.msg)
+	if !strings.Contains(last.text, "Connection refused") {
+		t.Errorf("the entry lost the reason: %q", last.text)
 	}
 	// Reading it happens where the log lives now: preference → logs. The line
 	// is WRAPPED onto the panel, not truncated — the word that says why is at
 	// the end, which is exactly what a cut tail would eat.
 	m = pressA(m, "M", "1", "j", "j", "j", "j") // nav → hosts → credentials → config → known hosts → logs
-	if m.pref.item != prefLogs {
+	if m.pref.item != prefErrors {
 		t.Fatalf("expected the logs section, got %d", m.pref.item)
 	}
 	logView := ansi.Strip(m.View())
@@ -178,8 +178,8 @@ func TestAFailedConnectionIsSaidAndKept(t *testing.T) {
 		t.Errorf("the rendered log dropped the tail of the reason:\n%s", logView)
 	}
 	// Having it on screen is reading it.
-	if m.log.unreadErrors() != 0 {
-		t.Errorf("%d errors still unread with the log on screen", m.log.unreadErrors())
+	if m.errors.unreadErrors() != 0 {
+		t.Errorf("%d errors still unread with the log on screen", m.errors.unreadErrors())
 	}
 }
 
@@ -268,7 +268,7 @@ exit 255`)
 	}
 	// The log has the parts a headline had no room for. The failure is ONE
 	// entry — the newest, after the "connecting" event.
-	body := m.log.entries[len(m.log.entries)-1].msg
+	body := m.errors.entries[len(m.errors.entries)-1].text
 	for _, want := range []string{
 		"REMOTE HOST IDENTIFICATION HAS CHANGED",
 		"SHA256:uNiVeRsAlLyUnIqUeFiNgErPrInT",
@@ -294,24 +294,24 @@ func TestTheLogScrollsThroughALongEntry(t *testing.T) {
 	for i := range long {
 		long[i] = "line " + itoa(i)
 	}
-	m.log.errorf("something went wrong", long...)
+	m.errors.errorf("", "", "something went wrong", long...)
 
 	const w, h = 80, 12
-	rows := len(m.log.allRows(w))
+	rows := len(m.errors.allRows(w))
 	if rows < 30 {
 		t.Fatalf("%d rendered rows, want the whole entry", rows)
 	}
 	for range 40 {
-		m.log.scrollKey("j", w, h)
+		m.errors.scrollKey("j", w, h)
 	}
-	if m.log.top == 0 {
+	if m.errors.top == 0 {
 		t.Error("j never scrolled")
 	}
-	if m.log.top > rows-h {
-		t.Errorf("scrolled past the end: top=%d rows=%d", m.log.top, rows)
+	if m.errors.top > rows-h {
+		t.Errorf("scrolled past the end: top=%d rows=%d", m.errors.top, rows)
 	}
 	// The last line is reachable.
-	body := ansi.Strip(strings.Join(m.log.body(w, h), "\n"))
+	body := ansi.Strip(strings.Join(m.errors.body(w, h), "\n"))
 	if !strings.Contains(body, "line 29") {
 		t.Errorf("the end of the entry is unreachable:\n%s", body)
 	}
@@ -1147,11 +1147,11 @@ func TestTheAppLogIsAViewNotAList(t *testing.T) {
 	withColour(t)
 	m := sshApp(t, sample())
 	for i := range 12 {
-		m.log.errorf("prod-web-0" + itoa(i%9+1) + " · Connection refused")
+		m.errors.errorf("", "", "prod-web-0"+itoa(i%9+1)+" · Connection refused")
 	}
 
 	// No row is ever painted as a cursor.
-	box := strings.Join(m.log.body(96, 8), "\n") // shorter than the rows, so it scrolls
+	box := strings.Join(m.errors.body(96, 8), "\n") // shorter than the rows, so it scrolls
 	for name, bg := range map[string]string{
 		"cursor": ansiBgOf(t, handColor), "green": ansiBgOf(t, liveColor),
 	} {
@@ -1161,15 +1161,15 @@ func TestTheAppLogIsAViewNotAList(t *testing.T) {
 	}
 
 	// j/k scroll the view, and it does not wrap.
-	before := m.log.top
-	m.log.scrollKey("j", 96, 8)
-	if m.log.top != before+1 {
-		t.Errorf("j should scroll, top=%d want %d", m.log.top, before+1)
+	before := m.errors.top
+	m.errors.scrollKey("j", 96, 8)
+	if m.errors.top != before+1 {
+		t.Errorf("j should scroll, top=%d want %d", m.errors.top, before+1)
 	}
-	m.log.scrollKey("k", 96, 8)
-	m.log.scrollKey("k", 96, 8)
-	if m.log.top != 0 {
-		t.Errorf("k should scroll back and clamp, top=%d", m.log.top)
+	m.errors.scrollKey("k", 96, 8)
+	m.errors.scrollKey("k", 96, 8)
+	if m.errors.top != 0 {
+		t.Errorf("k should scroll back and clamp, top=%d", m.errors.top)
 	}
 }
 

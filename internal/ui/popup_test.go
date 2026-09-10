@@ -807,8 +807,8 @@ func lastLine(s string) string {
 // And with nothing to run, the legend offers only the key that still works.
 func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
 	m := pressA(appWith(sample(), nil), "1", "j", "j", "j", "j", "enter") // logs, empty
-	if len(m.log.entries) != 0 {
-		t.Fatalf("setup: the log should be empty, has %d", len(m.log.entries))
+	if len(m.errors.entries) != 0 {
+		t.Fatalf("setup: the log should be empty, has %d", len(m.errors.entries))
 	}
 	m = pressA(m, " ")
 	if !m.spaceMenu.isActive() {
@@ -833,8 +833,9 @@ func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
 	}
 
 	// A menu that DOES have something to run keeps the full legend. From the
-	// nav on Logs, j wraps round to Hosts — a section with actions in it.
-	m = pressA(m, "esc", "j", "enter", " ")
+	// nav on Errors, three j walk past History and Activity and wrap round to
+	// Hosts — a section with actions in it.
+	m = pressA(m, "esc", "j", "j", "j", "enter", " ")
 	if legend := ansi.Strip(lastLine(m.spaceMenu.view())); !strings.Contains(legend, "j/k") ||
 		!strings.Contains(legend, "run") {
 		t.Errorf("a menu with actions still moves and runs, legend is %q", legend)

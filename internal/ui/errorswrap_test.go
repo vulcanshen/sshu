@@ -12,9 +12,9 @@ import (
 const remoteNoise = "10.20.12.31 · ❯   other-service/ (放 other service 檔案)" +
 	"Last login: Thu Sep  3 12:00:27 2026 from 10.20.15.1 ubuntu in ⊕ pc12031 in ~ ❯"
 
-func logWith(msg string) appLog {
-	m := newAppLog()
-	m.errorf(msg)
+func logWith(msg string) errorsModel {
+	var m errorsModel
+	m.errorf("prod-web-01", "deploy", msg)
 	return m
 }
 
@@ -43,13 +43,14 @@ func TestLogFillsEveryLineItWraps(t *testing.T) {
 		t.Fatalf("expected the entry to wrap over several lines, got %d", len(rows))
 	}
 
-	// The message column is what is left after the timestamp gutter.
-	const gutter = 15
-	for i, row := range rows[:len(rows)-1] {
-		msg := strings.TrimRight(ansi.Strip(row)[gutter:], " ")
-		if w := dispW(msg); w < innerW-gutter-2 {
+	// rows[0] is the COLUMN row — when, where, as whom — padded to the panel
+	// rather than wrapped. The message starts at rows[1], and every line of it
+	// but the last must be full.
+	for i, row := range rows[1 : len(rows)-1] {
+		msg := strings.TrimRight(ansi.Strip(row)[jGap:], " ")
+		if w := dispW(msg); w < innerW-jGap-2 {
 			t.Errorf("row %d used %d of %d columns — it broke early:\n%q",
-				i, w, innerW-gutter-1, ansi.Strip(row))
+				i+1, w, innerW-jGap-1, ansi.Strip(row))
 		}
 	}
 }
@@ -105,38 +106,75 @@ func TestPlainWrapFillsWhereTextWrapWouldBreakEarly(t *testing.T) {
 // This is the shape of the bug that started this: text delivered a few
 // characters at a time down a narrow channel with empty space either side.
 func TestTheGutterYieldsBeforeTheMessageDoes(t *testing.T) {
-	m := logWith(remoteNoise)
-	for _, innerW := range []int{20, 24, 30, 46, 60, 100} {
+	// Text with no whitespace of its own, so what is measured is the INDENT
+	// and not a space the remote happened to print. remoteNoise is full of
+	// them, which is exactly what makes it the wrong fixture for this one.
+	m := logWith("connection-refused-on-every-single-one-of-them")
+
+	for _, innerW := range []int{20, 30, 60, 100} {
 		rows := m.allRows(innerW)
 		if len(rows) < 2 {
 			t.Fatalf("innerW=%d: expected the entry to wrap, got %d rows", innerW, len(rows))
 		}
-		// Continuation lines only: the first carries the timestamp, and the
-		// last is short because it is the end of the message.
-		for i, row := range rows[1:max(1, len(rows)-1)] {
-			stripped := ansi.Strip(row)
-			text := strings.TrimLeft(stripped, " ")
-			gutter := dispW(stripped) - dispW(text)
-			if gutter > dispW(text) {
-				t.Errorf("innerW=%d row %d: %d columns of gutter against %d of message:\n%q",
-					innerW, i+1, gutter, dispW(text), stripped)
+		if got := ansi.Strip(rows[1]); !strings.HasPrefix(got, spaces(jGap)) {
+			t.Errorf("innerW=%d: the message should sit under the columns: %q", innerW, got)
+		}
+	}
+
+	// Narrow enough that two columns of blank would outweigh the words, and
+	// the indent yields entirely: text coming down a channel with empty space
+	// either side reads as damage, which is the bug this rule came from.
+	for _, innerW := range []int{4, 5} {
+		for i, row := range m.allRows(innerW)[1:] {
+			if got := ansi.Strip(row); strings.HasPrefix(got, " ") {
+				t.Errorf("innerW=%d row %d still indents: %q", innerW, i+1, got)
 			}
 		}
 	}
 }
 
-// The gutter earns its place on a panel that can spare it: continuation lines
-// indent under the message so a multi-line entry reads as one block instead of
-// as a paragraph nobody can find the start of.
-func TestAWidePanelKeepsTheGutter(t *testing.T) {
+// The message is indented under the columns, so a multi-line entry reads as
+// one block rather than as a paragraph nobody can find the start of.
+//
+// Two columns now, not the fifteen the old log spent aligning under a
+// timestamp: the row above is a set of columns, so the message only has to sit
+// UNDER them. Taking thirteen more columns off somebody else's error message
+// was never paying for itself.
+func TestTheMessageIsIndentedUnderTheColumns(t *testing.T) {
 	m := logWith(remoteNoise)
 	rows := m.allRows(80)
 	if len(rows) < 2 {
 		t.Fatalf("expected the entry to wrap, got %d rows", len(rows))
 	}
-	stripped := ansi.Strip(rows[1])
-	if lead := dispW(stripped) - dispW(strings.TrimLeft(stripped, " ")); lead < 10 {
-		t.Errorf("a wide panel should indent its continuation lines, got %d columns: %q", lead, stripped)
+	for i, row := range rows[1:] {
+		stripped := ansi.Strip(row)
+		if lead := dispW(stripped) - dispW(strings.TrimLeft(stripped, " ")); lead != jGap {
+			t.Errorf("row %d indents %d columns, want %d: %q", i+1, lead, jGap, stripped)
+		}
+	}
+}
+
+// The column row says which machine, and as whom. That is the whole point of
+// the split: a panel of failures used to be prose you had to read to find out
+// what each one was about.
+func TestTheFirstRowNamesTheMachine(t *testing.T) {
+	m := logWith("Connection refused")
+	head := ansi.Strip(m.allRows(80)[0])
+	if !strings.Contains(head, "prod-web-01") || !strings.Contains(head, "deploy") {
+		t.Errorf("the column row should carry host and user: %q", head)
+	}
+	if strings.Contains(head, "Connection refused") {
+		t.Errorf("the message belongs on its own line, not in the columns: %q", head)
+	}
+}
+
+// An entry with no machine behind it — a config file that would not parse —
+// says so rather than leaving the columns blank.
+func TestAnEntryWithNoHostShowsThePlaceholder(t *testing.T) {
+	var m errorsModel
+	m.warn("", "", "config.yaml: line 3 is not a setting")
+	if head := ansi.Strip(m.allRows(80)[0]); !strings.Contains(head, jNone) {
+		t.Errorf("want the placeholder in the empty columns: %q", head)
 	}
 }
 

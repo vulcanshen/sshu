@@ -33,9 +33,13 @@ func TestPrefNavSwapsContentAsTheCursorMoves(t *testing.T) {
 		!strings.Contains(v, "~/.ssh/known_hosts") {
 		t.Errorf("moving to known hosts should show ~/.ssh/known_hosts:\n%s", v)
 	}
-	m = pressA(m, "j")
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Logs") {
-		t.Errorf("moving to logs should show them:\n%s", v)
+	// Three rows under the Logs header now, and the cursor walks them one at a
+	// time — the header itself takes no stop.
+	for _, want := range []string{"[2] Errors", "[2] History", "[2] Activity"} {
+		m = pressA(m, "j")
+		if v := ansi.Strip(m.View()); !strings.Contains(v, want) {
+			t.Errorf("moving down should show %s:\n%s", want, v)
+		}
 	}
 	m = pressA(m, "j")
 	if v := ansi.Strip(m.View()); !strings.Contains(v, "[2] Hosts") {
@@ -72,18 +76,18 @@ func TestPrefKeyboardMovesBetweenNavAndContent(t *testing.T) {
 // the footer — and putting the logs on screen is what clears them.
 func TestUnreadErrorsAreDisclosedAndClearedByLooking(t *testing.T) {
 	m := appWith(sample(), nil)
-	m.log.errorf("something broke")
+	m.errors.errorf("", "", "something broke")
 
 	if foot := ansi.Strip(m.footer()); !strings.Contains(foot, "1 unread error") {
 		t.Errorf("the footer must count unread errors, got %q", foot)
 	}
-	if row := ansi.Strip(m.prefNavRow(prefLogs, 16, false)); !strings.Contains(row, "1") {
+	if row := ansi.Strip(m.prefNavRow(prefErrors, 16, false)); !strings.Contains(row, "1") {
 		t.Errorf("the nav's logs row must carry the count, got %q", row)
 	}
 
 	m = pressA(m, "1", "j", "j", "j", "j") // nav → … → known hosts → logs: now on screen
-	if m.log.unreadErrors() != 0 {
-		t.Errorf("having the logs on screen is reading them, unread = %d", m.log.unreadErrors())
+	if m.errors.unreadErrors() != 0 {
+		t.Errorf("having the logs on screen is reading them, unread = %d", m.errors.unreadErrors())
 	}
 	if foot := ansi.Strip(m.footer()); strings.Contains(foot, "unread") {
 		t.Errorf("nothing unread, nothing to disclose, got %q", foot)
@@ -162,12 +166,12 @@ func TestNavDimsWhenTheContentHasTheKeyboard(t *testing.T) {
 func TestClearLogsAsksThenEmptiesPanelAndFile(t *testing.T) {
 	m := appWith(sample(), nil)
 	cleared := 0
-	m.log.clearSink = func() error { cleared++; return nil }
-	m.log.errorf("something broke")
-	m.log.info("and then something else")
+	m.errors.clearSink = func() error { cleared++; return nil }
+	m.errors.errorf("", "", "something broke")
+	m.errors.warn("", "", "and then something else")
 
 	m = pressA(m, "1", "j", "j", "j", "j", "enter") // nav → logs → the content
-	if m.pref.item != prefLogs || m.pref.focus != panelPrefContent {
+	if m.pref.item != prefErrors || m.pref.focus != panelPrefContent {
 		t.Fatal("setup: expected the logs content focused")
 	}
 
@@ -181,8 +185,10 @@ func TestClearLogsAsksThenEmptiesPanelAndFile(t *testing.T) {
 	if label == "" {
 		t.Fatal("the logs menu must offer a way to clear the log")
 	}
-	if label != "[C]lear logs" {
-		t.Errorf("the row should read [C]lear logs, got %q", label)
+	// Named after the journal it is on, because there are three of them now and
+	// "logs" would read as all of them.
+	if label != "[C]lear errors" {
+		t.Errorf("the row should read [C]lear errors, got %q", label)
 	}
 
 	m = pressA(m, "C")
@@ -190,22 +196,22 @@ func TestClearLogsAsksThenEmptiesPanelAndFile(t *testing.T) {
 		t.Fatal("C should ask first — the log is the only record of what happened")
 	}
 	if lines := strings.Join(m.confirm.lines, " "); !strings.Contains(lines, "2 entries") ||
-		!strings.Contains(lines, "applogs.yaml") {
+		!strings.Contains(lines, "errors.yaml") {
 		t.Errorf("the confirm must count the cost and name the file, got %q", lines)
 	}
 
 	m = pressA(m, "enter")
-	if n := len(m.log.entries); n != 0 {
+	if n := len(m.errors.entries); n != 0 {
 		t.Errorf("the panel should be empty, %d entries left", n)
 	}
 	if cleared != 1 {
-		t.Errorf("applogs.yaml should have been emptied exactly once, got %d", cleared)
+		t.Errorf("errors.yaml should have been emptied exactly once, got %d", cleared)
 	}
 	if v := ansi.Strip(m.View()); !strings.Contains(v, "Cleared 2 entries") {
 		t.Errorf("the toast is where the news goes:\n%s", v)
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "Nothing has happened yet") {
-		t.Error("an emptied log should show its empty state")
+	if !strings.Contains(ansi.Strip(m.View()), "Nothing has failed") {
+		t.Error("an emptied journal should show its empty state")
 	}
 }
 
@@ -213,12 +219,12 @@ func TestClearLogsAsksThenEmptiesPanelAndFile(t *testing.T) {
 // cleared and is full again after a restart is the worse of the two lies.
 func TestClearLogsKeepsEverythingWhenTheFileRefuses(t *testing.T) {
 	m := appWith(sample(), nil)
-	m.log.clearSink = func() error { return errors.New("applogs.yaml: read-only") }
-	m.log.info("one thing happened")
+	m.errors.clearSink = func() error { return errors.New("errors.yaml: read-only") }
+	m.errors.errorf("", "", "one thing happened")
 
 	m = pressA(m, "1", "j", "j", "j", "j", "enter", "C", "enter")
-	if len(m.log.entries) != 1 {
-		t.Fatalf("the entries must survive a refused clear, got %d", len(m.log.entries))
+	if len(m.errors.entries) != 1 {
+		t.Fatalf("the entries must survive a refused clear, got %d", len(m.errors.entries))
 	}
 	if v := ansi.Strip(m.View()); !strings.Contains(v, "read-only") {
 		t.Errorf("the refusal must be said out loud:\n%s", v)
@@ -230,8 +236,8 @@ func TestClearLogsKeepsEverythingWhenTheFileRefuses(t *testing.T) {
 func TestAnEmptyLogOffersNothingToClear(t *testing.T) {
 	m := appWith(sample(), nil)
 	m = pressA(m, "1", "j", "j", "j", "j", "enter")
-	if len(m.log.entries) != 0 {
-		t.Fatalf("setup: the log should be empty, has %d", len(m.log.entries))
+	if len(m.errors.entries) != 0 {
+		t.Fatalf("setup: the log should be empty, has %d", len(m.errors.entries))
 	}
 	for _, it := range m.menuItems() {
 		if it.key == "C" {
@@ -283,12 +289,14 @@ func TestCredentialAddEditDelete(t *testing.T) {
 	if v := ansi.Strip(m.View()); !strings.Contains(v, "ops") {
 		t.Errorf("the new row is not in the table:\n%s", v)
 	}
+	// Adding a credential is a CHANGE, so it belongs to Activity — not to
+	// Errors, which only holds what went wrong (§11.49).
 	joined := ""
-	for _, e := range m.log.entries {
-		joined += e.msg + "\n"
+	for _, e := range m.activity.entries {
+		joined += e.action + "\n"
 	}
 	if !strings.Contains(joined, `credential "ops" added`) {
-		t.Errorf("adding a credential is an event, log has:\n%s", joined)
+		t.Errorf("adding a credential is activity, which holds:\n%s", joined)
 	}
 
 	// Enter looks, then Enter edits — prefilled.

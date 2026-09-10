@@ -223,7 +223,7 @@ func (m AppModel) askDuplicate() (tea.Model, tea.Cmd) {
 func (m AppModel) startSession(h store.Host, land sshPanel) (tea.Model, tea.Cmd) {
 	rh, err := store.Resolve(h, m.creds.creds)
 	if err != nil {
-		m.log.errorf(err.Error())
+		m.errors.errorf(h.Name, "", err.Error())
 		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
 	}
 	h = rh
@@ -231,8 +231,13 @@ func (m AppModel) startSession(h store.Host, land sshPanel) (tea.Model, tea.Cmd)
 	m.tab = tabSSH
 	m.sftp.onScreen = false // same rule switchTab keeps: hidden tabs do not poll
 	m.ssh.setSize(m.w, m.panelHeight())
-	m.log.info("connecting to " + h.Name + " · " + h.Addr())
+	// Starting is not a result, and History records results — the entry for
+	// this connection is written when the session ends, with what happened to
+	// it. A session that never starts is the exception, and it is recorded
+	// right here because there will be no ending to record it at.
 	if _, err := m.ssh.connect(h); err != nil {
+		m.history.add(h.Name, h.User, false)
+		m.errors.errorf(h.Name, h.User, err.Error())
 		return m, tea.Batch(cmd, m.toast.show(err.Error(), toastError))
 	}
 	// connect() already put the new cell on the grid, pointed focusPty at it AND

@@ -254,7 +254,7 @@ func (m AppModel) footer() string {
 	// lives at manage → logs, and a record nobody is told about is a record
 	// nobody opens.
 	pairs := [][2]string{{"space", "menu"}, {"?", "help"}, nav}
-	if n := m.log.unreadErrors(); n > 0 {
+	if n := m.errors.unreadErrors(); n > 0 {
 		pairs = append(pairs, [2]string{"M", plural(n, "unread error")})
 	}
 	pairs = append(pairs, [2]string{"q", "quit"})

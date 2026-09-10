@@ -26,7 +26,9 @@ const (
 	prefCreds
 	prefSSHConfig
 	prefKnownHosts
-	prefLogs
+	prefErrors
+	prefHistory
+	prefActivity
 	prefExport
 	prefImport
 	prefItemCount
@@ -46,8 +48,12 @@ func (p prefItem) label() string {
 		// "Known" alone would not say what of, and "Known hosts" reads as two
 		// nav rows at a glance.
 		return "KnownHosts"
-	case prefLogs:
-		return "Logs"
+	case prefErrors:
+		return "Errors"
+	case prefHistory:
+		return "History"
+	case prefActivity:
+		return "Activity"
 	case prefExport:
 		return "Export"
 	case prefImport:
@@ -63,15 +69,15 @@ func (p prefItem) label() string {
 // Others is everything that is neither, and Operation is what sshu can do to
 // its own config as a whole.
 //
-// It read "Events" while Logs was the only thing under it. That was a label
-// for one row rather than for a category, and it stopped being true the moment
-// anything that is not an event needed somewhere to live.
+// It read "Events" while Logs was the only thing under it, then "Others" once
+// that stopped being true. It is "Logs" again now, and this time the word is
+// a category rather than a row: three of them live under it (§11.49).
 var prefSections = []struct {
 	header string
 	items  []prefItem
 }{
 	{"SSH", []prefItem{prefHosts, prefCreds, prefSSHConfig, prefKnownHosts}},
-	{"Others", []prefItem{prefLogs}},
+	{"Logs", []prefItem{prefErrors, prefHistory, prefActivity}},
 	// Operation (Export / Import) is MASKED until its design settles: the
 	// enum keeps the tail values, the pages stay compiled and tested, but
 	// the nav neither draws the section nor stops on its items. Unmasking
@@ -152,11 +158,15 @@ func (m *AppModel) syncPrefSizes() {
 }
 
 // prefShowed runs whenever the pref tab's content may have changed. Landing
-// the LOGS content on screen is what reading it means, so that is the moment
+// the ERRORS content on screen is what reading it means, so that is the moment
 // the unread count goes to zero — not a popup toggle, which no longer exists.
+//
+// Only Errors. History and Activity carry no badge, so there is nothing for
+// looking at them to mark: the badge counts failures, and reading a list of
+// successful connections says nothing about whether the failures were seen.
 func (m *AppModel) prefShowed() {
-	if m.tab == tabPref && m.pref.item == prefLogs {
-		m.log.markRead()
+	if m.tab == tabPref && m.pref.item == prefErrors {
+		m.errors.markRead()
 	}
 }
 
@@ -183,30 +193,67 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 		// The page claimed its keys in handleKey (textPage) before the global
 		// vocabulary ran; nothing is left to do here.
 		return m, nil
-	case prefLogs:
-		// The one thing a log can be told to do. No action table behind it:
-		// one action is not a registry, and the Space menu row beside it is
-		// this same condition spelled once more (§4.2).
-		if k == "C" && len(m.log.entries) > 0 {
-			return m.askClearLogs()
+	case prefErrors, prefHistory, prefActivity:
+		// The one thing a journal can be told to do, and it clears THIS one:
+		// three files, three separate records, and a Clear that emptied all of
+		// them would be a key doing more than the panel it was pressed on.
+		if k == "C" && m.journalCount() > 0 {
+			return m.askClearJournal()
 		}
 		_, _, rightW, rightH := m.pref.panes()
-		m.log.scrollKey(k, max(1, rightW-2), max(1, rightH-2))
+		w, h := max(1, rightW-2), max(1, rightH-2)
+		switch m.pref.item {
+		case prefErrors:
+			m.errors.scrollKey(k, w, h)
+		case prefHistory:
+			m.history.scrollKey(k, w, h)
+		default:
+			m.activity.scrollKey(k, w, h)
+		}
 		return m, nil
 	}
 	return m.hostsKey(k)
 }
 
-// askClearLogs asks first. The log is the only record of what happened while
-// nobody was looking, and clearing it takes applogs.yaml with it — the same
+// journalCount and journalFile answer "which one am I on" for the places that
+// need it. Written as a switch each rather than as a method on a shared
+// interface: the three journals have different row shapes on purpose, and an
+// interface to unify them would exist only to serve these few lines.
+func (m AppModel) journalCount() int {
+	switch m.pref.item {
+	case prefErrors:
+		return len(m.errors.entries)
+	case prefHistory:
+		return len(m.history.entries)
+	case prefActivity:
+		return len(m.activity.entries)
+	}
+	return 0
+}
+
+func (m AppModel) journalFile() string {
+	switch m.pref.item {
+	case prefHistory:
+		return "history.yaml"
+	case prefActivity:
+		return "activity.yaml"
+	}
+	return "errors.yaml"
+}
+
+// askClearJournal asks first. A journal is the only record of what happened
+// while nobody was looking, and clearing it takes its file too — the same
 // shape of question deleting a host asks, for the same reason.
-func (m AppModel) askClearLogs() (tea.Model, tea.Cmd) {
+//
+// It names the FILE, because there are three now and the panel title alone
+// does not say which bytes are about to go.
+func (m AppModel) askClearJournal() (tea.Model, tea.Cmd) {
 	return m, m.confirm.ask(confirmPopup{
 		glyph: glyphWarn,
 		title: "Confirm",
 		lines: []string{
-			"Clear the app log?",
-			logEntries(len(m.log.entries)) + " erased, applogs.yaml too.",
+			"Clear " + m.pref.item.label() + "?",
+			journalEntries(m.journalCount()) + " erased, " + m.journalFile() + " too.",
 		},
 		accept: "clear",
 		warn:   true,
@@ -214,19 +261,28 @@ func (m AppModel) askClearLogs() (tea.Model, tea.Cmd) {
 	}, m.layer())
 }
 
-func (m AppModel) doClearLogs() (tea.Model, tea.Cmd) {
-	n := len(m.log.entries)
-	if err := m.log.clear(); err != nil {
-		// The file refused, so the panel keeps its entries: a log that says it
-		// was cleared and is full again after a restart is worse than one that
-		// says it could not be.
+func (m AppModel) doClearJournal() (tea.Model, tea.Cmd) {
+	n := m.journalCount()
+	var err error
+	switch m.pref.item {
+	case prefErrors:
+		err = m.errors.clear()
+	case prefHistory:
+		err = m.history.clear()
+	case prefActivity:
+		err = m.activity.clear()
+	}
+	if err != nil {
+		// The file refused, so the panel keeps its entries: a journal that says
+		// it was cleared and is full again after a restart is worse than one
+		// that says it could not be.
 		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
 	}
-	// Deliberately NOT logged. "app log cleared" as the first line of a log
+	// Deliberately NOT recorded. "cleared" as the first line of a journal
 	// somebody just emptied reads as a clear that did not work; the toast is
 	// where that news belongs, and it is gone by the time you look again.
 	return m, tea.Batch(m.closeStack(),
-		m.toast.show("Cleared "+logEntries(n), toastInfo))
+		m.toast.show("Cleared "+journalEntries(n), toastInfo))
 }
 
 func (m AppModel) prefView() string {
@@ -289,8 +345,8 @@ func (m AppModel) prefNavRow(it prefItem, innerW int, focused bool) string {
 		body, tail = cur, cur
 	}
 	badge := ""
-	if it == prefLogs {
-		if n := m.log.unreadErrors(); n > 0 {
+	if it == prefErrors {
+		if n := m.errors.unreadErrors(); n > 0 {
 			badge = itoa(n) + " "
 		}
 	}
@@ -316,12 +372,21 @@ func (m AppModel) prefContent(w, h int) string {
 		innerW, innerH := w-2, h-2
 		body := m.importPage.body(importIntro, "", "import", focused, innerW)
 		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
-	case prefLogs:
+	case prefErrors, prefHistory, prefActivity:
 		innerW, innerH := w-2, h-2
-		// fitLines like every content body: the log empty state returns
+		// fitLines like every content body: a journal's empty state returns
 		// fewer rows than the panel is tall, and on a narrow terminal there
 		// is no neighbouring panel to prop the frame up.
-		return panelChrome(innerW, fitLines(m.log.body(innerW, innerH), innerW, innerH), title, focused)
+		var body []string
+		switch m.pref.item {
+		case prefErrors:
+			body = m.errors.body(innerW, innerH)
+		case prefHistory:
+			body = m.history.body(innerW, innerH)
+		default:
+			body = m.activity.body(innerW, innerH)
+		}
+		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
 	}
 	return m.hosts.view(title, focused)
 }
@@ -340,11 +405,12 @@ func (m AppModel) prefStatus() string {
 		return plural(len(m.hosts.hosts), "host") + " · " + plural(len(m.creds.creds), "credential")
 	case prefImport:
 		return "merge a " + store.BundleExt + " bundle"
-	case prefLogs:
-		if len(m.log.entries) == 0 {
-			return "log empty"
-		}
-		return logEntries(len(m.log.entries))
+	case prefErrors:
+		return m.errors.status()
+	case prefHistory:
+		return m.history.status()
+	case prefActivity:
+		return m.activity.status()
 	}
 	return m.hosts.status()
 }

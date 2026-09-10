@@ -50,9 +50,13 @@ func main() {
 	// the complaint goes where complaints go now, which is the app log.
 	cfg, cfgErr := store.LoadConfig()
 
-	// The log's own file failing to load is itself news — but never fatal, and
-	// never a reason to stop recording new events.
-	logTail, logErr := store.LoadLog()
+	// A journal's own file failing to load is itself news — but never fatal,
+	// and never a reason to stop recording new events. Three files, three
+	// independent failures: errors.yaml being unreadable says nothing about
+	// whether history.yaml is.
+	errTail, errErr := store.LoadErrors()
+	histTail, histErr := store.LoadHistory()
+	actTail, actErr := store.LoadActivity()
 
 	// Credentials are data like hosts, but a broken credentials.yaml only
 	// breaks the hosts that reference it — sshu still starts, and says so.
@@ -85,15 +89,23 @@ func main() {
 		return store.SaveCreds(store.CredsFile{Credentials: list})
 	}
 	app := ui.New(hosts.Hosts, save, cfg).
-		WithLog(logTail, store.AppendLog, store.ClearLog).
+		WithJournals(
+			errTail, store.AppendError, store.ClearErrors,
+			histTail, store.AppendHistory, store.ClearHistory,
+			actTail, store.AppendActivity, store.ClearActivity).
 		WithCredentials(credsFile.Credentials, saveCreds).
 		WithSSHConfig(sshCfg, store.SaveSSHConfig).
 		WithKnownHosts(knownHosts, store.SaveKnownHosts)
 	if cfgErr != nil {
 		app = app.WithStartupError("config.yaml: " + cfgErr.Error())
 	}
-	if logErr != nil {
-		app = app.WithStartupError("applogs.yaml: " + logErr.Error())
+	for _, j := range []struct {
+		file string
+		err  error
+	}{{"errors.yaml", errErr}, {"history.yaml", histErr}, {"activity.yaml", actErr}} {
+		if j.err != nil {
+			app = app.WithStartupError(j.file + ": " + j.err.Error())
+		}
 	}
 	if credsErr != nil {
 		app = app.WithStartupError("credentials.yaml: " + credsErr.Error())

@@ -83,12 +83,16 @@ type AppModel struct {
 	// lockMenu is the Alt+Enter float: Lock / Release for the focused cell.
 	// A spaceMenu instance like the pickers, with its own animator so its
 	// ticks cannot collide with the real Space menu's.
-	lockMenu     spaceMenu
-	splash       splashModel
-	hostPicker   spaceMenu
-	credPicker   spaceMenu
-	transfersUI  transfersPopup
-	log          appLog
+	lockMenu    spaceMenu
+	splash      splashModel
+	hostPicker  spaceMenu
+	credPicker  spaceMenu
+	transfersUI transfersPopup
+	// Three journals, because there were three questions inside one log:
+	// what broke, what you connected to, what you changed (§11.49).
+	errors       errorsModel
+	history      historyModel
+	activity     activityModel
 	viewer       viewerPopup
 	detail       detailPopup
 	editorUI     editorPopup
@@ -121,7 +125,6 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		ssh:          newSSHModel(),
 		sftp:         newSFTPModel(),
 		transfersUI:  newTransfersPopup(),
-		log:          newAppLog(),
 		viewer:       newViewerPopup(),
 		detail:       newDetailPopup(),
 		editorUI:     newEditorPopup(),
@@ -153,16 +156,38 @@ func (m AppModel) WithCredentials(creds []store.Credential, save func([]store.Cr
 	return m
 }
 
-// WithLog wires the app log to applogs.yaml: tail is what the file already
-// held (shown, all read), sink is where each new entry goes, clear is how
-// [C]lear logs empties the file. Applied before WithStartupError so a startup
-// complaint lands after the tail and on disk.
-func (m AppModel) WithLog(tail []store.LogEntry, sink func(store.LogEntry) error,
-	clear func() error) AppModel {
-	m.log.preload(tail)
-	m.log.sink = sink
-	m.log.clearSink = clear
+// WithJournals wires the three journals to their files: each tail is what the
+// file already held (shown, all read), each sink is where new entries go, each
+// clear is how [C]lear empties that one file. Applied before WithStartupError
+// so a startup complaint lands after the tail and on disk.
+//
+// One call rather than three builder methods, because they are wired at one
+// moment from one place, and three would let a caller wire two and forget the
+// third — with nothing to show for it until something failed and had nowhere
+// to go.
+func (m AppModel) WithJournals(
+	errTail []store.ErrorEntry, errSink func(store.ErrorEntry) error, errClear func() error,
+	histTail []store.HistoryEntry, histSink func(store.HistoryEntry) error, histClear func() error,
+	actTail []store.ActivityEntry, actSink func(store.ActivityEntry) error, actClear func() error,
+) AppModel {
+	m.errors.preload(errTail)
+	m.errors.sink, m.errors.clearSink = errSink, errClear
+	m.history.preload(histTail)
+	m.history.sink, m.history.clearSink = histSink, histClear
+	m.activity.preload(actTail)
+	m.activity.sink, m.activity.clearSink = actSink, actClear
 	return m
+}
+
+// userForHost is who a connection to this host runs as, resolved through its
+// credential when it has one. The journals want it beside the host name, and
+// the hosts table is where that pairing is already worked out.
+func (m AppModel) userForHost(name string) string {
+	i := indexOfHost(m.hosts.hosts, name)
+	if i < 0 {
+		return ""
+	}
+	return m.hosts.displayUser(m.hosts.hosts[i])
 }
 
 // WithStartupError records something that went wrong before the first frame.
@@ -170,7 +195,10 @@ func (m AppModel) WithLog(tail []store.LogEntry, sink func(store.LogEntry) error
 // have one, and a nil-able argument for "nothing was wrong" reads worse than
 // not calling this at all.
 func (m AppModel) WithStartupError(msg string) AppModel {
-	m.log.errorf(msg)
+	// No host and no user: a config file that would not parse is not about a
+	// machine. The panel draws a placeholder in those columns rather than
+	// inventing one.
+	m.errors.errorf("", "", msg)
 	return m
 }
 
@@ -202,7 +230,7 @@ func (m AppModel) WithKnownHosts(f store.KnownHostsFile,
 // case it exists for — nothing failed, but the file and the list on screen no
 // longer agree, and only the user can close that gap.
 func (m AppModel) WithStartupWarning(msg string) AppModel {
-	m.log.warn(msg)
+	m.errors.warn("", "", msg)
 	return m
 }
 
@@ -309,15 +337,20 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// for a moment was the same as never being told.
 		var bad []*session
 		for _, s := range ended {
-			line := s.host.Name + " · " + s.reason
+			// Both journals, and each says a different thing. History records
+			// the RESULT and nothing else, so a host reads down a column —
+			// three attempts this afternoon, two of them red. Errors records
+			// WHY, which is the whole final screen. Putting the reason in both
+			// would give one failure two accounts that can disagree (§11.49).
+			m.history.add(s.host.Name, m.hosts.displayUser(s.host), s.ok)
 			if s.ok {
-				m.log.info(line)
 				continue
 			}
 			// The headline plus everything ssh printed. A refused connection is
 			// one line either way; a host key mismatch is fifteen, and the
 			// fingerprint you need is in the middle of them.
-			m.log.errorf(line, s.detail...)
+			m.errors.errorf(s.host.Name, m.hosts.displayUser(s.host),
+				s.host.Name+" · "+s.reason, s.detail...)
 			bad = append(bad, s)
 		}
 		if msg := endedBadlyToast(bad); msg != "" {
@@ -1096,13 +1129,13 @@ func (m *AppModel) logFinishedTransfers() bool {
 		switch j.status() {
 		case xferDone:
 			j.logged, ended = true, true
-			m.log.info("transfer done: " + j.label)
+			m.activity.add("transfer done: " + j.label)
 		case xferCancelled:
 			j.logged, ended = true, true
-			m.log.info("transfer cancelled: " + j.label)
+			m.activity.add("transfer cancelled: " + j.label)
 		case xferFailed:
 			j.logged, ended = true, true
-			m.log.errorf("transfer failed: "+j.label, j.err())
+			m.errors.errorf("", "", "transfer failed: "+j.label, j.err())
 		}
 	}
 	return ended
@@ -1243,14 +1276,10 @@ func (m AppModel) applyNestCmd(msg nestCmdMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	s.locked = want
-	// Logged like the local action, because from this machine's side it is
-	// indistinguishable from one — and a state that changed with nobody at
-	// this keyboard is exactly what a log is for.
-	if want {
-		m.log.info("pty locked from an outer sshu: " + s.host.Name)
-	} else {
-		m.log.info("pty released from an outer sshu: " + s.host.Name)
-	}
+	// No journal takes this. Locking a cell changes what the keyboard reaches,
+	// not what exists — Activity records changes that outlive the session, and
+	// a stream of lock/release would bury them (§11.49). The badge on the cell
+	// already says the current state, which is the question anybody has.
 	return m, nil
 }
 
@@ -1382,12 +1411,6 @@ func (m *AppModel) zoomChain(on bool) tea.Cmd {
 	// nothing left inside, this layer IS the innermost and must not be locked.
 	if want := on && last > 0; s.locked != want {
 		s.locked = want
-		if want {
-			m.log.info("chain zoomed and locked: " + s.host.Name +
-				" — alt+enter releases")
-		} else {
-			m.log.info("chain restored: " + s.host.Name)
-		}
 	}
 	return m.lockMenu.close()
 }
@@ -1463,14 +1486,12 @@ func (m AppModel) lockMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.toast.show("Already locked", toastInfo)
 		}
 		s.locked = true
-		m.log.info("pty locked: " + s.host.Name + " — keys pass through, alt+enter releases")
 		return m, m.lockMenu.close()
 	case "R":
 		if !s.locked {
 			return m, m.toast.show("Not locked", toastInfo)
 		}
 		s.locked = false
-		m.log.info("pty released: " + s.host.Name)
 		return m, m.lockMenu.close()
 	}
 	return m, nil
@@ -1513,18 +1534,21 @@ func (m AppModel) menuItems() []menuItem {
 		return m.sshcfgMenuItems()
 	case prefKnownHosts:
 		return m.knownMenuItems()
-	case prefLogs:
-		if len(m.log.entries) == 0 {
+	case prefErrors, prefHistory, prefActivity:
+		region := strings.ToLower(m.pref.item.label())
+		if m.journalCount() == 0 {
 			return []menuItem{
-				{label: "app log", header: true},
+				{label: region, header: true},
 				{label: "nothing recorded yet", header: true},
 			}
 		}
 		return []menuItem{
-			{label: "app log", header: true},
+			{label: region, header: true},
 			{label: "newest first — j/k scroll", header: true},
 			{separator: true},
-			{label: "Clear logs", key: "C", hint: "erase every entry"},
+			// The hint names the file, because Clear is per journal now and
+			// "every entry" would read as all three.
+			{label: "Clear " + region, key: "C", hint: "erase " + m.journalFile()},
 		}
 	case prefExport, prefImport:
 		return []menuItem{
@@ -1661,7 +1685,7 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case confirmEditOverwrite:
 		return m.saveEditForced()
 	case confirmClearLogs:
-		return m.doClearLogs()
+		return m.doClearJournal()
 	case confirmDeleteSSHCfg:
 		return m.doDeleteSSHCfg(m.confirm.at)
 	case confirmDeleteKnown:
@@ -1685,7 +1709,7 @@ func (m AppModel) doDelete(name string) (tea.Model, tea.Cmd) {
 	m.hosts.hosts = hosts
 	m.hosts.cursor = min(m.hosts.cursor, max(0, len(hosts)-1))
 	m.hosts.ensureVisible()
-	m.log.info(fmt.Sprintf("host %q deleted", name))
+	m.activity.add(fmt.Sprintf("host %q deleted", name))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Deleted %q", name), toastInfo))
 }
@@ -1913,7 +1937,7 @@ func (m AppModel) commitForm() (tea.Model, tea.Cmd) {
 	if m.form.editing != "" {
 		verb = "updated"
 	}
-	m.log.info(fmt.Sprintf("host %q %s (%s)", h.Name, verb, h.Addr()))
+	m.activity.add(fmt.Sprintf("host %q %s (%s)", h.Name, verb, h.Addr()))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Saved %q", h.Name), toastInfo))
 }

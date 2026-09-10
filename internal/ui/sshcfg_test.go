@@ -561,9 +561,9 @@ func TestASaveRefusedByAnotherEditorPutsTheirFileOnScreen(t *testing.T) {
 	}
 	// The log is the durable half of saying it — the toast is gone in seconds,
 	// and this is the one refusal a user may need to reason about later.
-	if n := len(m.log.entries); n == 0 ||
-		!strings.Contains(m.log.entries[n-1].msg, "changed on disk") {
-		t.Errorf("the refusal must be recorded, log is %+v", m.log.entries)
+	if n := len(m.errors.entries); n == 0 ||
+		!strings.Contains(m.errors.entries[n-1].text, "changed on disk") {
+		t.Errorf("the refusal must be recorded, log is %+v", m.errors.entries)
 	}
 	// The panel adopts what is actually on disk, so the list and the message
 	// are not contradicting each other.
