@@ -54,14 +54,17 @@ type CredsFile struct {
 	HadPlaintextSecret bool     `yaml:"-"`
 }
 
-// credsHeader is prepended to every write, for the same reason hosts.yaml has
-// one: 0600 does not survive being copied somewhere it should not go.
+// credsHeader is prepended to every write, and says what hosts.yaml's does for
+// the same reason: the key is in this directory, so encryption buys separation
+// from a one-file leak and nothing from a directory-wide one.
 const credsHeader = `# sshu credentials — managed by preference → credentials. Hand-editing is fine.
 #
-# WARNING: this file may contain plaintext passwords (credentials with
-# auth: password). It is kept at mode 0600, but that does not protect a copy:
-# keep it out of version control, out of auto-syncing folders, and out of
-# backups.
+# Passwords here are stored encrypted (ENC:...), with the key in .sshukey beside
+# this file. That protects THIS FILE on its own — not a copy of the directory,
+# which carries the key with it. Plaintext you hand-edit in is sealed on the next
+# start. Mode 0600 is re-asserted on every write and does not survive a copy
+# either. Keep this directory out of version control, out of auto-syncing
+# folders, and out of backups.
 `
 
 // Validate checks the list as a whole: every credential valid, no duplicates.

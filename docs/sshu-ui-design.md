@@ -1081,7 +1081,7 @@ terminal 生態裡太滿(tmux prefix、readline forward-char、pager 搜尋),踩
 的 surface 上了。見 §11.21。)
 
 form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Alt+x` 會把 `x` 打進
-欄位(`TestTabBrowsesOnlyOnThePathField` 一併釘住)。
+欄位(當時由 ~~`TestTabBrowsesOnlyOnThePathField`~~ 一併釘住;該測試已隨 picker 改用 `Enter` 移除)。
 
 **stack**:picker 疊在 form 上(layer +1),form 留在底下 —— `Esc` 取消選檔
 會回到那張還沒填完的 form,不是掉回面板(§6.4)。
@@ -1887,13 +1887,13 @@ XDG_CONFIG_HOME 有設   → $XDG_CONFIG_HOME/sshu/
 | ~~`applogs.yaml`~~ | ~~單一 app log~~ | **已棄用**(§11.49)—— 不讀不寫也不遷移。舊檔留在原地,要不要刪是使用者的事 |
 | `state.yaml` | session 狀態(上次 tab / cursor) | app 自動 `(planned)` |
 
-三本 journal 的檔名跟面板名一致,而那是刻意的:面板叫 Connections、檔案叫
-`history.yaml`,是一次不該有人做的查表(§11.49)。
+三本 journal 的檔名跟面板名一致,而那是刻意的。反過來會長成這樣:面板叫
+Connections、檔案卻叫 `history.yaml` —— 那就是一次不該有人做的查表(§11.49)。
 
 ### 8.2 `hosts.yaml` schema
 
 ```yaml
-# sshu hosts —— 由 [1] hosts tab 管理,手改也可以。
+# sshu hosts —— 由 [M]anage → SSHU → Hosts 管理,手改也可以。
 # 本檔權限固定 0600(內含連線密碼,見下方警告)。
 version: 2
 hosts:
@@ -1910,7 +1910,7 @@ hosts:
     port: 2222
     user: postgres
     auth: password
-    password: "s3cr3t"               # 明碼
+    password: "ENC:0mHc…"            # AES-256-GCM,見 §8.3
 ```
 
 - **`name` 就是 key**,全域唯一;CRUD 以 name 定位,不另設 id(簡單優先)
@@ -2111,6 +2111,11 @@ embedded terminal 的 `creack/pty` + `hinshun/vt10x`、連線的
 
 **1. hosts → 3. ssh → 2. sftp**(你指定的順序)。
 
+> 下面各階段的驗收表記的是**那個階段完成當下**的事實,以及釘住它的測試。
+> 功能往前走,測試會跟著改名、合併或直接消失 —— 畫上刪除線的
+> ~~`TestX`~~ 就是這種:它釘過的那件事當時是真的,而那個測試已經不在了。
+> 這不是待辦,是歷史;後來變成什麼,往下面幾列或 §11 找。
+
 ### 第一階段:tab [1] hosts —— **完成**
 
 | 項 | 狀態 | 落在哪 |
@@ -2171,13 +2176,13 @@ X 回到 ~1.0。
 | query 佔標題列,不改變列數 | `TestHostsSearchRowReplacesTheHeader` |
 | 動作打在**畫面上那一列**,離開搜尋不換位置 | `TestHostsActionsFollowTheFilteredCursor` / `TestLeavingASearchKeepsTheRow` |
 | 空表格不提供 `/` | `TestSearchNeedsHostsToSearch` |
-| Auth 用 radio glyph、panel 不戴 title | `TestAuthFieldUsesRadioGlyphs` / `TestHostsPanelHasNoTitle` |
+| Auth 用 radio glyph、panel 不戴 title | `TestAuthFieldUsesRadioGlyphs` / ~~`TestHostsPanelHasNoTitle`~~ —— **後來翻案**,panel 戴了 title(`TestPrefPanelsWearTheirTitles`) |
 | 舊 toast timer 不會關掉新 toast | `TestToastGenerationGuard` |
 | bracket 印的那個大小寫**是唯一**按得動的鍵 | `TestOnlyTheMarkedCaseFires` / `TestLowercaseDoesNotFireAnUppercaseAction` |
 | tab [2] 小寫作用在游標列、大寫作用在 panel;`a` append(再按取消)、marks panel `c` 清單項 | `TestSFTPMenuHasItemAndPanelRegions` / `TestSFTPMarkToggles` |
 | 導覽鍵不受大小寫折疊影響(`G` vs `g`) | `TestNavigationKeysStayCaseSensitive` |
-| `Tab` 只在 IdentityFile 欄開 picker、hint 也只在那裡宣傳 | `TestBrowseOpensOnlyOnTheIdentityField` / `TestFormHintIsPerField` |
-| `Tab` 不會打字;方向鍵仍能離開該欄 | `TestTabBrowsesOnlyOnThePathField` / `TestPathFieldCanStillBeLeft` |
+| `Tab` 只在 IdentityFile 欄開 picker、hint 也只在那裡宣傳 | `TestEnterBrowsesOnlyOnTheEmptyIdentityField`(觸發鍵後來改成 `Enter`)/ `TestFormHintIsPerField` |
+| `Tab` 不會打字;方向鍵仍能離開該欄 | ~~`TestTabBrowsesOnlyOnThePathField`~~ / `TestPathFieldCanStillBeLeft` |
 | 選檔後直接寫回欄位、路徑折成 `~` | `TestPickFillsTheField` |
 | picker `Esc` 回到那張還沒填完的 form | `TestPickerCancelKeepsTheForm` |
 | picker 疊上去 frame 仍不變形 | `TestPickerFrameHolds` |
@@ -2218,37 +2223,37 @@ X 回到 ~1.0。
 | 打字真的送到遠端(用 `cat` 回音驗證) | `TestKeysReachTheRemote` |
 | pty 有 focus 時 footer 只留出口、不列會被吞掉的鍵 | `TestFooterInPtyAdvertisesTheWayOut` |
 | `Tab` 永遠不會走進 `[5]` | `TestTabNeverEntersThePty` |
-| `4`/`5`/`6` 直達 panel | `TestDigitsAddressPanels` |
+| `4`/`5`/`6` 直達 panel | `TestDigitsAddressPanelsOfTheCurrentTab` |
 | 移動游標**不會**切換 `[5]` 顯示的 session | `TestCursorDoesNotSwitchTheSession` |
-| 游標已在當前 session 時 `Enter` 不跳確認 | `TestEnterOnCurrentSessionAttachesDirectly` |
+| 游標已在當前 session 時 `Enter` 不跳確認 | `TestEnterOnSessionNeverAsks` |
 | 結束的 session 帶著原因退場、focus 不留在死掉的 pty | `TestExitedSessionLeavesWithItsReason` |
-| `#N` 只在同 host 多 session 時出現 | `TestOrdinalOnlyWhenDuplicated` |
+| `#N` 只在同 host 多 session 時出現 | ~~`TestOrdinalOnlyWhenDuplicated`~~ |
 | `q` 只在有活 session 時才確認,且數字正確 | `TestQuitWarnsOnlyWithLiveSessions` |
 | Space menu 只列**當前 focus panel** 的動作,不外洩 | `TestSSHMenuListsFocusedPanelActions` |
 | 密碼走 askpass、**不進子行程環境** | `TestPasswordHostUsesAskpassNotTheEnvironment` |
 | ssh 參數(port / `-i` / `IdentitiesOnly` / `~` 展開) | `TestBuildSSHCmdArgs` |
 | 折行優先斷在分隔符、不掉字 | `TestWrapText` |
 | 結束的 session 立刻離開 `[5]`、emulator 被釋放 | `TestEndedSessionLeavesThePanel` |
-| app log 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | `TestTheAppLogIsAViewNotAList` |
+| app log 不畫游標、`j`/`k` 捲視圖、沒有可執行的動作 | ~~`TestTheAppLogIsAViewNotAList`~~ —— Errors 現在有游標(§11.50) |
 | **失敗會被說出來、留在 `[5]`、也進 log**;footer 報未讀 | `TestAFailedConnectionIsSaidAndKept` |
 | 連線有預算,交給 ssh 講;它管不到的沉默由 sweep 兜底 | `TestTheTimeoutIsHandedToSSH` / `TestAStalledConnectionIsGivenUpOn` |
 | `config.yaml` 缺檔不是錯、壞檔不致命、荒謬的值不照做 | `TestNoConfigIsNotAProblem` / `TestABrokenConfigIsReportedButNotFatal` / `TestAnAbsurdTimeoutFallsBackToTheDefault` |
-| log 收的是**整個失敗畫面**,而且長的那則捲得到底 | `TestTheLogKeepsTheWholeFailureNotJustItsLastLine` / `TestTheLogScrollsThroughALongEntry` |
+| log 收的是**整個失敗畫面**,而且長的那則捲得到底 | `TestTheLogKeepsTheWholeFailureNotJustItsLastLine` / ~~`TestTheLogScrollsThroughALongEntry`~~ —— 改成 `Enter` 開浮層(§11.50) |
 | **還沒接通就不接受打字**,而 `Alt+Esc` 仍然出得去 | `TestKeysAreNotSentToAConnectionThatHasNotAnswered` |
-| panel title 是純文字,膠囊只留給 tab row | `TestPanelTitlesAreNotCapsules` |
-| `[6]` 不帶 on-screen glyph | `TestHistoryHasNoOnScreenMarker` |
-| tab [3] 只剩兩個 panel,`6` 不再定址任何東西 | `TestTabThreeHasTwoPanels` |
-| history 搬進 popup,仍然是沒有游標的 view | `TestHistoryIsAViewNotAList` / `TestHistoryPopupListsEndedSessions` |
-| session 失敗會出聲,乾淨離開不會 | `TestABadExitIsAnnounced` / `TestAFailedSessionRaisesAToast` |
+| panel title 是純文字,膠囊只留給 tab row | ~~`TestPanelTitlesAreNotCapsules`~~ —— **後來翻案**,panel title 也是膠囊(`TestPanelTitlesAreCapsulesUnderTheRule`) |
+| `[6]` 不帶 on-screen glyph | ~~`TestHistoryHasNoOnScreenMarker`~~ |
+| tab [3] 只剩兩個 panel,`6` 不再定址任何東西 | ~~`TestTabThreeHasTwoPanels`~~ |
+| history 搬進 popup,仍然是沒有游標的 view | ~~`TestHistoryIsAViewNotAList`~~ / ~~`TestHistoryPopupListsEndedSessions`~~ —— session history 已被三本 journal 取代(§11.49) |
+| session 失敗會出聲,乾淨離開不會 | ~~`TestABadExitIsAnnounced`~~ / ~~`TestAFailedSessionRaisesAToast`~~ —— 現在是 `TestExitedSessionLeavesWithItsReason` |
 | `[4]` 的 `Enter` 永不跳確認(同列或他列皆然) | `TestEnterOnSessionNeverAsks` |
 | `[D]uplicate` 對同一台 host 再開一條、用 session 自己的連線資料 | `TestDuplicateOpensASecondSessionToTheSameHost` / `TestDuplicateUsesTheSessionHostNotTheHostsFile` |
 | `[C]lose` 會先問,取消不殺 | `TestCloseEndsTheSession` |
 | focus `[5]` 佔滿全 tab、離開時還原並重新 resize 遠端 | `TestFocusedPtyTakesTheWholeTab` |
 | 遠端印 emoji 也撞不破邊框(真 pty) | `TestWideRemoteOutputCannotBreakTheFrame` |
 | 前景說 on-screen、背景說游標,沒有 inverse | `TestSessionRowColourCases` |
-| 列顯示 `<user>@<host>`,不是存起來的名字 | `TestSessionRowShowsUserAtHost` |
+| 列顯示 `<user>@<host>`,不是存起來的名字 | ~~`TestSessionRowShowsUserAtHost`~~ —— **後來翻案**,列改回說自己的名字 |
 | 三個 tab 的 region 標題用同兩個字串 | `TestEveryTabWordsItsRegionsTheSameWay` |
-| port 在任何寬度都不被截掉,名字折行讓位 | `TestSessionRowAlwaysShowsThePort` |
+| port 在任何寬度都不被截掉,名字折行讓位 | ~~`TestSessionRowAlwaysShowsThePort`~~ |
 | `q` 走完整路徑會問(pty 內的 `q` 屬於遠端)、取消不殺 session | `TestQuitFromSessionsAsksAndThenStops` |
 
 ### 第三階段:tab [2] sftp —— **完成**
@@ -2309,8 +2314,8 @@ X 回到 ~1.0。
 | `?` 開關 help,並且疊得到別的浮層上面 | `TestQuestionMarkTogglesTheHelp` |
 | `x` 刪游標那一項、`X` 刪 marks,互不代勞,且都先問 | `TestDeleteCursorAndDeleteMarksAreDifferentKeys` |
 | 刪掉的東西如果被 mark 過,mark 一起拿掉 | `TestDeletingAMarkedRowDropsItsMark` |
-| 新目錄會拒絕空的 / 含 `/` / 已存在的名字,並停住游標 | `TestNewDirectoryRefusesBadNames` / `TestNewDirectoryLandsTheCursorOnIt` |
-| menu 兩區、標題跟著游標;單一區時扁平 | `TestSFTPMenuHasItemAndPanelRegions` / `TestItemRegionFollowsTheCursor` / `TestSFTPMenuStaysFlatWithOneRegion` |
+| 新目錄會拒絕空的 / 含 `/` / 已存在的名字,並停住游標 | ~~`TestNewDirectoryRefusesBadNames`~~ / ~~`TestNewDirectoryLandsTheCursorOnIt`~~ —— `[N]ew directory` 已被 `[A]dd` 取代(`TestAddMakesAFileOrADirectory`) |
+| menu 兩區、標題跟著游標;單一區時扁平 | `TestSFTPMenuHasItemAndPanelRegions` / ~~`TestItemRegionFollowsTheCursor`~~(現在是 `TestMenuRegionsAreCursorFirst`)/ ~~`TestSFTPMenuStaysFlatWithOneRegion`~~ —— sftp menu 不再有單區的時候 |
 | 沒有列時 item 動作連同字母一起消失 | `TestSFTPItemActionsNeedARow` |
 | 導覽字母不被任何動作佔用;`d` 在每個 tab 都捲半頁 | `TestNoActionClaimsANavigationKey` / `TestDScrollsInEveryTab` |
 | `v` 顯示文字(行號)/ 二進位(hex)/ 目錄(一層) | `TestViewShowsTextWithLineNumbers` / `TestViewShowsBinaryAsHex` / `TestViewShowsADirectoryListing` |
@@ -2318,7 +2323,7 @@ X 回到 ~1.0。
 | 讀取有上限;過期的 preview 不會蓋上來 | `TestViewIsCapped` / `TestASupersededViewCannotLand` |
 | viewer 是 viewport:捲動、不繞 | `TestViewScrollsAndDoesNotWrap` |
 | **搜尋找到的檔案,`Enter` 會帶你過去,然後它就是普通的列** | `TestEnterGoesToWhatTheSearchFound` / `TestEnterOnADirectoryResultOpensIt` |
-| tab bar 是**一條帶子**,恰好一段亮著(三角種類就是證據) | `TestTheTabRowIsOneStripWithOneLitSegment` |
+| tab bar 是**一條帶子**,恰好一段亮著(三角種類就是證據) | `TestTheTabRowIsOneStrip` |
 | 接縫屬於**左邊**那一段(顏色方向,render 出來的字串看不出來) | `TestTheSeamBelongsToTheTabOnItsLeft` |
 | 本機側開在**啟動目錄**,而 `home` 仍是家目錄 | `TestTheLocalSideOpensWhereSshuWasLaunched` |
 | viewer 不戴 `/` 的放大鏡 —— 一個 glyph 就是一個詞 | `TestTheViewerDoesNotWearTheSearchGlyph` |
