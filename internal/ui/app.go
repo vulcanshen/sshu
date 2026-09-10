@@ -854,11 +854,16 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := msg.String()
 
 	// Resolve a pending g first, so a stray g never lingers into the next key.
+	// The completed chord then leaves through dispatchKey like every other key.
+	// It used to name the hosts table outright, which meant gg was delivered
+	// there from wherever it was pressed: on the nav, on Errors, and on both
+	// other tabs it moved a cursor nobody was looking at. G has always been
+	// routed normally, so the pair the help popup advertises together as
+	// "first / last" agreed on one panel and disagreed on the rest.
 	if m.pendingG {
 		m.pendingG = false
 		if k == "g" {
-			m.hosts.handleKey("gg")
-			return m, nil
+			return m.dispatchKey("gg")
 		}
 	}
 

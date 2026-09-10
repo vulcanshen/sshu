@@ -134,6 +134,16 @@ exception instead of decorating the rule.
   of them is a change — locking a cell moves the keyboard, it does not alter
   anything that outlives the session.
 
+### Fixed
+
+- **`gg` now goes where the keyboard is.** The completed chord was handed to
+  the hosts table by name, so pressing it on the manage nav, on the Errors
+  table, or anywhere in the file transfer and ssh tabs moved a cursor in a
+  panel that was not on screen and left the real one where it was. `G` has
+  always been routed normally — so the pair the help popup advertises together
+  as "first / last" agreed with each other on exactly one panel and silently
+  disagreed everywhere else.
+
 ## [1.5.1] — 2026-09-09
 
 1.5.0 made sshu inside sshu work. It did not make it usable past about three

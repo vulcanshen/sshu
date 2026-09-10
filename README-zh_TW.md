@@ -19,7 +19,7 @@ sshu 是 `u`-family 的成員,也是 [this TUI Design Principle](https://github.
 
 ## Demo
 
-### manage tab —— hosts、credentials、logs,然後連上去
+### manage tab —— 三組七個 section、完整攤開的一則失敗,最後連上去
 ![manage](docs/demo-manage.gif)
 
 ### 雙側檔案傳輸 —— marks、真實傳輸、兼職進度條的分隔線
