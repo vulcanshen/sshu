@@ -171,14 +171,17 @@ const (
 // upgrade but only one of them is a file somebody's sshu actually wrote.
 const versionUnset = 0
 
-// header is prepended to every write. The warning is not decoration: the file
-// can hold plaintext passwords, and 0600 does not survive being copied into a
-// synced folder or a git repo.
+// header is prepended to every write. Encryption did not retire the warning,
+// it narrowed it: .sshukey lives in this same directory, so sealing the values
+// protects the file on its own and does nothing for a copy of the directory.
 const header = `# sshu hosts — managed by preference → hosts. Hand-editing is fine.
 #
-# WARNING: this file may contain plaintext passwords (hosts with auth: password).
-# It is kept at mode 0600, but that does not protect a copy: keep it out of
-# version control, out of auto-syncing folders, and out of backups.
+# Passwords here are stored encrypted (ENC:...), with the key in .sshukey beside
+# this file. That protects THIS FILE on its own — not a copy of the directory,
+# which carries the key with it. Plaintext you hand-edit in is sealed on the next
+# start. Mode 0600 is re-asserted on every write and does not survive a copy
+# either. Keep this directory out of version control, out of auto-syncing
+# folders, and out of backups.
 `
 
 // Validate checks the list as a whole: every host valid, and no duplicate names.
