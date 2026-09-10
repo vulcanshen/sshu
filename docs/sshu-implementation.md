@@ -143,7 +143,7 @@ nav)於是量到 0、字被切掉;legend 也一樣要量。沒有任何可執行
 | **大小寫**(tab [2]) | 作用範圍:小寫 = 游標那一列、大寫 = 整個 panel | 其他 tab 不用它表達範圍 |
 
 **auth method 用 glyph 不用顏色**(鑰匙 / 鎖),因為紅與桃色留給警告。
-**app log 的顏色只染 level 那一段字**,不染時間、更不染整列 —— 「這是一則錯誤」是
+**Errors 的顏色只染時間戳那一格**,不染整列 —— 「這是一則錯誤」是
 那一則的屬性,而一份紀錄裡多數行都不是錯誤。
 
 ---
@@ -167,7 +167,7 @@ liveColor(數字與右上 summary 同源 `transferModel.progress()`),任何 tab
 
 | tab | panel | 分割 |
 |---|---|---|
-| `[M]anage` | `[1] sshu` nav(SSH / Others 分類)+ `[2]` 內容(Hosts / Credentials / Config / KnownHosts / Logs;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
+| `[M]anage` | `[1] Sections` nav(**SSHU / SSH / Logs** 三類,§11.49)+ `[2]` 內容(Hosts / Credentials / Config / KnownHosts / **Errors / Connections / Changes**;Operation 類遮罩中) | 左欄固定 **18 欄**,窄寬(<60)只畫 focus 側 |
 | `[F]ile transfer` | 四個 `[1]`-`[4]` | 左右 **1:1**,每側上下 2:1(檔案 / marks) |
 | `[S]SH` | `[1]` sessions + `[2]` layout strip + 終端網格 | 左欄固定 **30 欄**(一列要完整說出 `<glyph><user>@<host>:<port> #<N>`,design §11.28),strip(5 行、選項直排)在左欄**底部**;右側整片是網格,依 layout 等分(splitEven 攤餘數,欄寬總和恰等於總寬);**zoom 時焦點格獨佔整個網格區**,其餘不畫也不 resize;**滿版階(§11.47)連 chrome 三列與邊框都不畫,`gridArea` 回 `m.h+chromeRows`,揭露改用 overlay** |
 
@@ -270,7 +270,7 @@ folder 與 file 的 icon 可以差一格。所以列是**量自己的固定前�
 ### 3.2.5 兩種折行:自己的字 vs 別人的字
 
 `wrapText` 偏好在 `-._/` 斷(host 名的 `db-replica-tokyo-ap-` 該在破折號後
-斷);`wrapPlain` 填滿每一行,給 app log —— 遠端的輸出沒有結構可尊重,而它
+斷);`wrapPlain` 填滿每一行,給 Errors 的展開浮層 —— 遠端的輸出沒有結構可尊重,而它
 密集地由那些字元組成,偏好分隔符會把 `10.20.12.31` 斷成 `10.20.12.` 加 `31`
 並丟掉三分之一的行寬(design §11.27)。
 
@@ -336,7 +336,7 @@ sftp 的檔案與 marks),所以往詞彙裡加一個鍵是一次加到所有清�
 - **`j`/`k` 繞**:最後一列離第一列只有一個鍵。短清單上最有感 —— 不繞的話替代方案
   是按著 `k` 看畫面完全沒反應。**所有有游標的面都繞**,panel 與 popup 一視同仁。
 - **`u`/`d` 不繞**:半頁是「瞄準」的移動,會無聲傳送到另一端的瞄準比停下來更糟。
-- **沒有游標的東西也不繞**(`moveScroll`):`!` app log 與 `?` help 是 viewport,
+- **沒有游標的東西也不繞**(`moveScroll`):Connections / Changes 與 `?` help 是 viewport,
   捲到底又跳回頂端會讀成故障 —— 根本沒有游標可以繞回去。
 - **導覽字母不被任何動作佔用**,一條例外都沒有(`navKeys`,由
   `TestNoActionClaimsANavigationKey` 擋)。所以 `[D]elete host` / `[D]uplicate` /
@@ -439,7 +439,7 @@ v0.2 到 v1.1.0 這裡是 `Alt+p/f/s` 和絃,帶一個固定亮的 `[Alt]` 鏈�
 |---|---|---|
 | **menu** | Space menu、host picker、identity file picker、credential picker | 分 region / 清單、cursor-first、選一個執行 |
 | **message** | Connect / Delete / Quit 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、`[v]iew`(app log 已從浮層變成 manage → logs 的**內容 panel**,同為 viewport 語彙) | 可捲、沒有游標 |
+| **viewport** | `?` help、`[v]iew`、manage → **Connections / Changes**(內容 panel,同為 viewport 語彙)。**Errors 不是** —— 它有游標,因為 `Enter` 有東西可開(§11.50) | 可捲、沒有游標 |
 | **form** | Add / Edit host、Add / Edit credential(共用 editField / formBody 欄位引擎) | 多欄位、逐欄位 focus、一次提交 |
 | **input** | Rename、**Add** | **一行**文字、一個問題、Enter 送出;Add 的 Enter 動詞跟著輸入變 |
 | **pty** | **tab [3] 的 panel `[5]`**、tab [2] 的 **`[e]dit`** | 外部程式在 sshu 內 render,鍵盤整個交出去 |
@@ -552,7 +552,7 @@ tab [3] → 開 session。ssh session 是**長時 target**,使用者出來時注
 
 ### 7.2 session 完全不落地
 
-`[3]` 的 session 與 app log **只存在記憶體**,沒有 `history.yaml`。最後一個畫面
+`[3]` 的 session **只存在記憶體**。最後一個畫面
 可能有遠端印出來的任何東西 —— 那不是可以隨手寫進磁碟的資料。
 
 ### 7.3 資訊在需要的時候出現,不常駐
@@ -562,7 +562,7 @@ tab [3] → 開 session。ssh session 是**長時 target**,使用者出來時注
 | | 常駐 | 隨手看 | 事件當下 |
 |---|---|---|---|
 | 傳輸 | tab 列 `󰕒 3/12 · 42%` | `[J]obs` popup | — |
-| session 結束 | tab 列 `3 live sessions` | **`!` app log**(footer 報未讀數) | **error toast** |
+| session 結束 | tab 列 `3 live sessions` | **Connections**(結果)+ 失敗時 **Errors**(原因;footer 報未讀數) | **error toast** |
 
 `[6]` 曾經是常駐的 history panel,佔掉左欄三分之一、不能操作、大部分時間是空的。
 真正有價值的是「哪一條斷了、為什麼」,而那件事以前是**完全靜默**的。詳見設計稿
@@ -675,10 +675,10 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` mtime 目錄刷新 | `ui/sftpwatch.go` |
 | ssh **終端網格**:Tab 開關格子、Enter 進入、Alt+方向鍵走格、**Alt+Z zoom**(三階段:網格區 → 滿版 → 正常,空轉階跳過;Alt+Esc 逐階退回,design §11.47)、**Alt+Enter layer 鍵**(巢狀 sshu 的 per-session lock,design §11.43;選單另有整鏈 zoommax+lock 的無熱鍵列,§11.47)、layout strip(horizontal / vertical / custom R×C)、每格獨立 SIGWINCH | `ui/sshtab.go` `ui/pty_unix.go` |
 | pty emulator **回答終端機查詢**(`CSI 6n` / `OSC 11`)—— writer 接回 master,否則格子裡任何發問的程式都卡滿 5 秒 timeout | `ui/pty_unix.go startPty` |
-| ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、app log 收**整個最終畫面**(每則 40 行 / 4000 字) | `ui/sshtab.go` `ui/applog.go` `ui/pty_unix.go` |
+| ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、Errors 收**整個最終畫面**(每則 40 行 / 4000 字,`Enter` 展開) | `ui/sshtab.go` `ui/journals.go` `ui/pty_unix.go` |
 | pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
 | pty **選取模式**:`Alt+v` 凍結該格(`copySnapshot` = scrollback 尾巴被當下 grid 蓋掉)、border 轉黃、`hjkl`/`u`/`d` 走游標、`v`/`V` 選、`y` 寫本機剪貼簿(`pbcopy` / `wl-copy` / `xclip` / `xsel`)並結束 | `ui/copymode.go` `ui/clipboard.go` `ui/pty_unix.go` `ui/sshtab.go` |
-| manage:nav(分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Logs(Export / Import 已實作、遮罩中);logs 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/applog.go` `ui/bundlepage.go` |
+| manage:nav(三個分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Config / KnownHosts / Errors / Connections / Changes(Export / Import 已實作、遮罩中);**Errors** 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/journals.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
 | manage → SSH → **Config**:`~/.ssh/config` 的 `Host` 區塊 CRUD。**外科手術式寫回**(只重建被編輯的行,註解 / `Match` / 全域選項 / 未知關鍵字 byte 不動)、位置即身分(同名區塊合法)、**`Include` 跟進去**(就地展開、glob 排序、相對於 `~/.ssh`、16 層上限、循環會停;被 include 的區塊照樣可編、寫回它自己的檔;`Add` 一律進主檔;只寫改過的檔)、存檔前**逐檔**比對磁碟(別人先寫就拒絕並端出他那份)、保留各檔原有權限 | `store/sshconfig.go` `ui/sshcfglist.go` `ui/sshcfgkeys.go` `ui/sshcfgform.go` |
 | manage → SSH → **KnownHosts**:`~/.ssh/known_hosts` 的 CRUD。一筆 = 一行、改名只 splice 那一行的第一欄、**刪除不帶走上面的註解**(與 Config 相反:這裡的註解標的是一整串)、hashed 名字顯示為 `(hashed)`、`@revoked` 上警示色、存檔前比對磁碟 | `store/knownhosts.go` `ui/knownlist.go` `ui/knownkeys.go` |
@@ -688,7 +688,9 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | **`[A]` 抓 host key**:握手到 host key callback 就 `errEnough` 中止(**認證之前**),回傳 wire-format base64 + `SHA256:` 指紋;指紋由 store 從 base64 獨立再算一次,兩者必須相等 | `remote/hostkey.go` `store/knownhosts.go Fingerprint` |
 | **欄位數不固定的 form**:固定欄 + 分隔線 + 現有選項各一列 + `+ add option`;自己捲(`window()`),不靠 `capRows` 從尾端砍 | `ui/sshcfgform.go` `ui/form.go formField.separator` |
 | 「選值欄位」互動:空欄 Enter 開選單、**有值 Enter 送出**、Backspace 整行清除 | `ui/form.go` `ui/credform.go` |
-| app log 落地 applogs.yaml(append-only、自我修剪、0600);tail 開機讀回;`[C]lear logs` 先清檔(留警告標頭)再清記憶體 | `store/applog.go` `ui/applog.go` `ui/preftab.go` |
+| **三本 journal 落地**(§11.49):`errors.yaml` / `connections.yaml` / `changes.yaml`,各自 append-only、自我修剪、0600;tail 開機讀回;`[C]lear` **只清當前那一本**,先清檔(留警告標頭)再清記憶體,確認框指名檔案。**`applogs.yaml` 已棄用**,不讀不寫也不遷移 | `store/journal.go` `ui/journals.go` `ui/preftab.go` |
+| **密碼加密**(§11.51):AES-256-GCM,每值一個新 nonce,`ENC:<base64(nonce‖ct)>`;key 在 `.sshukey`(`SSHU_KEY_FILE` 可覆寫,啟動時自動產生、0600、一行 base64)。**加解密收在 store 讀寫兩端**,所以 askpass helper 這個獨立 process 也自動受益;存檔前**複製 slice**(否則會把 UI 記憶體裡的明文換成密文);解不開的值**原樣保留**,絕不填空;沒有 key **不致命** | `store/crypt.go` `store/hosts.go` `store/credentials.go` `cmd/sshu/main.go` |
+| **啟動時重寫**兩個條件:`NeedsUpgrade()`(格式舊)或 `HadPlaintextSecret`(檔裡還有明文密碼)。後者記在**讀取當下**,因為解密發生在載入的路上、記憶體裡的密碼依定義永遠是明文 | `cmd/sshu/main.go reconcileFiles` `store/hosts.go` |
 | 子行程 registry:任何退出路徑(含 SIGINT/SIGTERM/SIGHUP)不留孤兒 ssh | `ui/procreg.go` `cmd/sshu/main.go` |
 | 浮層六類、動畫、疊層色、單一 `Esc`、`Space` 關閉 | `ui/popup.go` `ui/app.go` |
 | 導覽詞彙(繞 / 半頁 / 保留字母) | `ui/nav.go` |
@@ -696,9 +698,9 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | **`tags` 欄位(v2)**:space 唯一分隔、其餘 literal;載入與存檔都跑 `NormalizeTags`(去重去空白、大小寫原樣) | `store/hosts.go Host.Tags NormalizeTags ParseTags JoinTags` |
 | **version 真的有作用**:兩個檔各自計數;讀到舊的開機自動改寫、讀到新的拒絕覆寫(讀不到 / parse 不了就不擋)。askpass helper 在 `store.Load()` 之前就 exit,所以它不寫檔是結構保證(design §11.48) | `store/hosts.go hostsVersion credsVersion refuseIfNewer NeedsUpgrade FromNewerSshu` `cmd/sshu/main.go reconcileVersions` |
 | `credentials.yaml`:與 hosts 同一組緩解;name 唯一、credential 不能再指 credential | `store/credentials.go` |
-| **載入時去重**:兩個檔都跑 `dedupeByName`,保留第一筆、回傳丟掉的名字;不改檔案,只在 app log 記一行 `warn`(design §11.38) | `store/store.go dedupeByName` `store/hosts.go` `store/credentials.go` `cmd/sshu/main.go dupeWarning` `ui/app.go WithStartupWarning` |
+| **載入時去重**:兩個檔都跑 `dedupeByName`,保留第一筆、回傳丟掉的名字;不改檔案,只在 **Errors** 記一行 `warn`(design §11.38) | `store/store.go dedupeByName` `store/hosts.go` `store/credentials.go` `cmd/sshu/main.go dupeWarning` `ui/app.go WithStartupWarning` |
 | **明細浮層帶 offer**:`Enter` 開唯讀明細,腳底 `prompt`/`accept` 是連線或編輯的問句;`V` 已還給 splash 彩蛋(design §11.29) | `ui/detail.go` `ui/app.go detailCommit` `ui/credkeys.go doEditCred` |
-| `config.yaml`:唯讀設定,`connect_timeout` 兩個 tab 共用;缺檔用預設、壞檔進 app log | `store/config.go` |
+| `config.yaml`:唯讀設定,`connect_timeout` 兩個 tab 共用;缺檔用預設、壞檔進 **Errors**(`warn`) | `store/config.go` |
 | `SSH_ASKPASS` 供密碼(不進子行程環境) | `cmd/sshu/main.go` `ui/session.go` |
 
 ### `(planned)`
@@ -737,7 +739,9 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | `[2]` Credentials | **`Enter`** · **`E`** · `A` · `D` · `X` | **Enter = `detailPopup` + 腳底 offer `Edit "<name>"?`**(只有 auth 那一段;名字在浮層標題)/ Edit(直達表單)/ Add / **Duplicate**(design §11.35)/ **Delete**(先問,列出引用數) |
 | `[2]` KnownHosts | **`Enter`** · `E` · `A` · `X` | `~/.ssh/known_hosts` 的每一筆(design §11.40)。offer 一樣帶 `at int`。**Edit 走 `inputPopup`**(一個問題,§6.1)、`inputKnownHosts`;**Add 走 `remote.ScanHostKey`** → `hostKeyScannedMsg` → `confirmTrustHostKey`,寫入前什麼都不動;**沒有 `[D]uplicate`** |
 | `[2]` Config | **`Enter`** · `E` · `A` · `D` · `X` | `~/.ssh/config` 的 `Host` 區塊(design §11.39)。**Enter = `detailPopup` + 腳底 offer `Edit "<pattern>"?`**;offer 帶的是 `at int`(位置)不是 `target string` —— 兩個區塊可以同名 / Edit(`sshcfgForm`,**欄位數不固定**,見 §6.2.2)/ Add(接檔尾)/ Duplicate / **Delete**(先問,數出一起消失的選項行數) |
-| `[2]` Logs | 導覽鍵 · `C` | 捲動;上畫面即已讀 / Clear logs(先問,連 applogs.yaml;空 log 時沒有這個鍵) |
+| `[2]` Errors | 導覽鍵 · **`Enter`** · `C` | **一筆一列**(Time/Host/User/Cause);有游標。Enter 開浮層看全文 / 上畫面即已讀 / Clear errors(先問,連 `errors.yaml`;空的時候沒有這個鍵) |
+| `[2]` Connections | 導覽鍵 · `C` | 每次連線一列(Time/Host/User/Result);捲動、無游標 / Clear connections |
+| `[2]` Changes | 導覽鍵 · `C` | 改過什麼,一筆一列(Time/Action);捲動、無游標 / Clear changes |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案(design doc §11.12 追記) |
 
 ### form(host / credential 共通)

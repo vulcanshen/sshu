@@ -11,6 +11,25 @@ exception instead of decorating the rule.
 
 ### Added
 
+- **Three records where there was one log**, at manage → Logs. One log was
+  answering three questions at once, and they want different shapes.
+
+  **Errors** is what went wrong: one row each — time, host, user, cause — and
+  `Enter` opens everything the far end printed, which for a host key mismatch
+  is fifteen lines with the fingerprint in the middle. The row stays one line
+  so a panel of failures can be scanned rather than read.
+
+  **Connections** is every ssh and sftp attempt and how it ended, one fixed row
+  each, so a machine's record reads down a column. The reason a connection
+  failed is deliberately not here — it is in Errors, and recording it twice
+  would mean two accounts of one failure that can disagree.
+
+  **Changes** is what you altered: hosts, credentials, `~/.ssh` files,
+  transfers, edits written back.
+
+  Each has its own file — `errors.yaml`, `connections.yaml`, `changes.yaml` —
+  and its own `[C]lear`, which names the file it is about to empty.
+
 - **Tags on a host.** A new field in the add/edit form, last row, optional.
   **Space is the only separator** — everything else is literal, so `k8s:prod`,
   `web/db` and `ap-northeast-1` are each one tag with no escaping rule to
@@ -38,6 +57,34 @@ exception instead of decorating the rule.
   connection.
 
 ### Changed
+
+- **Passwords are encrypted on disk** (AES-256-GCM, a fresh nonce per value).
+  A `password:` field now reads `ENC:<base64>`. The key is `.sshukey` beside
+  your config — created on the first run, `0600` — and `SSHU_KEY_FILE` moves it
+  elsewhere. Existing plaintext is sealed on the next start, in place, with no
+  migration step and no version change.
+
+  **Read what this does and does not buy.** It protects a `hosts.yaml` or
+  `credentials.yaml` that leaks *on its own* — pasted into a chat, committed by
+  accident, picked up by a backup. It does **not** protect the config directory
+  being synced or copied wholesale, because the key is in it. This is
+  separation, not confidentiality: what used to leak with one file now takes
+  two. The advice to keep that directory out of version control and out of
+  syncing folders is unchanged.
+
+- **The manage nav is three groups, and two panels were renamed.**
+
+  `SSHU` (Hosts, Credentials) and `SSH` (Config, KnownHosts) split what used to
+  be one header, because it is a real boundary: sshu owns and writes the first
+  two, while the second two belong to ssh and sshu only edits them in place.
+
+  `History` and `Activity` are now **Connections** and **Changes** — named for
+  what each row actually is. They were the only two names in the nav that were
+  neither a plural of what the panel lists nor a filename, and neither said
+  what a row was. Their files follow: `connections.yaml` and `changes.yaml`.
+
+  The nav panel itself is `[1] Sections` rather than `[1] sshu`, which stopped
+  working when SSHU became one of the groups inside it.
 
 - **Host rows are coloured to mark what is unusual, not to decorate what is
   normal.** Name, user and host share one tone — they are one thing, "which
@@ -73,6 +120,19 @@ exception instead of decorating the rule.
   ships in *this* release, so it protects every version from here on, and
   cannot protect the ones already out. If you need to go back, copy
   `hosts.yaml` aside first.
+
+### Removed
+
+- **`applogs.yaml` is no longer read or written**, and is not migrated. Its
+  three halves belong in three different files now, and a migration cannot
+  split them correctly — guessing which entry was which would be inventing
+  history rather than keeping it. The old file is left where it is; deleting it
+  is up to you.
+
+  Eight events stopped being recorded at all: `connecting to` (replaced by the
+  Connections result), sftp disconnect, pty lock/release, and chain zoom. None
+  of them is a change — locking a cell moves the keyboard, it does not alter
+  anything that outlives the session.
 
 ## [1.5.1] — 2026-09-09
 
