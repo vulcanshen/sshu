@@ -108,6 +108,15 @@ func Resolve(h Host, creds []Credential) (Host, error) {
 type File struct {
 	Version int    `yaml:"version"`
 	Hosts   []Host `yaml:"hosts"`
+	// UnreadableSecrets names the hosts whose stored password would not
+	// decrypt — a key that was replaced, or a file edited by hand. Not part of
+	// the document: it describes THIS read, and the caller turns it into
+	// something the user can see.
+	//
+	// Those hosts keep their ciphertext. sshu runs with a password it cannot
+	// use, which fails at connect time, and the secret is still on disk for
+	// the right key to open later.
+	UnreadableSecrets []string `yaml:"-"`
 }
 
 // hostsVersion and credsVersion count SEPARATELY, and that is the whole point.
@@ -121,9 +130,18 @@ type File struct {
 // SaveTo now refuses to write over a file newer than itself. That check ships
 // here, so it protects every version after this one — it cannot protect against
 // v1.5.1 and earlier, which have no such check and are already released.
+// v3 (and credentials v2) is encrypted passwords: a password field MAY be
+// "ENC:…" rather than plaintext. May, not must — a plaintext value is still
+// read, which is exactly what makes the upgrade need no migration step. The
+// version is what tells an older sshu to keep its hands off: it would hand the
+// ciphertext to ssh as though it were the password.
+//
+// Upgrading is automatic and happens at startup (main.go reconcileVersions):
+// an older file is loaded, its plaintext passwords read, and the whole thing
+// written back sealed.
 const (
-	hostsVersion = 2
-	credsVersion = 1
+	hostsVersion = 3
+	credsVersion = 2
 )
 
 // versionUnset is what a file written before sshu stamped versions parses as.
@@ -212,6 +230,21 @@ func LoadFrom(path string) (File, []string, error) {
 	}
 	var dropped []string
 	f.Hosts, dropped = dedupeByName(f.Hosts, func(h Host) string { return h.Name })
+
+	// Passwords come off the disk sealed (§11.50). Opening them HERE is what
+	// keeps the rest of sshu — the UI, the askpass helper, Resolve — working
+	// with the password it always had.
+	names := make([]string, len(f.Hosts))
+	secrets := make([]*string, len(f.Hosts))
+	for i := range f.Hosts {
+		names[i] = f.Hosts[i].Name
+		secrets[i] = &f.Hosts[i].Password
+	}
+	bad, decErr := decryptInto(names, secrets)
+	if decErr != nil {
+		return f, dropped, fmt.Errorf("%s: %w", path, decErr)
+	}
+	f.UnreadableSecrets = bad
 	return f, dropped, nil
 }
 
@@ -243,6 +276,21 @@ func SaveTo(path string, f File) error {
 		return err
 	}
 	f.Version = hostsVersion
+
+	// COPY before sealing. f is a value but its Hosts slice is not, and the
+	// caller builds one straight from the list the UI is displaying — sealing
+	// in place would swap the passwords on screen for ciphertext, and the next
+	// edit would save that as though it were what the user typed.
+	hosts := make([]Host, len(f.Hosts))
+	copy(hosts, f.Hosts)
+	f.Hosts = hosts
+	secrets := make([]*string, len(f.Hosts))
+	for i := range f.Hosts {
+		secrets[i] = &f.Hosts[i].Password
+	}
+	if err := encryptInto(secrets); err != nil {
+		return err
+	}
 
 	body, err := yaml.Marshal(f)
 	if err != nil {

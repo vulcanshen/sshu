@@ -48,6 +48,8 @@ func (c Credential) Validate() error {
 type CredsFile struct {
 	Version     int          `yaml:"version"`
 	Credentials []Credential `yaml:"credentials"`
+	// UnreadableSecrets is the same report File carries, for the same reason.
+	UnreadableSecrets []string `yaml:"-"`
 }
 
 // credsHeader is prepended to every write, for the same reason hosts.yaml has
@@ -122,6 +124,18 @@ func LoadCredsFrom(path string) (CredsFile, []string, error) {
 	}
 	var dropped []string
 	f.Credentials, dropped = dedupeByName(f.Credentials, func(c Credential) string { return c.Name })
+
+	names := make([]string, len(f.Credentials))
+	secrets := make([]*string, len(f.Credentials))
+	for i := range f.Credentials {
+		names[i] = f.Credentials[i].Name
+		secrets[i] = &f.Credentials[i].Password
+	}
+	bad, decErr := decryptInto(names, secrets)
+	if decErr != nil {
+		return f, dropped, fmt.Errorf("%s: %w", path, decErr)
+	}
+	f.UnreadableSecrets = bad
 	return f, dropped, nil
 }
 
@@ -143,6 +157,19 @@ func SaveCredsTo(path string, f CredsFile) error {
 		return err
 	}
 	f.Version = credsVersion
+
+	// Copied before sealing, for the reason hosts.go SaveTo spells out.
+	creds := make([]Credential, len(f.Credentials))
+	copy(creds, f.Credentials)
+	f.Credentials = creds
+	secrets := make([]*string, len(f.Credentials))
+	for i := range f.Credentials {
+		secrets[i] = &f.Credentials[i].Password
+	}
+	if err := encryptInto(secrets); err != nil {
+		return err
+	}
+
 	body, err := yaml.Marshal(f)
 	if err != nil {
 		return err
