@@ -18,7 +18,7 @@ var errTestDisk = errors.New("disk full")
 // the reason in both would give one failure two accounts that can disagree —
 // which is what one log holding everything already did.
 func TestAFailureIsInBothJournalsSayingDifferentThings(t *testing.T) {
-	var h historyModel
+	var h connectionsModel
 	var e errorsModel
 	h.add("prod-web-01", "deploy", false)
 	e.errorf("prod-web-01", "deploy", "prod-web-01 · Connection refused")
@@ -85,7 +85,7 @@ func TestWarningsAndErrorsAreToldApartByColour(t *testing.T) {
 
 func TestHistoryColoursItsResult(t *testing.T) {
 	withColour(t)
-	var m historyModel
+	var m connectionsModel
 	m.add("prod-web-01", "deploy", true)
 	m.add("db-01", "postgres", false)
 
@@ -102,7 +102,7 @@ func TestHistoryColoursItsResult(t *testing.T) {
 // counted down a column — "that host, three times, two of them red" — and a
 // row that can grow breaks the count.
 func TestHistoryIsOneRowPerAttemptNewestFirst(t *testing.T) {
-	var m historyModel
+	var m connectionsModel
 	m.add("first", "u", true)
 	m.add("second", "u", true)
 	m.add("third", "u", false)
@@ -119,7 +119,7 @@ func TestHistoryIsOneRowPerAttemptNewestFirst(t *testing.T) {
 // The status slot says how many and how many of them failed, because "did any
 // of these go wrong" is the question the panel is opened with.
 func TestHistoryStatusCountsFailures(t *testing.T) {
-	var m historyModel
+	var m connectionsModel
 	if got := m.status(); got != "no connections" {
 		t.Errorf("empty status is %q", got)
 	}
@@ -136,7 +136,7 @@ func TestHistoryStatusCountsFailures(t *testing.T) {
 // A host or user that is not known shows the placeholder rather than a blank
 // column — the same statement the hosts table's tag line makes.
 func TestAJournalRowWithNoUserShowsThePlaceholder(t *testing.T) {
-	var m historyModel
+	var m connectionsModel
 	m.add("prod-web-01", "", true)
 	if got := ansi.Strip(m.rows(90)[0]); !strings.Contains(got, jNone) {
 		t.Errorf("want the placeholder where the user would be: %q", got)
@@ -146,7 +146,7 @@ func TestAJournalRowWithNoUserShowsThePlaceholder(t *testing.T) {
 // --------------------------------------------------------------- the activity
 
 func TestActivityKeepsWhatWasChanged(t *testing.T) {
-	var m activityModel
+	var m changesModel
 	m.add(`host "prod-web-01" added (deploy@10.0.3.14:22)`)
 	m.add(`credential "ops" deleted`)
 
@@ -164,19 +164,19 @@ func TestActivityKeepsWhatWasChanged(t *testing.T) {
 // ------------------------------------------------------------------- the sink
 
 // Each journal writes through to its OWN file. Three sinks, three files: a
-// failure landing in history.yaml would put the reason where the reason is
+// failure landing in connections.yaml would put the reason where the reason is
 // deliberately not kept.
 func TestEachJournalWritesToItsOwnSink(t *testing.T) {
 	var errs []store.ErrorEntry
-	var hist []store.HistoryEntry
-	var acts []store.ActivityEntry
+	var hist []store.ConnectionEntry
+	var acts []store.ChangeEntry
 
 	var e errorsModel
-	var h historyModel
-	var a activityModel
+	var h connectionsModel
+	var a changesModel
 	e.sink = func(x store.ErrorEntry) error { errs = append(errs, x); return nil }
-	h.sink = func(x store.HistoryEntry) error { hist = append(hist, x); return nil }
-	a.sink = func(x store.ActivityEntry) error { acts = append(acts, x); return nil }
+	h.sink = func(x store.ConnectionEntry) error { hist = append(hist, x); return nil }
+	a.sink = func(x store.ChangeEntry) error { acts = append(acts, x); return nil }
 
 	e.errorf("prod-web-01", "deploy", "Connection refused")
 	h.add("prod-web-01", "deploy", false)

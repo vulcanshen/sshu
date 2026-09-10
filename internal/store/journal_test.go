@@ -20,18 +20,18 @@ func at(sec int) time.Time {
 func TestEachJournalRoundTripsAtTheRightMode(t *testing.T) {
 	dir := t.TempDir()
 	ep := filepath.Join(dir, "errors.yaml")
-	hp := filepath.Join(dir, "history.yaml")
-	ap := filepath.Join(dir, "activity.yaml")
+	hp := filepath.Join(dir, "connections.yaml")
+	ap := filepath.Join(dir, "changes.yaml")
 
 	if err := AppendErrorTo(ep, ErrorEntry{At: at(1), Host: "prod-web-01",
 		User: "deploy", Level: LevelError, Error: "Connection refused"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := AppendHistoryTo(hp, HistoryEntry{At: at(2), Host: "prod-web-01",
+	if err := AppendConnectionTo(hp, ConnectionEntry{At: at(2), Host: "prod-web-01",
 		User: "deploy", Result: ResultSuccess}); err != nil {
 		t.Fatal(err)
 	}
-	if err := AppendActivityTo(ap, ActivityEntry{At: at(3),
+	if err := AppendChangeTo(ap, ChangeEntry{At: at(3),
 		Action: `host "prod-web-01" added`}); err != nil {
 		t.Fatal(err)
 	}
@@ -59,20 +59,20 @@ func TestEachJournalRoundTripsAtTheRightMode(t *testing.T) {
 		t.Errorf("errors round trip: %+v", errs[0])
 	}
 
-	hist, err := loadHistoryFrom(hp)
-	if err != nil || len(hist) != 1 {
-		t.Fatalf("history: %v, %d entries", err, len(hist))
+	conns, err := loadConnectionsFrom(hp)
+	if err != nil || len(conns) != 1 {
+		t.Fatalf("connections: %v, %d entries", err, len(conns))
 	}
-	if hist[0].Result != ResultSuccess || hist[0].Host != "prod-web-01" {
-		t.Errorf("history round trip: %+v", hist[0])
+	if conns[0].Result != ResultSuccess || conns[0].Host != "prod-web-01" {
+		t.Errorf("connections round trip: %+v", conns[0])
 	}
 
-	acts, err := loadActivityFrom(ap)
-	if err != nil || len(acts) != 1 {
-		t.Fatalf("activity: %v, %d entries", err, len(acts))
+	changes, err := loadChangesFrom(ap)
+	if err != nil || len(changes) != 1 {
+		t.Fatalf("changes: %v, %d entries", err, len(changes))
 	}
-	if acts[0].Action != `host "prod-web-01" added` {
-		t.Errorf("activity round trip: %+v", acts[0])
+	if changes[0].Action != `host "prod-web-01" added` {
+		t.Errorf("changes round trip: %+v", changes[0])
 	}
 }
 
@@ -80,14 +80,14 @@ func TestEachJournalRoundTripsAtTheRightMode(t *testing.T) {
 // list of one-element lists. That is what makes recording an event cheap, and
 // it is the property that silently breaks if the marshalling changes.
 func TestAppendingKeepsTheFileOneFlatList(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "history.yaml")
+	p := filepath.Join(t.TempDir(), "connections.yaml")
 	for i := 0; i < 5; i++ {
-		if err := AppendHistoryTo(p, HistoryEntry{At: at(i), Host: "h", User: "u",
+		if err := AppendConnectionTo(p, ConnectionEntry{At: at(i), Host: "h", User: "u",
 			Result: ResultSuccess}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	got, err := loadHistoryFrom(p)
+	got, err := loadConnectionsFrom(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,19 +116,19 @@ func TestAnEntryWithNoHostOmitsTheKeys(t *testing.T) {
 // A journal trims its own tail rather than growing without bound, and the trim
 // keeps the NEWEST entries — the ones somebody is about to look at.
 func TestAJournalTrimsItsOwnTail(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "activity.yaml")
+	p := filepath.Join(t.TempDir(), "changes.yaml")
 
 	old := journalTrimBytes
 	journalTrimBytes = 512
 	defer func() { journalTrimBytes = old }()
 
 	for i := 0; i < journalKeep+50; i++ {
-		if err := AppendActivityTo(p, ActivityEntry{At: at(i % 60),
+		if err := AppendChangeTo(p, ChangeEntry{At: at(i % 60),
 			Action: "entry " + itoaTest(i)}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	got, err := loadActivityFrom(p)
+	got, err := loadChangesFrom(p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,11 +185,11 @@ func TestLoadingAMissingJournalIsEmpty(t *testing.T) {
 	if got, err := loadErrorsFrom(filepath.Join(dir, "a.yaml")); err != nil || got != nil {
 		t.Errorf("errors: want nil,nil got %v,%v", got, err)
 	}
-	if got, err := loadHistoryFrom(filepath.Join(dir, "b.yaml")); err != nil || got != nil {
-		t.Errorf("history: want nil,nil got %v,%v", got, err)
+	if got, err := loadConnectionsFrom(filepath.Join(dir, "b.yaml")); err != nil || got != nil {
+		t.Errorf("connections: want nil,nil got %v,%v", got, err)
 	}
-	if got, err := loadActivityFrom(filepath.Join(dir, "c.yaml")); err != nil || got != nil {
-		t.Errorf("activity: want nil,nil got %v,%v", got, err)
+	if got, err := loadChangesFrom(filepath.Join(dir, "c.yaml")); err != nil || got != nil {
+		t.Errorf("changes: want nil,nil got %v,%v", got, err)
 	}
 }
 

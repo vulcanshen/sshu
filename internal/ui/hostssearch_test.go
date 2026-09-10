@@ -186,14 +186,18 @@ func TestSearchNeedsHostsToSearch(t *testing.T) {
 // moment a side nav moved in next to it.)
 func TestPrefPanelsWearTheirTitles(t *testing.T) {
 	view := ansi.Strip(sized(sample(), 100, 24).View())
-	for _, want := range []string{"[1] sshu", "[2] Hosts"} {
+	for _, want := range []string{"[1] Sections", "[2] Hosts"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("%q is not on screen:\n%s", want, view)
 		}
 	}
 	// And the nav lists every visible section by name, under its category
 	// header — while the masked Operation section stays off screen.
-	for _, want := range []string{"SSH", "Hosts", "Credentials", "Logs", "Errors", "History", "Activity"} {
+	for _, want := range []string{
+		"SSHU", "Hosts", "Credentials",
+		"SSH", "Config", "KnownHosts",
+		"Logs", "Errors", "Connections", "Changes",
+	} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the nav does not offer %q", want)
 		}

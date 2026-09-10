@@ -408,7 +408,7 @@ func (m AppModel) onEditSaved(msg editSavedMsg) (tea.Model, tea.Cmd) {
 	if dest == "" {
 		dest = "local"
 	}
-	m.activity.add("edit: saved " + name + " (" + dest + ")")
+	m.changes.add("edit: saved " + name + " (" + dest + ")")
 	return m, tea.Batch(m.closeEdit(false), m.toast.show("Saved "+name, toastInfo))
 }
 

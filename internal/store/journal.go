@@ -14,12 +14,12 @@ import (
 // in one free-text field. That worked while there was one question to answer.
 // There are three, and they want different shapes:
 //
-//	errors.yaml    — what went wrong, and everything the far end said about it
-//	history.yaml   — every connection attempt and how it ended, nothing else
-//	activity.yaml  — what the user changed through sshu
+//	errors.yaml       — what went wrong, and everything the far end said
+//	connections.yaml  — every connection attempt and how it ended, nothing else
+//	changes.yaml      — what the user changed through sshu
 //
-// A single file could not be all three: history wants one fixed-width row per
-// entry so a machine's record reads down a column, while an error entry is
+// A single file could not be all three: connections wants one fixed-width row
+// per entry so a machine's record reads down a column, while an error entry is
 // fifteen lines of somebody else's banner. Putting them together meant the
 // useful shape of each was the other's noise.
 //
@@ -57,26 +57,26 @@ type ErrorEntry struct {
 	Error string `yaml:"error"` // may span lines
 }
 
-// HistoryEntry is one connection attempt. Result only — the reason lives in
+// ConnectionEntry is one connection attempt. Result only — the reason lives in
 // errors.yaml, and duplicating it here would mean two records of one failure
 // that can disagree.
-type HistoryEntry struct {
+type ConnectionEntry struct {
 	At     time.Time `yaml:"at"`
 	Host   string    `yaml:"host"`
 	User   string    `yaml:"user"`
 	Result string    `yaml:"result"` // success | fail
 }
 
-// ActivityEntry is one change the user made through sshu: a host added, a
+// ChangeEntry is one change the user made through sshu: a host added, a
 // credential deleted, a file transferred, an edit written back. Not connection
 // state, and not UI state — locking a pty or zooming a cell changes what you
 // are looking at, not what is there.
-type ActivityEntry struct {
+type ChangeEntry struct {
 	At     time.Time `yaml:"at"`
 	Action string    `yaml:"action"`
 }
 
-// Result values for HistoryEntry, so the two ends agree on the spelling.
+// Result values for ConnectionEntry, so the two ends agree on the spelling.
 const (
 	ResultSuccess = "success"
 	ResultFail    = "fail"
@@ -103,24 +103,24 @@ const errorsHeader = `# sshu errors — one YAML list, newest at the bottom. ssh
 # version control, out of syncing folders, out of backups.
 `
 
-const historyHeader = `# sshu connection history — one YAML list, newest at the bottom.
+const connectionsHeader = `# sshu connections — one YAML list, newest at the bottom.
 #
 # Result only. Why a connection failed is in errors.yaml; this file is the
 # timeline. It names the hosts and users you connect as, so it belongs in the
 # same directory as the rest and out of version control.
 `
 
-const activityHeader = `# sshu activity — what was changed through sshu, one YAML list, newest at the
-# bottom.
+const changesHeader = `# sshu changes — what was changed through sshu, one YAML list,
+# newest at the bottom.
 #
 # It names hosts, users and paths. Same rule as the rest of this directory:
 # keep it out of version control, out of syncing folders, out of backups.
 `
 
-// ErrorsPath, HistoryPath and ActivityPath are the three files.
-func ErrorsPath() (string, error)   { return journalPath("errors.yaml") }
-func HistoryPath() (string, error)  { return journalPath("history.yaml") }
-func ActivityPath() (string, error) { return journalPath("activity.yaml") }
+// ErrorsPath, ConnectionsPath and ChangesPath are the three files.
+func ErrorsPath() (string, error)      { return journalPath("errors.yaml") }
+func ConnectionsPath() (string, error) { return journalPath("connections.yaml") }
+func ChangesPath() (string, error)     { return journalPath("changes.yaml") }
 
 func journalPath(name string) (string, error) {
 	dir, err := Dir()
@@ -130,7 +130,7 @@ func journalPath(name string) (string, error) {
 	return filepath.Join(dir, name), nil
 }
 
-// AppendError, AppendHistory and AppendActivity record one event.
+// AppendError, AppendConnection and AppendChange record one event.
 func AppendError(e ErrorEntry) error {
 	path, err := ErrorsPath()
 	if err != nil {
@@ -139,20 +139,20 @@ func AppendError(e ErrorEntry) error {
 	return AppendErrorTo(path, e)
 }
 
-func AppendHistory(e HistoryEntry) error {
-	path, err := HistoryPath()
+func AppendConnection(e ConnectionEntry) error {
+	path, err := ConnectionsPath()
 	if err != nil {
 		return err
 	}
-	return AppendHistoryTo(path, e)
+	return AppendConnectionTo(path, e)
 }
 
-func AppendActivity(e ActivityEntry) error {
-	path, err := ActivityPath()
+func AppendChange(e ChangeEntry) error {
+	path, err := ChangesPath()
 	if err != nil {
 		return err
 	}
-	return AppendActivityTo(path, e)
+	return AppendChangeTo(path, e)
 }
 
 // The *To variants take an explicit path (tests).
@@ -160,15 +160,15 @@ func AppendErrorTo(path string, e ErrorEntry) error {
 	return appendJournal(path, e, errorsHeader, loadErrorsFrom)
 }
 
-func AppendHistoryTo(path string, e HistoryEntry) error {
-	return appendJournal(path, e, historyHeader, loadHistoryFrom)
+func AppendConnectionTo(path string, e ConnectionEntry) error {
+	return appendJournal(path, e, connectionsHeader, loadConnectionsFrom)
 }
 
-func AppendActivityTo(path string, e ActivityEntry) error {
-	return appendJournal(path, e, activityHeader, loadActivityFrom)
+func AppendChangeTo(path string, e ChangeEntry) error {
+	return appendJournal(path, e, changesHeader, loadChangesFrom)
 }
 
-// LoadErrors, LoadHistory and LoadActivity read a journal back. A missing file
+// LoadErrors, LoadConnections and LoadChanges read a journal back. A missing file
 // is the ordinary empty state, exactly as it is for hosts.yaml.
 func LoadErrors() ([]ErrorEntry, error) {
 	path, err := ErrorsPath()
@@ -178,40 +178,40 @@ func LoadErrors() ([]ErrorEntry, error) {
 	return loadErrorsFrom(path)
 }
 
-func LoadHistory() ([]HistoryEntry, error) {
-	path, err := HistoryPath()
+func LoadConnections() ([]ConnectionEntry, error) {
+	path, err := ConnectionsPath()
 	if err != nil {
 		return nil, err
 	}
-	return loadHistoryFrom(path)
+	return loadConnectionsFrom(path)
 }
 
-func LoadActivity() ([]ActivityEntry, error) {
-	path, err := ActivityPath()
+func LoadChanges() ([]ChangeEntry, error) {
+	path, err := ChangesPath()
 	if err != nil {
 		return nil, err
 	}
-	return loadActivityFrom(path)
+	return loadChangesFrom(path)
 }
 
 func loadErrorsFrom(path string) ([]ErrorEntry, error) {
 	return loadJournal[ErrorEntry](path)
 }
 
-func loadHistoryFrom(path string) ([]HistoryEntry, error) {
-	return loadJournal[HistoryEntry](path)
+func loadConnectionsFrom(path string) ([]ConnectionEntry, error) {
+	return loadJournal[ConnectionEntry](path)
 }
 
-func loadActivityFrom(path string) ([]ActivityEntry, error) {
-	return loadJournal[ActivityEntry](path)
+func loadChangesFrom(path string) ([]ChangeEntry, error) {
+	return loadJournal[ChangeEntry](path)
 }
 
-// ClearErrors, ClearHistory and ClearActivity empty one journal, keeping its
+// ClearErrors, ClearConnections and ClearChanges empty one journal, keeping its
 // header — the same shape ClearLog had, and for the same reason: a file whose
 // warning has been deleted is a file whose warning is gone for good.
-func ClearErrors() error   { return clearJournalAt(ErrorsPath, errorsHeader) }
-func ClearHistory() error  { return clearJournalAt(HistoryPath, historyHeader) }
-func ClearActivity() error { return clearJournalAt(ActivityPath, activityHeader) }
+func ClearErrors() error      { return clearJournalAt(ErrorsPath, errorsHeader) }
+func ClearConnections() error { return clearJournalAt(ConnectionsPath, connectionsHeader) }
+func ClearChanges() error     { return clearJournalAt(ChangesPath, changesHeader) }
 
 func clearJournalAt(path func() (string, error), header string) error {
 	p, err := path()
@@ -230,11 +230,11 @@ func ClearJournalTo(path, header string) error {
 	return writeFile0600(path, []byte(header))
 }
 
-// ErrorsHeader, HistoryHeader and ActivityHeader expose the headers so the UI
+// ErrorsHeader, ConnectionsHeader and ChangesHeader expose the headers so the UI
 // can clear a journal through ClearJournalTo without restating them.
-func ErrorsHeader() string   { return errorsHeader }
-func HistoryHeader() string  { return historyHeader }
-func ActivityHeader() string { return activityHeader }
+func ErrorsHeader() string      { return errorsHeader }
+func ConnectionsHeader() string { return connectionsHeader }
+func ChangesHeader() string     { return changesHeader }
 
 // ---------------------------------------------------------------- mechanism
 

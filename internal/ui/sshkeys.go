@@ -236,7 +236,7 @@ func (m AppModel) startSession(h store.Host, land sshPanel) (tea.Model, tea.Cmd)
 	// it. A session that never starts is the exception, and it is recorded
 	// right here because there will be no ending to record it at.
 	if _, err := m.ssh.connect(h); err != nil {
-		m.history.add(h.Name, h.User, false)
+		m.connections.add(h.Name, h.User, false)
 		m.errors.errorf(h.Name, h.User, err.Error())
 		return m, tea.Batch(cmd, m.toast.show(err.Error(), toastError))
 	}

@@ -29,8 +29,8 @@ const (
 	prefSSHConfig
 	prefKnownHosts
 	prefErrors
-	prefHistory
-	prefActivity
+	prefConnections
+	prefChanges
 	prefExport
 	prefImport
 	prefItemCount
@@ -52,10 +52,14 @@ func (p prefItem) label() string {
 		return "KnownHosts"
 	case prefErrors:
 		return "Errors"
-	case prefHistory:
-		return "History"
-	case prefActivity:
-		return "Activity"
+	case prefConnections:
+		// Named for what the panel LISTS, not for an abstract noun. "History"
+		// and "Activity" are mass nouns with no natural plural, which is what
+		// made them the odd two out beside Hosts, Credentials and Errors —
+		// and neither said what a row actually is.
+		return "Connections"
+	case prefChanges:
+		return "Changes"
 	case prefExport:
 		return "Export"
 	case prefImport:
@@ -78,8 +82,14 @@ var prefSections = []struct {
 	header string
 	items  []prefItem
 }{
-	{"SSH", []prefItem{prefHosts, prefCreds, prefSSHConfig, prefKnownHosts}},
-	{"Logs", []prefItem{prefErrors, prefHistory, prefActivity}},
+	// SSHU and SSH are a real boundary, not a tidier arrangement of one list:
+	// the first two rows are files sshu owns and writes, the next two are
+	// files that belong to ssh and that sshu only reads and edits in place.
+	// Under one header they read as four things of a kind, which is exactly
+	// what a user should not believe about ~/.ssh/config.
+	{"SSHU", []prefItem{prefHosts, prefCreds}},
+	{"SSH", []prefItem{prefSSHConfig, prefKnownHosts}},
+	{"Logs", []prefItem{prefErrors, prefConnections, prefChanges}},
 	// Operation (Export / Import) is MASKED until its design settles: the
 	// enum keeps the tail values, the pages stay compiled and tested, but
 	// the nav neither draws the section nor stops on its items. Unmasking
@@ -138,10 +148,13 @@ func (m *prefModel) navKey(k string) {
 
 func (m prefModel) panelTitle(p prefPanel) string {
 	if p == panelPrefNav {
-		// The nav holds sshu's own data and operations — the app's name is
-		// the shortest honest label for "everything that is sshu's, not a
-		// host's".
-		return "[1] sshu"
+		// Named for what it lists. It used to be "sshu", which stopped working
+		// the moment SSHU became one of the groups INSIDE it: the same word at
+		// two levels, meaning two different things.
+		//
+		// "Sections" is what the code has always called them (prefSections);
+		// the label had just never caught up.
+		return "[1] Sections"
 	}
 	return "[2] " + m.item.label()
 }
@@ -163,7 +176,7 @@ func (m *AppModel) syncPrefSizes() {
 // the ERRORS content on screen is what reading it means, so that is the moment
 // the unread count goes to zero — not a popup toggle, which no longer exists.
 //
-// Only Errors. History and Activity carry no badge, so there is nothing for
+// Only Errors. Connections and Changes carry no badge, so there is nothing for
 // looking at them to mark: the badge counts failures, and reading a list of
 // successful connections says nothing about whether the failures were seen.
 func (m *AppModel) prefShowed() {
@@ -195,7 +208,7 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 		// The page claimed its keys in handleKey (textPage) before the global
 		// vocabulary ran; nothing is left to do here.
 		return m, nil
-	case prefErrors, prefHistory, prefActivity:
+	case prefErrors, prefConnections, prefChanges:
 		// The one thing a journal can be told to do, and it clears THIS one:
 		// three files, three separate records, and a Clear that emptied all of
 		// them would be a key doing more than the panel it was pressed on.
@@ -208,17 +221,17 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 		case prefErrors:
 			// Errors is the one journal with a cursor, because it is the one
 			// with somewhere to go: the row shows the cause and Enter opens
-			// everything the far end said. History and Activity have nothing
+			// everything the far end said. Connections and Changes have nothing
 			// behind a row, so they scroll instead — a cursor that cannot be
 			// committed is a cursor that looks broken.
 			if k == "enter" {
 				return m.openErrorDetail()
 			}
 			m.errors.handleKey(k, h)
-		case prefHistory:
-			m.history.scrollKey(k, h)
+		case prefConnections:
+			m.connections.scrollKey(k, h)
 		default:
-			m.activity.scrollKey(k, h)
+			m.changes.scrollKey(k, h)
 		}
 		return m, nil
 	}
@@ -270,20 +283,20 @@ func (m AppModel) journalCount() int {
 	switch m.pref.item {
 	case prefErrors:
 		return len(m.errors.entries)
-	case prefHistory:
-		return len(m.history.entries)
-	case prefActivity:
-		return len(m.activity.entries)
+	case prefConnections:
+		return len(m.connections.entries)
+	case prefChanges:
+		return len(m.changes.entries)
 	}
 	return 0
 }
 
 func (m AppModel) journalFile() string {
 	switch m.pref.item {
-	case prefHistory:
-		return "history.yaml"
-	case prefActivity:
-		return "activity.yaml"
+	case prefConnections:
+		return "connections.yaml"
+	case prefChanges:
+		return "changes.yaml"
 	}
 	return "errors.yaml"
 }
@@ -314,10 +327,10 @@ func (m AppModel) doClearJournal() (tea.Model, tea.Cmd) {
 	switch m.pref.item {
 	case prefErrors:
 		err = m.errors.clear()
-	case prefHistory:
-		err = m.history.clear()
-	case prefActivity:
-		err = m.activity.clear()
+	case prefConnections:
+		err = m.connections.clear()
+	case prefChanges:
+		err = m.changes.clear()
 	}
 	if err != nil {
 		// The file refused, so the panel keeps its entries: a journal that says
@@ -419,7 +432,7 @@ func (m AppModel) prefContent(w, h int) string {
 		innerW, innerH := w-2, h-2
 		body := m.importPage.body(importIntro, "", "import", focused, innerW)
 		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
-	case prefErrors, prefHistory, prefActivity:
+	case prefErrors, prefConnections, prefChanges:
 		innerW, innerH := w-2, h-2
 		// fitLines like every content body: a journal's empty state returns
 		// fewer rows than the panel is tall, and on a narrow terminal there
@@ -428,10 +441,10 @@ func (m AppModel) prefContent(w, h int) string {
 		switch m.pref.item {
 		case prefErrors:
 			body = m.errors.body(innerW, innerH)
-		case prefHistory:
-			body = m.history.body(innerW, innerH)
+		case prefConnections:
+			body = m.connections.body(innerW, innerH)
 		default:
-			body = m.activity.body(innerW, innerH)
+			body = m.changes.body(innerW, innerH)
 		}
 		return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
 	}
@@ -454,10 +467,10 @@ func (m AppModel) prefStatus() string {
 		return "merge a " + store.BundleExt + " bundle"
 	case prefErrors:
 		return m.errors.status()
-	case prefHistory:
-		return m.history.status()
-	case prefActivity:
-		return m.activity.status()
+	case prefConnections:
+		return m.connections.status()
+	case prefChanges:
+		return m.changes.status()
 	}
 	return m.hosts.status()
 }

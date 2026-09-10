@@ -53,10 +53,10 @@ func main() {
 	// A journal's own file failing to load is itself news — but never fatal,
 	// and never a reason to stop recording new events. Three files, three
 	// independent failures: errors.yaml being unreadable says nothing about
-	// whether history.yaml is.
+	// whether connections.yaml is.
 	errTail, errErr := store.LoadErrors()
-	histTail, histErr := store.LoadHistory()
-	actTail, actErr := store.LoadActivity()
+	connTail, connErr := store.LoadConnections()
+	changeTail, changeErr := store.LoadChanges()
 
 	// Credentials are data like hosts, but a broken credentials.yaml only
 	// breaks the hosts that reference it — sshu still starts, and says so.
@@ -104,8 +104,8 @@ func main() {
 	app := ui.New(hosts.Hosts, save, cfg).
 		WithJournals(
 			errTail, store.AppendError, store.ClearErrors,
-			histTail, store.AppendHistory, store.ClearHistory,
-			actTail, store.AppendActivity, store.ClearActivity).
+			connTail, store.AppendConnection, store.ClearConnections,
+			changeTail, store.AppendChange, store.ClearChanges).
 		WithCredentials(credsFile.Credentials, saveCreds).
 		WithSSHConfig(sshCfg, store.SaveSSHConfig).
 		WithKnownHosts(knownHosts, store.SaveKnownHosts)
@@ -115,7 +115,7 @@ func main() {
 	for _, j := range []struct {
 		file string
 		err  error
-	}{{"errors.yaml", errErr}, {"history.yaml", histErr}, {"activity.yaml", actErr}} {
+	}{{"errors.yaml", errErr}, {"connections.yaml", connErr}, {"changes.yaml", changeErr}} {
 		if j.err != nil {
 			app = app.WithStartupError(j.file + ": " + j.err.Error())
 		}

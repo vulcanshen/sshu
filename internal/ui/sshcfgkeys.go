@@ -284,7 +284,7 @@ func (m AppModel) persistSSHCfg(next store.SSHConfigFile, at int, logLine, toast
 		m.errors.warn("", "", err.Error())
 		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
 	}
-	m.activity.add(logLine)
+	m.changes.add(logLine)
 	return m, tea.Batch(m.closeStack(), m.toast.show(toastLine, toastInfo))
 }
 
