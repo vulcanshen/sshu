@@ -38,7 +38,7 @@ const (
 )
 
 // errLevel is how bad an entry in Errors is. Two values, not three: the old log
-// carried info as well, and info is what Activity and History now hold in a
+// carried info as well, and info is what Changes and Connections now hold in a
 // shape that suits them.
 type errLevel int
 
@@ -97,8 +97,8 @@ const (
 //
 // Two columns come off the top, not one: a leading space AND a trailing one.
 // Without the second, a value that exactly fills its column touches the panel
-// border — "success" is seven cells and the result column is seven, so History
-// was the row that showed it.
+// border — "success" is seven cells and the result column is seven, so
+// Connections was the row that showed it.
 func jCols(innerW, tailFixed int, wantTail bool) (hostW, userW, tailW int) {
 	free := innerW - 2 - jTimeW - jGap - tailFixed
 	if wantTail {
@@ -378,29 +378,29 @@ func (m errorsModel) status() string {
 	return itoa(m.cursor+1) + "/" + journalEntries(len(m.entries))
 }
 
-// ------------------------------------------------------------------ history
+// -------------------------------------------------------------- connections
 
-type histRec struct {
+type connRec struct {
 	at   time.Time
 	host string
 	user string
 	ok   bool
 }
 
-// historyModel is manage → Logs → History: every connection attempt and how it
+// connectionsModel is manage → Logs → Connections: every attempt and how it
 // ended. The reason is deliberately NOT here — it is in Errors, and recording
 // it twice would mean two accounts of one failure that can disagree.
-type historyModel struct {
-	entries []histRec
+type connectionsModel struct {
+	entries []connRec
 	top     int
 
-	sink       func(store.HistoryEntry) error
+	sink       func(store.ConnectionEntry) error
 	sinkBroken bool
 	clearSink  func() error
 }
 
-func (m *historyModel) add(host, user string, ok bool) {
-	e := histRec{at: time.Now(), host: host, user: user, ok: ok}
+func (m *connectionsModel) add(host, user string, ok bool) {
+	e := connRec{at: time.Now(), host: host, user: user, ok: ok}
 	m.entries = append(m.entries, e)
 	if len(m.entries) > journalCap {
 		m.entries = m.entries[len(m.entries)-journalCap:]
@@ -410,26 +410,26 @@ func (m *historyModel) add(host, user string, ok bool) {
 		if ok {
 			result = store.ResultSuccess
 		}
-		if err := m.sink(store.HistoryEntry{At: e.at, Host: host, User: user,
+		if err := m.sink(store.ConnectionEntry{At: e.at, Host: host, User: user,
 			Result: result}); err != nil {
 			m.sinkBroken = true
 		}
 	}
 }
 
-func (m *historyModel) preload(tail []store.HistoryEntry) {
+func (m *connectionsModel) preload(tail []store.ConnectionEntry) {
 	if len(tail) > journalCap {
 		tail = tail[len(tail)-journalCap:]
 	}
-	out := make([]histRec, 0, len(tail))
+	out := make([]connRec, 0, len(tail))
 	for _, e := range tail {
-		out = append(out, histRec{at: e.At, host: e.Host, user: e.User,
+		out = append(out, connRec{at: e.At, host: e.Host, user: e.User,
 			ok: e.Result == store.ResultSuccess})
 	}
 	m.entries = append(out, m.entries...)
 }
 
-func (m *historyModel) clear() error {
+func (m *connectionsModel) clear() error {
 	if m.clearSink != nil {
 		if err := m.clearSink(); err != nil {
 			return err
@@ -439,14 +439,14 @@ func (m *historyModel) clear() error {
 	return nil
 }
 
-func (m *historyModel) scrollKey(k string, innerH int) {
+func (m *connectionsModel) scrollKey(k string, innerH int) {
 	m.top = moveScroll(m.top, max(0, len(m.entries)-(innerH-jHeaderRows)), k, innerH)
 }
 
 // rows is one line per attempt, newest first. Fixed height on purpose: this
 // panel exists to be counted down a column — "that host, three times this
 // afternoon, two of them red" — and a row that can grow breaks the count.
-func (m historyModel) rows(innerW int) []string {
+func (m connectionsModel) rows(innerW int) []string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	ok := lipgloss.NewStyle().Foreground(liveColor)
@@ -472,7 +472,7 @@ func (m historyModel) rows(innerW int) []string {
 	return out
 }
 
-func (m historyModel) body(innerW, innerH int) []string {
+func (m connectionsModel) body(innerW, innerH int) []string {
 	if len(m.entries) == 0 {
 		return emptyBody(innerW, innerH, "No connections yet",
 			emptyHint("Every ssh and sftp connection is recorded here, with its result", ""))
@@ -491,7 +491,7 @@ func (m historyModel) body(innerW, innerH int) []string {
 	return fitLines(out, innerW, innerH)
 }
 
-func (m historyModel) status() string {
+func (m connectionsModel) status() string {
 	if len(m.entries) == 0 {
 		return "no connections"
 	}
@@ -507,58 +507,58 @@ func (m historyModel) status() string {
 	return plural(len(m.entries), "connection") + " · " + itoa(failed) + " failed"
 }
 
-// ----------------------------------------------------------------- activity
+// ------------------------------------------------------------------ changes
 
-type actRec struct {
+type changeRec struct {
 	at     time.Time
 	action string
 }
 
-// activityModel is manage → Logs → Activity: what you changed through sshu.
+// changesModel is manage → Logs → Changes: what you changed through sshu.
 // Hosts and credentials added or deleted, ~/.ssh files edited, bundles moved,
 // files transferred, edits written back.
 //
 // NOT connection state, and not UI state. Locking a pty or zooming a cell
 // changes what you are looking at rather than what is there, and a record of
 // those would bury the changes that outlive the session.
-type activityModel struct {
-	entries []actRec
+type changesModel struct {
+	entries []changeRec
 	top     int
 
-	sink       func(store.ActivityEntry) error
+	sink       func(store.ChangeEntry) error
 	sinkBroken bool
 	clearSink  func() error
 }
 
-func (m *activityModel) add(action string) {
+func (m *changesModel) add(action string) {
 	action = joinSanitised(action)
 	if action == "" {
 		return
 	}
-	e := actRec{at: time.Now(), action: action}
+	e := changeRec{at: time.Now(), action: action}
 	m.entries = append(m.entries, e)
 	if len(m.entries) > journalCap {
 		m.entries = m.entries[len(m.entries)-journalCap:]
 	}
 	if m.sink != nil && !m.sinkBroken {
-		if err := m.sink(store.ActivityEntry{At: e.at, Action: action}); err != nil {
+		if err := m.sink(store.ChangeEntry{At: e.at, Action: action}); err != nil {
 			m.sinkBroken = true
 		}
 	}
 }
 
-func (m *activityModel) preload(tail []store.ActivityEntry) {
+func (m *changesModel) preload(tail []store.ChangeEntry) {
 	if len(tail) > journalCap {
 		tail = tail[len(tail)-journalCap:]
 	}
-	out := make([]actRec, 0, len(tail))
+	out := make([]changeRec, 0, len(tail))
 	for _, e := range tail {
-		out = append(out, actRec{at: e.At, action: e.Action})
+		out = append(out, changeRec{at: e.At, action: e.Action})
 	}
 	m.entries = append(out, m.entries...)
 }
 
-func (m *activityModel) clear() error {
+func (m *changesModel) clear() error {
 	if m.clearSink != nil {
 		if err := m.clearSink(); err != nil {
 			return err
@@ -568,11 +568,11 @@ func (m *activityModel) clear() error {
 	return nil
 }
 
-func (m *activityModel) scrollKey(k string, innerH int) {
+func (m *changesModel) scrollKey(k string, innerH int) {
 	m.top = moveScroll(m.top, max(0, len(m.entries)-(innerH-jHeaderRows)), k, innerH)
 }
 
-func (m activityModel) rows(innerW int) []string {
+func (m changesModel) rows(innerW int) []string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	actionW := max(1, innerW-2-jTimeW-jGap)
@@ -586,7 +586,7 @@ func (m activityModel) rows(innerW int) []string {
 	return out
 }
 
-func (m activityModel) body(innerW, innerH int) []string {
+func (m changesModel) body(innerW, innerH int) []string {
 	if len(m.entries) == 0 {
 		return emptyBody(innerW, innerH, "Nothing changed yet",
 			emptyHint("Hosts, credentials, ~/.ssh files, transfers and edits are recorded here", ""))
@@ -599,7 +599,7 @@ func (m activityModel) body(innerW, innerH int) []string {
 	return fitLines(out, innerW, innerH)
 }
 
-func (m activityModel) status() string {
+func (m changesModel) status() string {
 	if len(m.entries) == 0 {
 		return "nothing recorded"
 	}
@@ -609,7 +609,7 @@ func (m activityModel) status() string {
 // ------------------------------------------------------------------- shared
 
 // joinSanitised is the one place other machines' bytes are made safe to draw,
-// shared by errors and activity so the two cannot drift on what "safe" means.
+// shared by errors and changes so the two cannot drift on what "safe" means.
 // Blank lines are dropped, the whole thing is capped, and every line is run
 // through sanitizeLine.
 func joinSanitised(msg string, more ...string) string {

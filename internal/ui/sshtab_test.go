@@ -1148,16 +1148,16 @@ func TestOnlyErrorsHasACursor(t *testing.T) {
 	m := sshApp(t, sample())
 	for i := range 12 {
 		m.errors.errorf("prod-web-0"+itoa(i%9+1), "deploy", "Connection refused")
-		m.history.add("prod-web-0"+itoa(i%9+1), "deploy", i%2 == 0)
-		m.activity.add("host \"prod-web-0" + itoa(i%9+1) + "\" added")
+		m.connections.add("prod-web-0"+itoa(i%9+1), "deploy", i%2 == 0)
+		m.changes.add("host \"prod-web-0" + itoa(i%9+1) + "\" added")
 	}
 
 	if box := strings.Join(m.errors.body(96, 8), "\n"); !strings.Contains(box, ansiBgOf(t, rowSelColor)) {
 		t.Error("Errors should paint the row under its cursor")
 	}
 	for name, box := range map[string]string{
-		"history":  strings.Join(m.history.body(96, 8), "\n"),
-		"activity": strings.Join(m.activity.body(96, 8), "\n"),
+		"history":  strings.Join(m.connections.body(96, 8), "\n"),
+		"activity": strings.Join(m.changes.body(96, 8), "\n"),
 	} {
 		for what, bg := range map[string]string{
 			"selection": ansiBgOf(t, rowSelColor), "cursor": ansiBgOf(t, handColor),
@@ -1169,15 +1169,15 @@ func TestOnlyErrorsHasACursor(t *testing.T) {
 	}
 
 	// j/k scroll those two, and the view does not wrap.
-	before := m.history.top
-	m.history.scrollKey("j", 8)
-	if m.history.top != before+1 {
-		t.Errorf("j should scroll history, top=%d want %d", m.history.top, before+1)
+	before := m.connections.top
+	m.connections.scrollKey("j", 8)
+	if m.connections.top != before+1 {
+		t.Errorf("j should scroll history, top=%d want %d", m.connections.top, before+1)
 	}
-	m.history.scrollKey("k", 8)
-	m.history.scrollKey("k", 8)
-	if m.history.top != 0 {
-		t.Errorf("k should scroll back and clamp, top=%d", m.history.top)
+	m.connections.scrollKey("k", 8)
+	m.connections.scrollKey("k", 8)
+	if m.connections.top != 0 {
+		t.Errorf("k should scroll back and clamp, top=%d", m.connections.top)
 	}
 }
 

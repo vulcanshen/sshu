@@ -35,7 +35,7 @@ func TestPrefNavSwapsContentAsTheCursorMoves(t *testing.T) {
 	}
 	// Three rows under the Logs header now, and the cursor walks them one at a
 	// time — the header itself takes no stop.
-	for _, want := range []string{"[2] Errors", "[2] History", "[2] Activity"} {
+	for _, want := range []string{"[2] Errors", "[2] Connections", "[2] Changes"} {
 		m = pressA(m, "j")
 		if v := ansi.Strip(m.View()); !strings.Contains(v, want) {
 			t.Errorf("moving down should show %s:\n%s", want, v)
@@ -292,7 +292,7 @@ func TestCredentialAddEditDelete(t *testing.T) {
 	// Adding a credential is a CHANGE, so it belongs to Activity — not to
 	// Errors, which only holds what went wrong (§11.49).
 	joined := ""
-	for _, e := range m.activity.entries {
+	for _, e := range m.changes.entries {
 		joined += e.action + "\n"
 	}
 	if !strings.Contains(joined, `credential "ops" added`) {

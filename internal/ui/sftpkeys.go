@@ -331,7 +331,7 @@ func (m AppModel) hostPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	h, err := store.Resolve(m.hosts.hosts[i], m.creds.creds)
 	if err != nil {
 		// A credential that is not there: the connection never starts, so
-		// History has no attempt to record — nothing reached the network.
+		// Connections has no attempt to record — nothing reached the network.
 		m.errors.errorf(name, "", err.Error())
 		return m, tea.Batch(m.hostPicker.close(), m.toast.show(err.Error(), toastError))
 	}
@@ -365,12 +365,12 @@ func (m AppModel) sftpConnected(msg sftpConnectedMsg) (tea.Model, tea.Cmd) {
 
 	if msg.err != nil {
 		s.fs, s.host, s.err = nil, "", msg.err.Error()
-		m.history.add(name, m.userForHost(name), false)
+		m.connections.add(name, m.userForHost(name), false)
 		m.errors.errorf(name, m.userForHost(name), "sftp: "+name+" · "+msg.err.Error())
 		return m, m.toast.show(msg.err.Error(), toastError)
 	}
 	s.connect(msg.fs)
-	m.history.add(name, m.userForHost(name), true)
+	m.connections.add(name, m.userForHost(name), true)
 	// A side that has just connected is something to keep current.
 	return m, m.sftp.startWatch()
 }

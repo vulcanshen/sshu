@@ -91,8 +91,8 @@ type AppModel struct {
 	// Three journals, because there were three questions inside one log:
 	// what broke, what you connected to, what you changed (§11.49).
 	errors       errorsModel
-	history      historyModel
-	activity     activityModel
+	connections  connectionsModel
+	changes      changesModel
 	viewer       viewerPopup
 	detail       detailPopup
 	editorUI     editorPopup
@@ -167,15 +167,15 @@ func (m AppModel) WithCredentials(creds []store.Credential, save func([]store.Cr
 // to go.
 func (m AppModel) WithJournals(
 	errTail []store.ErrorEntry, errSink func(store.ErrorEntry) error, errClear func() error,
-	histTail []store.HistoryEntry, histSink func(store.HistoryEntry) error, histClear func() error,
-	actTail []store.ActivityEntry, actSink func(store.ActivityEntry) error, actClear func() error,
+	connTail []store.ConnectionEntry, connSink func(store.ConnectionEntry) error, connClear func() error,
+	changeTail []store.ChangeEntry, changeSink func(store.ChangeEntry) error, changeClear func() error,
 ) AppModel {
 	m.errors.preload(errTail)
 	m.errors.sink, m.errors.clearSink = errSink, errClear
-	m.history.preload(histTail)
-	m.history.sink, m.history.clearSink = histSink, histClear
-	m.activity.preload(actTail)
-	m.activity.sink, m.activity.clearSink = actSink, actClear
+	m.connections.preload(connTail)
+	m.connections.sink, m.connections.clearSink = connSink, connClear
+	m.changes.preload(changeTail)
+	m.changes.sink, m.changes.clearSink = changeSink, changeClear
 	return m
 }
 
@@ -353,7 +353,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// three attempts this afternoon, two of them red. Errors records
 			// WHY, which is the whole final screen. Putting the reason in both
 			// would give one failure two accounts that can disagree (§11.49).
-			m.history.add(s.host.Name, m.hosts.displayUser(s.host), s.ok)
+			m.connections.add(s.host.Name, m.hosts.displayUser(s.host), s.ok)
 			if s.ok {
 				continue
 			}
@@ -1140,10 +1140,10 @@ func (m *AppModel) logFinishedTransfers() bool {
 		switch j.status() {
 		case xferDone:
 			j.logged, ended = true, true
-			m.activity.add("transfer done: " + j.label)
+			m.changes.add("transfer done: " + j.label)
 		case xferCancelled:
 			j.logged, ended = true, true
-			m.activity.add("transfer cancelled: " + j.label)
+			m.changes.add("transfer cancelled: " + j.label)
 		case xferFailed:
 			j.logged, ended = true, true
 			m.errors.errorf("", "", "transfer failed: "+j.label, j.err())
@@ -1534,7 +1534,7 @@ func (m AppModel) menuItems() []menuItem {
 	}
 	if m.pref.focus == panelPrefNav {
 		return []menuItem{
-			{label: "sshu", header: true},
+			{label: "sections", header: true},
 			{label: "j/k choose a section — Enter opens it", header: true},
 		}
 	}
@@ -1545,7 +1545,7 @@ func (m AppModel) menuItems() []menuItem {
 		return m.sshcfgMenuItems()
 	case prefKnownHosts:
 		return m.knownMenuItems()
-	case prefErrors, prefHistory, prefActivity:
+	case prefErrors, prefConnections, prefChanges:
 		region := strings.ToLower(m.pref.item.label())
 		if m.journalCount() == 0 {
 			return []menuItem{
@@ -1720,7 +1720,7 @@ func (m AppModel) doDelete(name string) (tea.Model, tea.Cmd) {
 	m.hosts.hosts = hosts
 	m.hosts.cursor = min(m.hosts.cursor, max(0, len(hosts)-1))
 	m.hosts.ensureVisible()
-	m.activity.add(fmt.Sprintf("host %q deleted", name))
+	m.changes.add(fmt.Sprintf("host %q deleted", name))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Deleted %q", name), toastInfo))
 }
@@ -1948,7 +1948,7 @@ func (m AppModel) commitForm() (tea.Model, tea.Cmd) {
 	if m.form.editing != "" {
 		verb = "updated"
 	}
-	m.activity.add(fmt.Sprintf("host %q %s (%s)", h.Name, verb, h.Addr()))
+	m.changes.add(fmt.Sprintf("host %q %s (%s)", h.Name, verb, h.Addr()))
 	return m, tea.Batch(m.closeStack(),
 		m.toast.show(fmt.Sprintf("Saved %q", h.Name), toastInfo))
 }

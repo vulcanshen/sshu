@@ -44,14 +44,14 @@ func TestEveryJournalNamesItsColumns(t *testing.T) {
 		t.Errorf("errors header: %q", head)
 	}
 
-	var h historyModel
+	var h connectionsModel
 	h.add("prod-web-01", "deploy", true)
 	if head := ansi.Strip(h.body(90, 8)[0]); !strings.Contains(head, "Time") ||
 		!strings.Contains(head, "Host") || !strings.Contains(head, "Result") {
 		t.Errorf("history header: %q", head)
 	}
 
-	var a activityModel
+	var a changesModel
 	a.add("host \"x\" added")
 	if head := ansi.Strip(a.body(90, 8)[0]); !strings.Contains(head, "Time") ||
 		!strings.Contains(head, "Action") {
