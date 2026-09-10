@@ -205,8 +205,8 @@ func TestSelectedHostRowIsBlue(t *testing.T) {
 		t.Fatalf("the selected row should be blue %s, got %s", blueHex, rowSelColor)
 	}
 
-	sel := renderHostRow(h, h.User, c, true, 80)
-	un := renderHostRow(h, h.User, c, false, 80)
+	sel := strings.Join(renderHostRow(h, h.User, c, true, 80), "\n")
+	un := strings.Join(renderHostRow(h, h.User, c, false, 80), "\n")
 	if sel == un {
 		t.Fatal("a selected row renders identically to an unselected one")
 	}

@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -116,7 +117,7 @@ func TestResolveTakesTheWholePackage(t *testing.T) {
 	}
 	// The concrete methods pass through untouched.
 	plain := Host{Name: "db", Host: "h", Port: 22, User: "postgres", Auth: AuthPassword}
-	if got, _ := Resolve(plain, creds); got != plain {
+	if got, _ := Resolve(plain, creds); !reflect.DeepEqual(got, plain) {
 		t.Fatalf("a non-credential host must pass through, got %+v", got)
 	}
 }

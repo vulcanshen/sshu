@@ -145,6 +145,14 @@ func hostDetail(h store.Host, creds []store.Credential, cfg store.SSHConfigFile,
 	if h.Auth != store.AuthCredential {
 		conn.rows = append(conn.rows, detailRow{label: "User", value: h.User})
 	}
+	// Tags sit in the first section because that section is really "what is this
+	// record", which is also where Name lives — neither is a connection
+	// parameter. Shown only when there ARE some: an empty row would read as a
+	// field left blank, and for most hosts having no tags is the answer, not an
+	// omission. Same judgement the form makes by marking the row optional.
+	if len(h.Tags) > 0 {
+		conn.rows = append(conn.rows, detailRow{label: "Tags", value: strings.Join(h.Tags, " ")})
+	}
 
 	auth := detailSection{title: "Auth", rows: []detailRow{
 		{label: "Type", value: string(h.Auth)},

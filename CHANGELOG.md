@@ -1,5 +1,79 @@
 # Changelog
 
+## [1.6.0] — 2026-09-10
+
+A host list you can group. Tags are your own words, sshu never interprets
+them — it shows them and lets you search them, and that is the whole feature.
+
+Everything else in this release follows from having something to show: a host
+entry is two lines now, and the colours were rebuilt around marking the
+exception instead of decorating the rule.
+
+### Added
+
+- **Tags on a host.** A new field in the add/edit form, last row, optional.
+  **Space is the only separator** — everything else is literal, so `k8s:prod`,
+  `web/db` and `ap-northeast-1` are each one tag with no escaping rule to
+  learn. Repeats and stray whitespace are cleaned out on the way in, and case
+  is left exactly as you typed it.
+
+- **Tags are searchable.** `/` now matches against them along with name, user,
+  host and port, so `/prod` pulls up the whole group at once. A tag you cannot
+  search would be decoration; this is what it was written for.
+
+- **A host entry is two lines**, always — the row you already had, and its tags
+  underneath. A host with no tags shows a placeholder rather than a blank, so
+  the entry has one shape whether or not it has been tagged.
+
+  Fixed height rather than "two lines only when tagged": a list whose rows
+  change height jumps under the cursor as it moves, and every scroll
+  calculation becomes an accumulation. The cost is stated plainly — the same
+  panel shows half as many hosts as it used to.
+
+- **The credential picker says which credential.** Each row already showed the
+  user and the auth method; it now shows the value too — the key file's path
+  for a private key, a fixed mask for a password. The mask never varies with
+  the password's length, and a credential with no secret set says so, because
+  finding that out in the list beats finding it out at the next failed
+  connection.
+
+### Changed
+
+- **Host rows are coloured to mark what is unusual, not to decorate what is
+  normal.** Name, user and host share one tone — they are one thing, "which
+  machine is this" — and the one colour on the row is **a port that is not
+  22**, in peach. In a list of twenty hosts the two on odd ports are what a
+  glance should land on, and they now are.
+
+  Auth stays uncoloured and keeps being told apart by its glyph. A colour there
+  would mark every row, and a colour that marks every row marks none.
+
+  The selected entry drops every column colour and wears the selection bar
+  across both of its lines.
+
+- **`version` in `hosts.yaml` and `credentials.yaml` finally does something.**
+  It used to be written on every save and never read. Now:
+
+  - a file written by an **older** sshu is **rewritten in the current format
+    when sshu starts**, once, rather than on whatever your next edit happens to
+    be;
+  - a file written by a **newer** sshu is **never overwritten** — the save is
+    refused with a message naming both versions.
+
+  The two files count **separately** (`hosts.yaml` is at 2, `credentials.yaml`
+  stays at 1). Tags changed one of them and left the other untouched, and
+  stamping the unchanged file as new would make an older sshu refuse a file it
+  reads perfectly well.
+
+- **`hosts.yaml` is now version 2.** The upgrade is automatic and lossless.
+
+  ⚠️ **Downgrading to 1.5.1 or earlier will silently delete your tags.** Those
+  builds read a v2 file without complaint — YAML ignores keys it does not know
+  — and then drop the tags on their next save. The refusal that prevents this
+  ships in *this* release, so it protects every version from here on, and
+  cannot protect the ones already out. If you need to go back, copy
+  `hosts.yaml` aside first.
+
 ## [1.5.1] — 2026-09-09
 
 1.5.0 made sshu inside sshu work. It did not make it usable past about three

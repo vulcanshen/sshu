@@ -13,7 +13,7 @@
 
 > _不確定的時候,就按_ **`Space`**。
 
-sshu 是 `u`-family 的成員,也是 [Vulcan's TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/vtp.md) 在 ssh 領域的實作 —— 跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)同一套設計系統。逐條對照的紀錄在 [`docs/sshu-implementation.md`](docs/sshu-implementation.md),背後的判斷過程(**包含試過而被否決的做法**)在 [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md)。
+sshu 是 `u`-family 的成員,也是 [this TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/tui-design/README.md) 在 ssh 領域的實作 —— 跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)同一套設計系統。逐條對照的紀錄在 [`docs/sshu-implementation.md`](docs/sshu-implementation.md),背後的判斷過程(**包含試過而被否決的做法**)在 [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -51,7 +51,7 @@ tab 用一個 shift 過的裸字母切換 —— **`M` / `F` / `S`** —— 而�
  [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
-**`[M]anage`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類 —— 外加一個不屬於它的檔案:**SSH**(Hosts、Credentials、Config、KnownHosts)、**Others**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,一列一台,終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。**Config** 就是 `~/.ssh/config` 本身 —— tab `[3]` 早就在讀它了,因為 sshu 是去啟動真的 `ssh` —— 一列一個 `Host` 區塊(`Include` 會跟進去,所以清單涵蓋這棵樹真正有的每一個檔案),表單會帶上那個區塊剛好用到的每一個關鍵字。編一個區塊只會動到它自己的那幾行:註解、`Match` 區塊、以及 sshu 沒聽過的關鍵字都原樣通過。而每一台 host 自己的明細會說出這份檔案對它做了什麼 —— 所有命中區塊的聚集、每個關鍵字取第一個值，並標出哪些被 sshu 的命令列蓋掉了。**KnownHosts** 就是 `~/.ssh/known_hosts` —— 決定「你講話的對象是不是你以為的那台機器」的檔案,也是 sshu 在金鑰變了時直接拒絕連線的依據。`[X]` 就是那個拒絕的出路;`[A]` 去問那台機器要金鑰、**在認證之前停下**、把指紋給你看過才寫。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
+**`[M]anage`** —— 屬於 sshu 自己的一切,在同一個 nav 底下分類 —— 外加一個不屬於它的檔案:**SSH**(Hosts、Credentials、Config、KnownHosts)、**Others**(Logs)。Hosts 是蓋在 `hosts.yaml` 上的表格,**一台兩列** —— 上面那列照舊,下面那列是你自己下的 tag —— 終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。tag 是你的字:空白分隔、sshu 從不解讀,而且 `/` 搜得到,打 `prod` 就把整群撈出來。一列上唯一的顏色標的是**不是 22 的 port**。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。**Config** 就是 `~/.ssh/config` 本身 —— tab `[3]` 早就在讀它了,因為 sshu 是去啟動真的 `ssh` —— 一列一個 `Host` 區塊(`Include` 會跟進去,所以清單涵蓋這棵樹真正有的每一個檔案),表單會帶上那個區塊剛好用到的每一個關鍵字。編一個區塊只會動到它自己的那幾行:註解、`Match` 區塊、以及 sshu 沒聽過的關鍵字都原樣通過。而每一台 host 自己的明細會說出這份檔案對它做了什麼 —— 所有命中區塊的聚集、每個關鍵字取第一個值，並標出哪些被 sshu 的命令列蓋掉了。**KnownHosts** 就是 `~/.ssh/known_hosts` —— 決定「你講話的對象是不是你以為的那台機器」的檔案,也是 sshu 在金鑰變了時直接拒絕連線的依據。`[X]` 就是那個拒絕的出路;`[A]` 去問那台機器要金鑰、**在認證之前停下**、把指紋給你看過才寫。logs 是你沒在看的時候發生的一切,而且落地到磁碟 —— `[C]lear logs` 把它清空,連 `applogs.yaml` 一起。
 
 **`[F]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。傳輸進行時,右上角的 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線同時兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
 
@@ -174,10 +174,12 @@ file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接�
 | `E` | 編輯游標這一列 —— host 或 credential |
 | `D` | **複製** —— 開一個每一欄都已經從這一列填好的 Add 表單。什麼都還沒寫進檔案,也沒有發明任何名字:表單是完整的,所以 `Enter` 就是存檔,而它帶著的名字被它自己複製的那一列佔著。第一次 `Enter` 一定被擋在 Name 上,而游標本來就在 Name 上 |
 | `X` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它)。這件事原本是 `D`;現在 sshu 裡 `D` 一律是複製、`x`/`X` 一律是刪掉 |
-| `/` | hosts:搜尋 —— name / user / host / port 一起比對,依分數排序 |
+| `/` | hosts:搜尋 —— name / user / host / port / tags 一起比對,依分數排序 |
 | `C` | logs:清空 log(先問 —— 連 `applogs.yaml` 一起清) |
 
-表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。選了 `credential`,User 列會變暗:user 由 credential 供應。
+表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential**)。選了 `credential`,User 列會變暗:user 由 credential 供應,而選單會直接說出它要用哪把金鑰 —— 換成密碼的話,那裡是一個固定長度的遮罩。
+
+**Tags** 是最後一列,也是唯一可以留空的一列:空白分隔,其餘字元一律 literal(`k8s:prod` 是一個 tag),留空就是一份填完的表單。
 
 **`Enter` 在每一欄上都只問一個問題:這張表填完了沒有?** 填完了就存;沒填完它就是「下一欄」,而且會繞回去 —— 所以按著 `Enter` 不放,會走完整張表然後把它送出去。「填完」的定義跟著 Auth 走,因為它就是 Auth 留著亮的那幾列:`password` 要 Password、`privatekey` 要 IdentityFile、`credential` 要 Credential 而且不再要 User。浮層底部的 hint 會說 `Enter` 現在是哪一個 —— 還缺東西時是 `next`,一補齊就翻成 `save` —— 所以「為什麼 Enter 沒有存」在你問出來之前就已經有答案了。
 
@@ -253,6 +255,9 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 - **並存 ssh session 的網格** —— 每一個都是 embedded PTY 裡的真 `ssh`,同時上畫面幾個都行,水平、垂直或自訂列 × 行排列。每一格的遠端只在尺寸真的變了才收到通知。結束的 session 立刻離開網格並放掉模擬器;鍵盤絕不會默默落進另一台遠端。
 - **sshu 裡面再開 sshu,幾層都行,而且不收費** —— 在 server 上裝它也是一行指令的事,所以巢狀是自然會發生的事,不是要迴避的情境。`Alt+Enter` 鎖住一層,所有和絃就穿透到裡面那一層;每一層會往外自我通報,所以最外層列得出整條鏈,而且可以直接對其中任何一層下鎖,不必自己走進去。而 `Alt+Z` 的最後一階連 sshu 自己的 chrome 和邊框都不畫 —— 這才是讓一層變成免費的原因:在那之前每層要吃 5 列,80×24 的終端機上第三層只剩 4 列可用。選單有一列可以一次處理整條鏈。
 
+- **sshu 從不解讀的 tag** —— 你自己下在 host 上的字,空白分隔,畫在那一筆的第二列,而且 `/` 會連它一起比對,打 `prod` 一次撈出整群。sshu 只做兩件事:顯示它、讓它可以被搜 —— 凡是程式會去解讀的欄位,你就得學一套規則,而這個欄位只有一條規則:空白會斷開,其餘都是字面。
+- **只標例外、不裝飾常態的顏色** —— name / user / host 共用一個色調,因為它們是同一件事;一列上唯一的顏色是**不是 22 的 port**。二十台裡只有兩台開在奇怪的 port,那兩個正是一眼該落上去的地方。auth 靠 glyph 區分而不是顏色:每一列都有 auth,而標記每一列的顏色等於什麼都沒標。
+- **知道自己版本的設定檔** —— 舊版的 `hosts.yaml` 會在 sshu 啟動時改寫成當前格式,而**更新版**的 sshu 寫出來的檔絕不會被覆蓋。兩個檔各自計數,所以動了其中一個,不會害舊版拒絕另一個。
 - **可重用的 credential** —— 一個 user 加上他怎麼驗證,存一次在 `credentials.yaml`,任意數量的 host 用 `auth: credential` 引用。解析發生在門口:連線確認框顯示的就是實際要用的身分,斷掉的引用在那一步就用一句話失敗,不會走進 ssh 裡才爆。
 - **兩側對等的 sftp** —— local ↔ remote ↔ remote 走同一個 `FS` 介面。marks 是分側的;一個 mark 是一條絕對路徑,所以改名它會跟著走,刪掉它會被拿掉。
 - **遞迴子樹搜尋** —— `/` 走遍當前目錄底下整棵樹,**廣度優先**(SFTP 上每一層目錄都是一次 round trip,所以近的先到),串流、可取消、有上限,而且**就地畫出來**。`Enter` 把你帶到結果所在的位置、游標已經停在它上面,從那裡標記它、傳它,不需要學任何新東西。

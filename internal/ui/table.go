@@ -99,40 +99,104 @@ func computeCols(w int) tableCols {
 // being read.
 func tableHeader(c tableCols, w int) string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
-	return dim.Render(padRight(" "+tableRowText(c, "Name", "User", "Host", "Port", "Auth", ""), w))
+	return dim.Render(padRight(" "+tableCells(c, "Name", "User", "Host", "Port", "Auth", "").plain(), w))
 }
 
-// tableRowText lays out one row's cells at the current column widths. Both the
-// header and the data rows go through it, so they cannot drift apart.
-func tableRowText(c tableCols, name, user, host, port, auth, authGlyph string) string {
-	gap := strings.Repeat(" ", colGap)
-	out := padRight(name, c.name)
+// rowCells is one row laid out at the current column widths: every cell padded
+// to its column, and empty string for a column that was dropped.
+//
+// The cells come back apart rather than as a finished line because a data row
+// now colours each column on its own, while the header and the selected row
+// still want one tone across the whole thing. All three go through this same
+// layout, so they cannot drift.
+type rowCells struct {
+	name, user, host, port, auth string
+}
+
+// tableCells lays out one row at the current column widths.
+func tableCells(c tableCols, name, user, host, port, auth, authGlyph string) rowCells {
+	r := rowCells{name: padRight(name, c.name)}
 	if c.user > 0 {
-		out += gap + padRight(user, c.user)
+		r.user = padRight(user, c.user)
 	}
 	if c.host > 0 {
-		out += gap + padRight(host, c.host)
+		r.host = padRight(host, c.host)
 	}
 	if c.port {
 		// Left, like every other column. Right-aligning numbers is the habit
 		// from columns you add up; nobody adds up ports, and the alignment made
 		// the one fixed-width column in the table look like the one that moved.
-		out += gap + padRight(port, colPortW)
+		r.port = padRight(port, colPortW)
 	}
 	if c.auth {
 		cell := auth
 		if authGlyph != "" {
 			cell = authGlyph + " " + auth
 		}
-		out += gap + padRight(cell, colAuthW)
+		r.auth = padRight(cell, colAuthW)
+	}
+	return r
+}
+
+// plain joins the cells at the column gap with no styling — what the header and
+// the selected row both need, since neither colours per column.
+func (r rowCells) plain() string {
+	gap := strings.Repeat(" ", colGap)
+	out := r.name
+	for _, cell := range []string{r.user, r.host, r.port, r.auth} {
+		if cell == "" {
+			continue
+		}
+		out += gap + cell
 	}
 	return out
 }
 
-// renderHostRow draws one host. The cursor is a filled bar — the same cursor
-// form as every other list in the app, which a table can finally use because a
-// row is one line tall (a six-row card could not, §2.3).
-func renderHostRow(h store.Host, user string, c tableCols, selected bool, w int) string {
+// portStyle is the one colour on an unselected row.
+//
+// 22 is the answer nobody needs to check, so it recedes. Anything else is a
+// deliberate choice somebody made, and in a list of twenty hosts the two that
+// are not 22 are exactly what a glance should land on — so the exception gets
+// the colour and the rule does not. Peach and not red: nothing is wrong here,
+// it is just not the usual answer (§11.48).
+func portStyle(port int) lipgloss.Style {
+	if port == store.DefaultPort {
+		return lipgloss.NewStyle().Foreground(dimColor)
+	}
+	return lipgloss.NewStyle().Foreground(peachColor)
+}
+
+// tagNone stands in when a host has no tags. A placeholder rather than a blank
+// line: the second line is part of the entry's shape, and leaving it empty made
+// a tagged host look like it had grown something rather than filled something
+// in.
+const tagNone = "—"
+
+// tagLineText is a host's second line: its tags, or the placeholder. Indented
+// past the first column so it reads as belonging to the row above rather than
+// as a row of its own, and truncated with the same ellipsis as every other
+// overlong cell in the app.
+func tagLineText(tags []string, w int) string {
+	body := glyphTag + " " + tagNone
+	if len(tags) > 0 {
+		body = glyphTag + " " + strings.Join(tags, " ")
+	}
+	return "  " + truncate(body, max(0, w-2))
+}
+
+// hostRowLines is how many screen lines one host occupies. ALWAYS two, tags or
+// not.
+//
+// A variable row height would turn every scroll calculation into an
+// accumulation — visibleRows, ensureVisible and the half-page jump all count
+// entries today — and would make the list shift under the cursor as it moved
+// between tagged and untagged hosts. The empty-ish second line is not waste
+// either: it separates the entries, which a dense one-line table never did.
+const hostRowLines = 2
+
+// renderHostRow draws one host as its two lines. The cursor is a filled bar
+// across both — the same cursor form as every other list in the app.
+func renderHostRow(h store.Host, user string, c tableCols, selected bool, w int) []string {
 	authGlyph, authText := glyphLock, string(store.AuthPassword)
 	switch h.Auth {
 	case store.AuthPrivateKey:
@@ -142,20 +206,46 @@ func renderHostRow(h store.Host, user string, c tableCols, selected bool, w int)
 		// in play. The glyph carries the kind.
 		authGlyph, authText = glyphCred, truncate(h.Credential, colAuthW-2)
 	}
-	plain := " " + tableRowText(c, h.Name, user, h.Host,
-		strconv.Itoa(h.Port), authText, authGlyph)
+	cells := tableCells(c, h.Name, user, h.Host, strconv.Itoa(h.Port), authText, authGlyph)
+	tagText := tagLineText(h.Tags, w)
 
 	if selected {
+		// One bar over both lines, and NOTHING keeps its colour. The per-column
+		// tones below answer "what kind of value is this"; the bar answers "you
+		// are here". A row cannot carry both without the second one winning, so
+		// the selected row drops the first entirely.
 		bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(rowSelColor)
-		return bar.Render(padRight(plain, w))
+		return []string{
+			bar.Render(padRight(" "+cells.plain(), w)),
+			bar.Render(padRight(tagText, w)),
+		}
 	}
 
-	// Unselected: the name stays readable so the list can be scanned, the detail
-	// columns recede. Same lit-versus-unlit reading the cards had.
+	// Unselected. Name, user and host share one tone because they are one
+	// thing — which machine is this — and splitting them into a brightness
+	// ranking only asserted that host outranks user, which is not true. The
+	// single exception is the port, and only when it is not 22 (portStyle).
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
-	rest := tableRowText(tableCols{user: c.user, host: c.host, port: c.port, auth: c.auth},
-		"", user, h.Host, strconv.Itoa(h.Port), authText, authGlyph)
-	styled := " " + txt.Render(padRight(h.Name, c.name)) + dim.Render(rest)
-	return styled + strings.Repeat(" ", max(0, w-1-c.name-dispW(rest)))
+	gap := strings.Repeat(" ", colGap)
+
+	line := " " + txt.Render(cells.name)
+	for _, cell := range []string{cells.user, cells.host} {
+		if cell == "" {
+			continue
+		}
+		line += gap + txt.Render(cell)
+	}
+	if cells.port != "" {
+		line += gap + portStyle(h.Port).Render(cells.port)
+	}
+	if cells.auth != "" {
+		// Auth stays dim behind its glyph. Colour here would compete with the
+		// port for the one signal an unselected row is allowed to raise, and
+		// every row has an auth — a colour that marks every row marks none.
+		line += gap + dim.Render(cells.auth)
+	}
+	line += strings.Repeat(" ", max(0, w-dispW(" "+cells.plain())))
+
+	return []string{line, dim.Render(tagText) + strings.Repeat(" ", max(0, w-dispW(tagText)))}
 }

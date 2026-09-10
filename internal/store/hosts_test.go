@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -53,10 +54,10 @@ func TestSaveLoadRoundTripAndPerms(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	if out.Version != currentVersion {
-		t.Fatalf("version want %d, got %d", currentVersion, out.Version)
+	if out.Version != hostsVersion {
+		t.Fatalf("version want %d, got %d", hostsVersion, out.Version)
 	}
-	if len(out.Hosts) != 2 || out.Hosts[0] != in.Hosts[0] || out.Hosts[1] != in.Hosts[1] {
+	if !reflect.DeepEqual(out.Hosts, in.Hosts) {
 		t.Fatalf("round trip mismatch:\n in %+v\nout %+v", in.Hosts, out.Hosts)
 	}
 }

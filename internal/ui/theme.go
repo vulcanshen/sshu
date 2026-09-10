@@ -32,9 +32,19 @@ var (
 	textColor = lipgloss.Color("#cdd6f4") // text
 	dimColor  = lipgloss.Color("#6c7086") // overlay0: glyphs, hints, secondary
 	// override — jumps out of the brightness hierarchy entirely and never takes
-	// part in the popup layer scale (§2.4). Reserved for warning and error, which
-	// is why auth method is encoded by glyph and not by colour.
-	warnColor = lipgloss.Color("#f38ba8") // red
+	// part in the popup layer scale (§2.4).
+	//
+	// TWO tones, and the split is the whole point. Red is "something is wrong".
+	// Peach is "this is not the usual answer" — nothing is broken, but it is
+	// worth catching. §B used to bracket them as one band reserved for
+	// warning/error; a non-default ssh port is the case that showed the band was
+	// really two (§11.48).
+	//
+	// Auth method is still NOT colour-encoded, and that decision is untouched by
+	// this: a peach "password" would say the host is broken, and the reason auth
+	// uses a glyph is that the kind of a value is content, not state.
+	warnColor  = lipgloss.Color("#f38ba8") // red   — error
+	peachColor = lipgloss.Color("#fab387") // peach — attention, not error
 	// the session currently drawn in panel [5]. A FOREGROUND signal on purpose:
 	// the list cursor already owns the background, and one row can only carry one
 	// background — putting both there would make them fight for the same channel.
@@ -89,6 +99,10 @@ var (
 	glyphKey  = string(rune(0xf084))  // nf-fa-key  — privatekey
 	glyphLock = string(rune(0xf023))  // nf-fa-lock — password
 	glyphCred = string(rune(0xf05d2)) // nf-md-card_account_details — credential
+
+	// The tag line under every host row. Plural on purpose — the line carries
+	// the host's tagS, and the two-label mark says so without a word.
+	glyphTag = string(rune(0xf04fb)) // nf-md-tag_multiple
 
 	// Popup title glyphs — the type signal half of a surface label (§3.4).
 	glyphMenu    = string(rune(0xf0c9)) // nf-fa-bars            — Space menu

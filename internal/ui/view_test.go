@@ -110,14 +110,34 @@ func TestTableShedsColumnsAsItNarrows(t *testing.T) {
 // column's size changes. A list of sample widths chosen against the old numbers
 // silently stops covering the boundaries after any such change — which is
 // exactly how the overshoot at free == minName+minUser+minHost went unnoticed.
+// An entry is TWO lines now, and both of them have to come to exactly w — the
+// tag line bends the panel border just as readily as the row above it. Tagged
+// and untagged are both walked, because they take different branches through
+// tagLineText and only one of them was ever going to be exercised by accident.
 func TestTableHeaderAndRowsAlign(t *testing.T) {
+	tagged := sample()[1]
+	tagged.Tags = []string{"prod", "db", "ap-northeast-1", "needs-vpn"}
+	untagged := sample()[3]
+
 	for w := 12; w <= 140; w++ {
 		c := computeCols(w)
-		head := dispW(tableHeader(c, w))
-		row := dispW(renderHostRow(sample()[1], sample()[1].User, c, false, w))
-		selRow := dispW(renderHostRow(sample()[1], sample()[1].User, c, true, w))
-		if head != w || row != w || selRow != w {
-			t.Errorf("w=%d: header=%d row=%d selected=%d, all should be %d", w, head, row, selRow, w)
+		if head := dispW(tableHeader(c, w)); head != w {
+			t.Errorf("w=%d: header=%d, want %d", w, head, w)
+		}
+		for _, h := range []store.Host{tagged, untagged} {
+			for _, sel := range []bool{false, true} {
+				lines := renderHostRow(h, h.User, c, sel, w)
+				if len(lines) != hostRowLines {
+					t.Fatalf("w=%d %s selected=%v: %d lines, want %d",
+						w, h.Name, sel, len(lines), hostRowLines)
+				}
+				for i, line := range lines {
+					if got := dispW(line); got != w {
+						t.Errorf("w=%d %s selected=%v line %d: %d, want %d",
+							w, h.Name, sel, i, got, w)
+					}
+				}
+			}
 		}
 	}
 }
@@ -140,7 +160,7 @@ func TestThePortCellIsFixedWidthAndLeftAligned(t *testing.T) {
 		{"2222", "2222 "},
 		{"65535", "65535"},
 	} {
-		row := tableRowText(c, "name", "user", "host", tc.port, "password", "")
+		row := tableCells(c, "name", "user", "host", tc.port, "password", "").plain()
 		if got := row[at : at+colPortW]; got != tc.want {
 			t.Errorf("port %q rendered as %q, want %q", tc.port, got, tc.want)
 		}
@@ -172,7 +192,7 @@ func TestTheAuthColumnFitsACredentialName(t *testing.T) {
 	h := sample()[0]
 	h.Auth, h.Credential = store.AuthCredential, "prod-deploy-ci"
 	c := computeCols(100)
-	if got := ansi.Strip(renderHostRow(h, "deploy", c, false, 100)); !strings.Contains(got, h.Credential) {
+	if got := ansi.Strip(strings.Join(renderHostRow(h, "deploy", c, false, 100), "\n")); !strings.Contains(got, h.Credential) {
 		t.Errorf("the credential name should survive the Auth column whole, got %q", got)
 	}
 }
@@ -244,9 +264,13 @@ func TestScrollFollowsCursor(t *testing.T) {
 		many[i] = store.Host{Name: fmt.Sprintf("h%02d", i), Host: "x", Port: 22,
 			User: "u", Auth: store.AuthPassword}
 	}
-	m := hostsModel{hosts: many, w: 78, h: 10} // 10 - 2 border - 1 header = 7 rows
+	// 17 - 2 border - 1 header = 14 lines, and an entry is two lines tall, so
+	// seven hosts fit. Written out because the arithmetic is exactly what the
+	// tag line changed: the same ten lines used to show seven hosts and now
+	// show three, and everything below this counts HOSTS either way.
+	m := hostsModel{hosts: many, w: 78, h: 17}
 	if got := m.visibleRows(); got != 7 {
-		t.Fatalf("fixture expects 7 visible rows, got %d", got)
+		t.Fatalf("fixture expects 7 visible hosts, got %d", got)
 	}
 	m.cursor = 19
 	m.ensureVisible()
