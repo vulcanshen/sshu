@@ -264,7 +264,7 @@ func TestSavingDoesNotSealTheCallersCopy(t *testing.T) {
 func TestAPlaintextPasswordIsSealedOnItsNextSave(t *testing.T) {
 	keyIn(t)
 	p := filepath.Join(t.TempDir(), "hosts.yaml")
-	os.WriteFile(p, []byte(`version: 2
+	os.WriteFile(p, []byte(`version: 3
 hosts:
   - name: web
     host: h

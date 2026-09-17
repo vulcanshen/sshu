@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-// AuthMethod is how sshu authenticates to a host. The two values are the whole
-// vocabulary — the UI picks the card's glyph off this, and the edit form shows
-// the identity-file row or the password row depending on it.
+// AuthMethod is how sshu authenticates to a host. These four values are the
+// whole vocabulary — the UI picks the row's glyph off this, and the edit form
+// lights the identity-file row, the password row, or neither depending on it.
 type AuthMethod string
 
 const (
@@ -20,6 +21,14 @@ const (
 	// AuthCredential defers to a named entry in credentials.yaml, which supplies
 	// user and the concrete auth together — see Resolve.
 	AuthCredential AuthMethod = "credential"
+	// AuthSSHConfig hands the whole question to ~/.ssh/config. sshu passes the
+	// destination and nothing about how to reach it — no key, no stored
+	// password — so HostName, ProxyJump, the agent and the rest arrive the way
+	// they do for a plain `ssh <host>`. User and Port are OPTIONAL on such a
+	// host: left empty, ssh takes them from the file too. Whatever ssh asks
+	// for on the way in — a password, a passphrase, an unknown host key — is
+	// asked of the user at connect time and never written down (§11.52).
+	AuthSSHConfig AuthMethod = "sshconfig"
 )
 
 // DefaultPort is what a new host gets when the form's Port field is left alone.
@@ -37,9 +46,12 @@ const DefaultPort = 22
 // is deliberately confined to this file so a keychain-backed store can replace
 // it without touching the rest of sshu.
 type Host struct {
-	Name         string     `yaml:"name"`
-	Host         string     `yaml:"host"`
-	Port         int        `yaml:"port"`
+	Name string `yaml:"name"`
+	Host string `yaml:"host"`
+	// Port 0 means "ssh decides", and is legal only on an sshconfig host. It
+	// is omitted from the file rather than written as 0, so a hand reader is
+	// not shown a number that will not be used.
+	Port         int        `yaml:"port,omitempty"`
 	User         string     `yaml:"user"`
 	Auth         AuthMethod `yaml:"auth"`
 	IdentityFile string     `yaml:"identity_file,omitempty"`
@@ -57,30 +69,47 @@ type Host struct {
 	Tags []string `yaml:"tags,omitempty"`
 }
 
-// Addr is the ssh-native "user@host:port" rendering, used by the connect
-// confirmation. The card shows the parts on separate rows instead.
+// Addr is the ssh-native "user@host:port" rendering. A part the record does
+// not have is left out — "host", "user@host", "host:port" — rather than filled
+// in from ~/.ssh/config, because that file is ssh's to read and the detail
+// float is where its answer is shown. So an sshconfig host with neither reads
+// as its bare destination, which is exactly what ssh is handed.
 func (h Host) Addr() string {
-	return fmt.Sprintf("%s@%s:%d", h.User, h.Host, h.Port)
+	s := h.Host
+	if h.User != "" {
+		s = h.User + "@" + s
+	}
+	if h.Port > 0 {
+		s += ":" + strconv.Itoa(h.Port)
+	}
+	return s
 }
 
 // Validate reports what is wrong with a host, or nil. Uniqueness of Name is a
 // property of the whole list, so it is checked in File.Validate, not here.
 func (h Host) Validate() error {
+	// An sshconfig host may leave the port to the file; every other kind
+	// needs one, because sshu is going to put it on the command line.
+	portOK := (h.Port >= 1 && h.Port <= 65535) || (h.Port == 0 && h.Auth == AuthSSHConfig)
 	switch {
 	case strings.TrimSpace(h.Name) == "":
 		return fmt.Errorf("name is required")
 	case strings.TrimSpace(h.Host) == "":
 		return fmt.Errorf("host is required")
 	// A credential host has no user of its own — the credential supplies it.
-	case strings.TrimSpace(h.User) == "" && h.Auth != AuthCredential:
+	// An sshconfig host may have none either — then ssh reads it from the file.
+	case strings.TrimSpace(h.User) == "" && h.Auth != AuthCredential && h.Auth != AuthSSHConfig:
 		return fmt.Errorf("user is required")
-	case h.Port < 1 || h.Port > 65535:
+	case !portOK && h.Auth == AuthSSHConfig:
+		return fmt.Errorf("port must be 1-65535 or empty, got %d", h.Port)
+	case !portOK:
 		return fmt.Errorf("port must be 1-65535, got %d", h.Port)
 	case h.Auth == AuthCredential && strings.TrimSpace(h.Credential) == "":
 		return fmt.Errorf("auth is credential but no credential is named")
-	case h.Auth != AuthPassword && h.Auth != AuthPrivateKey && h.Auth != AuthCredential:
-		return fmt.Errorf("auth must be %q, %q or %q, got %q",
-			AuthPassword, AuthPrivateKey, AuthCredential, h.Auth)
+	case h.Auth != AuthPassword && h.Auth != AuthPrivateKey &&
+		h.Auth != AuthCredential && h.Auth != AuthSSHConfig:
+		return fmt.Errorf("auth must be %q, %q, %q or %q, got %q",
+			AuthPassword, AuthPrivateKey, AuthCredential, AuthSSHConfig, h.Auth)
 	}
 	return nil
 }
@@ -161,8 +190,24 @@ type File struct {
 // What the version WAS doing here, quietly, was triggering the startup
 // rewrite that seals existing plaintext. That job moved to the thing it is
 // actually about — HasPlaintextSecret, which asks the data.
+//
+// hosts.yaml v3 adds auth: sshconfig, and with it a host whose port and user
+// may be absent. This one DID move the number, and again it was measured
+// rather than reasoned — v1.6.0 was handed a v2 file carrying one such host:
+//
+//	it lists the host as "password" on port 22, which is two things it is
+//	not, because an auth it has never heard of falls to the default arm of
+//	every switch and an absent port is filled with 22 on load;
+//	and it refuses EVERY save from then on — adding, editing or deleting any
+//	host at all — with "auth must be password, privatekey or credential",
+//	because SaveTo validates the whole list and this entry never passes.
+//
+// That second one is what the number is for: an older sshu should say "this
+// file is newer than I am", not fail a delete of some other host with an
+// error about a word it does not know. credentials.yaml is untouched — a
+// credential of this kind would supply nothing, so there is no such thing.
 const (
-	hostsVersion = 2
+	hostsVersion = 3
 	credsVersion = 1
 )
 
@@ -246,9 +291,11 @@ func LoadFrom(path string) (File, []string, error) {
 		return File{Version: hostsVersion}, nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// A hand-edited file may omit port; fill the default rather than reject the
-	// whole file over a field the user reasonably left out.
+	// whole file over a field the user reasonably left out. Not on an sshconfig
+	// host: there an empty port is the answer, not an omission — 22 filled in
+	// here would go out as `-p 22` and beat whatever Port the file says.
 	for i := range f.Hosts {
-		if f.Hosts[i].Port == 0 {
+		if f.Hosts[i].Port == 0 && f.Hosts[i].Auth != AuthSSHConfig {
 			f.Hosts[i].Port = DefaultPort
 		}
 		f.Hosts[i].Tags = NormalizeTags(f.Hosts[i].Tags)
