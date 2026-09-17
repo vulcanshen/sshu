@@ -292,7 +292,7 @@ Inside it the cell stops following the remote — the session keeps running and 
 
 ## Status
 
-**v1.7.0.** A host sshu stores nothing about: `auth: sshconfig` leaves port, user, key and route to `~/.ssh/config`, the file transfer tab reaches such a host through the real `ssh`, and whatever ssh asks on the way in is asked of you in a popup and written nowhere. Still here from v1.6.0: tags on a host and a two-line entry to show them, colour that marks the exception rather than decorating the rule, three records where there was one log, passwords encrypted on disk, and sshu inside sshu at any depth with no layer costing a row of screen. `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v1.7.1.** Selection mode walks by word: `w`, `e`, `b`, `0` and `$` are vim's, rule included. From v1.7.0, a host sshu stores nothing about: `auth: sshconfig` leaves port, user, key and route to `~/.ssh/config`, the file transfer tab reaches such a host through the real `ssh`, and whatever ssh asks on the way in is asked of you in a popup and written nowhere. Still here from v1.6.0: tags on a host and a two-line entry to show them, colour that marks the exception rather than decorating the rule, three records where there was one log, passwords encrypted on disk, and sshu inside sshu at any depth with no layer costing a row of screen. `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
 - **interactive host-key confirmation for the sftp side** of a password, privatekey or credential host — an unknown host is refused and you accept it through the ssh tab; a `sshconfig` host gets the question from ssh itself
