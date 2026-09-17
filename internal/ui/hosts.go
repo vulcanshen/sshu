@@ -158,7 +158,11 @@ func (m hostsModel) displayUser(h store.Host) string {
 }
 
 func hostHaystack(h store.Host) string {
-	return h.Name + " " + h.User + " " + h.Host + " " + strconv.Itoa(h.Port) +
+	port := ""
+	if h.Port > 0 {
+		port = strconv.Itoa(h.Port) // a port ssh decides is not a 0 to search for
+	}
+	return h.Name + " " + h.User + " " + h.Host + " " + port +
 		" " + strings.Join(h.Tags, " ")
 }
 

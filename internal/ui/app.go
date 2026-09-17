@@ -105,6 +105,10 @@ type AppModel struct {
 	confirm      confirmPopup
 	input        inputPopup
 	toast        toastModel
+	// askpassUI is ssh's question during an sshconfig dial (§11.52), and
+	// askpassQueue is every question that arrived while one was up.
+	askpassUI    askpassPopup
+	askpassQueue []*askpassRequest
 
 	// pendingG holds the first half of the gg chord. A chord is a shortcut for an
 	// action that already exists, so it is not a core key and brings no
@@ -149,6 +153,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		picker:       newFilePicker(),
 		confirm:      newConfirmPopup(),
 		input:        newInputPopup(),
+		askpassUI:    newAskpassPopup(),
 		toast:        newToast(),
 	}
 	m.ssh.timeout, m.sftp.timeout = cfg.Timeout(), cfg.Timeout()
@@ -289,6 +294,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
+		m.askpassUI.setSize(m.w, m.h)
 		m.toast.setSize(m.w, m.h)
 		return m, nil
 
@@ -312,6 +318,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
 			m.input.anim.tick(msg),
+			m.askpassUI.anim.tick(msg),
 			m.toast.anim.tick(msg),
 		)
 
@@ -375,6 +382,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.ssh.tick(), m.toast.show(msg, toastError))
 		}
 		return m, m.ssh.tick()
+
+	case askpassRequestMsg:
+		return m.askpassArrived(msg.req)
 
 	case sftpConnectedMsg:
 		return m.sftpConnected(msg)
@@ -722,6 +732,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Same rule as popupOpen: a float that is closing has already handed the
 	// keyboard back, so it is not offered the key.
 	switch {
+	case m.askpassUI.anim.owns():
+		// ssh is waiting on this one, and it may have arrived while another
+		// float was up. It takes the keyboard from all of them (askpass.go).
+		return m.askpassKey(msg)
 	case m.transfersUI.anim.owns():
 		if i := m.transfersUI.update(msg, len(m.transfers.jobs)); i >= 0 {
 			m.transfers.cancelJob(i)
@@ -797,6 +811,10 @@ func (m AppModel) inputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // lands back on the menu.
 func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 	switch {
+	case m.askpassUI.isActive():
+		// Esc on ssh's question is "no" to the connection, not just to the
+		// box — see askpassCancel.
+		return m.askpassCancel()
 	case m.toast.isActive():
 		return m, m.toast.close()
 	case m.transfersUI.isActive():
@@ -1127,7 +1145,7 @@ func (m AppModel) inPty() bool {
 // That is what makes Space a character rather than a key (§4.5), and it is the
 // one exception to the entry keys closing what they opened.
 func (m AppModel) textFloat() bool {
-	return m.form.anim.owns() || m.credFormUI.anim.owns() ||
+	return m.askpassUI.anim.owns() || m.form.anim.owns() || m.credFormUI.anim.owns() ||
 		m.sshcfgFormUI.anim.owns() || m.knownAddUI.anim.owns() ||
 		m.picker.anim.owns() || m.input.anim.owns()
 }
@@ -1178,7 +1196,7 @@ func (m *AppModel) relistSides() {
 // does not (popupAnimator.owns) — the keyboard is back on the panel the moment
 // the action commits, not when the animation finishes.
 func (m AppModel) popupOpen() bool {
-	return m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
+	return m.askpassUI.anim.owns() || m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
 		m.sshcfgFormUI.anim.owns() || m.knownAddUI.anim.owns() ||
 		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
 		m.spaceMenu.anim.owns() || m.lockMenu.anim.owns() || m.hostPicker.anim.owns() ||

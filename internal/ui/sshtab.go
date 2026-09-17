@@ -1058,7 +1058,7 @@ func overlayRight(body []string, r int, mark string) {
 // it is the same distinction here. The marker is appended AFTER the name is cut
 // to fit, never before: in a narrow cell the state is what has to survive.
 func (m sshModel) cellTitle(s *session, i, innerW int) string {
-	t := s.host.User + "@" + s.host.Host
+	t := destination(s.host)
 	mark := ""
 	// The lock leads: a cell whose keys all pass through is the single most
 	// important thing to know about it before typing (§11.43).
@@ -1143,7 +1143,7 @@ func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
 	hand := lipgloss.NewStyle().Foreground(handColor)
 
 	spin := spinnerFrames[(m.spinAt/spinnerEvery)%len(spinnerFrames)]
-	who := s.host.User + "@" + s.host.Host
+	who := destination(s.host)
 	elapsed := ""
 	if waited := int(time.Since(s.started).Seconds()); waited >= 2 {
 		// Only once it is worth mentioning: a counter starting from zero on
@@ -1172,7 +1172,7 @@ func (m sshModel) gridEmpty(innerW, innerH int) []string {
 // left on the grid: the host, what the far end actually said, and where the
 // record is. It stays until something else takes the space.
 func (m sshModel) failedBody(s *session, innerW, innerH int) []string {
-	who := s.host.User + "@" + s.host.Host
+	who := destination(s.host)
 	return emptyBody(innerW, innerH, who+" · "+s.reason,
 		emptyHint("The detail is in [M]anage logs — or try another host", "[M]anage"))
 }
@@ -1248,7 +1248,10 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 	// "user@host", which fitUserHost shortens on each side of a kept @ — so the
 	// address stays one line however long it is, which is what makes an entry a
 	// height the scrolling can divide by instead of measure (§11.32).
-	tail := ":" + strconv.Itoa(s.host.Port)
+	tail := ""
+	if s.host.Port > 0 {
+		tail = ":" + strconv.Itoa(s.host.Port) // an sshconfig host may have none to show
+	}
 	addr := tail
 	if room := addrW - dispW(tail); room > 0 {
 		addr = fitUserHost(s.host.User, s.host.Host, room) + tail
@@ -1279,6 +1282,9 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 func fitUserHost(user, host string, w int) string {
 	if w <= 0 {
 		return ""
+	}
+	if user == "" {
+		return truncate(host, w) // no pair to fit: an sshconfig host with no user of its own
 	}
 	if w == 1 {
 		return "@"

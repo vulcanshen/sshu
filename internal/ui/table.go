@@ -160,11 +160,16 @@ func (r rowCells) plain() string {
 // the colour and the rule does not. Peach and not red: nothing is wrong here,
 // it is just not the usual answer (§11.48).
 func portStyle(port int) lipgloss.Style {
-	if port == store.DefaultPort {
+	// 0 is an sshconfig host leaving the port to the file: nothing here to
+	// flag either, the answer is just somewhere else.
+	if port == store.DefaultPort || port == 0 {
 		return lipgloss.NewStyle().Foreground(dimColor)
 	}
 	return lipgloss.NewStyle().Foreground(peachColor)
 }
+
+// portUnset is the port cell of a host that lets ssh decide.
+const portUnset = "—"
 
 // tagNone stands in when a host has no tags. A placeholder rather than a blank
 // line: the second line is part of the entry's shape, and leaving it empty made
@@ -205,8 +210,15 @@ func renderHostRow(h store.Host, user string, c tableCols, selected bool, w int)
 		// The NAME is the information — which credential, not just that one is
 		// in play. The glyph carries the kind.
 		authGlyph, authText = glyphCred, truncate(h.Credential, colAuthW-2)
+	case store.AuthSSHConfig:
+		// The file's glyph, because the file is what answers for this host.
+		authGlyph, authText = glyphFileCog, string(store.AuthSSHConfig)
 	}
-	cells := tableCells(c, h.Name, user, h.Host, strconv.Itoa(h.Port), authText, authGlyph)
+	port := strconv.Itoa(h.Port)
+	if h.Port == 0 {
+		port = portUnset // ssh decides — a dash, not a 0 nobody will dial
+	}
+	cells := tableCells(c, h.Name, user, h.Host, port, authText, authGlyph)
 	tagText := tagLineText(h.Tags, w)
 
 	if selected {

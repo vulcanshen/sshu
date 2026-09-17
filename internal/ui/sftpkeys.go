@@ -362,17 +362,29 @@ func (m AppModel) sftpConnected(msg sftpConnectedMsg) (tea.Model, tea.Cmd) {
 	}
 	name := s.dialing
 	s.dialing = ""
+	cancelled := s.dialCancelled
+	s.dialDone()
+	// Whatever ssh was asking, it has stopped waiting for the answer.
+	drop := m.askpassDrop(msg.sd, msg.gen)
 
 	if msg.err != nil {
+		if cancelled {
+			// The user said no to a question ssh asked. That is a decision,
+			// not a failure: Connections records the attempt, Errors does
+			// not record a reason, because the reason was them.
+			s.fs, s.host, s.err = nil, "", "cancelled"
+			m.connections.add(name, m.userForHost(name), false)
+			return m, tea.Batch(drop, m.toast.show("Connection to "+name+" cancelled", toastInfo))
+		}
 		s.fs, s.host, s.err = nil, "", msg.err.Error()
 		m.connections.add(name, m.userForHost(name), false)
 		m.errors.errorf(name, m.userForHost(name), "sftp: "+name+" · "+msg.err.Error())
-		return m, m.toast.show(msg.err.Error(), toastError)
+		return m, tea.Batch(drop, m.toast.show(msg.err.Error(), toastError))
 	}
 	s.connect(msg.fs)
 	m.connections.add(name, m.userForHost(name), true)
 	// A side that has just connected is something to keep current.
-	return m, m.sftp.startWatch()
+	return m, tea.Batch(drop, m.sftp.startWatch())
 }
 
 // ---------------------------------------------------------------- transfers
