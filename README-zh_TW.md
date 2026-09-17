@@ -294,7 +294,7 @@ layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網�
 
 ## 現況
 
-**v1.7.0。** 一台 sshu 什麼都不存的 host:`auth: sshconfig` 把 port、user、key、路線全部留給 `~/.ssh/config`,[F]ile transfer tab 透過真的 `ssh` 連它,ssh 進門時要問的東西會跳 popup 問你,答案不寫進任何地方。v1.6.0 的東西都還在:host 上的 tag 與裝它的兩列式條目、只標例外而不裝飾常態的顏色、一本 log 拆成三本紀錄、磁碟上加密的密碼,以及 sshu 裡面再開 sshu 幾層都行而且沒有任何一層吃掉一列畫面。此外仍然是:三個 tab 各一個 shift 過的字母、分類的 nav、可重用的 credentials 與唯讀明細(這一列到底裝了什麼 —— `Enter` 打開,要去哪就在它腳底下問)、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+**v1.7.1。** 選取模式會依 word 走了:`w`、`e`、`b`、`0`、`$` 是 vim 的,規則也一併照搬。v1.7.0 帶來的是一台 sshu 什麼都不存的 host:`auth: sshconfig` 把 port、user、key、路線全部留給 `~/.ssh/config`,[F]ile transfer tab 透過真的 `ssh` 連它,ssh 進門時要問的東西會跳 popup 問你,答案不寫進任何地方。v1.6.0 的東西都還在:host 上的 tag 與裝它的兩列式條目、只標例外而不裝飾常態的顏色、一本 log 拆成三本紀錄、磁碟上加密的密碼,以及 sshu 裡面再開 sshu 幾層都行而且沒有任何一層吃掉一列畫面。此外仍然是:三個 tab 各一個 shift 過的字母、分類的 nav、可重用的 credentials 與唯讀明細(這一列到底裝了什麼 —— `Enter` 打開,要去哪就在它腳底下問)、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
 
 還沒有的:
 - **sftp 側未知 host key 的互動確認**(password / privatekey / credential 的 host)—— 今天是直接拒絕,要先用 ssh tab 接受;`sshconfig` 的 host 由 ssh 自己來問

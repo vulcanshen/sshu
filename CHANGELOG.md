@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [1.7.1] — 2026-09-17
+
+Selection mode learns to walk. Five of vim's motions — `w`, `e`, `b`, `0`
+and `$` — with vim's rule for what a word is, on a page that is now read by
+character rather than by column, so a wide glyph is one stop and not two.
+
+Changes since 1.7.0.
 
 ### Added
 
