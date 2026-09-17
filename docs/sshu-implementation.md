@@ -441,7 +441,7 @@ v0.2 到 v1.1.0 這裡是 `Alt+p/f/s` 和絃,帶一個固定亮的 `[Alt]` 鏈�
 | **message** | Connect / Delete / Quit 確認、Toast | 短、確認 / auto-dismiss |
 | **viewport** | `?` help、`[v]iew`、manage → **Connections / Changes**(內容 panel,同為 viewport 語彙)。**Errors 不是** —— 它有游標,因為 `Enter` 有東西可開(§11.50) | 可捲、沒有游標 |
 | **form** | Add / Edit host、Add / Edit credential(共用 editField / formBody 欄位引擎) | 多欄位、逐欄位 focus、一次提交 |
-| **input** | Rename、**Add** | **一行**文字、一個問題、Enter 送出;Add 的 Enter 動詞跟著輸入變 |
+| **input** | Rename、**Add**、**askpass**(ssh 的密碼 / passphrase 題,遮罩;yes/no 題則走 message 的形狀) | **一行**文字、一個問題、Enter 送出;Add 的 Enter 動詞跟著輸入變。askpass 是自己的浮層而不是 inputPopup 的一種用法:它在 ssh 開口時到,可能疊在任何浮層上,而且要從所有浮層手上拿走鍵盤(design §11.52) |
 | **pty** | **tab [3] 的 panel `[5]`**、tab [2] 的 **`[e]dit`** | 外部程式在 sshu 內 render,鍵盤整個交出去 |
 
 **`input` 不是單欄位的 form**:form 是「填 N 個欄位、一次提交」,input 是「回答一個
@@ -702,13 +702,17 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | **明細浮層帶 offer**:`Enter` 開唯讀明細,腳底 `prompt`/`accept` 是連線或編輯的問句;`V` 已還給 splash 彩蛋(design §11.29) | `ui/detail.go` `ui/app.go detailCommit` `ui/credkeys.go doEditCred` |
 | `config.yaml`:唯讀設定,`connect_timeout` 兩個 tab 共用;缺檔用預設、壞檔進 **Errors**(`warn`) | `store/config.go` |
 | `SSH_ASKPASS` 供密碼(不進子行程環境) | `cmd/sshu/main.go` `ui/session.go` |
+| **`auth: sshconfig`(v3,design §11.52)**:sshu 只送 destination 與明確填了的 `-p` / `user@`,不送 `-i`、不掛存密碼的 askpass;`Port` 0 只對它合法、load 不補、yaml `omitempty`;六處 `user@host:port` 缺的省略(`Host.Addr` / `destination` / `fitUserHost`);表格 port 欄畫 `—`、明細寫 `— ssh decides`、沒命中任何區塊時畫一列紅字 | `store/hosts.go` `ui/session.go` `ui/form.go` `ui/table.go` `ui/detail.go` `ui/sshtab.go` |
+| **sshconfig host 的 sftp 走真 ssh**:`ssh -s <host> sftp` 子行程(`Setsid`、無 tty、OpenSSH 自己的三個 `-o`)+ `sftp.NewClientPipe`;stderr 尾段保留當錯誤文字;`Close` 對 process group 送 SIGTERM;子行程從啟動前就在 registry。其他三種 auth 的 sftp 維持 crypto/ssh(使用者裁定) | `remote/pipe.go` `ui/session.go buildSFTPCmd` `ui/sftpdial.go` |
+| **askpass 中繼**:helper 第二種模式(`SSHU_ASKPASS_SOCK`)把 ssh 的提示逐字送進 unix socket;一個 dial 一個 socket、一次一題、排隊;`(yes/no` 分辨 yes/no 題與遮罩題(實測 OpenSSH 10.3 沒有 `SSH_ASKPASS_PROMPT`);Esc 殺 ssh、標 cancelled、Errors 不記;答案零落地,拒答是零位元組 | `ui/askpass.go` `cmd/sshu/main.go` |
 
 ### `(planned)`
 
 | 項 | 現況 |
 |---|---|
-| **`[2]` 未知 host key 的互動確認** | `remote.Dial` 收到 `nil` prompt、一律拒絕;要先用 `[3]` 連一次寫進 `known_hosts`。缺一個能在 dial 途中升起的對話框 |
-| **加密私鑰** | `remote.authMethods` 如實回報做不到;agent 支援是可能的解法 |
+| **`[2]` 未知 host key 的互動確認** | **sshconfig host 已解**:ssh 自己問,問題經 askpass 中繼跳成 yes/no popup(design §11.52)。其他三種 auth 仍是 `remote.Dial` 收到 `nil` prompt、一律拒絕 —— 讓它們也走真 ssh 是使用者裁定不做的 |
+| **加密私鑰** | **sshconfig host 已解**(passphrase 由 ssh 問、agent 由 ssh 用)。其他三種仍是 `remote.authMethods` 如實回報做不到 |
+| **`SSH_ASKPASS_PROMPT=none` 通知類提示** | FIDO 觸碰確認會讓 helper 掛著等 ssh 殺它,畫面上什麼都不出現;sshconfig host 用 FIDO key 在 `[2]` 會卡住 |
 | 遠端內容搜尋 | 需要在對面跑 grep,是「執行指令」不是「列目錄」,超出這個 tab 的授權範圍 |
 | Mouse | §5 mapping |
 | `[1]` 的 `[S]ftp` 捷徑 | 從表格直接把游標那台接到 `[2]` 當前 focus 的那一側 |
