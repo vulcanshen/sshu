@@ -17,7 +17,7 @@ import (
 // test passes for the wrong reason.
 var animTargets = []string{"spacemenu", "lockmenu", "hostpicker", "credpicker", "help", "form",
 	"picker", "transfers", "credform", "sshcfgform", "knownadd", "viewer", "editor", "confirm",
-	"input", "toast", "detail"}
+	"input", "toast", "detail", "askpass"}
 
 // settle runs the animations to completion — a popup mid-open refuses keys on
 // purpose (§6.2), so a test that skips this is testing a half-drawn surface.

@@ -134,16 +134,20 @@ const maskedSecret = "••••••••"
 // the connection half.
 func hostDetail(h store.Host, creds []store.Credential, cfg store.SSHConfigFile,
 	timeoutSecs int) []detailSection {
+	port := ""
+	if h.Port > 0 {
+		port = itoa(h.Port)
+	}
 	conn := detailSection{title: "Connection", rows: []detailRow{
 		{label: "Name", value: h.Name},
 		{label: "Host", value: h.Host},
-		{label: "Port", value: itoa(h.Port)},
+		{label: "Port", value: orSSHDecides(port)},
 	}}
 	// A credential host has no user of its own — the credential supplies it, and
 	// it is listed there. Printing an empty User row here would suggest the
 	// field was left blank rather than deliberately delegated.
 	if h.Auth != store.AuthCredential {
-		conn.rows = append(conn.rows, detailRow{label: "User", value: h.User})
+		conn.rows = append(conn.rows, detailRow{label: "User", value: orSSHDecides(h.User)})
 	}
 	// Tags sit in the first section because that section is really "what is this
 	// record", which is also where Name lives — neither is a connection
@@ -177,8 +181,25 @@ func hostDetail(h store.Host, creds []store.Credential, cfg store.SSHConfigFile,
 			detailRow{label: "Credential", value: h.Credential},
 			detailRow{label: "User", value: rh.User})
 		auth.rows = append(auth.rows, credSecretRow(rh.Auth, rh.IdentityFile)...)
+	case store.AuthSSHConfig:
+		// The one fact the row cannot show: nothing is stored. The key, the
+		// agent, a password — ssh finds or asks for them at connect time.
+		auth.rows = append(auth.rows,
+			detailRow{label: "Secrets", value: "none stored — ssh asks at connect time"})
 	}
 	return append([]detailSection{conn, auth}, sshConfigSections(h, creds, cfg, timeoutSecs)...)
+}
+
+// sshDecides is what an sshconfig host's empty Port or User row says: not a
+// blank, which reads as a field somebody forgot, but where the answer will
+// come from. Only such a host can have either empty (store.Host.Validate).
+const sshDecides = "— ssh decides"
+
+func orSSHDecides(v string) string {
+	if v == "" {
+		return sshDecides
+	}
+	return v
 }
 
 // sshConfigSections is what ~/.ssh/config will contribute to this host: ONE
@@ -197,7 +218,17 @@ func sshConfigSections(h store.Host, creds []store.Credential, cfg store.SSHConf
 	timeoutSecs int) []detailSection {
 	opts := cfg.Effective(h.Host)
 	if len(opts) == 0 {
-		return nil
+		if h.Auth != store.AuthSSHConfig {
+			return nil
+		}
+		// For every other kind an empty answer is the normal case and is not
+		// drawn. For a host that chose to be resolved BY this file, no block
+		// matching it is the one thing worth saying: the connection is still
+		// tried, with ssh's defaults, and the user should know that is what
+		// they are getting.
+		return []detailSection{{title: glyphFileCog + " ~/.ssh/config", rows: []detailRow{
+			{label: "Host " + h.Host, value: "no block matches — ssh will use its defaults", warn: true},
+		}}}
 	}
 	// Resolved, because that is what buildSSHCmd is handed: a credential host's
 	// user and key come from the credential, and those are the values that go
@@ -213,9 +244,16 @@ func sshConfigSections(h store.Host, creds []store.Credential, cfg store.SSHConf
 	// and colouring it would be crying wolf on every host.
 	type sent struct{ value, phrase string }
 	sends := map[string]sent{
-		"port":           {itoa(rh.Port), "-p " + itoa(rh.Port)},
-		"user":           {rh.User, rh.User + "@"},
 		"connecttimeout": {itoa(timeoutSecs), "-o ConnectTimeout=" + itoa(timeoutSecs)},
+	}
+	// Only what actually goes on the command line. An sshconfig host with no
+	// port or user of its own sends neither, so the file's values stand and
+	// there is nothing to mark (§11.52).
+	if rh.Port > 0 {
+		sends["port"] = sent{itoa(rh.Port), "-p " + itoa(rh.Port)}
+	}
+	if rh.User != "" {
+		sends["user"] = sent{rh.User, rh.User + "@"}
 	}
 	if rh.Auth == store.AuthPrivateKey && rh.IdentityFile != "" {
 		sends["identityfile"] = sent{rh.IdentityFile, "-i " + rh.IdentityFile}

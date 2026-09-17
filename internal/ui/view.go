@@ -103,6 +103,11 @@ func (m AppModel) View() string {
 	}
 	// The toast is feedback about what just happened, so it sits above the stack
 	// and out of its way — low, where it does not cover the surface being used.
+	// ssh's question outranks every float it may have arrived on top of —
+	// it holds the keyboard (app.go), so it has to be the thing on top.
+	if m.askpassUI.isActive() {
+		out = overlay.Composite(m.askpassUI.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.toast.isActive() {
 		out = overlay.Composite(m.toast.view(), out, overlay.Center, overlay.Bottom, 0, -2)
 	}

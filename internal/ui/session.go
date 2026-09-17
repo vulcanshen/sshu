@@ -1,11 +1,12 @@
 package ui
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/vulcanshen/sshu/internal/store"
@@ -76,8 +77,7 @@ func buildSSHCmd(h store.Host, self string, timeoutSecs int) *exec.Cmd {
 	// prints "Connection timed out" and exits, which flows through the same
 	// path every other failure does. Killing the process ourselves would have
 	// produced a corpse with no explanation attached to it.
-	args := []string{"-p", strconv.Itoa(h.Port),
-		"-o", "ConnectTimeout=" + strconv.Itoa(timeoutSecs)}
+	args := append(portArgs(h), "-o", "ConnectTimeout="+strconv.Itoa(timeoutSecs))
 	// Ask ssh to carry the colour depth (§11.46). Named explicitly rather
 	// than relying on the user's ssh_config having "SendEnv LC_*" — many do,
 	// not all, and a colour that depends on a config file nobody edited is a
@@ -85,17 +85,74 @@ func buildSSHCmd(h store.Host, self string, timeoutSecs int) *exec.Cmd {
 	if os.Getenv("COLORTERM") != "" {
 		args = append(args, "-o", "SendEnv="+colorEnv)
 	}
-	if h.Auth == store.AuthPrivateKey && h.IdentityFile != "" {
-		args = append(args, "-i", store.ExpandTilde(h.IdentityFile))
-		// With an explicit key, stop ssh from silently trying every agent
-		// identity first — otherwise a wrong key here fails as "too many
-		// authentication failures" and the real cause is invisible.
-		args = append(args, "-o", "IdentitiesOnly=yes")
-	}
-	args = append(args, fmt.Sprintf("%s@%s", h.User, h.Host))
+	args = append(args, identityArgs(h)...)
+	args = append(args, destination(h))
 
 	cmd := exec.Command(sshBinary, args...)
 	cmd.Env = sshEnv(h, self)
+	return cmd
+}
+
+// portArgs, identityArgs and destination are the pieces of the command line
+// the ssh tab and the sftp tab share. What an sshconfig host contributes is
+// deliberately little: no key, no IdentitiesOnly, and -p and user@ only when
+// the record actually has them. An empty field on such a host is ssh's to
+// fill from its file, and sending a default in its place is the "connected
+// to the wrong port" of §11.41 — half from the file, half from sshu.
+func portArgs(h store.Host) []string {
+	if h.Port <= 0 {
+		return nil
+	}
+	return []string{"-p", strconv.Itoa(h.Port)}
+}
+
+func identityArgs(h store.Host) []string {
+	if h.Auth != store.AuthPrivateKey || h.IdentityFile == "" {
+		return nil
+	}
+	// With an explicit key, stop ssh from silently trying every agent
+	// identity first — otherwise a wrong key here fails as "too many
+	// authentication failures" and the real cause is invisible.
+	return []string{"-i", store.ExpandTilde(h.IdentityFile), "-o", "IdentitiesOnly=yes"}
+}
+
+func destination(h store.Host) string {
+	if h.User == "" {
+		return h.Host
+	}
+	return h.User + "@" + h.Host
+}
+
+// buildSFTPCmd is the sftp tab's `ssh -s <host> sftp` for an sshconfig host
+// (§11.52) — the invocation OpenSSH's own sftp client makes, with the same
+// three options it adds: no forwardings, no local command, no X11, because a
+// file transfer has no use for any of them and a config that sets them up
+// should not get them set up for one.
+//
+// The child is a session leader with no controlling terminal. That is what
+// keeps it off the terminal sshu is drawing on: ssh with no tty and
+// SSH_ASKPASS_REQUIRE=force sends every question — password, passphrase, an
+// unknown host key — to the helper, and the helper is sshu itself, relaying
+// it over sock to the popup (askpass.go). The context is the dial's
+// lifetime; cancelling it signals the whole group, so a ProxyJump's child
+// dies with the ssh that spawned it.
+func buildSFTPCmd(ctx context.Context, h store.Host, self, sock string, timeoutSecs int) *exec.Cmd {
+	args := append(portArgs(h),
+		"-o", "ConnectTimeout="+strconv.Itoa(timeoutSecs),
+		"-o", "ClearAllForwardings=yes",
+		"-o", "PermitLocalCommand=no",
+		"-o", "ForwardX11=no")
+	args = append(args, identityArgs(h)...)
+	args = append(args, "-s", destination(h), "sftp")
+	cmd := exec.CommandContext(ctx, sshBinary, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM) }
+	cmd.WaitDelay = 2 * time.Second
+	cmd.Env = append(os.Environ(),
+		"SSH_ASKPASS="+self,
+		"SSH_ASKPASS_REQUIRE=force",
+		askpassSockEnv+"="+sock,
+	)
 	return cmd
 }
 

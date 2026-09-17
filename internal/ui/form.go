@@ -117,7 +117,7 @@ func blankFields() []formField {
 	f[fUser] = formField{label: "User"}
 	f[fAuth] = formField{label: "Auth", kind: fieldToggle,
 		options: []string{string(store.AuthPassword), string(store.AuthPrivateKey),
-			string(store.AuthCredential)}}
+			string(store.AuthCredential), string(store.AuthSSHConfig)}}
 	f[fCredential] = formField{label: "Credential",
 		placeholder: "enter to choose a saved credential"}
 	f[fIdentity] = formField{label: "IdentityFile",
@@ -136,6 +136,7 @@ func (m *hostForm) openCreate(layer int) tea.Cmd {
 	m.fields, m.focus, m.editing, m.err, m.errIdx = blankFields(), fName, "", "", -1
 	m.submitted = false
 	m.fields[fAuth].sel = 1 // privatekey — the common case, and the safer default
+	m.syncSSHConfigRows()
 	m.layer = layer
 	return m.anim.open()
 }
@@ -144,7 +145,9 @@ func (m *hostForm) openEdit(h store.Host, layer int) tea.Cmd {
 	f := blankFields()
 	f[fName].value = h.Name
 	f[fHost].value = h.Host
-	f[fPort].value = strconv.Itoa(h.Port)
+	if h.Port > 0 {
+		f[fPort].value = strconv.Itoa(h.Port) // 0 is "ssh decides" and reads as empty
+	}
 	f[fUser].value = h.User
 	f[fCredential].value = h.Credential
 	f[fIdentity].value = h.IdentityFile
@@ -155,11 +158,14 @@ func (m *hostForm) openEdit(h store.Host, layer int) tea.Cmd {
 		f[fAuth].sel = 1
 	case store.AuthCredential:
 		f[fAuth].sel = 2
+	case store.AuthSSHConfig:
+		f[fAuth].sel = 3
 	}
 	for i := range f {
 		f[i].caret = len([]rune(f[i].value))
 	}
 	m.fields, m.focus, m.editing, m.err, m.errIdx = f, fName, h.Name, "", -1
+	m.syncSSHConfigRows()
 	m.submitted = false
 	m.layer = layer
 	return m.anim.open()
@@ -198,6 +204,40 @@ func (m hostForm) enabled(i int) bool {
 	return true
 }
 
+// optional says whether an ENABLED row may be left empty. Tags always may.
+// On an sshconfig host, Port and User may too: the file has both, and a value
+// typed here overrides it — so an empty row is "ssh decides", not "not
+// filled in yet" (§11.52).
+func (m hostForm) optional(i int) bool {
+	if m.fields[i].optional {
+		return true
+	}
+	return m.auth() == store.AuthSSHConfig && (i == fPort || i == fUser)
+}
+
+// syncSSHConfigRows keeps the two rows that mean something different on an
+// sshconfig host in step with the toggle. Port carries 22 by default, and on
+// an sshconfig host that default is the one value that must NOT go out — it
+// would beat the file's Port (§11.41) — so switching to sshconfig empties a
+// Port that still says 22, and switching away puts it back. A port the user
+// typed is kept either way. The placeholders say where an empty answer will
+// come from, which is the disclosure an empty required-looking row needs.
+func (m *hostForm) syncSSHConfigRows() {
+	port, user := &m.fields[fPort], &m.fields[fUser]
+	def := strconv.Itoa(store.DefaultPort)
+	if m.auth() == store.AuthSSHConfig {
+		if strings.TrimSpace(port.value) == def {
+			port.value, port.caret = "", 0
+		}
+		port.placeholder, user.placeholder = "ssh decides", "ssh decides"
+		return
+	}
+	if strings.TrimSpace(port.value) == "" {
+		port.value, port.caret = def, len(def)
+	}
+	port.placeholder, user.placeholder = "", ""
+}
+
 // complete reports whether every field this form NEEDS has a value. It is the
 // question Enter asks on every press: a complete form SAVES, an incomplete one
 // steps to the next field instead (§11.34).
@@ -215,7 +255,7 @@ func (m hostForm) enabled(i int) bool {
 // together would make Enter refuse to save while never saying why.
 func (m hostForm) complete() bool {
 	for i := range m.fields {
-		if m.enabled(i) && m.fields[i].kind == fieldText && !m.fields[i].optional &&
+		if m.enabled(i) && m.fields[i].kind == fieldText && !m.optional(i) &&
 			strings.TrimSpace(m.fields[i].value) == "" {
 			return false
 		}
@@ -288,6 +328,7 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 	}
 	if editField(f, msg) && f.kind == fieldToggle {
 		m.syncFocus() // the toggle may have disabled the focused row
+		m.syncSSHConfigRows()
 	}
 	return m, formNone
 }
@@ -376,6 +417,10 @@ func (m hostForm) host() store.Host {
 		// would put two answers to "who connects" in the same record.
 		h.Credential = strings.TrimSpace(m.fields[fCredential].value)
 		h.User = ""
+	case store.AuthSSHConfig:
+		// Nothing: the record carries no secret and names no key. A password
+		// left in the dark row from before the toggle moved must not ride
+		// along.
 	default:
 		h.Password = m.fields[fPassword].value
 	}
@@ -406,9 +451,9 @@ func (m hostForm) view() string {
 	for _, f := range m.fields {
 		labelW = max(labelW, dispW(f.label))
 	}
-	// Wide enough that the three-way Auth toggle shows all its options on a
+	// Wide enough that the four-way Auth toggle shows all its options on a
 	// normal terminal; narrow ones still fall back to the selected-only form.
-	innerW := popupInnerW(m.screenW, labelW+52)
+	innerW := popupInnerW(m.screenW, labelW+56)
 	// On a narrow terminal the label column yields rather than squeezing the
 	// value out of existence — a truncated label still reads, an empty value does
 	// not.

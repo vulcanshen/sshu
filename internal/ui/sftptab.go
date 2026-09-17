@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"path"
 	"time"
 
@@ -98,6 +99,13 @@ type sftpSideModel struct {
 	dialing   string
 	dialSince time.Time
 	dialGen   int
+	// An sshconfig host dials through the real ssh (§11.52): askpass is the
+	// socket its questions arrive on, dialCancel ends that ssh, and
+	// dialCancelled records that the user did — so the result, when it
+	// lands, is reported as their decision rather than as a failure.
+	askpass       *askpassServer
+	dialCancel    context.CancelFunc
+	dialCancelled bool
 
 	// The directory's own timestamp, and whether a probe for it is in flight.
 	// SFTP cannot push a change, so this is how a listing stays current without
@@ -278,6 +286,7 @@ func (s *sftpSideModel) connect(fsys remote.FS) {
 // NEXT dial collide with the one already out there.
 func (s *sftpSideModel) disconnect() {
 	s.clearFilter() // the walk holds the connection; stop it before closing
+	s.endDial()
 	if s.fs != nil {
 		s.fs.Close()
 	}
@@ -461,6 +470,7 @@ func (m *sftpModel) closeAll() {
 	for i := range m.sides {
 		s := &m.sides[i]
 		s.clearFilter() // the walk holds the connection; stop it before closing
+		s.endDial()
 		if s.fs != nil {
 			s.fs.Close()
 			s.fs = nil

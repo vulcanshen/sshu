@@ -34,6 +34,18 @@ func main() {
 	if name := ui.AskpassHost(); name != "" {
 		os.Exit(runAskpass(name))
 	}
+	// The same helper, for a question sshu does not know the answer to: an
+	// sshconfig host's sftp dial runs ssh with no terminal, and whatever ssh
+	// asks — a password, a passphrase, an unknown host key — is relayed over
+	// a socket to the sshu that is drawing, which asks the user (§11.52).
+	// argv[1] is the prompt, exactly as ssh phrased it.
+	if sock := ui.AskpassSock(); sock != "" {
+		prompt := ""
+		if len(os.Args) > 1 {
+			prompt = os.Args[1]
+		}
+		os.Exit(ui.RunAskpassRelay(sock, prompt))
+	}
 
 	hosts, dupHosts, err := store.Load()
 	if err != nil {
