@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.7.0] — 2026-09-17
 
 A host that sshu stores nothing about. `auth: sshconfig` hands the whole
 question to `~/.ssh/config`: sshu sends the destination and, only if you

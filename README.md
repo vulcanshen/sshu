@@ -292,11 +292,11 @@ Inside it the cell stops following the remote — the session keeps running and 
 
 ## Status
 
-**v1.6.0.** Tags on a host and a two-line entry to show them; colour that marks the exception (a port that is not 22) rather than decorating the rule; three records where there was one log; passwords encrypted on disk; and sshu inside sshu at any depth with no layer costing a row of screen. `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
+**v1.7.0.** A host sshu stores nothing about: `auth: sshconfig` leaves port, user, key and route to `~/.ssh/config`, the file transfer tab reaches such a host through the real `ssh`, and whatever ssh asks on the way in is asked of you in a popup and written nowhere. Still here from v1.6.0: tags on a host and a two-line entry to show them, colour that marks the exception rather than decorating the rule, three records where there was one log, passwords encrypted on disk, and sshu inside sshu at any depth with no layer costing a row of screen. `make check` green and `-race` clean. See [CHANGELOG.md](CHANGELOG.md).
 
 Not there yet:
-- **interactive host-key confirmation for the sftp side** — today an unknown host is refused and you accept it through the ssh tab
-- **encrypted private keys** for the sftp side — reported plainly, but not usable; agent support is the likely answer
+- **interactive host-key confirmation for the sftp side** of a password, privatekey or credential host — an unknown host is refused and you accept it through the ssh tab; a `sshconfig` host gets the question from ssh itself
+- **encrypted private keys** for the sftp side of a `privatekey` host — reported plainly, but not usable; agent support is the likely answer, and a `sshconfig` host already has both through ssh
 - content search on a remote (it would mean running a command on the far end, which this tab deliberately does not do)
 - an `[S]ftp` shortcut on the hosts table, to send the host under the cursor straight to the focused side of the file browser
 - mouse support, `fsnotify` reload of `hosts.yaml`, session persistence, keychain-backed password storage
