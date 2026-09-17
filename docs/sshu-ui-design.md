@@ -994,9 +994,9 @@ entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
 |---|---|---|
 | Name | text | 必填、**全域唯一**(即 hosts.yaml 的 key) |
 | Host | text | 必填、IP 或 domain |
-| Port | text(只吃數字) | 預設 `22`,非數字直接不進欄位 |
-| User | text | 必填 |
-| Auth | **segmented toggle** | `password` / `privatekey`,`←` `→` 切換 |
+| Port | text(只吃數字) | 預設 `22`,非數字直接不進欄位。**Auth = sshconfig 時選填**:切過去時仍是預設值就清空、placeholder 寫 `ssh decides`(§11.52) |
+| User | text | 必填;**Auth = sshconfig 時選填**,同上 |
+| Auth | **segmented toggle** | `password` / `privatekey` / `credential` / `sshconfig`,`←` `→` 切換 |
 | **IdentityFile** | text + **`Tab` 開檔案選擇器** | Auth = privatekey 時啟用;空的時候顯示 dim placeholder `tab to browse ~/.ssh` |
 | Password | text(**遮罩 `••••`**) | Auth = password 時啟用;= privatekey 時 **dim + 跳過** |
 
@@ -1895,13 +1895,13 @@ Connections、檔案卻叫 `history.yaml` —— 那就是一次不該有人做�
 ```yaml
 # sshu hosts —— 由 [M]anage → SSHU → Hosts 管理,手改也可以。
 # 本檔權限固定 0600(內含連線密碼,見下方警告)。
-version: 2
+version: 3
 hosts:
   - name: prod-web-01
     host: 10.0.3.14
     port: 22
     user: deploy
-    auth: privatekey                 # privatekey | password
+    auth: privatekey                 # privatekey | password | credential | sshconfig
     identity_file: ~/.ssh/id_ed25519
     tags: [prod, tokyo, frontend]    # v2 新增,選填(§11.48)
 
@@ -1911,6 +1911,11 @@ hosts:
     user: postgres
     auth: password
     password: "ENC:0mHc…"            # AES-256-GCM,見 §8.3
+
+  - name: gw
+    host: gw                         # ssh 的 destination:config 的 alias 或真位址
+    auth: sshconfig                  # v3 新增(§11.52):port / user 都選填,缺的由 ssh 從
+                                     # ~/.ssh/config 決定;sshu 不存任何秘密
 ```
 
 - **`name` 就是 key**,全域唯一;CRUD 以 name 定位,不另設 id(簡單優先)
@@ -1920,7 +1925,9 @@ hosts:
 - **`tags` 選填**,字串陣列。space 是唯一分隔符,其餘字元一律 literal;載入時去
   重、去空白,大小寫原樣保留
 - `auth` 是**扁平字串**、不是巢狀 map;`identity_file` / `password` 是
-  依 `auth` 值二選一的兄弟欄位
+  依 `auth` 值二選一的兄弟欄位。`sshconfig`(v3)兩個都不要,而且是唯一允許
+  `port` 缺席(檔裡不寫、記憶體裡是 0)與 `user` 為空的類型 —— 那兩個都是
+  ssh 從 `~/.ssh/config` 決定的事(§11.52)
 - `identity_file` 支援 `~` 展開(`store.ExpandTilde`);由 form 的 `Tab`
   檔案選擇器寫入時會折回 `~` 形式(`store.FoldHome`),兩者互為反向
 - 寫檔用 **atomic write**(寫 temp → `rename`),避免中途斷電毀掉整份清單
@@ -5981,6 +5988,172 @@ cause 是一行,Enter 展開完整說明**和 key 的路徑**。
 - 放回 key → 密碼又讀得出來
 - 封裝**只發生一次**:連跑三次密文位元組相同 —— 重寫一定會換 nonce,所以這是這裡
   唯一有意義的檢查
+
+
+### 11.52 `auth: sshconfig` —— 交給 `~/.ssh/config` 的 host,與一個會問問題的 sftp
+
+#### 使用者的要求
+
+> 「host 的驗證方式我想要添加一個 auth 類型 "sshconfig",也就是在 sshconfig 中已經添加了
+> 該 host/ip 的連線,不需要在 sshu 中再管理,所以只需要輸入 Host、Port(甚至 port 都選填)、
+> User 和其他應該都是選填。如果連線需要 password,則在 enter connection 的時候跳出 popup
+> 請使用者輸入密碼。感覺還有漏洞,請幫我補全。」
+
+一台 sshu 什麼都不存的 host:`name` 給它一個名字,`host` 是 ssh 的 destination,其餘
+—— key、agent、ProxyJump、HostName、連 Port 和 User —— 都是 `~/.ssh/config` 的事。
+sshu 送出去的只有 destination,以及使用者明確填了的 Port / User。
+
+#### 三個 tab 對這件事的態度不一樣
+
+**[S]SH 幾乎免費。** 它啟動的是真的 `ssh`,config 本來就生效(§11.39)。sshconfig host
+只是讓 `buildSSHCmd` 少送兩樣東西:不送 `-i`、不掛存密碼的 askpass。ssh 若要密碼,
+提示直接出現在 panel 裡,使用者直接打 —— password host 沒有 askpass 時本來就是這樣。
+
+**[F]ile transfer 不是。** 它用 Go 的 crypto/ssh 自己講協定,config 一個字都不看 ——
+這正是 §11.39 開頭就揭露的不對稱。一台 sshconfig host 在這裡會直接死在
+「no identity file set」。三條路:
+
+| | 做法 | 代價 |
+|---|---|---|
+| **A** | sftp 改走真 ssh:`ssh -s <host> sftp` 子行程 + `sftp.NewClientPipe` —— OpenSSH 自己的 `sftp` 指令就是這樣做的 | 需要一條 askpass 通道 |
+| B | sshu 用自己的 parser(`Effective`)抓四個關鍵字餵 crypto/ssh | 半套:ProxyJump、agent、Match、加密私鑰都不行,而且**看起來像有讀 config** —— 違反 §11.41 的揭露原則 |
+| C | sshconfig host 只准 [S]SH,sftp 上明說不讀 | 最小,功能缺一半 |
+
+**使用者的三個裁定:** 走 A;**只給 sshconfig host** —— password / privatekey / credential
+的 sftp 維持 crypto/ssh,行為零變動;**[S]SH tab 維持在 panel 裡打**,不另外跳 popup。
+
+第二個裁定值得記:A 做好之後,讓所有 auth 類型的 sftp 都走真 ssh,會順手解掉
+backlog 的「未知 host key 互動確認」與「加密私鑰 / ssh-agent」。使用者沒有選它。
+所以那兩項對 sshconfig host **已經解決**(ssh 自己管),對其他三種**維持原狀**。
+
+#### popup 不在「按 Enter 時」跳,在「ssh 開口問時」跳
+
+使用者的原話是「enter connection 的時候跳出 popup」。做不到,而且不該做:sshu
+**事先不知道**這條連線會不會要密碼,也不知道 ssh 會問哪一種 —— 密碼、私鑰 passphrase、
+還是未知 host key 的 yes/no。只有 ssh 知道。所以 popup 是 ssh 問了才出現,用 key 連上
+的 host 永遠看不到它;而 popup 裡的字是 **ssh 的原句**,一個字不改。
+
+實測 OpenSSH 10.3(`ssh -V`),用一個把 argv 和環境 dump 出來的 askpass:
+
+- host key:四行,結尾是 `Are you sure you want to continue connecting (yes/no/[fingerprint])? `
+- 密碼:`demo@localhost's password: `
+- **兩種都沒有 `SSH_ASKPASS_PROMPT`** —— 我原本以為 8.4 之後 yes/no 類會帶 `confirm`
+  提示,實測沒有。所以分辨靠字面:含 `(yes/no` 的是 yes/no 題,其餘都是遮罩輸入。
+
+#### askpass 中繼:helper 的第二種模式
+
+sshu 已經會把自己當 ssh 的 askpass helper(`SSHU_ASKPASS_HOST` → 印存的密碼)。
+現在多一種:`SSHU_ASKPASS_SOCK` 指到一個 unix socket,helper 把 ssh 給的提示
+逐字送進正在畫畫面的 sshu,那邊跳 popup,答案回傳,helper 印出、exit 0。
+
+- **一個 dial 一個 socket**,不是一個 app 一個。socket 路徑就是「這題屬於哪一側、
+  第幾代 dial」的身分 —— 使用者已經換 host 之後才到的問題,認得出來、直接拒答,
+  而不是答進一個沒人要的連線。
+- **一次一題。** 兩側同時 dial、或 ssh 連問兩題,後到的排隊。兩個密碼框同時在畫面上
+  是把 A 的密碼打進 B 的方法。
+- **Esc = 殺掉 ssh**,不是回 `no`、也不是回空密碼。ssh 收到空密碼會再問兩次
+  (`NumberOfPasswordPrompts` 預設 3),一次取消變三個框。殺掉是唯一乾淨的取消;
+  結果落地時標成「cancelled」—— Connections 記一筆失敗的嘗試,**Errors 不記**,
+  因為原因是使用者自己。
+- **答案不落地。** 不進 hosts.yaml、不進 journal、不進環境變數;走 helper 的 stdout,
+  那是 ssh 的 stdin,讀一次就沒了。拒答是**零位元組** + exit 1 —— 空密碼是一個換行,
+  零位元組是唯一不會被誤認成空密碼的回覆。
+- **子行程是沒有 controlling terminal 的 session leader**(`Setsid`)。否則 ssh 會去開
+  `/dev/tty` 把 TUI 畫花。沒有 tty 加上 `SSH_ASKPASS_REQUIRE=force`,ssh 的每個問題
+  都只能走 helper。cancel 是對整個 process group 送 SIGTERM,ProxyJump 起的子行程
+  跟著走。
+- 加了 OpenSSH 自己的 `sftp` 會加的三個 `-o`:`ClearAllForwardings=yes`、
+  `PermitLocalCommand=no`、`ForwardX11=no`。config 裡設了 port forward 的 host,
+  傳個檔不該順便把 forward 開起來。
+
+#### Port / User 選填,改了 schema
+
+`Port int` 原本一律 1–65535,load 時 0 補成 22。sshconfig 要的「空 = 交給 ssh」意味著:
+**Port 0 只對 sshconfig 合法**、load 不補、yaml 加 `omitempty`(檔裡不寫一個沒人會撥的
+0)、命令列不送 `-p`。User 同理,空就不送 `user@`。**填了就送**,沿用 §11.41
+「sshu 有傳的它贏」—— detail 那張覆蓋表不用改規則,只是 sshconfig host 送得少。
+
+form 上有一個必須處理的角落:Port 欄預設塞 `22`。切到 sshconfig 時若原封不動,
+會送 `-p 22` 蓋掉 config 的 `Port 2222` —— **正是 §11.41 那個「連錯地方」的例子**。
+所以切到 sshconfig 時,Port 若仍是預設值就清空、切回去就放回來;使用者自己打的 port
+兩邊都保留。空掉的 Port / User 列用 placeholder 寫 `ssh decides`,不然一列必填長相的
+空欄讀起來像沒填完。
+
+六處渲染 `user@host:port` 的地方(hosts 表格、ssh session 列、sftp host picker 的
+hint、Changes / Connections journal、`Host.Addr()`)改成**缺的省略**:`host`、
+`user@host`、`host:port`。不去 config 解真值填進去 —— 那是 ssh 的答案,只在 detail 顯示。
+副作用一個:credential host 在 Changes 裡原本寫 `(@db:22)`,現在是 `(db:22)`。
+
+#### version 2 → 3,而且又是實測出來的
+
+加密那次刻意不推版本(§11.51),理由是舊版讀寫都正常。這次不一樣,拿 v1.6.0 的
+binary 讀一份含 sshconfig host 的 v2 檔:
+
+- 它把那台**顯示成 `password`、port `22`** —— 沒聽過的 auth 落到每個 switch 的 default,
+  缺的 port 被 load 補上;
+- 之後**任何一次存檔都被拒絕** —— 加、改、刪任何一台 —— 錯誤是
+  `auth must be "password", "privatekey" or "credential"`。`SaveTo` 驗整份清單,這一筆
+  永遠過不了。
+
+第二點就是版本號存在的理由:舊版該說「這個檔比我新」,不是在刪另一台時吐出一個它不認識
+的字。`credentials.yaml` 不動:一個 sshconfig 類型的 credential 什麼都供給不了,所以
+沒有這種東西。
+
+#### 明細:沒命中任何區塊要說出來
+
+§11.41 的規則是「什麼都沒命中就整段不畫」。對 sshconfig host 要反過來:它選擇了**由這個
+檔案決定**,結果檔案裡沒有一塊命中它,是唯一值得講的事 —— 連線還是會試,用 ssh 的預設,
+使用者該知道自己拿到的是這個。所以那時畫一段 `~/.ssh/config`,一列紅字:
+`no block matches — ssh will use its defaults`。Auth 段多一列 `Secrets · none stored — ssh
+asks at connect time`,講明這一列最重要的事實:sshu 手上沒有任何秘密。
+
+#### 一個一 frame 就 `connection lost` 的 bug
+
+第一版 `sftpConnected` 收到結果時呼叫 `endDial()` 收尾 —— 它關 socket、**也 cancel
+context**。成功的那條路上,cancel 殺掉的是**剛連上的 ssh**:panel 標題變成 host 名的
+下一 frame就是 `connection lost`(pkg/sftp 對 pipe 斷掉的說法)。tmux 裡跑真 binary
+一眼看到;單元測試沒抓到,因為測試的 dial 不帶 ssh。
+
+修法是把「放棄」和「答完」分開:`endDial` 只給被放棄的 dial(換 host、disconnect、
+離開),`dialDone` 給答完的 —— 關 socket、不碰 ssh。成功的 ssh 從此屬於 FS,`Close`
+才殺它。**成功與放棄共用一個收尾函式**是這種 bug 的形狀。
+
+#### fixture 的限制:ssh 不看 `$HOME`
+
+demo rig 用合成 `$HOME` 讓錄影不碰真的 `~/.ssh`(§11.39)。但 ssh 找 `~/.ssh/config`
+用的是 **passwd 的 home(`pw_dir`)**,不是 `$HOME` —— 合成 home 裡的 `Host demo-box`
+別名 ssh 根本沒讀到,第一次 dogfood 死在 `Could not resolve hostname demo-box`。
+dogfood 改用 `host: localhost / port: 2222` 的 sshconfig host,走完整條 askpass 路徑;
+「Port 由 config 決定」那一半由單元測試釘住。要在 GIF 裡展示 alias 得對 ssh 傳 `-F`,
+那是產品行為的改變,不做。
+
+#### 沒做的
+
+- 所有 auth 類型的 sftp 走真 ssh —— 使用者裁定不做。
+- [S]SH tab 的密碼 popup —— 使用者裁定維持在 panel 裡打。
+- `SSH_ASKPASS_PROMPT=none` 的通知類提示(FIDO 觸碰確認)—— helper 會掛著等 ssh 殺它,
+  畫面上什麼都不會出現。要用 FIDO key 的 sshconfig host 在 sftp 上會卡住,已知未處理。
+
+#### 測試清單
+
+`TestAnSSHConfigHostNeedsOnlyANameAndADestination` / `TestPortZeroIsOnlyForSSHConfig` /
+`TestLoadLeavesAnSSHConfigHostWithoutAPort` / `TestAnSSHConfigHostIsSavedWithoutAPortLine` /
+`TestAddrLeavesOutWhatTheHostDoesNotHave` / `TestSSHConfigIsNotACredentialKind` /
+`TestASSHConfigHostIsWhatMovedTheFileToVersionThree`(store);
+`TestDialPipeSpeaksSFTPOverASubprocess`(測試 binary 自己當 SFTP server)/
+`TestDialPipeFailureCarriesWhatTheSubprocessSaid` / `TestDialPipeCloseEndsTheSubprocess`
+(remote);`TestAskpassRelayCarriesThePromptOutAndTheAnswerBack` /
+`TestAskpassRefusalIsExitOneWithNothingPrinted` / `TestAskpassTellsAHostKeyQuestionFromASecret` /
+`TestClosingTheAskpassServerRefusesWhatIsQueued` / `TestAPasswordQuestionIsAskedMaskedAndAnswered` /
+`TestSpaceInsideThePasswordBoxIsACharacter` / `TestEscOnTheQuestionCancelsTheDial` /
+`TestAHostKeyQuestionTakesYesAndNothingElse` / `TestQuestionsAreAskedOneAtATime` /
+`TestAQuestionFromAnAbandonedDialIsRefused` / `TestTheDialEndingTakesItsQuestionDown` /
+`TestACancelledDialIsNotAnError` / `TestOnlyAnSSHConfigHostDialsThroughSSH` /
+`TestAnSSHConfigHostSendsOnlyWhatItHas` / `TestTheSFTPCommandIsSSHWithTheSubsystemAndNoTerminal` /
+`TestTheFormAsksAnSSHConfigHostForNothingButADestination` /
+`TestSwitchingToSSHConfigDropsTheDefaultPortAndSwitchingBackRestoresIt` /
+`TestEditingAnSSHConfigHostShowsNoPortNotZero` / `TestTheRowShowsADashForAPortSSHDecides` /
+`TestTheDetailOfAnSSHConfigHostSaysWhatIsLeftToSSH` / `TestAnAddressLeavesOutWhatTheHostDoesNotHave`(ui)。
 
 ---
 

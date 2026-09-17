@@ -1,5 +1,47 @@
 # Changelog
 
+## [Unreleased]
+
+A host that sshu stores nothing about. `auth: sshconfig` hands the whole
+question to `~/.ssh/config`: sshu sends the destination and, only if you
+filled them in, a port and a user — no key, no password, nothing about how to
+authenticate. Whatever ssh asks on the way in is asked of you, when ssh asks
+it, and never written down.
+
+### Added
+
+- **`auth: sshconfig`**, a fourth kind of host. Name and Host are the whole
+  record; Port and User are optional and, left empty, are ssh's to read from
+  the file. The row shows a dash where the port would be, the detail says
+  `ssh decides` in both places and `none stored` under Auth, and a host that
+  no `Host` block matches is told so — the connection is still tried, with
+  ssh's defaults, and you should know that is what you are getting.
+
+- **The file transfer tab connects such a host through the real `ssh`** —
+  `ssh -s <host> sftp`, the invocation OpenSSH's own `sftp` makes — so
+  HostName, ProxyJump, the agent, a passphrase-protected key and the rest all
+  work there, and the host key is ssh's to check. Every other kind of host
+  keeps the in-process connection it had.
+
+- **A popup for whatever ssh asks.** A password, a passphrase, an unknown
+  host key: the question appears when ssh asks it, in ssh's own words, and
+  the answer goes to ssh and nowhere else. `Esc` cancels the connection
+  rather than the box — ssh would otherwise ask twice more. On the ssh tab
+  the prompt appears inside the terminal as it always has.
+
+### Changed
+
+- **`hosts.yaml` is version 3.** Measured against v1.6.0: it lists an
+  sshconfig host as `password` on port 22, and then refuses every save with
+  "auth must be password, privatekey or credential". The number is so an
+  older sshu says "this file is newer than I am" instead. `credentials.yaml`
+  is untouched.
+
+- **An address leaves out what the host does not have.** `host`,
+  `user@host`, `host:port` — in the table, the session list, the picker and
+  the journals. A credential host's Changes entry reads `(db:22)` where it
+  read `(@db:22)`.
+
 ## [1.6.0] — 2026-09-10
 
 A host list you can group. Tags are your own words, sshu never interprets
