@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -103,6 +104,16 @@ func (c *copyState) key(k string) (text string, yanked bool) {
 		c.col = max(0, c.col-1)
 	case "l", "right":
 		c.col = min(c.w-1, c.col+1)
+	case "w":
+		c.wordStart()
+	case "e":
+		c.wordEnd()
+	case "b":
+		c.wordBack()
+	case "0":
+		c.col = 0
+	case "$":
+		c.col = c.lineEnd(c.row)
 	case "v":
 		c.mark(selChar)
 	case "V":
@@ -128,10 +139,212 @@ func (c *copyState) key(k string) (text string, yanked bool) {
 // Ctrl+u / Ctrl+d, for the same reason.
 func (c copyState) half() int { return max(1, c.h/2) }
 
-func (c *copyState) moveRow(n int) {
-	c.row = clamp(c.row+n, 0, len(c.lines)-1)
+func (c *copyState) moveRow(n int) { c.moveTo(c.row+n, c.col) }
+
+// moveTo puts the cursor on a cell and scrolls the page just far enough to
+// keep it in view.
+func (c *copyState) moveTo(row, col int) {
+	c.row = clamp(row, 0, len(c.lines)-1)
+	c.col = clamp(col, 0, c.w-1)
 	c.top = clamp(c.top, c.row-c.h+1, c.row)
 	c.top = clamp(c.top, 0, max(0, len(c.lines)-c.h))
+}
+
+// A motion that walks WORDS has to walk characters, not columns. h and l can
+// step a column at a time because a column is always somewhere; "the next
+// word" is a question about what is written, and a wide rune is one thing
+// written across two columns. So a line is read out as characters first,
+// each with the columns it covers, and w, e and $ land on one of those — never
+// on the second half of a glyph.
+type char struct {
+	col, end int // display columns: the first one it covers, and the one after
+	r        rune
+}
+
+// lineChars is one frozen line as characters, the panel's padding left off.
+// A row with nothing on it comes back empty, which is what makes it vim's
+// blank line below. Trailing blanks the remote itself printed are
+// indistinguishable from the padding and go the same way — a $ stops where
+// the visible text does.
+func lineChars(line string) []char {
+	plain := plainText(line)
+	out := make([]char, 0, len(plain))
+	col := 0
+	for _, r := range plain {
+		end := col + dispW(string(r))
+		out = append(out, char{col, end, r})
+		col = end
+	}
+	return out
+}
+
+// charAt is the index of the character under column col, or len(cs) when the
+// column is past the last one — out in the padding.
+func charAt(cs []char, col int) int {
+	for i, ch := range cs {
+		if col < ch.end {
+			return i
+		}
+	}
+	return len(cs)
+}
+
+// wordClass is vim's: a blank, a run of punctuation, or a run of keyword
+// characters — letters, digits and underscore. w and e stop where the class
+// changes, so `foo.bar` is three words and `foo_bar` one, the same places vim
+// stops. The vocabulary is borrowed, so its rule comes with it.
+func wordClass(r rune) int {
+	switch {
+	case unicode.IsSpace(r):
+		return 0
+	case r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r):
+		return 2
+	}
+	return 1
+}
+
+// classAt is the class of character i, and a blank past the end of the line:
+// the padding, and the line break itself, separate words the way a space
+// does.
+func classAt(cs []char, i int) int {
+	if i < 0 || i >= len(cs) {
+		return 0
+	}
+	return wordClass(cs[i].r)
+}
+
+// wordStart is w: past the word under the cursor, past the blanks after it,
+// onto the first character of the next word — on this line or a later one. A
+// row with nothing on it counts as a word, so w stops there; that is vim's
+// rule, and the only way w can ever land on a blank line.
+func (c *copyState) wordStart() {
+	row := c.row
+	cs := lineChars(c.lines[row])
+	i := charAt(cs, c.col)
+	if cls := classAt(cs, i); cls != 0 {
+		for classAt(cs, i) == cls {
+			i++
+		}
+	}
+	for {
+		for i < len(cs) && classAt(cs, i) == 0 {
+			i++
+		}
+		if i < len(cs) {
+			c.moveTo(row, cs[i].col)
+			return
+		}
+		row++
+		if row >= len(c.lines) {
+			c.moveToEnd()
+			return
+		}
+		cs, i = lineChars(c.lines[row]), 0
+		if len(cs) == 0 {
+			c.moveTo(row, 0)
+			return
+		}
+	}
+}
+
+// wordEnd is e: the last character of the word under the cursor, or — from
+// there, or from a blank — of the next word, on this line or a later one.
+// Unlike w it does not stop on a blank line: e looks for the end of
+// something, and a line with nothing on it has no end to give.
+func (c *copyState) wordEnd() {
+	row := c.row
+	cs := lineChars(c.lines[row])
+	i := charAt(cs, c.col)
+	cls := classAt(cs, i)
+	// One step on, and then either still inside the same word, or looking
+	// for the next one.
+	i++
+	if cls == 0 || classAt(cs, i) != cls {
+		for classAt(cs, i) == 0 {
+			if i < len(cs) {
+				i++
+				continue
+			}
+			row++
+			if row >= len(c.lines) {
+				c.moveToEnd()
+				return
+			}
+			cs, i = lineChars(c.lines[row]), 0
+		}
+	}
+	cls = classAt(cs, i)
+	for classAt(cs, i+1) == cls {
+		i++
+	}
+	c.moveTo(row, cs[i].col)
+}
+
+// wordBack is b: back over the blanks before the cursor, then to the first
+// character of the word they follow — on this line or an earlier one. It is
+// w's mirror, and a blank line stops it the way one stops w: the empty line
+// is a word to both. The line break counts as a blank, the same as the
+// padding does, so b from the head of a row lands on the last word above.
+func (c *copyState) wordBack() {
+	row := c.row
+	cs := lineChars(c.lines[row])
+	i := charAt(cs, c.col)
+	// back is one character backwards, crossing to the line break of the row
+	// above; false at the head of the page.
+	back := func() bool {
+		if i > 0 {
+			i--
+			return true
+		}
+		if row == 0 {
+			return false
+		}
+		row--
+		cs = lineChars(c.lines[row])
+		i = len(cs)
+		return true
+	}
+	if !back() {
+		return
+	}
+	for classAt(cs, i) == 0 {
+		if len(cs) == 0 || !back() {
+			c.moveTo(row, 0)
+			return
+		}
+	}
+	cls := classAt(cs, i)
+	for i > 0 && classAt(cs, i-1) == cls {
+		i--
+	}
+	c.moveTo(row, cs[i].col)
+}
+
+// moveToEnd is where w and e go with no word left ahead of them: the last
+// character on the page, which is where vim leaves you — unless the cursor
+// is already past it, in which case nowhere. Neither motion moves backwards.
+func (c *copyState) moveToEnd() {
+	for row := len(c.lines) - 1; row >= 0; row-- {
+		cs := lineChars(c.lines[row])
+		if len(cs) == 0 {
+			continue
+		}
+		if last := cs[len(cs)-1].col; row > c.row || (row == c.row && last > c.col) {
+			c.moveTo(row, last)
+		}
+		return
+	}
+}
+
+// lineEnd is $: the last character on the row, or column 0 of a row with
+// nothing on it. The padding does not count — the panel put it there, not
+// the remote.
+func (c copyState) lineEnd(row int) int {
+	cs := lineChars(c.lines[row])
+	if len(cs) == 0 {
+		return 0
+	}
+	return cs[len(cs)-1].col
 }
 
 // mark starts, switches, or drops a selection. Pressing the same key again

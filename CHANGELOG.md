@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Five more of vim's motions in selection mode** — `w`, `e` and `b` walk
+  by word, `0` and `$` go to either end of the line. The word rule is vim's
+  too: a word is a run of letters, digits and underscores or a run of
+  punctuation, so `foo.bar` is three stops, and a blank line is one stop
+  for `w` and none for `e`. They walk characters rather than columns, so
+  none of them can land on the second half of a wide glyph, and `$` stops
+  at the last character the remote printed, not at the edge of the cell.
+
+### Changed
+
+- **The footer's selection row puts `alt+v leave` third**, ahead of the
+  motions. Seven pairs no longer fit an 80-column row, and the row gives
+  up pairs from the end; what it gives up now is `u/d`, which `j` and `k`
+  held down can stand in for, rather than the way out.
+
 ## [1.7.0] — 2026-09-17
 
 A host that sshu stores nothing about. `auth: sshconfig` hands the whole

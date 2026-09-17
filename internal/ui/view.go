@@ -151,9 +151,15 @@ func copyLegendPairs() [][2]string {
 	return [][2]string{
 		{"y", "copy"},
 		{"v/V", "select"},
-		{"hjkl", "move"},
-		{"u/d", "half page"},
+		// The way out sits third, ahead of the motions: keyLegend drops from
+		// the end, and seven pairs are one more than an 80-column row holds.
+		// What goes on that row is u/d — the only pair with another spelling
+		// on the same page (j and k, held down).
 		{"alt+v", "leave"},
+		{"hjkl", "move"},
+		{"w/e/b", "word"},
+		{"0/$", "line start/end"},
+		{"u/d", "half page"},
 	}
 }
 
