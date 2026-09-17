@@ -677,7 +677,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | pty emulator **回答終端機查詢**(`CSI 6n` / `OSC 11`)—— writer 接回 master,否則格子裡任何發問的程式都卡滿 5 秒 timeout | `ui/pty_unix.go startPty` |
 | ssh 連線中 spinner(判準是 PTY 有沒有說過話);失敗時網格顯示遠端原話、Errors 收**整個最終畫面**(每則 40 行 / 4000 字,`Enter` 展開) | `ui/sshtab.go` `ui/journals.go` `ui/pty_unix.go` |
 | pty **scrollback**:byte stream 在進 emulator 的同時攢成行(10000 行 ring,存 raw、alt screen 期間不收、`3J`/RIS 清空);`PgUp`/`PgDown` 捲、打字回 live、title 掛 `󰋚 N` | `ui/pty_unix.go` `ui/sshtab.go` `ui/view.go` |
-| pty **選取模式**:`Alt+v` 凍結該格(`copySnapshot` = scrollback 尾巴被當下 grid 蓋掉)、border 轉黃、`hjkl`/`u`/`d` 走游標、`v`/`V` 選、`y` 寫本機剪貼簿(`pbcopy` / `wl-copy` / `xclip` / `xsel`)並結束 | `ui/copymode.go` `ui/clipboard.go` `ui/pty_unix.go` `ui/sshtab.go` |
+| pty **選取模式**:`Alt+v` 凍結該格(`copySnapshot` = scrollback 尾巴被當下 grid 蓋掉)、border 轉黃、`hjkl`/`w`/`e`/`b`/`0`/`$`/`u`/`d` 走游標(word motion 在字元上走,不在欄位上,design §11.53)、`v`/`V` 選、`y` 寫本機剪貼簿(`pbcopy` / `wl-copy` / `xclip` / `xsel`)並結束 | `ui/copymode.go` `ui/clipboard.go` `ui/pty_unix.go` `ui/sshtab.go` |
 | manage:nav(三個分類 header;鍵盤在 `[2]` 時整片 dim)+ Hosts / Credentials / Config / KnownHosts / Errors / Connections / Changes(Export / Import 已實作、遮罩中);**Errors** 上畫面即已讀,nav 與 footer 掛未讀數(未讀數不 dim) | `ui/preftab.go` `ui/journals.go` `ui/bundlepage.go` |
 | credentials CRUD + host form 三選 auth + credential picker;連線各入口統一 `store.Resolve` | `ui/credlist.go` `ui/credform.go` `ui/credkeys.go` `store/hosts.go Resolve` |
 | manage → SSH → **Config**:`~/.ssh/config` 的 `Host` 區塊 CRUD。**外科手術式寫回**(只重建被編輯的行,註解 / `Match` / 全域選項 / 未知關鍵字 byte 不動)、位置即身分(同名區塊合法)、**`Include` 跟進去**(就地展開、glob 排序、相對於 `~/.ssh`、16 層上限、循環會停;被 include 的區塊照樣可編、寫回它自己的檔;`Add` 一律進主檔;只寫改過的檔)、存檔前**逐檔**比對磁碟(別人先寫就拒絕並端出他那份)、保留各檔原有權限 | `store/sshconfig.go` `ui/sshcfglist.go` `ui/sshcfgkeys.go` `ui/sshcfgform.go` |
@@ -787,7 +787,7 @@ glyph 寬度差、被重複扣掉的間隔格、ANSI 被切斷。
 | 格子(pty) | **`PgUp`/`PgDown`** | 遠端**不在** alt screen 時捲這一格的歷史(`scrollback`,10000 行上限;`readLoop` 存的是**進來的 bytes**,不是回頭讀 vt10x 的列 —— 那些列早就被清掉了);在 alt screen 時原封送給遠端,讓 vim / less 自己翻頁(design §11.19) |
 | 格子(pty) | `Alt+Esc` | **一次剝一層**:選取模式中先離開它,zoom 中**逐階**退回(`unzoomOne`,鍵盤留在格子裡),階段退完才收回鍵盤、回 `[1]`(design §11.25、§11.47) |
 | 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格供複製;再按一次離開。模式開著時 `Alt+方向鍵` / `Alt+Z` 不作用,是刻意的模態(design §11.33) |
-| 選取模式 | `h`/`j`/`k`/`l` · `u`/`d` · `v`/`V` · `y` · `Esc` | 游標(撞邊界捲凍結的頁面)/ 半頁 / char / line 選取 / 複製並結束 / 先丟選取再離開。**其餘所有鍵一律吞掉**,不送遠端 |
+| 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` · `v`/`V` · `y` · `Esc` | 游標(撞邊界捲凍結的頁面)/ 依 word 前進、後退,跨列 / 列首、列尾 / 半頁 / char / line 選取 / 複製並結束 / 先丟選取再離開。**其餘所有鍵一律吞掉**,不送遠端 |
 
 ### 全域
 

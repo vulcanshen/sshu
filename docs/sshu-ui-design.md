@@ -3891,6 +3891,8 @@ alt screen 裡則只有 grid:全螢幕程式期間本來就不 capture(§11.19),
 | 鍵 | 動作 |
 |---|---|
 | `h` `j` `k` `l` | 游標;撞到上下邊界就把凍結的頁面捲一行 |
+| `w` / `e` / `b` | 下一個 word 的開頭 / 這個(或下一個)word 的結尾 / 上一個 word 的開頭,都會跨列;vim 的三類字元(§11.53) |
+| `0` / `$` | 列首 / 這一列**最後一個字元**,不是 padding 的盡頭(§11.53) |
 | `u` / `d` | 上 / 下**半頁** —— 整頁會讓畫面上沒有任何東西告訴你落在哪(vim 的 `Ctrl+u`/`Ctrl+d` 同理) |
 | `v` / `V` | 從游標處開始 char-wise / line-wise 選取;再按一次同一個鍵取消 |
 | `y` | 複製並**結束模式** —— 它是當初開這個模式的理由 |
@@ -6157,6 +6159,98 @@ dogfood 改用 `host: localhost / port: 2222` 的 sshconfig host,走完整條 as
 
 ---
 
+### 11.53 選取模式的五個 motion —— `w` `e` `b` `0` `$`
+
+#### 使用者的要求
+
+> 「alt+v 狀態下,我要增加支援 w/e/0/$ 的 vim motion 支援」
+>
+> 「還要支援 b」
+
+§11.33 的鍵表只有 `hjkl` 與 `u`/`d`:游標一次一格。要選一條路徑或一個 hash,得按住
+`l` 一格一格走過去。這五個是 vim 最常用的橫向 motion;而 §11.33 已經裁定「vim 的
+字彙,一個都沒有新發明」—— 所以加進來的不只是四個鍵,**連它們的規則也得是 vim 的**。
+一個 `w` 在 `foo.bar` 上只停一次的 copy mode,vim 使用者的手會先動、眼睛才發現不對。
+
+#### 走的是字元,不是欄位
+
+凍結的 buffer 是「每列剛好 `w` 欄」的字串,座標是顯示欄位(§11.33)。`h`/`l` 一次一欄
+沒有問題:欄位永遠存在。但「下一個 word 的開頭」問的是**寫了什麼**,而一個全形字是
+一個字佔兩欄。所以先把一列讀成字元(`lineChars`:每個字元帶起始欄與結束欄,panel 的
+padding 不算),motion 在字元上走,最後把游標放回那個字元的**第一欄**。五個 motion
+都不可能停在全形字的第二欄;`h`/`l` 仍然可以(既有行為,沒動)。
+
+#### vim 的三類字元,照搬
+
+blank / punctuation / keyword(字母、數字、`_`)。`foo.bar` 三個停點、`foo_bar` 一個、
+`日本語` 一個(`unicode.IsLetter`;vim 對 CJK 表意文字也是同一類)。
+
+#### `w` 與 `b` 停在空白列,`e` 不停
+
+vim 的規則:空白列是一個 word,`w` 會停在上面,`b` 也是 —— 兩者互為鏡像,`b` 是
+「退過游標前面的空白,再退到那個 word 的第一個字元」,而列尾的換行對它算一個空白,
+所以從一列的開頭按 `b` 會落在上一列最後一個 word 上。`e` 找的是「某個東西的結尾」,
+空白列沒有結尾可給,跳過。在終端機的 buffer 裡有一個實際後果:prompt 下面那些沒用到的
+螢幕列,`w` 會一列一列停過去 —— 照 vim 做,因為規則已經在使用者手裡,可預測比好看
+重要。
+
+另一個後果:整列空格跟真的空列在凍結頁面上分不出來(`plainText` 把尾端空白修掉了,
+遠端自己印的尾端空白也一起沒了),一律當空列。
+
+#### 沒有下一個 word 的時候
+
+`w` 在頁面最後一個 word 上:vim 會落到它的最後一個字元(inc 到行尾、FAIL、再被
+adjust 回來的副作用,但結果穩定)。這裡照做(`moveToEnd`),而且**只在那個字元在
+游標前方時**才動 —— 游標若已經在 padding 裡,`w` 不能往回走,motion 沒有往回的。
+`e` 同。`b` 在頁首沒有東西可退時不動;前面只剩空白時落到第 0 欄,跟 vim 一樣。
+跟 vim 唯一的分歧:`e` 在最後一個 word 結尾、下面還有空白列時,vim 會落到
+最後那個空列的第 0 欄(同一條 FAIL 路徑的副作用),這裡停在原地 —— copy mode 裡把
+游標丟到空列上沒有任何意義。
+
+#### `0` 與 `$`
+
+`0` 是第 0 欄。`$` 是**這一列最後一個字元**,不是 panel 的最後一欄:padding 是 panel
+加的,不是遠端印的。空列的 `$` 回第 0 欄。沒做 `$` 之後的 sticky(vim 的
+`curswant = MAXCOL`,之後按 `j` 仍貼右端)—— 沒被要求。
+
+#### footer:七組放不進 80 欄,`leave` 往前排
+
+legend 從五組變七組。量出來的:`y copy` 7 → `v/V select` 20 → `alt+v leave` 34 →
+`hjkl move` 46 → `w/e/b word` 59 → `0/$ line start/end` 80 → `u/d half page` 96。
+80 欄的終端機放不下整列,而 `keyLegend` 從**尾端**丟。原本 `alt+v leave` 排最後,
+80 欄下第一個被丟的就是出口。
+
+所以把它排到**第三**。80 欄剛好放六組(80 = 80),丟的是 `u/d`:它是唯一在同一頁
+還有另一種拼法的(按住 `j`/`k`);60 欄再丟 `0/$`;40 欄剩 `y copy · v/V select ·
+alt+v leave`(34)—— 之前 40 欄是 `y · v/V · hjkl`,出口反而不在。這是量出來之後
+才排的,不是想到的;測試釘在 80 欄:`u/d` 不在(證明列是擠的),`alt+v` 與兩組 motion
+都在。
+
+help popup 多兩行,`w · e · b` 與 `0 · $` 分開寫:合成一行 key 欄會從 12 寬到 17,
+整張表跟著往右挪四格;分開之後最長的 key 仍是 `hjkl · u · d`,表不動。
+
+#### 沒做的
+
+`ge`、`W` / `E`(big word)、`^`、數字前綴、`$` 的 sticky。使用者先列了四個,回頭補了
+`b`;其餘沒被要求。
+
+#### 測試
+
+`TestWStopsWhereVimWould` / `TestWCrossesLinesAndStopsOnABlankOne` /
+`TestWOnTheLastWordGoesToItsEndAndNoFurther` / `TestEGoesToTheEndOfThisWordThenTheNext` /
+`TestBGoesToTheStartOfThisWordThenThePrevious` / `TestBCrossesLinesAndStopsOnABlankOne` /
+`TestEPassesOverABlankLine` / `TestZeroAndDollarAreTheEndsOfTheText` /
+`TestMotionsLandOnCharactersNotColumns` / `TestWordMotionsScrollThePage` /
+`TestTheWayOutSurvivesAnEightyColumnSelectionRow`(ui);
+`TestSelectionModeSwallowsKeysInsteadOfSendingThem` 多按 `w`、`b` 與 `0`,證明有意義的
+鍵跟沒意義的一樣不送遠端。
+
+13 個 mutation 全數被抓:`_` 當標點、`w` 跳過空列、`e` 停在空列、`$` 落到全形字第二欄、
+`w` 從 padding 往回走、`charAt` 邊界差一、`e` 不先踏出當下字元、`$` 變成 panel 最後一欄、
+motion 不捲頁、`leave` 排回尾端、`b` 跳過空列、`b` 不先退一格、`b` 退過不同類的字元。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -6235,7 +6329,7 @@ dogfood 改用 `host: localhost / port: 2222` 的 sshconfig host,走完整條 as
 | 格子(pty) | **`Alt+Enter`** | **layer 鍵**(§11.43)—— 開本層的 Lock/Release 選單(內層沒回報過才轉發,§11.45);有內層時選單多兩列**無熱鍵**的整鏈動作:全部 zoommax + 除最內層外全鎖 / 全部還原(§11.47);locked 的格子所有鍵穿透,這是唯一例外 |
 | 格子(pty) | **`Alt+Esc`** | 一次剝一層:**先離開選取模式**,再**逐階**退出 zoom(滿版 → 網格 zoom → 正常),再收回鍵盤、回 `[1]`(§11.47) |
 | 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格、border 轉黃,再按一次(或 `Alt+Esc`)離開(§11.33) |
-| 選取模式 | `h`/`j`/`k`/`l` · `u`/`d` | 游標(撞邊界捲頁)/ 上下半頁 |
+| 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53) |
 | 選取模式 | `v` / `V` · `y` · `Esc` | char / line 選取(再按取消)/ 複製到剪貼簿並結束 / 先丟選取、再離開 |
 
 ### 導覽(所有清單共用)

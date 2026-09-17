@@ -78,7 +78,8 @@ func TestSelectionModeSwallowsKeysInsteadOfSendingThem(t *testing.T) {
 	s := m.ssh.sessions[0]
 
 	m = pressA(m, "alt+v")
-	m = pressA(m, "z") // means nothing in the mode, and must not travel
+	m = pressA(m, "z")           // means nothing in the mode, and must not travel
+	m = pressA(m, "w", "b", "0") // mean something in the mode, and must not either
 	m = pressA(m, "alt+v")
 	m = typeText(m, "Q") // this one is the remote's
 
@@ -87,7 +88,7 @@ func TestSelectionModeSwallowsKeysInsteadOfSendingThem(t *testing.T) {
 	waitFor(t, "the remote to echo the key it was actually sent", func() bool {
 		return strings.Contains(strings.Join(s.pty.screenLines(), "\n"), "Q")
 	})
-	if got := strings.Join(s.pty.screenLines(), "\n"); strings.Contains(got, "z") {
+	if got := strings.Join(s.pty.screenLines(), "\n"); strings.ContainsAny(got, "z0wb") {
 		t.Errorf("a key pressed in selection mode reached the remote: %q", got)
 	}
 }
@@ -156,13 +157,33 @@ func TestTheFooterSwitchesToTheSelectionKeys(t *testing.T) {
 	}
 	m = pressA(m, "alt+v")
 	got := m.footer()
-	for _, want := range []string{"y", "v/V", "alt+v"} {
+	for _, want := range []string{"y", "v/V", "hjkl", "w/e/b", "0/$", "u/d", "alt+v"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the selection row should disclose %q: %q", want, got)
 		}
 	}
 	if strings.Contains(got, "alt+esc") {
 		t.Error("the pty's own keys are gone while the mode is up; the row must not claim them")
+	}
+}
+
+// Seven pairs are one more than an 80-column row holds, and keyLegend drops
+// from the end. The way out has to be the pair that stays, so it sits ahead
+// of the motions; the row gives up u/d instead, which j and k can stand in
+// for.
+func TestTheWayOutSurvivesAnEightyColumnSelectionRow(t *testing.T) {
+	m := openOne(t)
+	m.w = 80
+	m.ssh.setSize(80, 30)
+	m = pressA(m, "alt+v")
+	got := m.footer()
+	if strings.Contains(got, "u/d") {
+		t.Fatalf("80 columns held the whole row, so the test proves nothing: %q", got)
+	}
+	for _, want := range []string{"y", "v/V", "alt+v", "hjkl", "w/e/b", "0/$"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the cramped selection row dropped %q: %q", want, got)
+		}
 	}
 }
 
@@ -430,6 +451,171 @@ func TestTheCursorIsVisibleBeforeAnythingIsMarked(t *testing.T) {
 	c := testCopy([]string{"abcdefgh"}, 8, 1)
 	if !strings.Contains(c.visible()[0], ansiBgOf(t, selectColor)) {
 		t.Error("the cursor cell must be drawn even with no selection")
+	}
+}
+
+// --------------------------------------------------------- word motions
+//
+// w, e, b, 0 and $ are vim's, class rule included: a word is a run of keyword
+// characters or a run of punctuation, so `foo.bar` is three stops, not one.
+
+// motion presses keys from a starting cell and says where the cursor ended.
+func motion(lines []string, row, col int, keys ...string) (int, int) {
+	c := testCopy(lines, 20, 4)
+	c.row, c.col = row, col
+	for _, k := range keys {
+		c.key(k)
+	}
+	return c.row, c.col
+}
+
+func TestWStopsWhereVimWould(t *testing.T) {
+	line := []string{"foo.bar baz_qux  end"}
+	for _, tc := range []struct{ from, want int }{
+		{0, 3},  // foo → the dot, a word of its own
+		{3, 4},  // the dot → bar
+		{4, 8},  // bar → baz_qux, one word: _ is a keyword character
+		{8, 17}, // over two blanks
+	} {
+		if _, got := motion(line, 0, tc.from, "w"); got != tc.want {
+			t.Errorf("w from %d landed on %d, want %d", tc.from, got, tc.want)
+		}
+	}
+}
+
+func TestWCrossesLinesAndStopsOnABlankOne(t *testing.T) {
+	lines := []string{"one two", "", "  three"}
+	if r, col := motion(lines, 0, 4, "w"); r != 1 || col != 0 {
+		t.Errorf("w from the last word landed on %d:%d, want 1:0 — a blank line is a word", r, col)
+	}
+	if r, col := motion(lines, 1, 0, "w"); r != 2 || col != 2 {
+		t.Errorf("w from the blank line landed on %d:%d, want 2:2, past the indent", r, col)
+	}
+}
+
+// Where vim leaves you: on the last word of the page, w goes to its end, and
+// from there it goes nowhere. It never moves backwards.
+func TestWOnTheLastWordGoesToItsEndAndNoFurther(t *testing.T) {
+	line := []string{"foo bar"}
+	if _, got := motion(line, 0, 4, "w"); got != 6 {
+		t.Errorf("w on the last word landed on %d, want 6, its last character", got)
+	}
+	if _, got := motion(line, 0, 6, "w"); got != 6 {
+		t.Errorf("w on the last character moved to %d; there is nowhere to go", got)
+	}
+	if _, got := motion(line, 0, 12, "w"); got != 12 {
+		t.Errorf("w from out in the padding moved to %d; a motion never goes backwards", got)
+	}
+}
+
+func TestEGoesToTheEndOfThisWordThenTheNext(t *testing.T) {
+	line := []string{"foo.bar  baz"}
+	for _, tc := range []struct{ from, want int }{
+		{0, 2},   // inside foo → its end
+		{2, 3},   // the end of foo → the dot
+		{3, 6},   // → the end of bar
+		{6, 11},  // over the blanks → the end of baz
+		{11, 11}, // nothing ahead
+	} {
+		if _, got := motion(line, 0, tc.from, "e"); got != tc.want {
+			t.Errorf("e from %d landed on %d, want %d", tc.from, got, tc.want)
+		}
+	}
+}
+
+func TestBGoesToTheStartOfThisWordThenThePrevious(t *testing.T) {
+	line := []string{"foo.bar  baz"}
+	for _, tc := range []struct{ from, want int }{
+		{11, 9}, // inside baz → its start
+		{9, 4},  // the start of baz → over the blanks → the start of bar
+		{4, 3},  // → the dot
+		{3, 0},  // → foo
+		{1, 0},  // inside foo → its start
+		{0, 0},  // nothing behind
+	} {
+		if _, got := motion(line, 0, tc.from, "b"); got != tc.want {
+			t.Errorf("b from %d landed on %d, want %d", tc.from, got, tc.want)
+		}
+	}
+	if _, got := motion([]string{"   foo"}, 0, 3, "b"); got != 0 {
+		t.Errorf("b with only blanks behind landed on %d, want 0, the head of the page", got)
+	}
+}
+
+// b is w's mirror: the line break is a blank to cross, and a blank line is a
+// word to stop on.
+func TestBCrossesLinesAndStopsOnABlankOne(t *testing.T) {
+	lines := []string{"one two", "", "  three"}
+	if r, col := motion(lines, 2, 2, "b"); r != 1 || col != 0 {
+		t.Errorf("b from three landed on %d:%d, want the blank line 1:0", r, col)
+	}
+	if r, col := motion(lines, 1, 0, "b"); r != 0 || col != 4 {
+		t.Errorf("b from the blank line landed on %d:%d, want 0:4, the start of two", r, col)
+	}
+}
+
+// e looks for the end of something, and a blank line has none to give — so
+// unlike w it passes over one.
+func TestEPassesOverABlankLine(t *testing.T) {
+	if r, col := motion([]string{"foo", "", "bar"}, 0, 2, "e"); r != 2 || col != 2 {
+		t.Errorf("e landed on %d:%d, want 2:2, the end of bar", r, col)
+	}
+}
+
+func TestZeroAndDollarAreTheEndsOfTheText(t *testing.T) {
+	lines := []string{"  hello world", ""}
+	if _, got := motion(lines, 0, 5, "$"); got != 12 {
+		t.Errorf("$ landed on %d, want 12 — the last character, not the padding", got)
+	}
+	if _, got := motion(lines, 0, 5, "0"); got != 0 {
+		t.Errorf("0 landed on %d, want column 0", got)
+	}
+	if _, got := motion(lines, 1, 5, "$"); got != 0 {
+		t.Errorf("$ on a blank line landed on %d, want 0", got)
+	}
+}
+
+// A wide rune is one character across two columns. The motions walk
+// characters, so none of them can stop in the second column of one — where
+// the cursor would be marking half a glyph.
+func TestMotionsLandOnCharactersNotColumns(t *testing.T) {
+	line := []string{"日本語 ab"} // 日 0-1, 本 2-3, 語 4-5, blank 6, a 7, b 8
+	if _, got := motion(line, 0, 0, "e"); got != 4 {
+		t.Errorf("e landed on %d, want 4, the first column of 語", got)
+	}
+	if _, got := motion(line, 0, 1, "w"); got != 7 {
+		t.Errorf("w from inside 日 landed on %d, want 7", got)
+	}
+	if _, got := motion([]string{"ab 日本"}, 0, 0, "$"); got != 5 {
+		t.Errorf("$ landed on %d, want 5, where 本 starts", got)
+	}
+	if _, got := motion(line, 0, 5, "b"); got != 0 {
+		t.Errorf("b from the second column of 語 landed on %d, want 0, the start of 日本語", got)
+	}
+}
+
+// A motion that leaves the window scrolls the page, the same as j and k do.
+func TestWordMotionsScrollThePage(t *testing.T) {
+	lines := make([]string, 30)
+	for i := range lines {
+		lines[i] = "line-" + itoa(i)
+	}
+	c := testCopy(lines, 20, 5)
+	c.top, c.row, c.col = 0, 4, 5 // the last visible row, on its last word
+	c.key("w")
+	if c.row != 5 {
+		t.Fatalf("w landed on row %d, want 5, the first word below the window", c.row)
+	}
+	if c.row < c.top || c.row >= c.top+c.h {
+		t.Errorf("cursor at row %d is outside the window [%d,%d)", c.row, c.top, c.top+c.h)
+	}
+	c.top, c.row, c.col = 10, 10, 0 // the first visible row, on its first word
+	c.key("b")
+	if c.row != 9 {
+		t.Fatalf("b landed on row %d, want 9, the last word above the window", c.row)
+	}
+	if c.row < c.top || c.row >= c.top+c.h {
+		t.Errorf("cursor at row %d is outside the window [%d,%d)", c.row, c.top, c.top+c.h)
 	}
 }
 

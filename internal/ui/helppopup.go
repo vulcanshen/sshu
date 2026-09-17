@@ -53,6 +53,8 @@ var helpContent = []helpEntry{
 	{"PgUp · PgDn", "page this cell's history"},
 	{"Alt+v", "select and copy out of this cell"},
 	{"hjkl · u · d", "…move there, v / V select, y copies"},
+	{"w · e · b", "…by word, forward and back"},
+	{"0 · $", "…to either end of the line"},
 	{"", "Navigate"},
 	{"j · k", "move cursor"},
 	{"u · d", "half a page"},
