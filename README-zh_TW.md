@@ -13,49 +13,34 @@
 
 > _不確定的時候,就按_ **`Space`**。
 
-sshu 是 `u`-family 的成員,也是 [this TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/tui-design/README.md) 在 ssh 領域的實作 —— 跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)同一套設計系統。逐條對照的紀錄在 [`docs/sshu-implementation.md`](docs/sshu-implementation.md),背後的判斷過程(**包含試過而被否決的做法**)在 [`docs/sshu-ui-design.md`](docs/sshu-ui-design.md)。
-
-靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
+靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 只是搬進了終端機。sshu 是 `u`-family 的成員,跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)用同一套設計系統。
 
 ## Demo
 
-### manage tab —— 三組七個 section、完整攤開的一則失敗,最後連上去
+### manage tab —— host、credential、你的 `~/.ssh` 檔案,還有紀錄
 ![manage](docs/demo-manage.gif)
 
-### 雙側檔案傳輸 —— marks、真實傳輸、兼職進度條的分隔線
+### 雙側檔案傳輸 —— 標記、跨過去、送出
 ![file transfer](docs/demo-transfer.gif)
 
-### ssh 網格 —— 格子、layout、按住 Alt 的方向鍵
+### ssh 網格 —— 一個畫面上好幾個活的 session
 ![ssh grid](docs/demo-grid.gif)
 
 ### sshu 裡面的 sshu —— 整條鏈,從最外層一次驅動
 ![巢狀 sshu](docs/demo-nest.gif)
 
-## 五個鍵就能驅動 sshu
+## 特色
 
-| 鍵 | 行為 |
-|---|---|
-| **`Tab`** | 移到當前 tab 的下一個 panel(在 ssh tab 上改為切換 session 格子的顯示) |
-| **`Enter`** | 連線 / 進入目錄 / 確認選擇 |
-| **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 contextual menu。也用來關掉任何浮層 |
-| **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
-| **`?`** | 全域說明 —— 整套按鍵詞彙列在一起,含那些「進去之後就問不到」的網格鍵 |
-
-tab 用一個 shift 過的裸字母切換 —— **`M` / `F` / `S`** —— 而裸數字 `1`–`9` 全部用來直達**當前 tab** 的 panel。pty 裡這三個字母跟其他裸鍵一樣屬於遠端:先 `Alt+Esc` 把鍵盤收回來。
-
-不確定就按 `Space`。字母快捷鍵是給熟了之後求快用的,而**每一個都同時是 `Space` menu 裡的一列** —— 所以除非你想背,否則沒有任何東西需要背。
-
-## 三個 tab
-
-```
- [M]anage ❯ [F]ile transfer ❯ [S]SH
-```
-
-**`[M]anage`** —— sshu 自己的資料,加上它會編輯的兩個 `~/.ssh` 檔案,在同一個 nav 底下分三類:**SSHU**(Hosts、Credentials —— sshu 自己擁有、自己寫的檔)、**SSH**(Config、KnownHosts —— 屬於 ssh 的檔,sshu 只讀它、就地編輯它)、**Logs**(Errors、Connections、Changes)。Hosts 是蓋在 `hosts.yaml` 上的表格,**一台兩列** —— 上面那列照舊,下面那列是你自己下的 tag —— 終端機變窄就逐欄收起;`[A]dd` / `[E]dit` 打開帶即時驗證的表單,`Enter` 連線。tag 是你的字:空白分隔、sshu 從不解讀,而且 `/` 搜得到,打 `prod` 就把整群撈出來。一列上唯一的顏色標的是**不是 22 的 port**。credential 是可重用的身分(user + auth),host 用 `auth: credential` 整包引用。第四種 `auth: sshconfig` 什麼都不存:sshu 只送 destination,其餘 —— key、agent、ProxyJump —— 交給 `~/.ssh/config` 回答;ssh 進門時要問的東西,它問的時候才問你。**Config** 就是 `~/.ssh/config` 本身 —— tab `[3]` 早就在讀它了,因為 sshu 是去啟動真的 `ssh` —— 一列一個 `Host` 區塊(`Include` 會跟進去,所以清單涵蓋這棵樹真正有的每一個檔案),表單會帶上那個區塊剛好用到的每一個關鍵字。編一個區塊只會動到它自己的那幾行:註解、`Match` 區塊、以及 sshu 沒聽過的關鍵字都原樣通過。而每一台 host 自己的明細會說出這份檔案對它做了什麼 —— 所有命中區塊的聚集、每個關鍵字取第一個值，並標出哪些被 sshu 的命令列蓋掉了。**KnownHosts** 就是 `~/.ssh/known_hosts` —— 決定「你講話的對象是不是你以為的那台機器」的檔案,也是 sshu 在金鑰變了時直接拒絕連線的依據。`[X]` 就是那個拒絕的出路;`[A]` 去問那台機器要金鑰、**在認證之前停下**、把指紋給你看過才寫。**Logs 底下是三本,不是一本。** 以前那本 log 想同時回答三個問題,結果三個都答不好。現在拆開:**Errors** 記出了什麼事,一列一筆(時間、哪台、用誰的身分、原因),按 `Enter` 才展開遠端吐出來的完整內容 —— host key 對不上那種動輒十五行,你要的指紋就埋在中間。**Connections** 記你連過哪些機器、連上了沒有,每筆佔一列而且寬度固定,所以同一台機器的紀錄可以順著欄位一路往下看。**Changes** 記你動過什麼:host、credential、`~/.ssh` 底下的檔案、傳輸、改完存回去的檔。三本各有各的檔案,`[C]lear` 也是各清各的,而且確認的時候會告訴你它要清掉哪一個。
-
-**`[F]ile transfer`** —— 兩個各自獨立的檔案系統並排,1:1。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。任一側可以是本機或某台已存的 host,而且**兩側都可以是遠端**,所以上傳、下載、遠端對遠端是同一個操作而不是三個。標記你要的、跨到另一邊、送出。傳輸進行時,右上角的 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線同時兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。`/` 搜尋的是**整棵子樹**,不是螢幕上那個目錄;`v` 不用抓下來就能讀,`e` 直接用你自己的編輯器開。
-
-**`[S]SH`** —— 一個**活終端機的網格**,每一格都是自己 PTY 上的真 `ssh`。session 清單上 `[H]ide`(或 `Tab`)把格子從網格上拿掉、再按放回去,`Enter` 顯示並把鍵盤交過去、**按住 Alt 用方向鍵在格子間走**、`Alt+Esc` 把鍵盤收回來。游標掃過 session 清單時,對應的格子會在網格上跟著亮。layout 條紋決定排列:水平、垂直,或自訂欄數。`Alt+Z` 讓焦點格分階段變大 —— 先是網格區,再來連 sshu 自己的 chrome 和邊框都不畫、整片畫面都給它 —— 而最後那一階正是讓 sshu 裡面能再跑 sshu、又不必每層付掉 5 列的原因。`Alt+Enter` 則是驅動整條鏈的方式:鎖住一層,所有和絃就穿透到裡面那一層;它同時列出底下整疊,所以鏈上任何一層都能從這裡處理,不必自己走進去。
+- **不用背任何東西** —— 在任何 panel 上按 `Space`,列出來的就是這裡能做的全部。每一個字母快捷鍵也都是那個 menu 裡的一列。
+- **活 ssh session 的網格** —— 每一格都是自己終端機上的真 `ssh`,同時開幾個都行,可以水平、垂直或自訂欄數排列。`PgUp` / `PgDown` 翻回這個 session 的歷史。
+- **用鍵盤從 session 裡複製** —— `Alt+v` 凍結一格,用 vim 的鍵選字,`y` 放進系統剪貼簿。
+- **任兩台機器之間傳檔** —— 本機 ↔ 遠端 ↔ 遠端,同一個畫面。可以搜尋整棵子樹、不抓下來就先讀檔,或直接用你自己的 `$EDITOR` 打開、改完自動寫回去。
+- **sshu 裡面再開 sshu,幾層都行** —— 在 server 上也裝一份就好。`Alt+Z` 讓一格佔滿整個畫面、連 sshu 自己的框都不畫,`Alt+Enter` 把鍵盤一路往內層傳,所以多一層不多花任何畫面。
+- **就地管理你的 `~/.ssh` 檔案** —— 瀏覽、編輯 `~/.ssh/config` 與 `~/.ssh/known_hosts`,註解一行都不會掉。`auth: sshconfig` 的 host 什麼都不存,全部交給 `~/.ssh/config` 決定 —— ProxyJump、agent、金鑰都算在內。
+- **可重用的 credential** —— 一個 user 和它的驗證方式定義一次,任意數量的 host 都能引用。
+- **tag** —— 你自己下在 host 上的字,`/` 搜得到:打 `prod`,整群就出來了。
+- **看得懂的失敗** —— 不正常結束的 session 會說出 ssh 自己講了什麼,完整輸出留在 manage → Errors;旁邊還有每一次連線、每一筆你改過的東西的紀錄。
+- **密碼在磁碟上是加密的** —— 而且從不顯示、也不經過環境變數。
 
 ## 安裝
 
@@ -79,18 +64,10 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 go install github.com/vulcanshen/sshu/cmd/sshu@latest
 ```
 
-或 clone 下來編:
+### 需求
 
-```bash
-git clone https://github.com/vulcanshen/sshu.git
-cd sshu
-make build     # → ./sshu   (CGO_ENABLED=0、-trimpath、已 strip)
-./sshu
-```
-
-`Makefile` 包好了常用的事 —— `make build`、`make install`(→ `$GOBIN`)/ `make uninstall`、`make demo`(用 `demo/hosts.yaml` 跑,不碰你真正的設定)、`make package`(產 `dist/` 底下的 `.tar.gz`)、`make check`(fmt + vet + test)。直接跑 `make` 會列出全部。
-
-**Nerd Font 是必要條件、不是選配**:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫,而且版面會去量它們的寬度。
+- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。
+- **會送出 Alt 的終端機** —— sshu 的 `Alt+…` 鍵(離開 session 的 `Alt+Esc`、`Alt+v`、`Alt+Z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
 
 ### 移除
 
@@ -98,7 +75,7 @@ make build     # → ./sshu   (CGO_ENABLED=0、-trimpath、已 strip)
 curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh | sh
 ```
 
-移除 binary 後會**問過你**才碰設定目錄 —— `hosts.yaml` 和 `credentials.yaml` 都住在那裡,絕不擅自刪。
+移除 binary 後,會先問過你才碰設定目錄 —— 你的 host 和 credential 都在那裡。
 
 ## 快速開始
 
@@ -106,203 +83,187 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh |
 sshu
 ```
 
-開在 hosts 表格。按 `[A]` 加第一台 host,`Enter` 連線,`F` 切到檔案瀏覽器。第一次用的話,在任何 panel 上按 `Space` 讀一下那個 menu —— 它列的就是這個 panel 能做的全部。
+一打開就是 hosts 表格。按 `A` 加第一台 host,`Enter` 連線,`F` 切到檔案傳輸。不知道下一步要做什麼,就按 `Space`。
 
-## 你的資料放在哪
+## 五個鍵就能驅動 sshu
 
-同一個目錄裡的幾個 YAML 檔,依這個順序解析:
-
-| | |
+| 鍵 | 行為 |
 |---|---|
-| `$SSHU_CONFIG` | 直接指定目錄(`make demo` 和測試用的就是它) |
-| `$XDG_CONFIG_HOME/sshu` | 有設就用 —— macOS 上也一樣,所以你可以不要 `~/Library/Application Support` |
-| 都沒有 | `os.UserConfigDir()/sshu` |
+| **`Tab`** | 移到當前 tab 的下一個 panel(在 ssh tab 上是顯示或隱藏 session 的格子) |
+| **`Enter`** | 連線 / 進入目錄 / 確認選擇 |
+| **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu。也用來關掉任何浮層 |
+| **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
+| **`?`** | 全域說明 —— 所有的鍵列在同一張表 |
 
-`hosts.yaml` 放 host;`credentials.yaml` 放可重用的身分 —— 一個名字、一個 user、以及那個 user 怎麼驗證 —— host 用 `auth: credential` + `credential: <名字>` 整包拿走,「這條連線用誰」只寫在一個地方。`errors.yaml`、`connections.yaml`、`changes.yaml` 是磁碟上的那三本紀錄。全部都是可以手改的 YAML,每次寫入都是原子的(暫存檔 + rename)並**重新確立 `0600`**。
+用 **`M` / `F` / `S`** 切 tab;數字 `1`–`9` 直達當前 tab 的 panel。在遠端 session 裡打字時,每一個鍵都屬於遠端 —— 按 `Alt+Esc` 把鍵盤收回來。
 
-**密碼有加密**(AES-256-GCM),所以 `password:` 那一欄是 `ENC:…`,看不到密碼。鑰匙是同一個資料夾裡的 `.sshukey`,第一次啟動時自動產生;想換地方放,設 `SSHU_KEY_FILE`。不過它能擋的東西比聽起來少,下面有一整段在講這件事,建議讀完。
+## 三個 tab
 
-### 設定 —— `config.yaml`
-
-選用,放在同一個目錄,而且 **sshu 永遠不會寫它**:你手改過的檔案不會被重排,寫進去的註解也活得下來。檔案不存在就用預設值,所以它只需要寫你想改的那幾行。
-
-```yaml
-# 一次連線嘗試的預算,單位秒,預設 15。
-# ssh tab 把它交給 ssh 當 -o ConnectTimeout;sftp 側拿它當 dial timeout。
-connect_timeout: 15
+```
+ [M]anage ❯ [F]ile transfer ❯ [S]SH
 ```
 
-超出 1–600 的值一律當成打錯,改用預設。設定檔壞掉不會擋著不讓 sshu 啟動 —— 它用預設值跑,並且在 manage → Errors 裡說出來。
+**`[M]anage`** —— sshu 知道的一切,分成三類:
 
-### 密碼有加密,但別高估它
+- **SSHU** —— **Hosts**(蓋在 `hosts.yaml` 上、可搜尋的表格;`A` 新增、`E` 編輯、`Enter` 連線)與 **Credentials**(host 可以引用的共用身分)。
+- **SSH** —— **Config**(`~/.ssh/config`,一列一個 `Host` 區塊,`Include` 會跟進去;編一個區塊只動它自己的那幾行)與 **KnownHosts**(`~/.ssh/known_hosts`;先拿到某台機器的金鑰、看過指紋再決定要不要信任,或刪掉過時的那一筆)。
+- **Logs** —— **Errors**(出了什麼事;`Enter` 看遠端印出來的全部內容)、**Connections**(每一次 ssh 和 sftp 連線)、**Changes**(你改過什麼)。三本可以各自清空。
 
-密碼寫進磁碟之前會先用 AES-256-GCM 鎖起來,所以你在 `password:` 那一欄看到的是 `ENC:<base64>`,不是密碼本身。鑰匙叫 `.sshukey`,就放在 config 同一個資料夾,第一次啟動時自動產生,權限 `0600`,內容是一行 base64。想放到別的地方,設 `SSHU_KEY_FILE`。
+**`[F]ile transfer`** —— 左右兩側,各自可以是本機或某台已存的 host,所以上傳、下載、遠端對遠端都是同一個操作。標記檔案、跨到另一邊、送出。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。進度顯示在右上角,tab 列下方也有一條進度條。
 
-**先講清楚它保護的範圍,免得你以為比實際上安全。**
-
-| | |
-|---|---|
-| **有用** | 只有 `hosts.yaml` 或 `credentials.yaml` 流出去的時候 —— 貼到聊天室、不小心 commit、被備份掃走。那是一串密文,看的人什麼也拿不到 |
-| **沒用** | 整個 config 資料夾被同步或整包複製走。**鑰匙就在同一個資料夾裡。** 你自己電腦上的其他程式也一樣,它讀鑰匙的方法跟 sshu 完全相同 |
-
-換句話說,加密做的是**把祕密拆成兩份**,不是把祕密藏起來。以前一個檔案漏掉就全完了,現在要兩個一起漏才算。
-
-所以下面這句話跟以前完全一樣,一個字都不用改:**那個資料夾不要進版控、不要丟進雲端同步、不要讓備份掃到。**
-
-真的想連「整包被複製走」都擋掉,唯一的辦法是用 `SSHU_KEY_FILE` 把鑰匙搬到不會跟 config 一起被複製的地方。這不做成預設是有原因的:鑰匙一旦離開 config 資料夾,備份就得靠你自己記得,而鑰匙掉了,所有密碼就一起沒了。
-
-以前用來保護明文的措施一項都沒少:
-
-- 檔案固定 `0600`,每次寫入都重設一次,開頭還有一段警告
-- 密碼從來不會被畫在畫面上 —— 表單顯示 `••••`;credential 選單的遮罩是固定長度,連幾個字都看不出來
-- 交給 `ssh` 的方式是 `SSH_ASKPASS`,所以密碼**不會跑進子行程的環境變數**,`ps` 也看不到
-
-如果你的 config 裡還有舊的明文密碼,下次啟動 sshu 就會就地鎖起來,你什麼都不用做。要是你根本不想讓 sshu 碰到密碼,那就用 `auth: privatekey`,它只記一條路徑;或 `auth: sshconfig`,它什麼都不記,整個問題交給 `~/.ssh/config`。
-
-### Host key
-
-ssh tab 是把真的 `ssh` 執行檔叫起來,所以那邊的 host key 處理就是 OpenSSH 的,連同你的 `~/.ssh/config` 和 `known_hosts`。
-
-file transfer tab 自己講協定,而它的政策更嚴:**未知的 host 直接拒絕**而不是放行,**變過的 key 直接拒絕**而且不會拿出來當問題問你。要接受一台新的機器,先用 ssh tab 連一次 —— 那是 OpenSSH 的提示,用 OpenSSH 的指紋。
+**`[S]SH`** —— 活終端機的網格。在 session 上按 `Enter` 把鍵盤交給它,`Alt`+方向鍵在格子間移動,`Alt+Z` 放大焦點格,`Alt+Esc` 把鍵盤收回來。layout 條紋選水平、垂直或指定欄數。
 
 ## 按鍵
 
-底下每一個字母快捷鍵,同時都是那個 panel 的 `Space` menu 裡的一列。**方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 shift+A、`[t]ransfer` 是裸的 `t`,沒有標出來的東西不會動。
+底下每一個字母快捷鍵,同時都是那個 panel 的 `Space` menu 裡的一列。**方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 shift+A、`[t]ransfer` 是裸的 `t`。
 
 ### 到處都通
 
 ```
- tab       M / F / S(pty 裡:它們屬於遠端)
- panel     當前 tab 的 1–9  ·  Tab(ssh tab:顯示開關)
+ tab       M / F / S(session 裡:它們屬於遠端)
+ panel     當前 tab 的 1–9  ·  Tab(ssh tab:顯示 / 隱藏格子)
  游標      j k    u d(半頁)          gg G      方向鍵同義
  全域      Space menu    ? help    q 離開    Ctrl+C 強制離開
-           (pty / 編輯器裡 Ctrl+C 屬於它們 —— 先 Alt+Esc)
+           (session / 編輯器裡 Ctrl+C 屬於它們 —— 先 Alt+Esc)
 ```
 
 ### `[M]anage`
 
-左側 nav(`1`)選條目 —— **Hosts**、**Credentials**、**Config**、**KnownHosts**、**Errors**、**Connections**、**Changes**,分在 SSHU / SSH / Logs 三個 header 底下,游標會直接跳過 header —— 內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。鍵盤一交出去,整片 nav 就暗下來變成「`[2]` 在顯示什麼」的圖例;唯一還亮著的是未讀錯誤數。
+左側 nav(`1`)選條目,內容跟著游標換;`Enter` 或 `2` 把鍵盤移到內容上。
 
 | 鍵 | 動作 |
 |---|---|
-| `Enter` | hosts:連線(先問;credential host 在這一步就解析)· credentials:編輯,跟 `E` 是同一扇門 |
-| `V` | **View** —— 這一列到底裝了什麼,唯讀。host 分「連線」與「認證」兩段,credential 只有認證那一段。存起來的密碼一律是固定寬度的遮罩、永遠不顯示值;credential host 就地解析 —— 包括它指向的 credential 已經不在時,直接說出來 |
+| `Enter` | Hosts:連線(先問)· Credentials:編輯 · Errors:看完整輸出 |
+| `V` | 唯讀檢視這一列裝了什麼 —— 密碼一律遮起來 |
 | `A` | 新增 host / credential |
-| `E` | 編輯游標這一列 —— host 或 credential |
-| `D` | **複製** —— 開一個每一欄都已經從這一列填好的 Add 表單。什麼都還沒寫進檔案,也沒有發明任何名字:表單是完整的,所以 `Enter` 就是存檔,而它帶著的名字被它自己複製的那一列佔著。第一次 `Enter` 一定被擋在 Name 上,而游標本來就在 Name 上 |
-| `X` | 刪除(先問 —— 刪 credential 會數還有幾台 host 引用它)。這件事原本是 `D`;現在 sshu 裡 `D` 一律是複製、`x`/`X` 一律是刪掉 |
-| `/` | hosts:搜尋 —— name / user / host / port / tags 一起比對,依分數排序 |
-| `C` | Errors / Connections / Changes:清空**當前這一本**(先問,而且指名它要清掉哪一個檔) |
-| `Enter` | Errors:打開遠端印的全部內容 |
+| `E` | 編輯游標這一列 |
+| `D` | 複製 —— 開一個從這一列預先填好的新增表單,換個名字就能存 |
+| `X` | 刪除(先問) |
+| `/` | 搜尋 host —— name、user、host、port、tags 一起比對 |
+| `C` | Errors / Connections / Changes:清空這一本(先問) |
 
-表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位;`←` `→` 切 Auth(password / privatekey / **credential** / **sshconfig**)。選了 `credential`,User 列會變暗:user 由 credential 供應,而選單會直接說出它要用哪把金鑰 —— 換成密碼的話,那裡是一個固定長度的遮罩。
+host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **password**、**privatekey**、**credential**、**sshconfig** 之間切 Auth。`Enter` 會跳到下一個還沒填的欄位,必填的都填了就存檔 —— 底部的提示會說它這次會做哪一個。**Tags** 選填,用空白分隔。
 
-**Tags** 是最後一列,也是唯一可以留空的一列:空白分隔,其餘字元一律 literal(`k8s:prod` 是一個 tag),留空就是一份填完的表單。
-
-**`Enter` 在每一欄上都只問一個問題:這張表填完了沒有?** 填完了就存;沒填完它就是「下一欄」,而且會繞回去 —— 所以按著 `Enter` 不放,會走完整張表然後把它送出去。「填完」的定義跟著 Auth 走,因為它就是 Auth 留著亮的那幾列:`password` 要 Password、`privatekey` 要 IdentityFile、`credential` 要 Credential 而且不再要 User;`sshconfig` 除了 Host 什麼都不要 —— Port 和 User 還亮著但變成選填,空著就是 ssh 決定;一個還停在預設 `22` 的 Port 會被清空,因為送出去的 `-p 22` 會蓋掉 config 裡的。浮層底部的 hint 會說 `Enter` 現在是哪一個 —— 還缺東西時是 `next`,一補齊就翻成 `save` —— 所以「為什麼 Enter 沒有存」在你問出來之前就已經有答案了。
-
-有值不等於有效,而兩件事說在不同的地方:前者看 hint,後者看紅色的錯誤列。Port 打 `0` 是有填的,所以 `Enter` 會送出 —— 然後由驗證把它退回來。
-
-兩個「選值欄位」保留一個例外:**空著的 IdentityFile 或 Credential 上按 `Enter` 是開選單**,因為「下一欄」在那裡會跳過唯一一列沒有別的辦法可以填的欄位。有值之後它們就是普通的列,`Backspace` 整行清除。
-
-### `[F]ile transfer` —— 小寫是游標那一列,大寫是整個 panel
+### `[F]ile transfer` —— 小寫作用在游標那一列,大寫作用在整個 panel
 
 | 鍵 | 動作 |
 |---|---|
-| `h` `l` | 跨到另外半邊,保持同一列(`[2]`↔`[4]`) |
-| `Enter` | 進入游標所在的目錄 —— 或前往搜尋找到的那個東西 |
-| `a` | **Append to marks** —— 再按一次就把 mark 拿掉。正在被寫入的檔案會被拒絕:mark 是「這個路徑可以拿來操作」的承諾,半個檔案不是 |
-| `r` | 就地改名 |
-| `v` | **讀它** —— 文字帶語法上色與行號,二進位轉 hex,目錄列出內容 |
-| `e` | 用 `$EDITOR` **編它** —— 抓下來、編、寫回去 |
+| `h` `l` | 跨到另一側 |
+| `Enter` | 進入目錄 —— 或前往搜尋結果 |
+| `a` | 標記 / 取消標記 |
+| `r` | 改名 |
+| `v` | 檢視 —— 文字帶語法上色,二進位轉 hex,目錄列出內容 |
+| `e` | 用 `$EDITOR` 編輯 —— 遠端的檔案會抓下來、改完寫回去 |
 | `t` | 傳到另一側的當前目錄 |
-| `x` | 刪掉(先問) |
-| `/` | **搜尋整棵子樹** —— `Enter` 帶你到結果所在的位置、游標停在它上面,`a` / `t` / `v` / `e` / `x` 從那裡全部能用 |
-| `A` | **新增** —— `name` 建空檔,`name/` 建目錄 |
-| `R` | **重讀** —— 立刻重讀這個目錄。背景輪詢只在目錄 mtime 變動時才重列,而 mtime 不是承諾 |
-| `T` | 傳這一側全部的 marks |
-| `X` | 刪這一側全部的 marks(先問) |
-| `c` / `C` | 清一個 mark(在 marks panel 上)/ 清空全部 —— 只是忘記它們,磁碟上什麼都不動 |
-| `H` | **Host** —— 切換這一側。`local` 排第一,而且開在**你啟動 sshu 的那個目錄**。該側還沒有 host 時,`Space` 直接開這張清單:只有一列的 menu 不是答案 |
-| `D` | **斷線** —— 這一側回到完全沒有 host 的狀態 |
-| `J` | **Jobs** —— 進行中的傳輸,可逐條取消 |
+| `x` | 刪除(先問) |
+| `/` | 搜尋整棵子樹 |
+| `A` | 新增 —— `name` 建檔案,`name/` 建目錄 |
+| `R` | 重讀這個目錄 |
+| `T` | 傳這一側全部的標記 |
+| `X` | 刪這一側全部的標記(先問) |
+| `c` / `C` | 清一個標記 / 清掉全部(磁碟上什麼都不動) |
+| `H` | 選這一側的 host(`local` 排第一) |
+| `D` | 這一側斷線 |
+| `J` | Jobs —— 進行中的傳輸,可逐條取消 |
 
-正在被寫入的檔案,**mark 欄會顯示 spinner** —— 它存在,但還沒到齊 —— 它正在
-落進去的那個目錄也一樣,因為傳一整棵樹的時候,你看得見的那一列就是目錄。兩者
-都在 job 結束的那一刻消失,清單同時重讀。
-
-**傳輸進行中,`H` 與 `D` 會凍結**:兩者都是把某一側底下的檔案系統抽掉,而每
-一筆傳輸都同時掛著兩側。那兩列**留在 Space menu 裡、整列暗掉**(不是消失 ——
-它們屬於這個 panel,只是此刻不能做),按下去會叫你先去 `J` 取消。右上角的
-summary 在傳輸期間會轉。
+傳輸進行中不能用 `H` 和 `D` —— 先到 `J` 取消。
 
 ### `[S]SH`
 
 | 鍵 | 動作 |
 |---|---|
-| **`H`** | **Hide** —— 把這個 session 的格子從網格上拿掉,再按放回去。session 一連上就自動在網格上,所以這一列絕大多數時候在做的是「拿掉」。`Tab` 做同一件事:它是這個 tab 自己的鍵,就像在其他 tab 一樣 |
-| `Enter` | 顯示這個 session **並把鍵盤交給它**(側欄同時收起) |
-| `C` | 關掉這個 session(先問) |
-| *(沒有熱鍵,只在 `Space` menu)* | **Close all sessions** —— 一次關掉全部,先問,而且問題裡帶數量。**刻意不給字母**:關掉每一條連線是破壞性且罕見的,而字母就是那個會被一隻只想捲清單的手按到的東西 |
-| `D` | 複製 —— 對同一台再開一個 session(先問)。鍵盤**留在清單上**、游標落在新的那一條:你按的那個 Enter 是對確認框按的,只有對一列按 Enter 才是「帶我進去」 |
-| **`PgUp` / `PgDown`** | **翻這一格的歷史** —— 遠端不在 alt screen 時;打任何字都會拉回 live |
-| **`Alt+Z`** | **分階段變大** —— *zoom panel* 是這一格佔滿網格區,*zoom max* 連 sshu 自己的 chrome 和邊框都不畫、整片畫面都給它,第三下回到正常。不會改變畫面的那一階自動跳過,所以只有一格時第一下就直接到 zoom max。zoom max 這一階正是巢狀不再收費的原因:內層 sshu 一列都不吃 |
-| **`Alt+Enter`** | **lock/release** —— 給遠端也在跑 sshu 的巢狀場景。locked 的格子把每一個鍵都穿透過去,內層 sshu 的和絃就全部活了,而 Alt+Enter 是 lock 唯一吞不掉的鍵。選單會列出這一層底下的每一層與它們的狀態,並且可以直接對其中任一層下手;有鏈的時候另外帶兩列整鏈動作 |
-| **`Alt+方向鍵`** | 往那個方向的鄰格移動 —— 空間移動,不用記編號、重排無感。zoom 中照樣走,而且留在同一階 |
-| **`Alt+Esc`** | **一次剝一層** —— 先離開選取模式,再**逐階**退出 zoom,最後才把鍵盤從遠端手上收回來(回到清單,側欄回來) |
-| **`Alt+v`** | **選取模式** —— 凍結這一格,把字複製出去。再按一次(或 `Alt+Esc`)離開 |
-| *(選取模式中)* `hjkl` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 移動游標 —— 撞到上下邊界就把凍結的頁面捲一行 —— 依 word 前進或後退、到列首或列尾、以及一次半個畫面 |
-| *(選取模式中)* `v` / `V` · `y` · `Esc` | 依字元 / 依整行選取(再按同一個鍵取消)· 複製到剪貼簿並離開 · 先丟掉選取,再離開模式 |
+| `H` / `Tab` | 把這個 session 的格子從網格上拿掉,或放回去 |
+| `Enter` | 顯示這個 session 並把鍵盤交給它 |
+| `C` | 關掉這個 session(先問)—— 「全部關掉」在 `Space` menu 裡 |
+| `D` | 對同一台再開一個 session(先問) |
+| `PgUp` / `PgDown` | 翻這一格的歷史(打字就回到即時畫面) |
+| `Alt+Z` | 分階段放大:佔滿網格區、再佔滿整個畫面、再回到原樣 |
+| `Alt+Enter` | Lock / release —— 巢狀 sshu 用:把每一個鍵都傳給內層那一個 |
+| `Alt+方向鍵` | 移到那個方向的鄰格 |
+| `Alt+Esc` | 退一步 —— 先離開選取模式,再退出放大,最後把鍵盤收回來 |
+| `Alt+v` | 選取模式 —— 凍結這一格,從裡面複製 |
 
-layout 條紋(`2`,在左欄底部 —— 右側整片留給終端機)決定網格排列:`j`/`k` 在**水平 / 垂直 / 自訂**之間走、走到就生效;在自訂上按 `Enter` 問**幾欄**(一個 1–9 的數字),列數由 session 數自己推出來。
+**選取模式**(`Alt+v`)用 vim 的鍵:
 
-清單上一個項目是兩行:上面是你叫它什麼,下面是 `<user>@<host>:<port>` —— ssh 自己的拼法,也就是這條連線實際上是什麼。第一行開頭是顯示欄 —— 有格子的是 monitor glyph、沒有的是劃線的那個。兩行都不折:名字太長就截,位址太長就在保留的 `@` 兩側各自縮,所以一個項目永遠剛好兩行。游標移動時,對應格子的外框在網格上同步亮 —— 這一列和那一格本來就是同一個 session,所以一起亮。亮的是**游標自己的顏色**,不是 focus 藍:藍色的意思是「鍵盤在這裡」,螢幕上出現兩個藍框只會讓你得停下來找哪一個才是活的。
+| 鍵 | 動作 |
+|---|---|
+| `h` `j` `k` `l` | 移動(超過上下邊界時,凍結的頁面會跟著捲) |
+| `w` / `e` / `b` | 下一個 word 開頭 / word 結尾 / 上一個 word 開頭 |
+| `0` / `$` | 列首 / 列尾 |
+| `u` / `d` | 往上 / 往下半個畫面 |
+| `v` / `V` | 依字元 / 依整行選取 |
+| `y` | 複製到系統剪貼簿並離開(什麼都沒選:游標那一行) |
+| `Esc` | 先丟掉選取,再離開 |
 
-`Alt+Esc` 是 sshu 自己的鍵,只為一個情況存在:網格的格子把每一個按鍵都交給遠端,所以總得有東西能把它收回來。其他地方,單純的 `Esc` 就夠了。`Alt+Enter` 是它的對手:`Esc` 從這一層出去,`Enter` 進入層的管理 —— 巢狀 sshu 時,lock 這一層,鍵就穿到下一層。
+複製靠 `pbcopy`、`wl-copy`、`xclip` 或 `xsel`,有裝哪個就用哪個。
 
-`Alt+v` 是把字從格子裡拿出來的方式。終端機自己的選字是最明顯的那條路,而網格正好是破壞它的東西:拖曳是沿著螢幕的實體列走的,一拖就順手把邊框和隔壁格子同一列的輸出一起抓進來。業界的標準解法是開滑鼠、自己接管拖曳 —— sshu 不做,因為開了 mouse tracking 就等於把**整個 app** 的原生選字拿掉,包括清單和浮層這些原生選字仍然好用的地方。所以這是一個鍵盤模式,而它在自己以外不花任何東西。
+layout 條紋(`2`,左下角):`j` / `k` 在**水平**、**垂直**、**自訂**之間切換;在自訂上按 `Enter` 輸入欄數。
 
-進去之後那一格**停止跟著遠端跑** —— session 沒有停、照樣在讀,只是一個會在你選到一半時重排的頁面,是沒有人選得起來的頁面 —— 而外框轉黃就是在說這件事。鍵是 vim 的:`hjkl` 移動、`w`/`e`/`b` 依 word、`0`/`$` 到列首或列尾、`u`/`d` 半個畫面、`v` 或 `V` 開始依字元或依整行選取、`y` 複製並離開。什麼都沒選時 `y` 拿游標那一行,於是「複製剛剛印出來的東西」是三個鍵的事。字會透過 `pbcopy`、`wl-copy`、`xclip` 或 `xsel`(誰在就用誰)進**系統**剪貼簿,所以貼進編輯器不需要終端機幫任何忙;而且它一定會回報複製了幾行,或者在做不到時告訴你該裝什麼。
+## 設定
 
-`PgUp` / `PgDown` 是**借**來的,不是拿走的:全螢幕程式自己就用這兩個鍵翻頁,而它進場時會切到 alt screen —— 那件事本身就是宣告,所以它在的時候鍵原封不動送過去。純 shell 輸出不會翻頁,那正好是需要有人提供捲動的時候。正在放歷史的格子會在 title 說出來(`󰋚` 加往回幾行),因為一個在放歷史的格子和一個遠端已經沒聲音的格子,是同一張靜止的畫面。
+### 你的資料放在哪
 
-## 特色
+sshu 所有的檔案都在同一個目錄:
 
-- **零學習成本** —— 每一個動作都在 `Space` menu 裡、依當下情境、每個 panel 都有。menu 和字母快捷鍵是同一張表產生的,所以「menu 裡沒有的快捷鍵」不可能存在。
-- **menu 分兩區** —— `item`(對游標那一列做什麼,標題就是那一列)和 `panel`(對這一側做什麼)。只有一區的時候維持扁平。
-- **並存 ssh session 的網格** —— 每一個都是 embedded PTY 裡的真 `ssh`,同時上畫面幾個都行,水平、垂直或自訂列 × 行排列。每一格的遠端只在尺寸真的變了才收到通知。結束的 session 立刻離開網格並放掉模擬器;鍵盤絕不會默默落進另一台遠端。
-- **sshu 裡面再開 sshu,幾層都行,而且不收費** —— 在 server 上裝它也是一行指令的事,所以巢狀是自然會發生的事,不是要迴避的情境。`Alt+Enter` 鎖住一層,所有和絃就穿透到裡面那一層;每一層會往外自我通報,所以最外層列得出整條鏈,而且可以直接對其中任何一層下鎖,不必自己走進去。而 `Alt+Z` 的最後一階連 sshu 自己的 chrome 和邊框都不畫 —— 這才是讓一層變成免費的原因:在那之前每層要吃 5 列,80×24 的終端機上第三層只剩 4 列可用。選單有一列可以一次處理整條鏈。
+| | |
+|---|---|
+| `$SSHU_CONFIG` | 有設就用這個目錄 |
+| `$XDG_CONFIG_HOME/sshu` | 有設就用 —— macOS 上也一樣 |
+| 都沒有 | `os.UserConfigDir()/sshu`(macOS 是 `~/Library/Application Support/sshu`,Linux 是 `~/.config/sshu`) |
 
-- **sshu 從不解讀的 tag** —— 你自己下在 host 上的字,空白分隔,畫在那一筆的第二列,而且 `/` 會連它一起比對,打 `prod` 一次撈出整群。sshu 只做兩件事:顯示它、讓它可以被搜 —— 凡是程式會去解讀的欄位,你就得學一套規則,而這個欄位只有一條規則:空白會斷開,其餘都是字面。
-- **只標例外、不裝飾常態的顏色** —— name / user / host 共用一個色調,因為它們是同一件事;一列上唯一的顏色是**不是 22 的 port**。二十台裡只有兩台開在奇怪的 port,那兩個正是一眼該落上去的地方。auth 靠 glyph 區分而不是顏色:每一列都有 auth,而標記每一列的顏色等於什麼都沒標。
-- **知道自己版本的設定檔** —— 舊版的 `hosts.yaml` 會在 sshu 啟動時改寫成當前格式,而**更新版**的 sshu 寫出來的檔絕不會被覆蓋。兩個檔各自計數,所以動了其中一個,不會害舊版拒絕另一個。
-- **住在 `~/.ssh/config` 裡的 host** —— `auth: sshconfig` 只有一個名字和一個 destination;port 和 user 選填,其餘都是那個檔案的事。[S]SH tab 本來就是這樣。[F]ile transfer tab 現在會為這種 host 啟動真的 `ssh -s sftp`,所以 ProxyJump、agent、有 passphrase 的私鑰在那裡也都能用 —— 而 ssh 要問的東西,不管是密碼還是沒見過的 host key,都會以 ssh 的原句跳成 popup,答案直接回給 ssh、不存。在那個 popup 上按 `Esc` 取消的是整條連線,不只是那個框。
-- **可重用的 credential** —— 一個 user 加上他怎麼驗證,存一次在 `credentials.yaml`,任意數量的 host 用 `auth: credential` 引用。解析發生在門口:連線確認框顯示的就是實際要用的身分,斷掉的引用在那一步就用一句話失敗,不會走進 ssh 裡才爆。
-- **兩側對等的 sftp** —— local ↔ remote ↔ remote 走同一個 `FS` 介面。marks 是分側的;一個 mark 是一條絕對路徑,所以改名它會跟著走,刪掉它會被拿掉。
-- **遞迴子樹搜尋** —— `/` 走遍當前目錄底下整棵樹,**廣度優先**(SFTP 上每一層目錄都是一次 round trip,所以近的先到),串流、可取消、有上限,而且**就地畫出來**。`Enter` 把你帶到結果所在的位置、游標已經停在它上面,從那裡標記它、傳它,不需要學任何新東西。
-- **抓下來之前先讀** —— `v` 顯示游標那一項:文字帶語法上色與行號(chroma + catppuccin-mocha,跟 filu 同一套),二進位是 xxd 風格的 hex dump,目錄是它的第一層列表。最多讀 64 KiB,因為在遠端那一側每一個 byte 都要過網路。檔案裡的跳脫序列會被剝掉:那些 bytes 是從別人的機器上來的,不處理的話會重畫你的終端機。
-- **用你自己的編輯器編** —— `e` 用 `$VISUAL` / `$EDITOR` 打開游標那一項(`vi` 只是地板,不是依賴),跑在 embedded terminal 裡所以框還在。遠端的檔案抓下來、編、寫回去;本機的檔案就地編,所以它的 inode —— 以及指向它的每一個 hard link —— 都還在。內容沒有真的變就不會寫回去;寫入是原子的,斷線不會留下一份被截斷的設定檔;而在你開著它的時候被別人改過的檔案,絕不會不問一聲就蓋掉。
-- **真的傳輸引擎** —— 整個 plan 在動手之前就算完,所以進度條的分母從第一格就是對的,而覆寫在一開始就一次問完。可逐條取消;取消或失敗的檔案會被移除,而不是留在那裡看起來像完成了。
-- **目錄保持最新,而且很便宜** —— SFTP 沒有變更通知,所以 sshu 去 stat 目錄、比對 mtime,只有動了才重新列。每隔幾秒一次很小的 round trip,而不是整份重列,而且只在這個 tab 在畫面上的時候做。
-- **vt10x 不留的終端機歷史,自己留** —— 模擬器是一塊固定的 grid,離開頂端的列會被它清掉,所以每一塊從 PTY 讀進來的 bytes 在進模擬器的同時就被切成行存起來,顏色一起留著。`PgUp` / `PgDown` 翻最近 10000 行。alt screen 期間不收:全螢幕程式每按一個鍵就重畫整個視窗,照單全收會把真正值得捲回去的 shell 歷史沖掉。`\x1b[3J`(遠端明確要求清掉 scrollback)會清,`\x1b[2J` 不會。`clear` 送哪一個由 `TERM` 決定、不是由作業系統決定,而 sshu 把 pty 的 `TERM` 釘死成 `xterm-256color`,它的 terminfo 有那個 erase —— 所以在遠端打 `clear` 一定會清掉該 session 的歷史。`Ctrl+L` 只送 `\x1b[2J`,歷史留著:兩個手勢,兩種意思。
-- **還沒接通的連線會說自己在連** —— 格子畫的是 PTY,而 ssh 等 TCP 的時候什麼都不印,所以連不上的主機以前就是一個空框、空到作業系統放棄為止。判準是**對面有沒有送出過 byte**,不是網格空不空:在那之前,panel 會說出對方是誰、以及等了幾秒。
-- **沒有東西會無聲死掉,也沒有東西只講一次** —— 不正常結束的 session 會跳 toast,說是哪一台、以及 **ssh 自己說了什麼**(`Connection refused`,不是 `disconnected`);網格會留著那句話而不是變回空框;**Errors** 按 `Enter` 展開的是遠端**最後那整個畫面** —— 連線被拒絕只有一行,但 host key 對不上會吐十五行,而你要的指紋剛好在中間。列表本身維持一列一筆,所以整頁失敗是拿來掃的,不是拿來讀的。三本紀錄都會存到磁碟,關掉重開還在;還沒讀的錯誤數會掛在 nav 和底部,直到你去看為止。
-- **三本紀錄,不是一本 log** —— 出了什麼事、連過哪些機器、動過哪些東西。這三件事該長的樣子根本不一樣:連線紀錄要整齊、一列一筆才數得出來;失敗訊息卻是遠端吐出來的十五行。全部塞在一起,你想找的那種永遠被另外兩種蓋住。
-- **任何離開方式都不留孤兒** —— 每個 ssh 子行程都在自己的 PTY session 上,訊號自己到不了它。一個 registry 認得它們全部,而每一條出路 —— `q`、`Ctrl+C`、外部的 SIGINT/SIGTERM、甚至關掉終端機視窗(SIGHUP)—— 都會順路帶走它們。
-- **frame 不變量** —— 每一條畫出來的線都剛好是終端機的寬度,任何尺寸、任何內容。從遠端來的寬字元、量起來不一樣的 Nerd Font glyph、CJK 檔名,全部靠「量」而不是「猜」;而且有一個測試橫跨尺寸、focus 狀態與資料在檢查它。
-- **unix-first、靜態執行檔** —— macOS + Linux;`CGO_ENABLED=0`。
+| 檔案 | 內容 |
+|---|---|
+| `hosts.yaml` | 你的 host |
+| `credentials.yaml` | 可重用的身分 —— 一個名字、一個 user、以及它怎麼驗證;host 用 `auth: credential` + `credential: <名字>` 引用 |
+| `config.yaml` | 設定(選用,見下方) |
+| `errors.yaml` · `connections.yaml` · `changes.yaml` | 三本紀錄 |
+| `.sshukey` | 加密密碼用的鑰匙 |
 
-## 現況
+全部都是可以手改的 YAML,權限維持 `0600`。
 
-**v1.7.1。** 選取模式會依 word 走了:`w`、`e`、`b`、`0`、`$` 是 vim 的,規則也一併照搬。v1.7.0 帶來的是一台 sshu 什麼都不存的 host:`auth: sshconfig` 把 port、user、key、路線全部留給 `~/.ssh/config`,[F]ile transfer tab 透過真的 `ssh` 連它,ssh 進門時要問的東西會跳 popup 問你,答案不寫進任何地方。v1.6.0 的東西都還在:host 上的 tag 與裝它的兩列式條目、只標例外而不裝飾常態的顏色、一本 log 拆成三本紀錄、磁碟上加密的密碼,以及 sshu 裡面再開 sshu 幾層都行而且沒有任何一層吃掉一列畫面。此外仍然是:三個 tab 各一個 shift 過的字母、分類的 nav、可重用的 credentials 與唯讀明細(這一列到底裝了什麼 —— `Enter` 打開,要去哪就在它腳底下問)、可翻歷史的 ssh 終端網格,以及不留孤兒的行程收尾。`make check` 綠、`-race` 乾淨。見 [CHANGELOG.md](CHANGELOG.md)。
+### 設定 —— `config.yaml`
 
-還沒有的:
-- **sftp 側未知 host key 的互動確認**(password / privatekey / credential 的 host)—— 今天是直接拒絕,要先用 ssh tab 接受;`sshconfig` 的 host 由 ssh 自己來問
-- **sftp 側的加密私鑰**(`privatekey` 的 host)—— 會如實回報,但還不能用;agent 支援是可能的解法;`sshconfig` 的 host 這兩樣都已經透過 ssh 拿到
-- 遠端內容搜尋(那需要在對面跑指令,而這個 tab 刻意不做這件事)
-- hosts 表格的 `[S]ftp` 捷徑,把游標那一台直接接到檔案瀏覽器 focus 的那一側
-- 滑鼠、`hosts.yaml` 的 `fsnotify` reload、session 保存、keychain 撐腰的密碼儲存
+選用;sshu 只讀不寫,所以你的註解和排版都不會被動到。沒寫的項目用預設值。
+
+```yaml
+# 一次連線嘗試的時間上限,單位秒(1–600),預設 15。
+connect_timeout: 15
+```
+
+### 密碼
+
+存起來的密碼用 AES-256-GCM 加密,所以 `password:` 那一欄是 `ENC:…`。鑰匙是同一個目錄裡的 `.sshukey`,第一次啟動時自動產生;想放到別處,設 `SSHU_KEY_FILE`。
+
+|  |  |
+|---|---|
+| **擋得住** | 只有 `hosts.yaml` 或 `credentials.yaml` 流出去 —— 貼到聊天室、不小心 commit、被備份掃走 |
+| **擋不住** | 整個設定目錄被複製走,因為**鑰匙就在裡面**;以及任何以你的身分在跑的其他程式 |
+
+所以**設定目錄不要進版控、不要放進同步資料夾、不要讓備份掃到。** 想連「整個目錄被複製」都擋住,就用 `SSHU_KEY_FILE` 把鑰匙放到別的地方 —— 但那把鑰匙得你自己備份,鑰匙掉了,存起來的密碼就全部跟著沒了。
+
+密碼從不顯示在畫面上,交給 `ssh` 的方式是 `SSH_ASKPASS`,不會經過環境變數或命令列。如果你根本不想讓 sshu 存密碼,用 `auth: privatekey`(只存一條路徑)或 `auth: sshconfig`(什麼都不存)。
+
+### Host key
+
+- **ssh tab** —— 執行的是真的 `ssh`,所以 host key 由 OpenSSH 處理,用的是你的 `~/.ssh/config` 和 `known_hosts`。
+- **file transfer tab** —— 未知的 host、變過的 key 都直接拒絕,不會問你。要接受一台新機器,先從 ssh tab 連一次,或在 manage → KnownHosts 按 `A`。(`auth: sshconfig` 的 host 在這裡也走真的 `ssh`,問的是 OpenSSH 自己的提示。)
+
+## 已知限制
+
+- file transfer tab 無法對 password、privatekey、credential 的 host 互動確認未知的 host key —— 先從 ssh tab 接受它。
+- file transfer tab 上,`privatekey` host 不能用有 passphrase 的私鑰;改用 `auth: sshconfig` 的 host,它走 `ssh` 和 agent。
+- 不能搜尋遠端檔案的內容。
+- 沒有滑鼠支援、`hosts.yaml` 在磁碟上改了不會自動重讀、不保存 session、密碼不存進 keychain。
+
+## 延伸閱讀
+
+- [CHANGELOG.md](CHANGELOG.md) —— 每一版改了什麼
+- [docs/dev-remarks.md](docs/dev-remarks.md) —— sshu 的行為細節,以及為什麼是這樣
+- [docs/sshu-ui-design.md](docs/sshu-ui-design.md) —— 完整的設計紀錄,包含被否決的做法
+- [docs/sshu-implementation.md](docs/sshu-implementation.md) —— 逐條對照 [the TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/tui-design/README.md)
+
+從原始碼建置:`make build`、`make check`(fmt + vet + test),`make demo` 用 `demo/hosts.yaml` 跑、不碰你的設定 —— 直接跑 `make` 會列出其他的。
 
 ## 用什麼做的
 
-Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,`v` 的語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。
+Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。
