@@ -43,7 +43,7 @@ var helpContent = []helpEntry{
 	{"?", "this help"},
 	{"", "Global"},
 	{"q", "quit"},
-	{"Ctrl+C", "force quit"},
+	{"Ctrl+C", "quit (twice: at once)"},
 	{"", "ssh grid"},
 	{"Tab", "toggle a session's cell (on [1])"},
 	{"Alt+arrows", "move between cells"},

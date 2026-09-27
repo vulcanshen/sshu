@@ -79,7 +79,7 @@ It opens on the hosts table. Press `A` to add your first host, `Enter` to connec
 |---|---|
 | **`Tab`** | Move focus to the next panel of this tab (on the ssh tab it shows or hides a session's cell) |
 | **`Enter`** | Connect / enter a directory / commit a choice |
-| **`Space`** | *What can I do here?* — the menu for whatever has focus. Also closes any popup |
+| **`Space`** | *What can I do here?* — the menu for whatever has focus. Press it again to close the menu |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
 | **`?`** | Global help — every key in one list |
 
@@ -111,7 +111,7 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
  tabs      M / F / S                 (inside a session: they are the remote's)
  panels    1–9 of the current tab  ·  Tab (ssh tab: show/hide cell)
  cursor    j k    u d (half page)     gg G      arrows are synonyms
- global    Space menu    ? help    q quit    Ctrl+C force quit
+ global    Space menu    ? help    q quit    Ctrl+C quit (twice: at once)
            (in a session or an editor, Ctrl+C is theirs — Alt+Esc first)
 ```
 

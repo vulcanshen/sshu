@@ -5,15 +5,16 @@ import (
 	"testing"
 )
 
-// The audit, as a table: every float in the app, and whether Space dismisses it.
+// The audit, as a table: every kind of float, and what Space does on it.
 //
-// An entry key that only works one way is a trap — the user reaches for the same
-// key to get out, nothing happens, and the surface looks stuck. The one
-// exception is a float being typed into, where a space is a space (§4.5).
+// Space closes the Space menu it opened — an entry key that only works one way
+// is a trap. On every other float it does nothing (tdp K5, F6): a confirm that
+// Space dismissed would be Space doing Esc's job. On a float being typed into,
+// a space is a space (tdp K8).
 //
-// A new float that forgets either half of this fails here, which is the point of
-// listing them all rather than testing the one that was reported.
-func TestSpaceDismissesEveryFloat(t *testing.T) {
+// Listing them all rather than the one that was reported is the point: a new
+// float that gets it wrong fails here.
+func TestSpaceClosesOnlyTheSpaceMenu(t *testing.T) {
 	inSFTP := func(t *testing.T, keys ...string) AppModel {
 		t.Helper()
 		m := sftpFixture(t, 100, 26)
@@ -28,13 +29,13 @@ func TestSpaceDismissesEveryFloat(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name string
-		open func(*testing.T) AppModel
-		live func(AppModel) bool
-		text bool // Space is a character here, not a key
+		name   string
+		open   func(*testing.T) AppModel
+		live   func(AppModel) bool
+		closes bool // only the Space menu
 	}{
 		{"space menu", onHosts(" "),
-			func(m AppModel) bool { return m.spaceMenu.isActive() }, false},
+			func(m AppModel) bool { return m.spaceMenu.isActive() }, true},
 		{"help", onHosts("?"),
 			func(m AppModel) bool { return m.help.isActive() }, false},
 		{"confirm", onHosts("X"),
@@ -44,12 +45,13 @@ func TestSpaceDismissesEveryFloat(t *testing.T) {
 		{"transfers", func(t *testing.T) AppModel { return inSFTP(t, "J") },
 			func(m AppModel) bool { return m.transfersUI.isActive() }, false},
 
+		// Typed into: the space lands as a character (TestSpaceTypesIntoTheRenameBox).
 		{"host form", onHosts("A"),
-			func(m AppModel) bool { return m.form.isActive() }, true},
+			func(m AppModel) bool { return m.form.isActive() }, false},
 		{"file picker", openPicker,
-			func(m AppModel) bool { return m.picker.isActive() }, true},
+			func(m AppModel) bool { return m.picker.isActive() }, false},
 		{"rename", func(t *testing.T) AppModel { return inSFTP(t, "r") },
-			func(m AppModel) bool { return m.input.isActive() }, true},
+			func(m AppModel) bool { return m.input.isActive() }, false},
 	} {
 		m := tc.open(t)
 		if !tc.live(m) {
@@ -57,11 +59,24 @@ func TestSpaceDismissesEveryFloat(t *testing.T) {
 		}
 		m = pressA(m, " ")
 		switch {
-		case tc.text && !tc.live(m):
-			t.Errorf("%s: Space is a character here and must not dismiss it", tc.name)
-		case !tc.text && tc.live(m):
-			t.Errorf("%s: Space should have dismissed it", tc.name)
+		case tc.closes && tc.live(m):
+			t.Errorf("%s: Space should have closed it", tc.name)
+		case !tc.closes && !tc.live(m):
+			t.Errorf("%s: Space must not close it (tdp K5)", tc.name)
 		}
+	}
+}
+
+// Space on a float stacked above the Space menu does nothing either — not even
+// to the menu underneath, which is not the float being looked at.
+func TestSpaceOnAFloatAboveTheMenuDoesNothing(t *testing.T) {
+	m := pressA(appWith(sample(), nil), " ", "X") // delete confirm, from the menu
+	if !m.confirm.isActive() || !m.spaceMenu.isActive() {
+		t.Fatal("setup: the confirm should stand on the menu")
+	}
+	m = pressA(m, " ")
+	if !m.confirm.isActive() || !m.spaceMenu.isActive() {
+		t.Error("Space must leave both the confirm and the menu under it alone")
 	}
 }
 
@@ -102,17 +117,22 @@ func TestQuestionMarkTogglesTheHelp(t *testing.T) {
 		t.Errorf("the help should stack above the menu, layer=%d", m.help.layer)
 	}
 
-	// Space unwinds one level, in the order the user built the stack.
+	// Space does nothing on the help — it is not the Space menu (tdp K5) —
+	// and ? closes it, leaving the menu standing. Then Space closes the menu.
 	m = pressA(m, " ")
+	if !m.help.isActive() || !m.spaceMenu.isActive() {
+		t.Error("Space on the help must not close anything")
+	}
+	m = pressA(m, "?")
 	if m.help.isActive() {
-		t.Error("Space should have closed the help")
+		t.Error("? should have closed the help")
 	}
 	if !m.spaceMenu.isActive() {
 		t.Error("...and left the menu standing")
 	}
 	m = pressA(m, " ")
 	if m.spaceMenu.isActive() {
-		t.Error("a second Space should close the menu too")
+		t.Error("Space should close the menu once it is on top again")
 	}
 }
 

@@ -457,20 +457,31 @@ func TestCtrlCInsideAPtyInterruptsTheRemoteNotSshu(t *testing.T) {
 	}
 }
 
-// And it is still the emergency exit everywhere else, including on the tab that
-// owns the sessions — one Alt+Esc away from the remote.
-func TestCtrlCStillQuitsOnceTheKeyboardIsBack(t *testing.T) {
+// And one Alt+Esc away from the remote it is the leaving flow again, the same
+// as q (tdp K9): with a live session it asks, and a second Ctrl+C while it is
+// asking leaves at once.
+func TestCtrlCIsTheLeavingFlowOnceTheKeyboardIsBack(t *testing.T) {
 	m := openOne(t)
 	m = pressA(m, "alt+esc")
 	if m.inPty() {
 		t.Fatal("alt+esc should have taken the keyboard back")
 	}
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = settle(next.(AppModel))
+	if cmd != nil {
+		if _, isQuit := cmd().(tea.QuitMsg); isQuit {
+			t.Fatal("with a live session Ctrl+C must ask first, like q")
+		}
+	}
+	if !m.quitAsk.isActive() {
+		t.Fatal("Ctrl+C should have raised the quit question")
+	}
+	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if cmd == nil {
-		t.Fatal("Ctrl+C outside a pty is the emergency exit")
+		t.Fatal("a second Ctrl+C should leave")
 	}
 	if _, isQuit := cmd().(tea.QuitMsg); !isQuit {
-		t.Error("Ctrl+C should quit, without asking")
+		t.Error("a second Ctrl+C while the question is up leaves at once")
 	}
 }
 
@@ -714,11 +725,11 @@ func TestQuitWarnsOnlyWithLiveSessions(t *testing.T) {
 	m = openOne(t)
 	m.ssh.setFocus(panelSessions)
 	m = pressA(m, "q")
-	if !m.confirm.isActive() || m.confirm.action != confirmQuit {
+	if !m.quitAsk.isActive() {
 		t.Fatal("q with a live session should ask first")
 	}
-	if !strings.Contains(strings.Join(m.confirm.lines, " "), "1 live session") {
-		t.Errorf("the warning should count the sessions, got %v", m.confirm.lines)
+	if !strings.Contains(strings.Join(m.quitAsk.lines, " "), "1 live session") {
+		t.Errorf("the warning should count the sessions, got %v", m.quitAsk.lines)
 	}
 }
 
@@ -1016,14 +1027,14 @@ func TestQuitFromSessionsAsksAndThenStops(t *testing.T) {
 
 	// q inside the PTY belongs to the remote, not to sshu.
 	next, _ := m.Update(keyMsg("q"))
-	if next.(AppModel).confirm.isActive() {
+	if next.(AppModel).quitAsk.isActive() {
 		t.Error("q inside the PTY should go to the remote, not open a dialog")
 	}
 
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 	m = settle(next.(AppModel))
 	m = pressA(m, "q")
-	if !m.confirm.isActive() || m.confirm.action != confirmQuit {
+	if !m.quitAsk.isActive() {
 		t.Fatal("q with a live session must ask before closing it")
 	}
 

@@ -79,7 +79,7 @@ sshu
 |---|---|
 | **`Tab`** | 移到當前 tab 的下一個 panel(在 ssh tab 上是顯示或隱藏 session 的格子) |
 | **`Enter`** | 連線 / 進入目錄 / 確認選擇 |
-| **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu。也用來關掉任何浮層 |
+| **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu。再按一次關掉 menu |
 | **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
 | **`?`** | 全域說明 —— 所有的鍵列在同一張表 |
 
@@ -111,7 +111,7 @@ sshu
  tab       M / F / S(session 裡:它們屬於遠端)
  panel     當前 tab 的 1–9  ·  Tab(ssh tab:顯示 / 隱藏格子)
  游標      j k    u d(半頁)          gg G      方向鍵同義
- 全域      Space menu    ? help    q 離開    Ctrl+C 強制離開
+ 全域      Space menu    ? help    q 離開    Ctrl+C 離開(按兩次:立刻走)
            (session / 編輯器裡 Ctrl+C 屬於它們 —— 先 Alt+Esc)
 ```
 
