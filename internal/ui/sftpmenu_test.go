@@ -42,7 +42,7 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 
 	// A separator between the groups, and the panel label after it.
 	sep := -1
-	for i, it := range items {
+	for i, it := range beforeGlobal(items) {
 		if it.separator {
 			sep = i
 		}
@@ -69,10 +69,12 @@ func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 	}
 }
 
-// A side with no host can do exactly one thing, so Space does it instead of
-// drawing a menu whose only row points at it. This holds on the marks panel
-// too: the side is what has no host, and its marks panel is just as empty.
-func TestSpaceOnAHostlessSideOpensTheHostListItself(t *testing.T) {
+// A side with no host can do one thing of its own, and Space still answers with
+// the menu (tdp K5, M7): a Space that skips its menu on one panel is a Space
+// that means two things. Its row opens the host list over the menu, and Esc
+// comes back to the menu (tdp F4). This holds on the marks panel too: the side
+// is what has no host.
+func TestSpaceOnAHostlessSideOpensTheMenu(t *testing.T) {
 	m := New(sample(), nil, store.DefaultConfig())
 	next, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 26})
 	m = settle(next.(AppModel))
@@ -82,39 +84,46 @@ func TestSpaceOnAHostlessSideOpensTheHostListItself(t *testing.T) {
 		at := m
 		at.sftp.focus = p
 		at = pressA(at, " ")
-		if !at.hostPicker.isActive() {
-			t.Errorf("panel %v: Space should have opened the host list", p)
+		if !at.spaceMenu.isActive() || at.hostPicker.isActive() {
+			t.Errorf("panel %v: Space should open the menu, not the host list", p)
+			continue
 		}
-		if at.spaceMenu.isActive() {
-			t.Errorf("panel %v: a menu of one row is not an answer", p)
+		at = pressA(at, keySelectHost)
+		if !at.hostPicker.isActive() || at.hostPicker.layer != 2 {
+			t.Errorf("panel %v: [H]ost should open the host list over the menu", p)
 		}
-		// It is the first float over the panel, so Esc unwinds straight back
-		// there rather than to a menu that was never opened (§6.4).
-		if at.hostPicker.layer != 1 {
-			t.Errorf("panel %v: the picker should be layer 1, got %d", p, at.hostPicker.layer)
-		}
-		if at = pressA(at, "esc"); at.hostPicker.isActive() || at.spaceMenu.isActive() {
-			t.Errorf("panel %v: Esc should leave nothing standing", p)
+		if at = pressA(at, "esc"); at.hostPicker.isActive() || !at.spaceMenu.isActive() {
+			t.Errorf("panel %v: Esc should come back to the menu", p)
 		}
 	}
 }
 
-// Once the side has a host there is a real menu again — the shortcut is about
-// having one answer, not about the file transfer tab being different. And it
-// reads the side you are ON: with one side connected and the other not, the
-// same key gives a different answer on each, which is the whole point of a
-// contextual entry key (§A.1).
+// The menu reads the side you are ON: with one side connected and the other
+// not, the same key lists different rows on each, which is the whole point of
+// a contextual entry key (tdp K5).
 func TestSpaceAnswersForTheSideYouAreOn(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.sides[sideRight].disconnect()
+	own := func(m AppModel) int {
+		n := 0
+		for _, it := range beforeGlobal(m.spaceMenu.items) {
+			if it.selectable() {
+				n++
+			}
+		}
+		return n
+	}
 
 	m.sftp.focus = panelLeftFiles
-	if at := pressA(m, " "); !at.spaceMenu.isActive() || at.hostPicker.isActive() {
-		t.Error("the connected side should get the Space menu, not the host list")
-	}
+	left := pressA(m, " ")
 	m.sftp.focus = panelRightFiles
-	if at := pressA(m, " "); !at.hostPicker.isActive() || at.spaceMenu.isActive() {
-		t.Error("the hostless side should get the host list, not the menu")
+	right := pressA(m, " ")
+	if !left.spaceMenu.isActive() || !right.spaceMenu.isActive() {
+		t.Fatal("both sides should answer Space with the menu")
+	}
+	if own(right) != 1 || own(left) <= 1 {
+		t.Errorf("the hostless side offers one row, the connected one more: %d vs %d",
+			own(right), own(left))
 	}
 }
 
@@ -136,8 +145,8 @@ func TestSFTPItemActionsNeedARow(t *testing.T) {
 		if hasKey([]string{"enter", "a", "r", "t", "x"}, it.key) {
 			t.Errorf("%q is offered with no row to act on", it.key)
 		}
-		if it.header || it.separator {
-			t.Errorf("with one region there should be no labels, found %q", it.label)
+		if it.header && it.label == menuItemRegion {
+			t.Error("with no row there should be no item region")
 		}
 	}
 	// The hotkey has to agree with the menu, or one of them is lying (§4.2).
@@ -226,8 +235,8 @@ func TestEveryTabWordsItsRegionsTheSameWay(t *testing.T) {
 	collect(h.sshMenuItems())
 
 	for label := range seen {
-		if label != menuItemRegion && label != menuPanelRegion {
-			t.Errorf("a menu region is worded %q, want one of the two constants", label)
+		if label != menuItemRegion && label != menuPanelRegion && label != menuGlobalRegion {
+			t.Errorf("a menu region is worded %q, want one of the three constants", label)
 		}
 	}
 	if !seen[menuItemRegion] || !seen[menuPanelRegion] {
@@ -267,7 +276,7 @@ func TestASideCannotChangeItsFilesystemMidTransfer(t *testing.T) {
 
 	frozen := map[string]bool{keySelectHost: true, "D": true}
 	seen := 0
-	for _, it := range m.sftpMenuItems() {
+	for _, it := range beforeGlobal(m.sftpMenuItems()) {
 		if it.header || it.separator {
 			continue
 		}
@@ -318,7 +327,7 @@ func TestASideCannotChangeItsFilesystemMidTransfer(t *testing.T) {
 func TestTheSameRowsAreLiveWhenNothingIsMoving(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	for _, it := range m.sftpMenuItems() {
+	for _, it := range beforeGlobal(m.sftpMenuItems()) {
 		if it.disabled {
 			t.Errorf("%q is dim with nothing running", it.key)
 		}
@@ -328,11 +337,11 @@ func TestTheSameRowsAreLiveWhenNothingIsMoving(t *testing.T) {
 	}
 }
 
-// The letter and the menu row are the same action (§4.2), so the refusal has
-// to meet both — and it says where to stop the transfer rather than just
-// declining. The menu is left standing: a refusal is not a commit, and the row
-// it refused is still on screen explaining itself.
-func TestTheFrozenActionRefusesFromBothTheKeyAndTheMenu(t *testing.T) {
+// The letter and the menu row are the same action (tdp M3), so the refusal has
+// to meet both — and it is silent: the row is dimmed, and a dimmed row's Enter
+// and letter do nothing (tdp M6). The menu is left standing: nothing was
+// committed.
+func TestTheFrozenActionDoesNothingFromTheKeyOrTheMenu(t *testing.T) {
 	m := busy(sftpFixture(t, 100, 26))
 	m.sftp.focus = panelLeftFiles
 	host := m.sftp.sides[sideLeft].host
@@ -342,8 +351,8 @@ func TestTheFrozenActionRefusesFromBothTheKeyAndTheMenu(t *testing.T) {
 	if after.hostPicker.isActive() {
 		t.Error("H opened the host picker while a transfer was running")
 	}
-	if !strings.Contains(ansi.Strip(after.View()), "J]obs") {
-		t.Errorf("the refusal must say where to stop it:\n%s", ansi.Strip(after.View()))
+	if after.toast.isActive() {
+		t.Error("the refused letter must not explain itself in a toast")
 	}
 
 	// The same action committed from the menu, with Enter on its row.
@@ -360,8 +369,8 @@ func TestTheFrozenActionRefusesFromBothTheKeyAndTheMenu(t *testing.T) {
 	if !inMenu.spaceMenu.isActive() {
 		t.Error("a refusal is not a commit — the menu should still be up")
 	}
-	if !strings.Contains(ansi.Strip(inMenu.View()), "J]obs") {
-		t.Error("the menu path must give the same reason as the key")
+	if inMenu.toast.isActive() {
+		t.Error("the refused row must not explain itself in a toast")
 	}
 
 	// Neither path may have moved the side.
@@ -383,8 +392,7 @@ func TestDisconnectIsFrozenMidTransferToo(t *testing.T) {
 	if m.sftp.sides[sideLeft].host != host {
 		t.Fatal("D pulled the floor out from under a running transfer")
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "J]obs") {
-		t.Errorf("the refusal should point at where a transfer is stopped:\n%s",
-			ansi.Strip(m.View()))
+	if m.toast.isActive() {
+		t.Error("the refusal is silent, like the H one")
 	}
 }

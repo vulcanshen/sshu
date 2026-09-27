@@ -51,6 +51,9 @@ func (m AppModel) View() string {
 	if m.spaceMenu.isActive() {
 		out = overlay.Composite(m.spaceMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
+	if m.globalMenu.isActive() {
+		out = overlay.Composite(m.globalMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
 	if m.lockMenu.isActive() {
 		out = overlay.Composite(m.lockMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}

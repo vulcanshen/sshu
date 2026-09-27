@@ -103,6 +103,10 @@ type AppModel struct {
 	knownAddUI   knownAddForm
 	picker       filePicker
 	confirm      confirmPopup
+	// globalMenu is the global operation popup: opened from the one global
+	// row every Space menu ends in, it lists what the whole app can do. It is
+	// not on ? — ? only reads (a deviation from tdp M4, §11.56).
+	globalMenu spaceMenu
 	// quitAsk is the leaving flow's question (tdp K9). It is its own popup
 	// rather than the shared confirm because Ctrl+C can raise it from on top of
 	// anything — a form, another confirm — and borrowing that confirm would
@@ -157,6 +161,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		knownAddUI:   newKnownAddForm(),
 		picker:       newFilePicker(),
 		confirm:      newConfirmPopup(),
+		globalMenu:   spaceMenu{anim: newPopupAnimator("globalmenu")},
 		quitAsk:      confirmPopup{anim: newPopupAnimator("quit")},
 		input:        newInputPopup(),
 		askpassUI:    newAskpassPopup(),
@@ -299,6 +304,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.knownAddUI.setSize(m.w, m.h)
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
+		m.globalMenu.setSize(m.w, m.h)
 		m.quitAsk.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
 		m.askpassUI.setSize(m.w, m.h)
@@ -324,6 +330,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.knownAddUI.anim.tick(msg),
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
+			m.globalMenu.anim.tick(msg),
 			m.quitAsk.anim.tick(msg),
 			m.input.anim.tick(msg),
 			m.askpassUI.anim.tick(msg),
@@ -704,12 +711,17 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.help.anim.owns() {
 			return m, m.help.close()
 		}
-		// It opens from ON TOP of another float too. tdp K6 promises the help
-		// is reachable from any surface, and the surface a lost user is most
-		// likely to be standing on is the menu they just opened. It goes on the
-		// very top of the stack, and the routing below, closeTop and the view
-		// all keep it there (tdp D3).
-		return m, m.help.open(m.above())
+		// ? only READS (§11.56): on a panel it is the key reference, on a
+		// popup — the Space menu included — that popup's own keys (tdp K6).
+		// Nothing on it can be run; running things is the menus' job, and a
+		// help that doubles as a menu is a popup of two kinds (tdp F1). It
+		// goes on the very top of the stack, and the routing below, closeTop
+		// and the view all keep it there (tdp D3).
+		if m.popupOpen() {
+			title, entries := m.popupHelp()
+			return m, m.help.open(m.above(), title, entries)
+		}
+		return m, m.help.open(m.above(), "key reference", keyReference)
 	}
 	// q is the leaving flow from every surface but a typed-into one and a pty
 	// (tdp K1, K9) — floats included, so it sits above the float routing. On
@@ -777,6 +789,15 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.quit()
 		}
 		return m, nil
+	case m.globalMenu.anim.owns():
+		// Above the Space menu that opened it, so it is asked first.
+		var key string
+		m.globalMenu, key, _ = m.globalMenu.update(msg)
+		if key == "" {
+			return m, nil
+		}
+		next, cmd, _ := m.runGlobal(key)
+		return next, cmd
 	case m.transfersUI.anim.owns():
 		if i := m.transfersUI.update(msg, len(m.transfers.jobs)); i >= 0 {
 			m.transfers.cancelJob(i)
@@ -863,6 +884,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.help.close()
 	case m.quitAsk.anim.owns():
 		return m, m.quitAsk.close()
+	case m.globalMenu.anim.owns():
+		return m, m.globalMenu.close()
 	case m.transfersUI.anim.owns():
 		return m, m.transfersUI.close()
 	case m.viewer.anim.owns():
@@ -907,7 +930,7 @@ func (m *AppModel) closeStack() tea.Cmd {
 		m.sshcfgFormUI.close(), m.knownAddUI.close(),
 		m.confirm.close(), m.quitAsk.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
-		m.editorUI.close(), m.spaceMenu.close(), m.lockMenu.close())
+		m.editorUI.close(), m.spaceMenu.close(), m.globalMenu.close(), m.lockMenu.close())
 }
 
 // ------------------------------------------------------------- panel level
@@ -957,24 +980,20 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.syncPrefSizes()
 			m.prefShowed()
 		case tabSSH:
-			// This tab repurposes Tab: the grid is not somewhere Tab may wander
-			// (it would swallow the key), so on the list it toggles the cursor
-			// session's cell instead — the thing the list does all day.
-			m.ssh.toggleCursorShown()
+			// Nothing. The grid is not somewhere Tab may go — in a cell it is
+			// the remote's key (tdp K10) — and walking [1] ↔ [2] is what the
+			// digits do. Tab used to be a second spelling of [H]ide here; one
+			// key, one job, and hiding a cell is not what Tab means anywhere
+			// else (§11.56, a deviation from tdp K2 in dev-remarks).
 		case tabFT:
 			m.sftp.cycleFocus(back)
 		}
 		return m, nil
 	case " ":
-		// A list of one is not a list. A side with no host can do exactly one
-		// thing, and Space's whole promise is "what can I do here" — so it
-		// answers with the thing rather than with a menu whose only row points
-		// at it. Routed through sftpKey rather than straight at the picker, so
-		// this shortcut is the letter `H` by definition and cannot drift from
-		// it — the running-transfer guard included (§4.2).
-		if m.tab == tabFT && m.sftp.cur().fs == nil {
-			return m.sftpKey(keySelectHost)
-		}
+		// Always the menu, even where it holds one row (tdp K5, M7): Space
+		// means "what can I do here", and the answer is the same kind of box
+		// on every panel. A side with no host once skipped straight to the
+		// host list; `H` still does.
 		m.spaceMenu.setItems(m.menuItems(), m.menuTitle(), 1)
 		return m, m.spaceMenu.open()
 	case "g":
@@ -1253,7 +1272,7 @@ func (m AppModel) floatsOpen() int {
 	for _, a := range []popupAnimator{
 		m.askpassUI.anim, m.form.anim, m.credFormUI.anim, m.picker.anim,
 		m.sshcfgFormUI.anim, m.knownAddUI.anim, m.confirm.anim, m.quitAsk.anim,
-		m.input.anim, m.help.anim, m.spaceMenu.anim, m.lockMenu.anim,
+		m.input.anim, m.help.anim, m.spaceMenu.anim, m.globalMenu.anim, m.lockMenu.anim,
 		m.hostPicker.anim, m.credPicker.anim, m.transfersUI.anim, m.viewer.anim,
 		m.editorUI.anim, m.detail.anim,
 	} {
@@ -1352,8 +1371,9 @@ func (m AppModel) hostsApplicable() ([]string, []hostAction) {
 // menus use them and a menu whose regions are worded differently from another's
 // reads as a different KIND of menu rather than as the same one.
 const (
-	menuItemRegion  = "item operation"
-	menuPanelRegion = "panel operation"
+	menuItemRegion   = "item operation"
+	menuPanelRegion  = "panel operation"
+	menuGlobalRegion = "global operation"
 )
 
 // applyNestCmd performs a command addressed to this layer, or forwards it
@@ -1594,16 +1614,9 @@ func (m AppModel) lockMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch key {
 	case "L":
-		if s.locked {
-			// The disabled row answers rather than ignoring (§A.1).
-			return m, m.toast.show("Already locked", toastInfo)
-		}
 		s.locked = true
 		return m, m.lockMenu.close()
 	case "R":
-		if !s.locked {
-			return m, m.toast.show("Not locked", toastInfo)
-		}
 		s.locked = false
 		return m, m.lockMenu.close()
 	}
@@ -1626,7 +1639,137 @@ func (m AppModel) menuTitle() string {
 	return m.pref.panelTitle(panelPrefContent)
 }
 
-// menuItems is the §A.1 contents for whichever tab is up.
+// globalAction is something the whole app can do from anywhere. The one list
+// feeds the ? menu and the last region of every Space menu, so the two cannot
+// disagree about what is global or in what order (tdp M2, M4).
+type globalAction struct{ key, label, hint string }
+
+var globalActions = []globalAction{
+	{"M", "Manage", "hosts, credentials, ~/.ssh, logs"},
+	{"F", "File transfer", "copy between any two machines"},
+	{"S", "SSH", "the grid of live sessions"},
+	{"q", "quit", "leave sshu"},
+}
+
+// globalMenuKey is what the Space menu's one global row dispatches: it opens the
+// global operation popup. Longer than a letter, so no keystroke can match it —
+// the row is reached with the cursor, and the letters live in the popup.
+const globalMenuKey = "global"
+
+// openGlobalMenu opens the global operations over the Space menu, which stays
+// behind it (tdp F4).
+func (m AppModel) openGlobalMenu() (tea.Model, tea.Cmd) {
+	m.globalMenu.setItems(m.globalRows(), menuGlobalRegion, m.above())
+	return m, m.globalMenu.open()
+}
+
+// globalRows is globalActions as menu rows. The tab already on screen is
+// dimmed: it is there, and it is where you are.
+func (m AppModel) globalRows() []menuItem {
+	rows := make([]menuItem, 0, len(globalActions))
+	for _, g := range globalActions {
+		t, isTab := tabForKey(g.key)
+		rows = append(rows, menuItem{label: g.label, key: g.key, hint: g.hint,
+			disabled: isTab && t == m.tab})
+	}
+	return rows
+}
+
+// runGlobal runs a global operation picked from a menu. Switching tab is a
+// change of context, so the stack goes with it (tdp T1); quitting asks on top
+// of the menu, so saying no lands back on it (tdp F4).
+func (m AppModel) runGlobal(key string) (tea.Model, tea.Cmd, bool) {
+	if t, ok := tabForKey(key); ok {
+		closing := m.closeStack()
+		next, cmd := m.switchTab(t)
+		return next, tea.Batch(closing, cmd), true
+	}
+	if key == "q" {
+		next, cmd := m.startQuit()
+		return next, cmd, true
+	}
+	return m, nil, false
+}
+
+// withGlobal closes a Space menu with its global region (tdp M2): always
+// there, so every panel's menu has at least two regions and all of them carry
+// their titles. The region is ONE row that opens the global operation popup
+// (§11.56): the full list on every panel's menu was longer than most panels'
+// own actions, and it pushed them down to make room for things that are the
+// same everywhere.
+func (m AppModel) withGlobal(body []menuItem) []menuItem {
+	if len(body) > 0 {
+		body = append(body, menuItem{separator: true})
+	}
+	return append(body, menuItem{label: menuGlobalRegion, header: true},
+		menuItem{label: "Global operation", key: globalMenuKey, hint: "switch tab, quit"})
+}
+
+// regions lays a panel's actions out as its Space menu: item, panel, global,
+// each under its title and only when it has rows. With neither item nor panel
+// actions it says so, above the global region (tdp M7).
+func (m AppModel) regions(item, panel []menuItem) []menuItem {
+	var out []menuItem
+	if len(item) > 0 {
+		out = append(out, menuItem{label: menuItemRegion, header: true})
+		out = append(out, item...)
+	}
+	if len(panel) > 0 {
+		if len(out) > 0 {
+			out = append(out, menuItem{separator: true})
+		}
+		out = append(out, menuItem{label: menuPanelRegion, header: true})
+		out = append(out, panel...)
+	}
+	if len(out) == 0 {
+		out = append(out, menuItem{label: "nothing to do here", header: true})
+	}
+	return m.withGlobal(out)
+}
+
+// popupHelp is ?'s answer on a popup: that popup's own keys (tdp K6). The
+// floats being typed into never get here — there ? is a question mark.
+func (m AppModel) popupHelp() (string, []helpEntry) {
+	closeIt := helpEntry{"?", "close this help"}
+	scroll := []helpEntry{{"j · k", "scroll"}, {"u · d", "half a page"}, {"G", "bottom"}}
+	menu := func(extra ...helpEntry) []helpEntry {
+		e := []helpEntry{{"j · k", "move"}, {"Enter", "run the row"},
+			{"letter", "run its row at once"}}
+		return append(append(e, extra...), helpEntry{"Esc", "close"}, closeIt)
+	}
+	switch {
+	case m.quitAsk.anim.owns():
+		return "quit", []helpEntry{{"Enter", "quit"}, {"Ctrl+C", "quit at once"},
+			{"Esc", "stay"}, closeIt}
+	case m.transfersUI.anim.owns():
+		return "jobs", []helpEntry{{"j · k", "move"}, {"c", "cancel this job"},
+			{"Esc", "close"}, closeIt}
+	case m.viewer.anim.owns():
+		return "viewer", append(scroll, helpEntry{"Esc", "close"}, closeIt)
+	case m.detail.anim.owns():
+		e := scroll
+		if m.detail.action != detailNone {
+			e = append(e, helpEntry{"Enter", "do what the foot asks"})
+		}
+		return "detail", append(e, helpEntry{"Esc", "close"}, closeIt)
+	case m.hostPicker.anim.owns(), m.credPicker.anim.owns():
+		return "picker", []helpEntry{{"j · k", "move"}, {"Enter", "pick"},
+			{"Esc", "close"}, closeIt}
+	case m.confirm.anim.owns():
+		return "confirm", []helpEntry{{"Enter", m.confirm.accept}, {"Esc", "cancel"}, closeIt}
+	case m.editorUI.anim.owns():
+		return "editor", []helpEntry{{"Esc", "cancel"}, closeIt}
+	case m.globalMenu.anim.owns():
+		return "global operation", menu()
+	case m.lockMenu.anim.owns():
+		return "lock menu", menu(helpEntry{"Alt+Enter", "close"})
+	case m.spaceMenu.anim.owns():
+		return "space menu", menu(helpEntry{"Space", "close"})
+	}
+	return "help", []helpEntry{closeIt}
+}
+
+// menuItems is the Space menu for whichever panel has focus (tdp M2).
 func (m AppModel) menuItems() []menuItem {
 	switch m.tab {
 	case tabSSH:
@@ -1635,10 +1778,10 @@ func (m AppModel) menuItems() []menuItem {
 		return m.sftpMenuItems()
 	}
 	if m.pref.focus == panelPrefNav {
-		return []menuItem{
+		return m.withGlobal([]menuItem{
 			{label: "sections", header: true},
 			{label: "j/k choose a section — Enter opens it", header: true},
-		}
+		})
 	}
 	switch m.pref.item {
 	case prefCreds:
@@ -1650,24 +1793,21 @@ func (m AppModel) menuItems() []menuItem {
 	case prefErrors, prefConnections, prefChanges:
 		region := strings.ToLower(m.pref.item.label())
 		if m.journalCount() == 0 {
-			return []menuItem{
+			return m.withGlobal([]menuItem{
 				{label: region, header: true},
 				{label: "nothing recorded yet", header: true},
-			}
+			})
 		}
-		return []menuItem{
-			{label: region, header: true},
-			{label: "newest first — j/k scroll", header: true},
-			{separator: true},
-			// The hint names the file, because Clear is per journal now and
-			// "every entry" would read as all three.
+		// The hint names the file, because Clear is per journal now and
+		// "every entry" would read as all three.
+		return m.regions(nil, []menuItem{
 			{label: "Clear " + region, key: "C", hint: "erase " + m.journalFile()},
-		}
+		})
 	case prefExport, prefImport:
-		return []menuItem{
+		return m.withGlobal([]menuItem{
 			{label: "operation", header: true},
 			{label: "a form — letters type, Enter runs it", header: true},
-		}
+		})
 	}
 	_, acts := m.hostsApplicable()
 
@@ -1680,17 +1820,7 @@ func (m AppModel) menuItems() []menuItem {
 		}
 		item = append(item, row)
 	}
-	// One region stays flat — a header over a single group is noise (§6.2). An
-	// empty table is exactly that case: Add, and nothing else.
-	if len(item) == 0 || len(panel) == 0 {
-		return append(item, panel...)
-	}
-
-	out := []menuItem{{label: menuItemRegion, header: true}}
-	out = append(out, item...)
-	out = append(out, menuItem{separator: true},
-		menuItem{label: menuPanelRegion, header: true})
-	return append(out, panel...)
+	return m.regions(item, panel)
 }
 
 func (m AppModel) menuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1699,7 +1829,10 @@ func (m AppModel) menuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key == "" {
 		return m, nil
 	}
-	// The menu stays behind whatever it launches (§6.4); the target decides
+	if key == globalMenuKey {
+		return m.openGlobalMenu()
+	}
+	// The menu stays behind whatever it launches (tdp F4); the target decides
 	// whether committing tears the stack down.
 	return m.dispatchKey(key)
 }

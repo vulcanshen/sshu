@@ -17,7 +17,7 @@ import (
 // test passes for the wrong reason.
 var animTargets = []string{"spacemenu", "lockmenu", "hostpicker", "credpicker", "help", "form",
 	"picker", "transfers", "credform", "sshcfgform", "knownadd", "viewer", "editor", "confirm",
-	"input", "toast", "detail", "askpass", "quit"}
+	"input", "toast", "detail", "askpass", "quit", "globalmenu"}
 
 // settle runs the animations to completion — a popup mid-open refuses keys on
 // purpose (§6.2), so a test that skips this is testing a half-drawn surface.
@@ -242,16 +242,15 @@ func TestMenuOnEmptyPanelStillOffersCreate(t *testing.T) {
 	t.Fatal("empty hosts panel must still offer Create")
 }
 
-// Space must answer on every surface, including the tabs that do not exist yet.
-// WHAT it opens is the tab's business — on a file transfer side with no host it
-// is the host list itself, because a menu of one row is not an answer — but
-// pressing it must never be a keystroke that does nothing.
+// Space must answer on every surface, including a tab with nothing on it yet:
+// the Space menu, every time — a file transfer side with no host included,
+// where it holds a single [H]ost row (tdp K5, M7).
 func TestSpaceRespondsOnUnbuiltTabs(t *testing.T) {
 	for _, c := range []struct {
 		tab    string
 		opened func(AppModel) bool
 	}{
-		{"F", func(m AppModel) bool { return m.hostPicker.isActive() }},
+		{"F", func(m AppModel) bool { return m.spaceMenu.isActive() }},
 		{"S", func(m AppModel) bool { return m.spaceMenu.isActive() }},
 	} {
 		m := pressA(appWith(sample(), nil), c.tab, " ")
@@ -810,7 +809,8 @@ func lastLine(s string) string {
 // A menu whose rows are all description — an empty log, the nav — is measured
 // by those rows like any other content. It used to measure zero and come out a
 // stub: its own words clipped ("nothing reco…") and its legend cut mid-key.
-// And with nothing to run, the legend offers only the key that still works.
+// And even a panel with nothing of its own to do ends in the global region,
+// so the menu still has rows to run (tdp M2, M7).
 func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
 	m := pressA(appWith(sample(), nil), "1", "j", "j", "j", "j", "enter") // logs, empty
 	if len(m.errors.entries) != 0 {
@@ -825,9 +825,8 @@ func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
 	if !strings.Contains(view, "nothing recorded yet") {
 		t.Errorf("the menu's own words must fit in its box:\n%s", view)
 	}
-	if legend := ansi.Strip(lastLine(view)); !strings.Contains(legend, "Esc close") ||
-		strings.Contains(legend, "j/k") || strings.Contains(legend, "run") {
-		t.Errorf("nothing to move to and nothing to run, legend is %q", legend)
+	if !strings.Contains(view, menuGlobalRegion) || !strings.Contains(view, "Global operation") {
+		t.Errorf("the global region must close every Space menu:\n%s", view)
 	}
 
 	// Same shape on the nav, whose menu is a sentence about j/k rather than a

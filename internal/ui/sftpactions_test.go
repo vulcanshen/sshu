@@ -74,13 +74,14 @@ func TestASideWithNoHostOnlyOffersSelectHost(t *testing.T) {
 	m.tab = tabFT
 	m.sftp.focus = panelLeftFiles
 
-	items := m.sftpMenuItems()
-	if len(items) != 1 || items[0].key != keySelectHost {
-		var got []string
-		for _, it := range items {
+	var got []string
+	for _, it := range beforeGlobal(m.sftpMenuItems()) {
+		if it.selectable() {
 			got = append(got, it.key)
 		}
-		t.Fatalf("menu offers %v, want only %q", got, keySelectHost)
+	}
+	if len(got) != 1 || got[0] != keySelectHost {
+		t.Fatalf("the side's own rows are %v, want only %q", got, keySelectHost)
 	}
 
 	// The letters must agree with the menu, or one of them is lying.

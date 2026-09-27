@@ -36,7 +36,9 @@ func TestSpaceClosesOnlyTheSpaceMenu(t *testing.T) {
 	}{
 		{"space menu", onHosts(" "),
 			func(m AppModel) bool { return m.spaceMenu.isActive() }, true},
-		{"help", onHosts("?"),
+		{"key reference", onHosts("?"),
+			func(m AppModel) bool { return m.help.isActive() }, false},
+		{"a popup's help", onHosts(" ", "?"),
 			func(m AppModel) bool { return m.help.isActive() }, false},
 		{"confirm", onHosts("X"),
 			func(m AppModel) bool { return m.confirm.isActive() }, false},
@@ -94,12 +96,13 @@ func TestSpaceTypesIntoTheRenameBox(t *testing.T) {
 	}
 }
 
-// The other entry key toggles the same way, and §A.2 promises it from ANY
-// surface — including from on top of the menu a lost user just opened.
+// The other entry key toggles the same way, and tdp K6 promises it from ANY
+// surface — including from on top of the menu a lost user just opened. On a
+// panel it is the key reference; on a popup, that popup's own keys.
 func TestQuestionMarkTogglesTheHelp(t *testing.T) {
 	m := pressA(appWith(sample(), nil), "?")
-	if !m.help.isActive() {
-		t.Fatal("? should open the help")
+	if !m.help.isActive() || m.help.title != "key reference" {
+		t.Fatal("? on a panel should open the key reference")
 	}
 	m = pressA(m, "?")
 	if m.help.isActive() {

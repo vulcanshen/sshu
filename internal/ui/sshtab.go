@@ -668,17 +668,6 @@ func (m *sshModel) toggleShown(id int) {
 	m.applyGeometry()
 }
 
-// toggleCursorShown is Tab on [1]: flip the cursor session's cell. Tab's
-// panel-cycling job is meaningless on this tab — the grid is not somewhere
-// Tab may wander (it would swallow the key) — so the key was free for the
-// thing the list actually does all day.
-func (m *sshModel) toggleCursorShown() {
-	if m.focus != panelSessions || m.curSess >= len(m.sessions) {
-		return
-	}
-	m.toggleShown(m.sessions[m.curSess].id)
-}
-
 // showAndFocus puts a session's cell on the grid (if it is not already there)
 // and hands it the keyboard. The side column folds on the way in.
 func (m *sshModel) showAndFocus(id int) {

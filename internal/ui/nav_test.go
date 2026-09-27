@@ -199,7 +199,7 @@ func TestTabStaysInsideTheCurrentTab(t *testing.T) {
 // in here is a key nobody finds (§A.2).
 func TestHelpListsTheNavigationVocabulary(t *testing.T) {
 	var keys []string
-	for _, e := range helpContent {
+	for _, e := range keyReference {
 		keys = append(keys, e.key)
 	}
 	joined := strings.Join(keys, " | ")
@@ -216,7 +216,7 @@ func TestHelpListsTheNavigationVocabulary(t *testing.T) {
 // place to learn them (§A.2, §11.19).
 func TestHelpListsTheGridKeysYouCannotAskAboutFromInside(t *testing.T) {
 	var keys []string
-	for _, e := range helpContent {
+	for _, e := range keyReference {
 		keys = append(keys, e.key)
 	}
 	joined := strings.Join(keys, " | ")

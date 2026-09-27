@@ -43,8 +43,8 @@
 
 - **兩側對等** —— local ↔ remote ↔ remote 走同一個 `FS` 介面。marks 分側;一個 mark 是一條絕對路徑,所以改名它會跟著走,刪掉它會被拿掉。
 - **正在被寫入的檔案不能 mark**:mark 是「這個路徑可以拿來操作」的承諾,半個檔案不是。這種檔案的 **mark 欄會顯示 spinner** —— 它存在,但還沒到齊 —— 它正在落進去的那個目錄也一樣,因為傳一整棵樹的時候,你看得見的那一列就是目錄。兩者都在 job 結束的那一刻消失,清單同時重讀。
-- **傳輸進行中 `H` 與 `D` 會凍結**:兩者都是把某一側底下的檔案系統抽掉,而每一筆傳輸都同時掛著兩側。那兩列留在 Space menu 裡、整列暗掉(不是消失 —— 它們屬於這個 panel,只是此刻不能做),按下去會叫你先去 `J` 取消。右上角的 summary 在傳輸期間會轉。
-- **還沒有 host 的那一側,`Space` 直接開 host 清單**:只有一列的 menu 不是答案。
+- **傳輸進行中 `H` 與 `D` 會凍結**:兩者都是把某一側底下的檔案系統抽掉,而每一筆傳輸都同時掛著兩側。那兩列留在 Space menu 裡、整列暗掉(不是消失 —— 它們屬於這個 panel,只是此刻不能做),按下去沒有反應 —— 不另外說原因(tdp M6),README 寫了要先去 `J` 取消。右上角的 summary 在傳輸期間會轉。
+- **還沒有 host 的那一側,`Space` 照樣開 menu**,只有 `[H]ost` 一列(加上 global 區)。以前直接開 host 清單(「一列的 menu 不是 menu」,§11.16),但那讓 `Space` 在一個 panel 上有兩種意思;tdp K5、M7 定為一律開 menu(§11.55)。
 - **進度**:右上角 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。
 - **遞迴子樹搜尋** —— `/` 走遍當前目錄底下整棵樹,**廣度優先**(SFTP 上每一層目錄都是一次 round trip,所以近的先到),串流、可取消、有上限,而且就地畫出來。`Enter` 把你帶到結果所在的位置、游標已經停在它上面,從那裡 `a` / `t` / `v` / `e` / `x` 全部能用。遠端**內容**搜尋刻意不做:那需要在對面跑指令,而這個 tab 不做這件事。
 - **抓下來之前先讀** —— `v` 的語法上色是 chroma + catppuccin-mocha,跟 filu 同一套;二進位是 xxd 風格的 hex dump。最多讀 64 KiB,因為在遠端那一側每一個 byte 都要過網路。檔案裡的跳脫序列會被剝掉:那些 bytes 是從別人的機器上來的,不處理的話會重畫你的終端機。
@@ -55,7 +55,7 @@
 ### `[S]SH`
 
 - **網格** —— 每一格是 embedded PTY 裡的真 `ssh`。每一格的遠端只在尺寸真的變了才收到通知。結束的 session 立刻離開網格並放掉模擬器;鍵盤絕不會默默落進另一台遠端。
-- **session 一連上就自動在網格上**,所以 `H` 絕大多數時候在做的是「拿掉」。`Tab` 做同一件事:它是這個 tab 自己的鍵,就像在其他 tab 一樣。
+- **session 一連上就自動在網格上**,所以 `H` 絕大多數時候在做的是「拿掉」。(`Tab` 以前也做同一件事,§11.56 拿掉了。)
 - **Close all sessions 刻意不給字母**:關掉每一條連線是破壞性且罕見的,而字母就是那個會被一隻只想捲清單的手按到的東西。
 - **`D` 複製 session 後鍵盤留在清單上**、游標落在新的那一條:你按的那個 Enter 是對確認框按的,只有對一列按 Enter 才是「帶我進去」。
 - **清單的項目**是兩行:上面是你叫它什麼,下面是 `<user>@<host>:<port>` —— ssh 自己的拼法。第一行開頭是顯示欄 —— 有格子的是 monitor glyph、沒有的是劃線的那個。兩行都不折:名字太長就截,位址太長就在保留的 `@` 兩側各自縮,所以一個項目永遠剛好兩行。游標移動時,對應格子的外框同步亮 —— 亮的是**游標自己的顏色**,不是 focus 藍:藍色的意思是「鍵盤在這裡」,螢幕上出現兩個藍框只會讓你得停下來找哪一個才是活的。
@@ -112,7 +112,9 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 ### 按鍵與 menu
 
 - **零學習成本是結構保證的,不是靠自律。** menu 和字母快捷鍵是同一張表產生的,所以「menu 裡沒有的快捷鍵」不可能存在。
-- **menu 分兩區** —— `item`(對游標那一列做什麼,標題就是那一列)和 `panel`(對這一側做什麼)。只有一區的時候維持扁平。
+- **Space menu 分三區** —— `item operation`(對游標那一列做什麼)、`panel operation`(對這一側做什麼)、`global operation`。global 區永遠在,所以每一區都帶標題(tdp M2);沒有 item 與 panel 動作的 panel,前面寫一句 `nothing to do here`。global 區只有一列 `Global operation`,`Enter` 打開 global operation popup(`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`,宣告在 `globalActions`),見「偏離 tdp」。
+- **`?` 只拿來讀**:在 panel 上是 key reference(`keyReference`),在浮層上是那個浮層自己的按鍵(`popupHelp()`,tdp K6)。網格的和絃在格子裡問不到(`?` 屬於遠端),所以一定要列在 key reference 裡。
+- **global operation popup 裡,目前所在的 tab 那一列變暗**:它在、只是你已經在那裡了。
 - **方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 shift+A、`[t]ransfer` 是裸的 `t`,沒有標出來的東西不會動。
 - **`D` 一律是複製、`x`/`X` 一律是刪除。** 刪除原本是 `D`;統一之後整個 sshu 裡同一個字母只有一個意思。
 - tab 用一個 shift 過的裸字母切換,裸數字 `1`–`9` 全部用來直達當前 tab 的 panel。pty 裡這三個字母跟其他裸鍵一樣屬於遠端,所以要先 `Alt+Esc`。
@@ -175,8 +177,9 @@ panel 想過規矩。依 tdp P0(規則服務 UX),下面這些保留 sshu 的做�
 - **SSH tab 的 `Tab` 不在格子之間換 focus(K2)。** tdp K2 拿「sshu 的 SSH grid」當「`Tab` 在 cell 之間切換」
   的例子,但那是 tdp 寫錯了:格子是 PTY,focus 在格子裡時 `Tab` 屬於遠端(K10),shell 的補完就靠它,sshu
   不能有任何反應。格子之間的切換是 `Alt`+方向鍵 —— 空間式的,不必編號,reflow 也不會讓記住的東西失效。
-  `[1]` sessions 上的 `Tab` 維持「顯示 / 隱藏游標那個 session 的格子」(同 `[H]ide`):網格不是 `Tab` 能走進去
-  的地方,`Tab` 也不該在 panel 之間跳來跳去;要換 panel 用數字鍵。
+  `Tab` 在 SSH tab 上**完全不作用**:網格不是 `Tab` 能走進去的地方,`Tab` 也不該在 `[1]`、`[2]` 之間跳來跳去
+  (要換 panel 用數字鍵)。它以前是 `[H]ide` 的第二個拼法,§11.56 拿掉了 —— 一個鍵一件事,而「隱藏格子」不是
+  `Tab` 在任何其他地方的意思。
 - **表單的 `Enter` 沒填完時是「下一欄」,不是 submit(K3)。** 見上方「表單的 `Enter`」:`Enter` 只問「這張表
   填完了沒有」,填完就存、沒填完就去下一個缺的欄位,按著不放會走完整張表再送出,hint 在 `next` / `save` 之間
   翻面,所以「為什麼沒存」一直看得到。空的 IdentityFile / Credential 上 `Enter` 開選單、`+ add option` 上
@@ -185,6 +188,15 @@ panel 想過規矩。依 tdp P0(規則服務 UX),下面這些保留 sshu 的做�
 - **格子上的 `Alt+Z`、`Alt`+方向鍵、`PgUp` / `PgDown` 只有熱鍵(M3)。** 它們只在鍵盤在格子裡時有意義,而
   那裡 `Space` 與 `?` 都屬於遠端(K10),沒有 menu 可以放;揭露在 PTY 的 footer(隨時看得到)與 `?` help 的
   `ssh grid` 段。把它們搬進 `[1]` sessions 的 menu,等於要使用者先離開格子才能 zoom 那一格。
+- **`?` 不能執行任何東西,global operation 不在 `?` 上(M4、K9)。** tdp M4 要 `?` 在 panel 上是「可執行的
+  global operation + key reference」,離開(K9)也要列在那裡。sshu 試過(§11.55),結果是一個 popup 同時是
+  menu 又是參考表 —— 使用者在看按鍵對照時,游標停在一個可以按下去的列上,這兩件事不該疊在一起(F1 的精神)。
+  所以拆開:`?` 只讀(key reference,popup 上是該 popup 的按鍵),global operation 是 Space menu 的最後一區。
+  離開在 global operation popup 裡,也仍然是 `q` / `Ctrl-C`。
+- **Space menu 的 global 區只有一列(M2)。** 全域動作列滿每一個 Space menu,會比很多 panel 自己的動作還長,
+  把該 panel 的動作往下擠。global 區只放一列 `Global operation`,`Enter` 在 Space menu 上打開 global operation
+  popup(F4:取消回到 Space menu);popup 裡才有 `[M]anage` 等各列與它們的熱鍵。這一列不給字母:Space menu
+  上的字母屬於這個 panel 的動作。(webu 同樣只放一列,但它通往 `?` menu。)
 - **明細浮層是 viewport,腳底可以掛一個 offer(F1)。** `detailPopup`(`internal/ui/detail.go`)是唯讀
   viewport,但 hosts / credentials / Config 的明細腳底掛著 `Connect to "<name>"?` / `Edit "<name>"?` 的問句,
   `Enter` 就執行 —— 等於 viewport 兼 confirm。理由(`sshu-ui-design.md` §11.29):以前 Connect 有自己的確認框,
