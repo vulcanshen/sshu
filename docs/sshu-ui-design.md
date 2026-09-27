@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.4/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.5/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -6612,6 +6612,10 @@ tdp v0.1.4 把 K10 從「PTY 裡只有出口鍵屬於 app」改成「**至少**�
   footer 寫 `alt+enter release`。
 - 偏離只剩 K2(SSH tab 的 `Tab` 不作用)與 F1(明細腳底的 offer)。
 - tdp 連結改釘 `v0.1.4`;`app.go` 裡「`?` 只讀是偏離 M4」的註解改掉(v0.1.2 起就不是偏離)。
+
+同一天 tdp 又出了 v0.1.5(K2、K8):多行文字的寫入狀態下,`Tab` 是縮排字元,不是換欄位。sshu 不受影響 ——
+四個表單都是單行欄位,唯一能寫多行的 `editorUI` 是跑外部 `$EDITOR` 的 PTY,`Tab` 本來就送給編輯器(K10)。
+連結改釘 `v0.1.5`,兩條偏離照 v0.1.5 看仍然成立。
 
 ---
 
