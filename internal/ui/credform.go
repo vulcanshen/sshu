@@ -112,18 +112,14 @@ func (m *credForm) moveFocus(d int) {
 	}
 }
 
-// complete is the host form's rule, on the sibling form: every enabled text
-// field has a value, and enabled() already says which those are — password
-// wants Password, privatekey wants IdentityFile. See hostForm.complete for why
-// this is not the same question as validity (§11.34).
-func (m credForm) complete() bool {
-	for i := range m.fields {
-		if m.enabled(i) && m.fields[i].kind == fieldText &&
-			strings.TrimSpace(m.fields[i].value) == "" {
-			return false
-		}
-	}
-	return true
+// missing is the host form's rule, on the sibling form: every enabled text
+// field needs a value, and enabled() already says which those are — password
+// wants Password, privatekey wants IdentityFile. See hostForm.missing for why
+// this is not the same question as validity.
+func (m credForm) missing() (string, int) {
+	return firstMissing(m.fields, func(i int) bool {
+		return m.enabled(i) && m.fields[i].kind == fieldText
+	})
 }
 
 func (m *credForm) syncFocus() {
@@ -150,16 +146,11 @@ func (m credForm) update(msg tea.KeyMsg) (credForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		// Same one question as the host form: finished → save, not finished →
-		// next, looping (§11.34). The EMPTY path field keeps its exception,
-		// because stepping over it would step over the only row that cannot be
-		// filled any other way.
+		// Submit, as on the host form (tdp K3, §11.59): a failed one points at
+		// the first missing or wrong field. The EMPTY path field submits itself
+		// — the chooser is how it gets a value.
 		if m.focus == cIdentity && strings.TrimSpace(f.value) == "" {
 			return m, formBrowse
-		}
-		if !m.complete() {
-			m.moveFocus(1)
-			return m, formNone
 		}
 		return m, formSubmit
 	case tea.KeyBackspace:
@@ -218,9 +209,6 @@ func (m credForm) view() string {
 	// Enter browses rather than saves, and saying so is the standing
 	// disclosure (tdp K8).
 	enter := "save"
-	if !m.complete() {
-		enter = "next"
-	}
 	var pairs [][2]string
 	switch {
 	case m.focus == cIdentity && strings.TrimSpace(m.fields[cIdentity].value) == "":

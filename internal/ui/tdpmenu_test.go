@@ -172,18 +172,27 @@ func TestTheTabYouAreOnIsDimAndDoesNothing(t *testing.T) {
 	}
 }
 
-// ? only reads (§11.56): on a panel it is the key reference, and nothing on it
-// runs — a letter pressed there is not a global operation.
+// ? only reads (tdp K6, M4): on a panel it is the key reference — that
+// panel's own keys, then the core keys — and nothing on it runs; a letter
+// pressed there is not a global operation.
 func TestQuestionMarkIsTheKeyReference(t *testing.T) {
 	m := pressA(appWith(sample(), nil), "?")
 	if !m.help.isActive() || m.help.title != "key reference" {
 		t.Fatal("? on a panel should open the key reference")
 	}
 	view := m.help.view()
-	for _, want := range []string{"core keys", "Alt+Esc", "gg · G"} {
+	for _, want := range []string{"this panel", "Hosts", "duplicate", "core keys", "gg · G"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the key reference should show %q:\n%s", want, view)
 		}
+	}
+	// The grid's chords belong to the ssh tab's reference, not to every one.
+	if strings.Contains(view, "Alt+Esc") {
+		t.Errorf("the hosts panel's reference lists the grid's chords:\n%s", view)
+	}
+	ssh := pressA(appWith(sample(), nil), "S", "?")
+	if !strings.Contains(ssh.help.view(), "Alt+Esc") {
+		t.Error("the ssh tab's reference should list the grid's chords")
 	}
 	if after := pressA(m, "S"); after.tab != tabPref || !after.help.isActive() {
 		t.Error("a letter on the key reference must not run anything")

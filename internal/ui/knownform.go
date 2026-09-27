@@ -67,12 +67,11 @@ func (m *knownAddForm) open(layer int) tea.Cmd {
 
 func (m knownAddForm) enabled(int) bool { return true }
 
-// complete is §11.34's question. Port is pre-filled, so in practice this is
-// "has the host been typed" — and Enter on a form with an empty host steps to
-// it rather than sending a handshake to nowhere.
-func (m knownAddForm) complete() bool {
-	return strings.TrimSpace(m.fields[kfHost].value) != "" &&
-		strings.TrimSpace(m.fields[kfPort].value) != ""
+// missing is the first empty field, as an error. Port is pre-filled, so in
+// practice this is "has the host been typed" — Enter on a form with an empty
+// host points at it rather than sending a handshake to nowhere (tdp K3).
+func (m knownAddForm) missing() (string, int) {
+	return firstMissing(m.fields, func(int) bool { return true })
 }
 
 func (m *knownAddForm) moveFocus(d int) {
@@ -91,10 +90,6 @@ func (m knownAddForm) update(msg tea.KeyMsg) (knownAddForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		if !m.complete() {
-			m.moveFocus(1)
-			return m, formNone
-		}
 		return m, formSubmit
 	}
 	editField(&m.fields[m.focus], msg)
@@ -143,9 +138,6 @@ func (m knownAddForm) view() string {
 	rows := formBody(m.fields, focus, m.errIdx, m.err, m.enabled, innerW, labelCol, valueW)
 
 	pairs := [][2]string{{"Tab", "next"}, {"Enter", "fetch"}, {"Esc", "cancel"}}
-	if !m.complete() {
-		pairs = [][2]string{{"Tab", "next"}, {"Enter", "next"}, {"Esc", "cancel"}}
-	}
 	if m.scanning {
 		host, port := m.target()
 		spin := spinnerFrames[m.spin%len(spinnerFrames)]

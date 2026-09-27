@@ -58,7 +58,7 @@ type formField struct {
 	// optional: the row takes part, but blank IS an answer.
 	//
 	// Every other text row is required once enabled, which is what lets
-	// complete() derive the needed set from enabled() instead of keeping a
+	// missing() derive the needed set from enabled() instead of keeping a
 	// second list in step. Tags is the first row where "has a value" and "has
 	// been answered" genuinely differ — most hosts have no tags, and that is
 	// not an unfinished form.
@@ -238,9 +238,10 @@ func (m *hostForm) syncSSHConfigRows() {
 	port.placeholder, user.placeholder = "", ""
 }
 
-// complete reports whether every field this form NEEDS has a value. It is the
-// question Enter asks on every press: a complete form SAVES, an incomplete one
-// steps to the next field instead (§11.34).
+// missing is the first field this form NEEDS that has no value, as a form
+// error — the first half of every submit: Enter on an unfinished form does not
+// save, it takes the user to this field and says what is missing (tdp K3,
+// §11.59).
 //
 // The needed set is not a second list to keep in sync — it is exactly the
 // ENABLED fields, and enabled() already encodes what each Auth choice requires:
@@ -250,17 +251,37 @@ func (m *hostForm) syncSSHConfigRows() {
 //
 // "Has a value" is not "is valid". A port of 0 has a value, and that is the
 // point: completeness is whether the form has been FILLED IN, validity is
-// whether what was filled in is any good. They get separate disclosures — the
-// hint for the first, the error row for the second — because folding them
-// together would make Enter refuse to save while never saying why.
-func (m hostForm) complete() bool {
-	for i := range m.fields {
-		if m.enabled(i) && m.fields[i].kind == fieldText && !m.optional(i) &&
-			strings.TrimSpace(m.fields[i].value) == "" {
-			return false
+// whether what was filled in is any good. The submit asks both and reports the
+// one higher up the form (firstError).
+func (m hostForm) missing() (string, int) {
+	return firstMissing(m.fields, func(i int) bool {
+		return m.enabled(i) && m.fields[i].kind == fieldText && !m.optional(i)
+	})
+}
+
+// firstMissing is the first required field with nothing in it, as a form error:
+// what is missing and where. need says which fields are required right now —
+// on every form that follows Auth.
+func firstMissing(fields []formField, need func(int) bool) (string, int) {
+	for i := range fields {
+		if need(i) && strings.TrimSpace(fields[i].value) == "" {
+			return fields[i].label + " is required", i
 		}
 	}
-	return true
+	return "", -1
+}
+
+// firstError is whichever of two form errors sits higher on the form — Enter
+// takes the user to the FIRST field that is wrong (tdp K3). On a tie the second
+// wins: it is the specific one ("Choose a credential…" over "… is required").
+func firstError(msg1 string, at1 int, msg2 string, at2 int) (string, int) {
+	switch {
+	case at1 < 0:
+		return msg2, at2
+	case at2 < 0 || at1 < at2:
+		return msg1, at1
+	}
+	return msg2, at2
 }
 
 func (m *hostForm) moveFocus(d int) {
@@ -297,26 +318,21 @@ func (m hostForm) update(msg tea.KeyMsg) (hostForm, formResult) {
 		m.moveFocus(-1)
 		return m, formNone
 	case tea.KeyEnter:
-		// Enter asks one question, on every field: is this form finished? If it
-		// is, Enter saves. If it is not, Enter is "next" and loops — so holding
-		// Enter walks the form and then submits it, and the same key never
-		// means two things at once depending on which row you happen to be on
-		// (§11.34).
+		// Enter is submit, on every field (tdp K3). A form that is not finished
+		// does not save: the submit fails, and the caller takes the user to the
+		// FIRST field that is missing or wrong and says why. That looks like Tab
+		// and is not — Tab walks field by field, Enter points at the problem
+		// (§11.59; before it, Enter was "next" until the form was complete).
 		//
-		// The two pick-a-value fields keep their exception while EMPTY: there,
-		// "next" would step over the one row that has no other way to be
-		// filled, and opening the chooser IS how that field gets its value.
-		// Filled, they are ordinary rows again — replacing a pick is Backspace
-		// (the whole line) and then Enter.
+		// The two pick-a-value fields submit THEMSELVES while empty: opening the
+		// chooser is how that one field gets its value (a single-field submit,
+		// which K3 leaves to the app). Filled, they are ordinary rows again —
+		// replacing a pick is Backspace (the whole line) and then Enter.
 		switch {
 		case m.focus == fIdentity && strings.TrimSpace(f.value) == "":
 			return m, formBrowse
 		case m.focus == fCredential && strings.TrimSpace(f.value) == "":
 			return m, formPickCred
-		}
-		if !m.complete() {
-			m.moveFocus(1)
-			return m, formNone
 		}
 		return m, formSubmit
 	case tea.KeyBackspace:
@@ -471,16 +487,9 @@ func (m hostForm) view() string {
 	// (tdp K8), so it has to be accurate per field, not generic.
 	// The hint names what THIS field does with Enter — on an EMPTY pick-a-value
 	// row Enter chooses rather than saves, and saying so is the standing
-	// disclosure (tdp K8).
-	//
-	// It also names what Enter does RIGHT NOW, which changes as the form fills
-	// up: `next` while something is still missing, `save` the moment nothing
-	// is. That flip is the whole disclosure for the rule — the legend answers
-	// "why did Enter not save" before the question gets asked (§11.34).
+	// disclosure (tdp K8). Everywhere else it is save; what is missing is said
+	// by the error row when a save fails (tdp K3).
 	enter := "save"
-	if !m.complete() {
-		enter = "next"
-	}
 	var pairs [][2]string
 	switch {
 	case m.focus == fIdentity && strings.TrimSpace(m.fields[fIdentity].value) == "":

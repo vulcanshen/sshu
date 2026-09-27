@@ -101,16 +101,12 @@ func TestHostFormValidatesTheCredentialReference(t *testing.T) {
 	m = typeText(m, "10.0.0.9")
 	m.form.fields[fAuth].sel = 2
 
-	// No credential named: the form is not finished, so Enter never gets as far
-	// as validation — it steps to the next field instead (§11.34). Being unable
-	// to submit at all is a stronger guarantee than being refused.
+	// No credential named: the submit fails and points at the Credential row,
+	// with the specific sentence rather than a bare "is required" (tdp K3).
 	m.form.focus = fName
 	m = pressA(m, "enter")
-	if m.form.submitted {
-		t.Fatal("an unfinished form must not reach the submit path")
-	}
-	if m.form.focus == fName {
-		t.Error("Enter on an unfinished form is next, so the focus has to move")
+	if m.form.focus != fCredential || !strings.Contains(m.form.err, "Choose a credential") {
+		t.Fatalf("Enter should point at the missing credential; focus=%d err=%q", m.form.focus, m.form.err)
 	}
 
 	// Named but dangling: finished, so it submits — and validation is what

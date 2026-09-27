@@ -278,6 +278,10 @@ func (m AppModel) knownAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if res != formSubmit {
 		return m, nil
 	}
+	if msg, at := m.knownAddUI.missing(); at >= 0 {
+		m.knownAddUI.fail(msg, at)
+		return m, nil
+	}
 	host, port := m.knownAddUI.target()
 	if port < 1 || port > 65535 {
 		m.knownAddUI.fail("Port must be 1-65535", kfPort)

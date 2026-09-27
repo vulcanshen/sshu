@@ -8,11 +8,19 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// §11.34 in executable form. Enter asks one question on every field — is this
-// form finished? — and the answer decides whether it saves or steps on. What
-// "finished" means follows the Auth toggle, because enabled() already knows.
+// tdp K3 in executable form (§11.59). Enter is submit on every field; a form
+// that is not finished does not save, and the submit takes the user to the
+// FIRST field that is missing and says so. What "finished" means follows the
+// Auth toggle, because enabled() already knows.
 
-func TestEnterIsNextUntilTheFormIsFinished(t *testing.T) {
+// filled is "nothing required is empty" — the question Enter used to ask
+// before saving, now the first check of a submit (tdp K3).
+func filled(f interface{ missing() (string, int) }) bool {
+	_, at := f.missing()
+	return at < 0
+}
+
+func TestEnterOnAnUnfinishedFormPointsAtTheFirstMissingField(t *testing.T) {
 	var saved []store.Host
 	m := pressA(appWith(sample(), &saved), "A")
 
@@ -21,25 +29,42 @@ func TestEnterIsNextUntilTheFormIsFinished(t *testing.T) {
 	// ordinary rows.
 	m.form.fields[fAuth].sel = 0
 
-	// A fresh form has only the port filled in, so Enter is next, over and over.
-	seen := map[int]bool{}
-	for range fCount + 2 {
-		before := m.form.focus
-		m = pressA(m, "enter")
-		seen[before] = true
-		if m.form.submitted {
-			t.Fatalf("an unfinished form must not submit (stopped on field %d)", before)
-		}
-		if m.form.focus == before {
-			t.Fatalf("Enter on an unfinished form is next, but focus stayed on %d", before)
-		}
-	}
+	// Name filled, Host empty, and the cursor BELOW Host: Enter goes back up to
+	// Host — the first missing field — not on to the next one.
+	m.form.fields[fName].value = "box"
+	m.form.focus = fUser
+	m = pressA(m, "enter")
 	if saved != nil {
-		t.Error("nothing should have been written")
+		t.Fatal("an unfinished form must not be written")
 	}
-	// "next 操作支援 loop": more presses than there are fields, so it came round.
-	if len(seen) < 2 || !seen[fName] {
-		t.Errorf("next should have looped the whole form, visited %v", seen)
+	if m.form.focus != fHost {
+		t.Errorf("Enter should point at Host, the first missing field; focus=%d", m.form.focus)
+	}
+	if !strings.Contains(m.form.err, "Host") {
+		t.Errorf("the failed submit should say what is missing, got %q", m.form.err)
+	}
+
+	// It is not Tab: pressed again it stays on the problem.
+	m = pressA(m, "enter")
+	if m.form.focus != fHost {
+		t.Errorf("a second Enter should stay on Host; focus=%d", m.form.focus)
+	}
+}
+
+// What Enter points at follows Auth: a password host's first missing field may
+// be the Password, which the old "is it filled" question knew and validation
+// did not.
+func TestEnterPointsAtAMissingPassword(t *testing.T) {
+	var saved []store.Host
+	m := pressA(appWith(sample(), &saved), "A")
+	m.form.fields[fAuth].sel = 0 // password
+	for i, v := range map[int]string{fName: "box", fHost: "h", fUser: "root"} {
+		m.form.fields[i].value = v
+	}
+	m.form.focus = fName
+	m = pressA(m, "enter")
+	if saved != nil || m.form.focus != fPassword || !strings.Contains(m.form.err, "Password") {
+		t.Errorf("Enter should point at Password; focus=%d err=%q saved=%v", m.form.focus, m.form.err, saved)
 	}
 }
 
@@ -95,7 +120,7 @@ func TestWhatIsRequiredFollowsTheAuthChoice(t *testing.T) {
 			for i, v := range tc.fill {
 				m.form.fields[i].value = v
 			}
-			if got := m.form.complete(); got != tc.complete {
+			if got := filled(m.form); got != tc.complete {
 				t.Errorf("complete = %v, want %v", got, tc.complete)
 			}
 		})
@@ -108,21 +133,21 @@ func TestWhatIsRequiredFollowsTheAuthChoice(t *testing.T) {
 	for i, v := range map[int]string{fName: "box", fHost: "h", fCredential: "ops"} {
 		m.form.fields[i].value = v
 	}
-	if !m.form.complete() {
+	if !filled(m.form) {
 		t.Error("a credential host has no user of its own — an empty User must not block it")
 	}
 }
 
-// The legend is the whole disclosure for the rule: it answers "why did Enter
-// not save" before the question gets asked.
-func TestTheHintSaysWhetherEnterSavesOrSteps(t *testing.T) {
+// Enter is save whether or not the form is finished (tdp K3): what is missing
+// is said by the error row when a save fails, not by the legend flipping.
+func TestTheHintAlwaysSaysEnterSaves(t *testing.T) {
 	m := pressA(appWith(sample(), nil), "A")
 	m.form.focus = fName
-	if h := formHint(m); !strings.Contains(h, "next") || strings.Contains(h, "save") {
-		t.Errorf("an unfinished form must advertise Enter as next\n%q", h)
+	if h := formHint(m); !strings.Contains(h, "Enter save") || strings.Contains(h, "Enter next") {
+		t.Errorf("an unfinished form still advertises Enter as save\n%q", h)
 	}
 	m = fillHostForm(m, "hint-box")
-	if h := formHint(m); !strings.Contains(h, "save") {
+	if h := formHint(m); !strings.Contains(h, "Enter save") {
 		t.Errorf("a finished form must advertise Enter as save\n%q", h)
 	}
 }
@@ -134,14 +159,15 @@ func TestCredFormEnterFollowsTheSameRule(t *testing.T) {
 	if !m.credFormUI.isActive() {
 		t.Fatal("setup: no form")
 	}
-	m.credFormUI.focus = cName
-	before := m.credFormUI.focus
+	m.credFormUI.fields[cName].value = "ops"
+	m.credFormUI.focus = cPassword
 	m = pressA(m, "enter")
-	if m.credFormUI.submitted {
-		t.Fatal("an unfinished credential form must not submit")
+	if !m.credFormUI.isActive() {
+		t.Fatal("an unfinished credential form must not save")
 	}
-	if m.credFormUI.focus == before {
-		t.Error("Enter on an unfinished form is next, so the focus has to move")
+	if m.credFormUI.focus != cUser || !strings.Contains(m.credFormUI.err, "User") {
+		t.Errorf("Enter should point at User, the first missing field; focus=%d err=%q",
+			m.credFormUI.focus, m.credFormUI.err)
 	}
 
 	m = fillCredForm(m, "ops")
@@ -159,15 +185,15 @@ func TestTheCredFormRequiresWhatItsAuthUses(t *testing.T) {
 		m.credFormUI.fields[i].value = v
 	}
 	m.credFormUI.fields[cAuth].sel = 1 // privatekey
-	if m.credFormUI.complete() {
+	if filled(m.credFormUI) {
 		t.Error("privatekey without a key file is not finished")
 	}
 	m.credFormUI.fields[cAuth].sel = 0 // password
-	if m.credFormUI.complete() {
+	if filled(m.credFormUI) {
 		t.Error("password without a password is not finished")
 	}
 	m.credFormUI.fields[cPassword].value = "pw"
-	if !m.credFormUI.complete() {
+	if !filled(m.credFormUI) {
 		t.Error("password with a password is finished — the key row is dark and must not count")
 	}
 }
@@ -214,5 +240,53 @@ func TestCredentialEditIsOnEAndEnterStillReachesIt(t *testing.T) {
 	m := pressA(credApp(nil, creds), "1", "j", "enter", " ")
 	if got := ansi.Strip(m.View()); !strings.Contains(got, "[E]dit") {
 		t.Error("the Space menu must show the bracket, or the letter is undiscoverable")
+	}
+}
+
+// The known_hosts fetch form: Enter with no host points at Host and says so,
+// rather than sending a handshake to nowhere (tdp K3).
+func TestTheFetchFormPointsAtAMissingHost(t *testing.T) {
+	m, _ := knownApp(t, knownUIFixture())
+	m = pressA(m, "A")
+	m.knownAddUI.focus = kfPort
+	m = pressA(m, "enter")
+	if m.knownAddUI.scanning {
+		t.Fatal("an empty host must not start a fetch")
+	}
+	if m.knownAddUI.focus != kfHost || !strings.Contains(m.knownAddUI.err, "Host") {
+		t.Errorf("Enter should point at Host; focus=%d err=%q", m.knownAddUI.focus, m.knownAddUI.err)
+	}
+}
+
+// The ~/.ssh/config form: a block with no Host pattern points at it (tdp K3).
+func TestTheConfigFormPointsAtAMissingPattern(t *testing.T) {
+	m, _ := cfgApp(t, cfgFixture)
+	m = pressA(m, "A")
+	if !m.sshcfgFormUI.isActive() {
+		t.Fatal("setup: A should open the form")
+	}
+	m.sshcfgFormUI.focus = sfHostName
+	m = pressA(m, "enter")
+	if !m.sshcfgFormUI.isActive() {
+		t.Fatal("a block with no pattern must not be written")
+	}
+	if m.sshcfgFormUI.focus != sfHost || !strings.Contains(m.sshcfgFormUI.err, "Host pattern") {
+		t.Errorf("Enter should point at the pattern; focus=%d err=%q", m.sshcfgFormUI.focus, m.sshcfgFormUI.err)
+	}
+}
+
+// On the credential form too, what Enter points at follows Auth: a password
+// credential with no password is caught by the "filled in" half of the check.
+func TestCredFormEnterPointsAtAMissingPassword(t *testing.T) {
+	m := pressA(appWith(nil, nil), "1", "j", "enter", "A")
+	for i, v := range map[int]string{cName: "ops", cUser: "root"} {
+		m.credFormUI.fields[i].value = v
+	}
+	m.credFormUI.fields[cAuth].sel = 0 // password
+	m.credFormUI.focus = cName
+	m = pressA(m, "enter")
+	if !m.credFormUI.isActive() || m.credFormUI.focus != cPassword ||
+		!strings.Contains(m.credFormUI.err, "Password") {
+		t.Errorf("Enter should point at Password; focus=%d err=%q", m.credFormUI.focus, m.credFormUI.err)
 	}
 }

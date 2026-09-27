@@ -71,7 +71,7 @@ func TestTheFormAsksAnSSHConfigHostForNothingButADestination(t *testing.T) {
 		m.form.fields[i].value = v
 	}
 	m.form.fields[fPort].value = ""
-	if !m.form.complete() {
+	if !filled(m.form) {
 		t.Error("name and host are the whole of what an sshconfig host needs")
 	}
 	for _, i := range []int{fCredential, fIdentity, fPassword} {
