@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.3/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.4/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -6593,6 +6593,25 @@ Credential 列,用「Choose a credential」那句)。測試用的 `filled()` 取
 
 6 個 mutation 全數被抓。credential 那個第一輪存活:測試缺的是 User,而 `checkCredForm` 本來就查 User,
 補了「密碼沒填」這個只有 `missing()` 抓得到的情境。
+
+---
+
+### 11.60 對照 tdp v0.1.4 —— 格子裡的和絃不再是偏離
+
+#### 使用者的要求
+
+> 「tdp 那邊更新 0.1.4 了，我們 dev-remarks 應該要調整」
+
+tdp v0.1.4 把 K10 從「PTY 裡只有出口鍵屬於 app」改成「**至少**一個出口鍵;其他組合鍵要不要保留由 app 決定,
+保留的跟出口鍵一樣常駐揭露(M3)」,例子就是 sshu 格子裡的放大、換格、捲歷史 —— sshu 在 §11.58 回饋的那一條。
+
+行為不變,只改文件:
+
+- dev-remarks「偏離 tdp」裡 K10 的兩條(格子裡的和絃、鎖住時出口是 `Alt+Enter`)移到「設計決定」新開的
+  「PTY 裡的鍵」,理由原樣保留。兩條本來就符合 v0.1.4 的揭露要求:格子有鍵盤時 footer 常駐列出和絃,鎖住時
+  footer 寫 `alt+enter release`。
+- 偏離只剩 K2(SSH tab 的 `Tab` 不作用)與 F1(明細腳底的 offer)。
+- tdp 連結改釘 `v0.1.4`;`app.go` 裡「`?` 只讀是偏離 M4」的註解改掉(v0.1.2 起就不是偏離)。
 
 ---
 
