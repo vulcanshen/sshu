@@ -105,7 +105,7 @@ type AppModel struct {
 	confirm      confirmPopup
 	// globalMenu is the global operation popup: opened from the one global
 	// row every Space menu ends in, it lists what the whole app can do. It is
-	// not on ? — ? only reads (a deviation from tdp M4, §11.56).
+	// not on ? — ? only reads (tdp M4, §11.56).
 	globalMenu spaceMenu
 	// modeKeys is selection mode's key list (tdp K11): Space in the mode opens
 	// it, every row runs, and running one closes it.

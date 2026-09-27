@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.3/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.4/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -144,6 +144,24 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **pty 在 sshu 是 panel,不是浮層**:session 是長時的、同時可以有很多個,所以它是常駐 panel 的內容(filu 的 pty 是短時浮層)。
 - **Connect 之後清掉 source**:明細腳底的 Connect 按下去,明細與 Space menu 一起收掉、切到 `[S]SH`、開 session —— ssh session 是長時 target(tdp T1)。
 
+### PTY 裡的鍵
+
+- **格子裡除了出口鍵,還留著 sshu 自己的和絃(tdp K10、M3)。** tdp v0.1.4 起,K10 只要求 PTY 至少有一個出口鍵,
+  其他組合鍵由 app 決定(原本 v0.1.2 的 K10 只准出口鍵,這條曾是偏離)。sshu 在格子裡保留:`Alt+Z`(zoom)、`Alt`+方向鍵(換格子)、
+  `Alt+v`(選取模式)、`Alt+Enter`(巢狀的 lock)、`PgUp` / `PgDown`(遠端不是全螢幕程式時翻歷史)。理由:
+  - 它們作用的對象就是**正在用的那一格**。sshu 的網格是好幾個同時活著的 session,使用者在格子之間來回、放大
+    其中一格、從某一格複製 —— 每做一次都要先 `Alt+Esc` 退到清單、開 menu、再進回去,等於把網格的用法拆成
+    三段。
+  - 它們跟出口鍵是同一類鍵:`Alt` 和絃是遠端程式幾乎不用的組合(K10 自己選出口鍵的理由);`PgUp` / `PgDown`
+    只在遠端沒進 alt screen 時才借,全螢幕程式在的時候原封不動送過去(§11.19)。
+  - 巢狀 sshu 靠和絃穿透到內層才操作得了(見下一條)。
+  - 揭露:格子有鍵盤時 footer 常駐列出這些和絃(M1),`?` 的 key reference 有 `ssh grid` 一段。
+- **鎖住的格子,出口是 `Alt+Enter`,不是 `Alt+Esc`(tdp K10)。** K10 只要求至少一個出口鍵,換成哪一個由 app
+  決定(曾列為偏離,v0.1.4 起不是)。格子被 lock(巢狀 sshu 用)之後,`Alt+Esc`、`Alt+Z`、`Alt+v`、方向鍵
+  全部穿透到內層,只有 `Alt+Enter` 留著(打開 lock menu,`Release PTY`)。理由
+  (§11.43):lock 的意思就是「這一層是透明的管子」,內層 sshu 要收到完整的和絃才操作得了;footer 在鎖住時只寫
+  `alt+enter release`,出口仍然常駐揭露。
+
 ## 已否決,不要重提
 
 每一條的理由在 `sshu-ui-design.md` 對應的章節。
@@ -170,41 +188,29 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 
 ## 偏離 tdp
 
-sshu 的偏離比家族其他成員多:它同時管很多個目標,而且畫面中央是一格一格的 PTY。依 tdp P0(規則服務 UX),
-下面這些保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.3)。sshu 回饋給 tdp 的另外幾條(`?` 只讀、
-global operation popup、K11 的方向鍵、K2 拿掉 grid 的例子)已經在 v0.1.2 採納,不再是偏離;表單的 `Enter`
-照 v0.1.3 的 K3 改了(§11.59)。
+依 tdp P0(規則服務 UX),下面兩條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.4)。
+
+sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
+已經採納,不再是偏離:`?` 只讀、global operation popup、K11 的方向鍵、K2 拿掉 grid 的例子(v0.1.2);
+格子裡的和絃與鎖住時的出口(v0.1.4 的 K10 改成「至少一個出口鍵,其餘由 app 決定」,移到「設計決定」的
+「PTY 裡的鍵」,§11.60)。表單的 `Enter` 則是 sshu 照 v0.1.3 的 K3 改了(§11.59)。
 
 - **SSH tab 的 `Tab` 不作用(K2)。** 照 K2,這個 tab 的兩個 panel `[1]` sessions、`[2]` layout 之間應該用
   `Tab` 輪替。sshu 不做:畫面中央那一大塊是 PTY 的網格,`Tab` 在這個 tab 上一跳,使用者的直覺是「進格子」,
   而格子裡的 `Tab` 屬於遠端(K10);在旁邊兩個小 panel 之間跳,正好是最不會被想到的那個意思。要換 panel 用
   數字鍵,進格子用 `Enter`,格子之間用 `Alt`+方向鍵。`Tab` 以前是 `[H]ide` 的第二個拼法,§11.56 拿掉了。
   (tdp K2 原本拿 sshu 的 grid 當「`Tab` 在 cell 之間切換」的例子,v0.1.2 已刪。)
-- **格子裡除了出口鍵,還留著 sshu 自己的和絃(K10、M3)。** tdp K10(v0.1.2 起固定)要 PTY 裡只有出口鍵屬於
-  app,對 PTY 的動作一律先離開再從 Space menu 做。sshu 在格子裡保留:`Alt+Z`(zoom)、`Alt`+方向鍵(換格子)、
-  `Alt+v`(選取模式)、`Alt+Enter`(巢狀的 lock)、`PgUp` / `PgDown`(遠端不是全螢幕程式時翻歷史)。理由:
-  - 它們作用的對象就是**正在用的那一格**。sshu 的網格是好幾個同時活著的 session,使用者在格子之間來回、放大
-    其中一格、從某一格複製 —— 每做一次都要先 `Alt+Esc` 退到清單、開 menu、再進回去,等於把網格的用法拆成
-    三段。
-  - 它們跟出口鍵是同一類鍵:`Alt` 和絃是遠端程式幾乎不用的組合(K10 自己選出口鍵的理由);`PgUp` / `PgDown`
-    只在遠端沒進 alt screen 時才借,全螢幕程式在的時候原封不動送過去(§11.19)。
-  - 巢狀 sshu 靠和絃穿透到內層才操作得了(見下一條)。
-  - 揭露:格子有鍵盤時 footer 常駐列出這些和絃(M1),`?` 的 key reference 有 `ssh grid` 一段。
 - **明細浮層是 viewport,腳底可以掛一個 offer(F1)。** `detailPopup`(`internal/ui/detail.go`)是唯讀
   viewport,但 hosts / credentials / Config 的明細腳底掛著 `Connect to "<name>"?` / `Edit "<name>"?` 的問句,
   `Enter` 就執行 —— 等於 viewport 兼 confirm。理由(`sshu-ui-design.md` §11.29):以前 Connect 有自己的確認框,
   但連線不是破壞性動作,那個確認框真正在做的是「先讓你看清楚要去哪」,而明細本來就說得更完整;「看」和「決定」
   分成兩個浮層,只是讓使用者多按一次、多看一次同樣的東西。
-- **鎖住的格子,出口是 `Alt+Enter`,不是 `Alt+Esc`(K10)。** 格子被 lock(巢狀 sshu 用)之後,`Alt+Esc`、
-  `Alt+Z`、`Alt+v`、方向鍵全部穿透到內層,只有 `Alt+Enter` 留著(打開 lock menu,`Release PTY`)。理由
-  (§11.43):lock 的意思就是「這一層是透明的管子」,內層 sshu 要收到完整的和絃才操作得了;footer 在鎖住時只寫
-  `alt+enter release`,出口仍然常駐揭露。
 
 ## 設計文件導讀
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.53),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.60),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。
