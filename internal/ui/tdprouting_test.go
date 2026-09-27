@@ -47,8 +47,8 @@ func TestHelpStaysOnTopOfAConfirm(t *testing.T) {
 	if !m.confirm.isActive() || !m.help.isActive() {
 		t.Fatal("setup: the help should stand on the delete confirm")
 	}
-	if !strings.Contains(m.View(), "Core keys") {
-		t.Error("the help should be drawn above the confirm")
+	if !strings.Contains(m.View(), glyphHelp+" confirm") {
+		t.Error("the confirm's help should be drawn above the confirm")
 	}
 	if strings.Contains(m.View(), "Delete host") {
 		t.Error("the confirm is showing through the help it is under")

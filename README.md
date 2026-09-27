@@ -77,11 +77,11 @@ It opens on the hosts table. Press `A` to add your first host, `Enter` to connec
 
 | Key | Behavior |
 |---|---|
-| **`Tab`** | Move focus to the next panel of this tab (on the ssh tab it shows or hides a session's cell) |
+| **`Tab`** | Move focus to the next panel of this tab (manage and file transfer; on the ssh tab use `1` `2`) |
 | **`Enter`** | Connect / enter a directory / commit a choice |
-| **`Space`** | *What can I do here?* — the menu for whatever has focus. Press it again to close the menu |
+| **`Space`** | *What can I do here?* — the menu for whatever has focus; its last row opens the global operations (switch tab, quit). Press it again to close the menu |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
-| **`?`** | Global help — every key in one list |
+| **`?`** | Every key in one list. On a popup: that popup's own keys |
 
 Switch tabs with **`M` / `F` / `S`**; the digits `1`–`9` jump to a panel of the current tab. While you are typing into a remote session every key belongs to the remote — press `Alt+Esc` to take the keyboard back.
 
@@ -109,7 +109,7 @@ Every letter hotkey below is also a row in that panel's `Space` menu. The bracke
 
 ```
  tabs      M / F / S                 (inside a session: they are the remote's)
- panels    1–9 of the current tab  ·  Tab (ssh tab: show/hide cell)
+ panels    1–9 of the current tab  ·  Tab (manage, file transfer)
  cursor    j k    u d (half page)     gg G      arrows are synonyms
  global    Space menu    ? help    q quit    Ctrl+C quit (twice: at once)
            (in a session or an editor, Ctrl+C is theirs — Alt+Esc first)
@@ -154,13 +154,13 @@ In the host form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `
 | `D` | Disconnect this side |
 | `J` | Jobs — transfers in flight, each cancellable |
 
-While a transfer is running, `H` and `D` are unavailable — cancel it in `J` first.
+While a transfer is running, `H` and `D` are dimmed and do nothing — cancel it in `J` first.
 
 ### `[S]SH`
 
 | Key | Action |
 |---|---|
-| `H` / `Tab` | Hide this session's cell from the grid, or show it again |
+| `H` | Hide this session's cell from the grid, or show it again |
 | `Enter` | Show this session and hand it the keyboard |
 | `C` | Close this session (asks first) — *Close all sessions* is in the `Space` menu |
 | `D` | Open a second session to the same host (asks first) |

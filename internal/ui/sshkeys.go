@@ -111,8 +111,7 @@ func parseGridCols(s string) (cols int, ok bool) {
 	return int(s[0] - '0'), true
 }
 
-// toggleSessionDisplay is [H]ide, and Tab is the same thing under the key this
-// tab has always used for it.
+// toggleSessionDisplay is [H]ide.
 //
 // The LABEL is worded for the direction it almost always runs in — a session's
 // cell goes onto the grid the moment it connects, so the thing you reach for is
@@ -248,23 +247,23 @@ func (m AppModel) startSession(h store.Host, land sshPanel) (tea.Model, tea.Cmd)
 	return m, tea.Batch(cmd, m.ssh.tick())
 }
 
-// sshMenuItems is tab [3]'s §A.1 contents, in the same two regions tab [2] uses:
-// what happens to the session under the cursor, and what is about the tab.
+// sshMenuItems is tab [3]'s Space menu, in the same regions tab [2] uses: what
+// happens to the session under the cursor, what is about the tab, and the
+// global region (tdp M2).
 func (m AppModel) sshMenuItems() []menuItem {
 	if m.ssh.focus == panelPty {
-		return []menuItem{
+		return m.withGlobal([]menuItem{
 			{label: "session", header: true},
 			{label: "the remote has the keyboard", header: true},
-			{separator: true},
 			{label: "alt+esc comes back · hold alt, arrows switch cells", header: true},
-		}
+		})
 	}
 	if m.ssh.focus == panelLayout {
-		return []menuItem{
+		return m.withGlobal([]menuItem{
 			{label: "layout", header: true},
 			{label: "j/k choose an arrangement — it applies as you move", header: true},
 			{label: "Enter on custom asks for rows × columns", header: true},
-		}
+		})
 	}
 
 	var item, panel []menuItem
@@ -284,17 +283,5 @@ func (m AppModel) sshMenuItems() []menuItem {
 		}
 		item = append(item, row)
 	}
-	// One region stays flat — a header over a single group is noise (§6.2).
-	if len(item) == 0 {
-		return panel
-	}
-
-	out := []menuItem{{label: menuItemRegion, header: true}}
-	out = append(out, item...)
-	out = append(out, menuItem{separator: true},
-		menuItem{label: menuPanelRegion, header: true})
-	for _, a := range panel {
-		out = append(out, a)
-	}
-	return out
+	return m.regions(item, panel)
 }

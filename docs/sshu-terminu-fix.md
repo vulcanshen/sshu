@@ -1,7 +1,7 @@
 # sshu — terminu fix
 
 sshu 尚未符合 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle)（tdp v0.1.1）的地方，逐條待修。
-修好一條就刪掉一條，並同步 README（兩份）、`docs/sshu-ui-design.md` 與 `?` help（`helppopup.go` 的 `helpContent`）裡描述該行為的段落。有意不修的，改寫成
+修好一條就刪掉一條，並同步 README（兩份）、`docs/sshu-ui-design.md` 與 `?` menu 的 key reference（`helppopup.go` 的 `keyReference`）裡描述該行為的段落。有意不修的，改寫成
 `dev-remarks.md`「偏離 tdp」的一條並附理由。
 
 盤點日期：2026-09-26。行號以當天的 `main` 為準（檔案都在 `internal/ui/`）。
@@ -9,6 +9,8 @@ sshu 尚未符合 [terminu design principle](https://github.com/vulcanshen/termi
 **2026-09-27 裁定**：原本的第 1 條（SSH tab 的 `Tab`）、第 2 條（表單的 `Enter`）與「待確認」（格子上只有熱鍵的動作）保留 sshu 現在的做法，改寫成 `dev-remarks.md`「偏離 tdp」；條號不重排。同日對照 tdp v0.1.1 補上第 15、16 條，並修正第 7、13 條。
 
 **2026-09-27 修好（路由核心）**：第 3、9、10、11、13、16 條，見 `sshu-ui-design.md` §11.54。
+**2026-09-27 修好（menu）**：第 4–8 條，見 `sshu-ui-design.md` §11.55。
+**2026-09-27 裁定（試行）**：`?` 只拿來讀（key reference），global operation 改成 Space menu 最後一列打開的 popup；SSH tab 的 `Tab` 不作用。都寫成 `dev-remarks.md`「偏離 tdp」，見 `sshu-ui-design.md` §11.56。
 
 
 ## 先看：locku、webu 修完的經驗（2026-09-27 更新）
@@ -41,58 +43,6 @@ locku（v0.1.2、v0.1.3）與 webu（v0.4.0）已照 tdp 修完，修的時候�
 
 ---
 
-## 4. 沒有 host 的那一側，`Space` 直接開 host 清單 —— K5、M7
-
-- **現況**：`app.go` `panelKey()` 第 948 行，`tabFT` 且 `m.sftp.cur().fs == nil` 時 `Space` 轉呼
-  `sftpKey(keySelectHost)`，不開 Space menu（「一列的 menu 不是 menu」，`sshu-ui-design.md` §11.16）。
-- **規則**：panel 上 `Space` 一律打開 Space menu；只有一列時照樣是 menu，選一列 `Enter` 才打開下一個 popup。
-- **怎麼改**：拿掉這個捷徑，`Space` 開出只有 `[H]ost`（加上 global operation，見第 7 條）的 Space menu；
-  `H` 熱鍵照舊直接開 host 清單。`dev-remarks.md`「`[F]ile transfer`」那一條與 §11.16 一起改。
-
-## 5. `?` 疊在 popup 上時顯示整個 app 的 help —— K6
-
-- **現況**：`app.go` 第 686–693 行，`?` 不論最上層是什麼都打開同一個 `helpPopup`，內容是 `helpContent`
-  （整個 app 的按鍵）；註解明說「It opens from ON TOP of another float too」。
-- **規則**：focus 在 popup 上時，`?` 只顯示**這個 popup** 的 help：這個框裡能按什麼、做什麼。
-- **怎麼改**：`?` 先看最上層的 popup，各給一份自己的 help（Space menu / picker：`j/k`、`Enter`、熱鍵、`Esc`；
-  confirm：`Enter <動詞>`、`Esc`；表單：`Tab` / `Shift-Tab`、`Enter` save、`←` `→`（Auth）、`Backspace`、`Esc`；
-  viewer / 明細：捲動鍵、`Enter`（有 offer 時）、`Esc`；Jobs：`j/k`、取消鍵、`Esc`）。
-
-## 6. `?` 是唯讀 viewport，沒有可執行的 global operation 區 —— M4、K9
-
-- **現況**：`helppopup.go` 是唯讀 viewport（`update()` 只捲動），內容是 `helpContent`：Core keys、Global
-  （`q quit`、`Ctrl+C force quit`）、ssh grid、Navigate。
-- **規則**：focus 在 panel 上時，`?` 打開的是 `?` menu：
-  1. `global operation` 區，可以直接執行（`j/k`、`Enter`、熱鍵），離開 app 必須在這裡；
-  2. `key reference` 區，唯讀，至少列出 core key。
-- **怎麼改**：`?` menu 改成「上半可執行、下半唯讀」。sshu 的 global operation：`[M]anage`、`[F]ile transfer`、
-  `[S]SH`（切 tab）與 `[q]uit`。`helpContent` 的 Core keys、ssh grid、Navigate 留在 `key reference`
-  （ssh grid 那組照舊要列：格子裡按不出 help）。建議把全域動作定義成一份清單，與第 7 條共用。
-
-## 7. Space menu 沒有 global operation 區 —— M2、M7
-
-- **現況**：各 panel 的 Space menu 只組 `item operation` 與 `panel operation`：`app.go` `menuItems()`（第 1558 行）、
-  `sftpkeys.go` `sftpMenuItems()`（第 196 行）、`sshkeys.go` `sshMenuItems()`（第 253 行）、
-  `credkeys.go` `credsMenuItems()`（第 66 行）、`knownkeys.go` `knownMenuItems()`（第 71 行）、
-  `sshcfgkeys.go` `sshcfgMenuItems()`（第 68 行）。manage 的 nav、`[2]` layout、空的 Logs 只有說明用的 header 列；
-  沒有 session 時 `[1]` sessions 的 menu 是空的，沒有一句「沒有可做的事」。
-- **規則**：Space menu 第三區 `global operation`，列出全部全域動作，與 `?` menu 的 global operation 同一份清單、
-  同一順序；沒有可執行的動作時照樣打開，顯示「沒有可做的事」與關閉方式。
-- **怎麼改**：每個 menu 最後接上 `global operation` 區（切 tab 三列與 `[q]uit`）。panel 上的 Space menu
-  **一律加區塊標題**（tdp v0.1.1 M2：global 區永遠在，至少兩區），原本只有一區的扁平 menu 要補上自己那一區的標題。
-  加上 global 區之後不會再有空 menu，但 item / panel 都沒有時，前面仍要有一句「這裡沒有可做的事」。
-
-## 8. 不能執行的列按了會跳原因 —— M6
-
-- **現況**：`sftpkeys.go` `sftpKey()` 第 165–167 行，傳輸進行中對 `needsIdle` 的列（`[H]ost`、`[D]isconnect`）
-  按 `Enter` 或熱鍵，toast 顯示 `transferBusy()` 的原因（`… still moving — cancel in [J]obs first`）。
-  `app.go` `lockMenuKey()` 第 1524–1535 行，lock menu 上 disabled 的 `Lock PTY` / `Release PTY` 按下去 toast
-  `Already locked` / `Not locked`。`spacemenu.go` 第 20–26 行的註解把「still answers when pressed」寫成設計。
-- **規則**：列照樣出現、變暗；說明欄維持原本那句，不另外寫原因；`Enter` 與熱鍵都不作用。
-- **怎麼改**：disabled 的列在 `Enter` / 熱鍵時直接 `return m, nil`（`sftpKey` 的 guard、`lockMenuKey` 的兩個 case）。
-  `spacemenu.go` 的註解、README 兩份「傳輸進行中不能用 `H` 和 `D` —— 先到 `J` 取消」、`dev-remarks.md`
-  「`[F]ile transfer`」那一條、`sshu-ui-design.md` §11.15 一起改。
-
 ## 12. README 的 `[M]anage` 按鍵表過時 —— S2、文件對齊
 
 - **現況**：`README.md` 與 `README-zh_TW.md` 的 `[M]anage` 表有一列「`V`：View what this row holds /
@@ -108,7 +58,7 @@ locku（v0.1.2、v0.1.3）與 webu（v0.4.0）已照 tdp 修完，修的時候�
   指 `sshu-ui-design.md` 自己章節的不動：所有 `§11.x`、`§7.3.2`、`theme.go:5` 寫明的 `sshu-ui-design.md §2.1 / §B`，
   以及 `theme.go:107`、`:131`（§3.4、§3）、`viewer.go:34`（§4.2 導覽）、`askpass.go:292`（§6.3 host form）、
   `hosts.go:225`、`:296`（§1.1、§1.5）、`chrome.go:134`（§1.1）、`app.go:1611`、`sshkeys.go:287`（§6.2 Space menu）。
-- 路由核心那批（§11.54）改寫過的註解已換成 tdp 編號，表裡不再列；其餘行號是盤點當天的，照內容比對。
+- 路由核心（§11.54）與 menu（§11.55）兩批改寫過的註解已換成 tdp 編號，表裡不再列；其餘行號是盤點當天的，照內容比對。
 - **怎麼改**：照 [terminu `vtp/README.md` 的對照表](https://github.com/vulcanshen/terminu/blob/v0.1.1/vtp/README.md) 換成 tdp 編號：
 
 | 檔案:行 | 現在 | 換成 |
@@ -128,8 +78,6 @@ locku（v0.1.2、v0.1.3）與 webu（v0.4.0）已照 tdp 修完，修的時候�
 | `app.go:947`、`:1234`、`:1265`、`:1461` | `§4.2` | `tdp M3` |
 | `app.go:1145` | `§4.5` | `tdp K8` |
 | `app.go:1496` | `§A.1` | `tdp K5` |
-| `app.go:1526` | `§A.1` | `tdp M6`（第 8 條修完後這行消失） |
-| `app.go:1557` | `the §A.1 contents` | `the Space menu contents (tdp M2)` |
 | `askpass.go:225` | `§4.3` | `tdp K4` |
 | `bundlepage.go:17`、`:79`、`:126` | `§4.5` | `tdp K8` |
 | `bundlepage.go:68` | `§6.7` | `tdp F5` |
@@ -155,8 +103,6 @@ locku（v0.1.2、v0.1.3）與 webu（v0.4.0）已照 tdp 修完，修的時候�
 | `form.go:18` | `the §A.1 entry key` | `the Space menu entry key (tdp K5)` |
 | `form.go:19`、`:471`、`:474` | `§4.5` | `tdp K8` |
 | `form.go:431` | `§6.7` | `tdp F5` |
-| `helppopup.go:8` | `the §A.2 non-contextual entry point` | `the ? entry point (tdp K6, M4)` |
-| `helppopup.go:34` | `§A.0.K` | `tdp K1` |
 | `highlight.go:12` | `the point of the u-family` | `the point of the terminu family` |
 | `hosts.go:83`、`:171` | `§4.5` | `tdp K8` |
 | `hosts.go:255` | `§1.3` | `tdp L3` |
@@ -174,16 +120,13 @@ locku（v0.1.2、v0.1.3）與 webu（v0.4.0）已照 tdp 修完，修的時候�
 | `preftab.go:108` | `§1.2` | `tdp L2` |
 | `sftpkeys.go:77` | `§4.4` | `tdp M5` |
 | `sftpkeys.go:142`、`:161` | `§4.2` | `tdp M3` |
-| `sftpkeys.go:187` | `tab [2]'s §A.1 contents` | `tab [2]'s Space menu contents (tdp M2)` |
 | `sftpsearch.go:191` | `§4.5` | `tdp K8` |
 | `sftptab.go:369` | `§4.5` | `tdp K8` |
 | `sftpview.go:11` | `§4.4` | `tdp M5` |
 | `spacemenu.go:12` | `§4.2` | `tdp M3` |
-| `spacemenu.go:29` | `the §A.1 contextual entry point` | `the Space menu (tdp K5, M2)` |
 | `spacemenu.go:150` | `§4.4` | `tdp M5` |
 | `splash.go:19` | `The u-family mark` | `The terminu family mark` |
 | `sshcfgkeys.go:13`、`sshkeys.go:13` | `§4.2` | `tdp M3` |
-| `sshkeys.go:251` | `tab [3]'s §A.1 contents` | `tab [3]'s Space menu contents (tdp M2)` |
 | `sshtab.go:50` | `§1.2` | `tdp L2` |
 | `sshtab.go:372` | `§A.1` | `tdp M5` |
 | `sshtab.go:1035` | `§1.2` | `tdp L4` |

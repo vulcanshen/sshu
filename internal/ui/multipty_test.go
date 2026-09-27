@@ -25,24 +25,20 @@ func twoOnGrid(t *testing.T) AppModel {
 	return m
 }
 
-// Tab on the list is the display toggle: off, on, and never a duplicate cell.
-func TestTabTogglesASessionsCell(t *testing.T) {
+// Tab on the list does nothing (§11.56): hiding a cell is [H]ide, and Tab is
+// not a second spelling of it.
+func TestTabDoesNothingOnTheSessionsList(t *testing.T) {
 	m := twoOnGrid(t)
 	m.ssh.setFocus(panelSessions)
 	m.ssh.curSess = 0
-	id := m.ssh.sessions[0].id
 
-	m = pressA(m, "tab")
-	if m.ssh.isShown(id) || len(m.ssh.shown) != 1 {
-		t.Fatalf("Tab should take the cell off the grid, shown=%v", m.ssh.shown)
+	for _, k := range []string{"tab", "shift+tab"} {
+		if m = pressA(m, k); len(m.ssh.shown) != 2 {
+			t.Errorf("%s must not take a cell off the grid, shown=%v", k, m.ssh.shown)
+		}
 	}
-	m = pressA(m, "tab")
-	if !m.ssh.isShown(id) || len(m.ssh.shown) != 2 {
-		t.Fatalf("Tab should put it back — once, shown=%v", m.ssh.shown)
-	}
-	m = pressA(m, "tab", "tab")
-	if len(m.ssh.shown) != 2 {
-		t.Fatalf("toggling must never duplicate a cell, shown=%v", m.ssh.shown)
+	if m.ssh.focus != panelSessions {
+		t.Errorf("Tab must not move the focus either, focus=%d", m.ssh.focus)
 	}
 }
 

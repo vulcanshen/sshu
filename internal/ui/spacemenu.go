@@ -21,12 +21,18 @@ type menuItem struct {
 	// the same as leaving the row out (which is what an action that does not
 	// apply gets, §sftpApplicable): a row that vanishes teaches that the
 	// action does not exist on this panel, and it will be looked for later.
-	// A dimmed row keeps the map honest and still answers when pressed — so
-	// the cursor lands on it like any other, and running it says why not.
+	// The row is dimmed and keeps its own description; the cursor lands on it
+	// like any other, and Enter or its letter does nothing (tdp M6). No reason
+	// is written in: reasons vary without end, and one that fits a single
+	// line today is a line that overflows tomorrow.
 	disabled bool
 }
 
-// spaceMenu is the §A.1 contextual entry point: "what can I do, here, now".
+// selectable reports whether the cursor can stand on this row.
+func (it menuItem) selectable() bool { return !it.header && !it.separator }
+
+// spaceMenu is the Space menu (tdp K5, M2): "what can I do, here, now". The
+// same type is the global operation popup, the pickers and the lock menu.
 type spaceMenu struct {
 	anim    popupAnimator
 	items   []menuItem
@@ -66,7 +72,7 @@ func (m *spaceMenu) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 
 func (m spaceMenu) firstSelectable() int {
 	for i, it := range m.items {
-		if !it.header && !it.separator {
+		if it.selectable() {
 			return i
 		}
 	}
@@ -84,7 +90,7 @@ func (m *spaceMenu) step(d int) {
 	at := m.cursor
 	for i := 0; i < n; i++ {
 		at = (at + d + n) % n
-		if !m.items[at].header && !m.items[at].separator {
+		if m.items[at].selectable() {
 			m.cursor = at
 			return
 		}
@@ -103,21 +109,23 @@ func (m spaceMenu) update(msg tea.KeyMsg) (spaceMenu, string, tea.Cmd) {
 	case "k", "up":
 		m.step(-1)
 	case "enter":
-		if m.cursor < len(m.items) {
+		if m.cursor < len(m.items) && !m.items[m.cursor].disabled {
 			return m, m.items[m.cursor].key, nil
 		}
 	default:
 		// Letter hotkeys work from inside the menu too: the menu is the slow
 		// path and the letter is the fast one, and they must agree. Same
 		// exact-then-fold rule as the panel, so `t` and `T` stay distinct here.
+		// A dimmed row's letter is swallowed, not passed on (tdp M6).
 		var keys []string
+		var rows []menuItem
 		for _, it := range m.items {
-			if it.header || it.separator {
+			if !it.selectable() {
 				continue
 			}
-			keys = append(keys, it.key)
+			keys, rows = append(keys, it.key), append(rows, it)
 		}
-		if i := hotkeyIndex(keys, k); i >= 0 {
+		if i := hotkeyIndex(keys, k); i >= 0 && !rows[i].disabled {
 			return m, keys[i], nil
 		}
 	}

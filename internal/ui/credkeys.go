@@ -74,14 +74,7 @@ func (m AppModel) credsMenuItems() []menuItem {
 		}
 		item = append(item, row)
 	}
-	if len(item) == 0 || len(panel) == 0 {
-		return append(item, panel...)
-	}
-	out := []menuItem{{label: menuItemRegion, header: true}}
-	out = append(out, item...)
-	out = append(out, menuItem{separator: true},
-		menuItem{label: menuPanelRegion, header: true})
-	return append(out, panel...)
+	return m.regions(item, panel)
 }
 
 // ---------------------------------------------------------------- actions

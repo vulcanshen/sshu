@@ -77,11 +77,11 @@ sshu
 
 | 鍵 | 行為 |
 |---|---|
-| **`Tab`** | 移到當前 tab 的下一個 panel(在 ssh tab 上是顯示或隱藏 session 的格子) |
+| **`Tab`** | 移到當前 tab 的下一個 panel(manage 與 file transfer;ssh tab 用 `1` `2`) |
 | **`Enter`** | 連線 / 進入目錄 / 確認選擇 |
-| **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu。再按一次關掉 menu |
+| **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu;最後一列打開全域動作(切 tab、離開)。再按一次關掉 menu |
 | **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
-| **`?`** | 全域說明 —— 所有的鍵列在同一張表 |
+| **`?`** | 所有按鍵的對照表。在浮層上:那個浮層自己的按鍵 |
 
 用 **`M` / `F` / `S`** 切 tab;數字 `1`–`9` 直達當前 tab 的 panel。在遠端 session 裡打字時,每一個鍵都屬於遠端 —— 按 `Alt+Esc` 把鍵盤收回來。
 
@@ -109,7 +109,7 @@ sshu
 
 ```
  tab       M / F / S(session 裡:它們屬於遠端)
- panel     當前 tab 的 1–9  ·  Tab(ssh tab:顯示 / 隱藏格子)
+ panel     當前 tab 的 1–9  ·  Tab(manage、file transfer)
  游標      j k    u d(半頁)          gg G      方向鍵同義
  全域      Space menu    ? help    q 離開    Ctrl+C 離開(按兩次:立刻走)
            (session / 編輯器裡 Ctrl+C 屬於它們 —— 先 Alt+Esc)
@@ -154,13 +154,13 @@ host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **pas
 | `D` | 這一側斷線 |
 | `J` | Jobs —— 進行中的傳輸,可逐條取消 |
 
-傳輸進行中不能用 `H` 和 `D` —— 先到 `J` 取消。
+傳輸進行中 `H` 和 `D` 會變暗、按了沒有反應 —— 先到 `J` 取消。
 
 ### `[S]SH`
 
 | 鍵 | 動作 |
 |---|---|
-| `H` / `Tab` | 把這個 session 的格子從網格上拿掉,或放回去 |
+| `H` | 把這個 session 的格子從網格上拿掉,或放回去 |
 | `Enter` | 顯示這個 session 並把鍵盤交給它 |
 | `C` | 關掉這個 session(先問)—— 「全部關掉」在 `Space` menu 裡 |
 | `D` | 對同一台再開一個 session(先問) |

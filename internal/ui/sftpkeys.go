@@ -158,14 +158,11 @@ func (m AppModel) sftpKey(k string) (tea.Model, tea.Cmd) {
 	if i := hotkeyIndex(keys, k); i >= 0 {
 		// The one guard both entry points share: the letter typed at the panel
 		// and the row committed in the menu arrive here alike, so neither can
-		// get past a running transfer while the other cannot (§4.2). The menu
-		// is deliberately NOT torn down — a refusal is not a commit, and the
-		// row it refused is still on screen, still dim, still explaining
-		// itself.
-		if acts[i].needsIdle {
-			if warn := m.transferBusy(); warn != "" {
-				return m, m.toast.show(warn, toastError)
-			}
+		// get past a running transfer while the other cannot (tdp M3). A
+		// refusal does nothing at all — the row is dimmed, and a dimmed row's
+		// Enter and letter do not act (tdp M6).
+		if acts[i].needsIdle && m.transfersMoving() {
+			return m, nil
 		}
 		return acts[i].run(m)
 	}
@@ -173,30 +170,21 @@ func (m AppModel) sftpKey(k string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// transferBusy is why the filesystem cannot be swapped right now, or "" when it
-// can. One sentence, one place: the dimmed row, the refused hotkey and the
-// refused menu commit all quote it, so they cannot come to disagree.
-func (m AppModel) transferBusy() string {
-	n := m.transfers.runningCount()
-	if n == 0 {
-		return ""
-	}
-	return plural(n, "transfer") + " still moving — cancel in [J]obs first"
-}
+// transfersMoving is why the filesystem cannot be swapped right now. One
+// question, one place: the dimmed row and the refused hotkey both ask it, so
+// they cannot come to disagree.
+func (m AppModel) transfersMoving() bool { return m.transfers.runningCount() > 0 }
 
-// sftpMenuItems is tab [2]'s §A.1 contents, in two labelled regions: what
-// happens to the row under the cursor, and what happens to this side.
+// sftpMenuItems is tab [2]'s Space menu (tdp M2): what happens to the row
+// under the cursor, what happens to this side, and the global region.
 //
 // WHICH row is not repeated in the header — the cursor is on it, the popup's own
 // title names the panel, and the labels are the family's ("item operation" /
 // "panel operation", from kbu). Naming the row here was tried and dropped.
-//
-// A menu with only ONE region stays flat: a header over a single group is noise,
-// and the no-host menu is one row that needs no explaining (kbu's rule).
 func (m AppModel) sftpMenuItems() []menuItem {
 	_, acts := m.sftpApplicable()
 
-	busy := m.transferBusy() != ""
+	busy := m.transfersMoving()
 
 	var item, panel []menuItem
 	for _, a := range acts {
@@ -208,15 +196,7 @@ func (m AppModel) sftpMenuItems() []menuItem {
 		}
 		item = append(item, row)
 	}
-	if len(item) == 0 || len(panel) == 0 {
-		return append(item, panel...)
-	}
-
-	out := []menuItem{{label: menuItemRegion, header: true}}
-	out = append(out, item...)
-	out = append(out, menuItem{separator: true},
-		menuItem{label: menuPanelRegion, header: true})
-	return append(out, panel...)
+	return m.regions(item, panel)
 }
 
 // ------------------------------------------------------------------ actions

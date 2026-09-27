@@ -91,6 +91,11 @@ cursor-first(tdp M2):item region 在前、panel region 在後。
 
 ### §A.2 Non-contextual track — `?` help popup(tdp K6、M4)
 
+> **§11.56 起**:`?` 只拿來讀 —— panel 上是 `key reference`,浮層上是那個浮層自己的按鍵。
+> 全域動作(`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`)在 Space menu 最後一區那一列
+> 打開的 global operation popup 裡(§11.55 曾把它們放在 `?` menu 上)。下表與本節其餘是 help
+> popup 時期的樣子。
+
 | 全域動作 | key |
 |---|---|
 | 說明 | `?` |
@@ -736,6 +741,8 @@ menu 是慢路徑,而有些動作的正確速度就是慢。
 得夠準,否則等於沒揭露。
 
 ### 4.4.1 `Tab` 只在當前 tab 裡輪詢
+
+> **§11.56 起**:ssh tab 的 `Tab` 完全不作用 —— 下文 v0.2 的「顯示開關」已拿掉,隱藏格子只有 `[H]ide`。
 
 > **v0.2**:本節「輪詢」在 preference / file transfer 照舊;**ssh tab 的
 > `Tab` 改為「顯示開關」**(切換游標 session 在網格上的格子)—— 該 tab 的
@@ -2761,6 +2768,9 @@ mark 動作。沒有 host 的那一側則連這一列都不存在 —— 沒有�
 
 ### 11.15 傳輸中凍結:menu 的第三種列,與會轉的 summary
 
+> **§11.55 起**:disabled 的列按下去**不作用**,不再跳原因的 toast(tdp M6)。列照樣出現、
+> 變暗、說明維持原句;下文「按下去會說為什麼」是當時的做法。
+
 `[H]ost` 與 `[D]isconnect` 做的是同一件事 —— **把這一側底下的檔案
 系統換掉**。而這個 tab 的每一筆傳輸都同時掛著兩側,所以傳輸進行中做這件事
 會把複製弄斷。使用者裁定:**傳輸中不允許換 host**。
@@ -2796,6 +2806,9 @@ mark 動作。沒有 host 的那一側則連這一列都不存在 —— 沒有�
 降階、summary 沒 spinner、spinner 不前進、summary 掉了傳輸 glyph)。
 
 ### 11.16 一列的 menu 不是 menu
+
+> **§11.55 撤回**:沒有 host 的那一側,`Space` 照樣開 Space menu(`[H]ost` 一列加 global 區)。
+> tdp K5、M7:`Space` 在每個 panel 上都是 menu,一個 panel 例外就是多一條要學的規則。
 
 沒有 host 的那一側,Space 會開出一個**只有 `[H]ost` 一列**的盒子。
 使用者裁定拿掉那一層:**Space 直接開 host 清單。**
@@ -6325,6 +6338,139 @@ sshu 自己的 UX 的地方(牽涉的那幾條寫成了 dev-remarks 的「偏離
 
 ---
 
+### 11.55 menu 照 tdp 修 —— 三區的 Space menu、`?` menu、浮層自己的 help、變暗的列不作用
+
+> **§11.56 改掉了其中兩件**:`?` menu 拆掉(`?` 只讀),Space menu 的 global 區收成一列、打開
+> global operation popup。本節其餘(三區、`nothing to do here`、變暗的列不作用、沒有 host 的那一側
+> 也開 menu、浮層自己的 help)不變。
+
+#### 使用者的要求
+
+> 「commit,然後繼續修 menu 那一批」
+
+`docs/sshu-terminu-fix.md` 第 4–8 條。
+
+#### 每個 Space menu 都有 global 區(tdp M2、M7)
+
+全域動作宣告在一個地方(`globalActions`:`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`),
+Space menu 的最後一區與 `?` menu 的上半都從它長出來,所以兩邊的清單與順序不會不一樣。
+`regions(item, panel)` 是所有 panel 共用的組法:有 item 才有 item 區、有 panel 動作才有
+panel 區、每一區帶標題、區與區之間一條線、最後接 global 區(`withGlobal`)。只有說明文字的
+menu(nav、layout、pty、空的紀錄、Operation 頁)也接上 global 區。item 與 panel 都沒有時,
+前面寫一句 `nothing to do here`。
+
+以前「只有一區就不加標題」(kbu 的規則,§6.2)—— global 區永遠在以後,不會再有只有一區的
+Space menu,所以一律帶標題(tdp v0.1.1 M2)。
+
+global 列從 menu 執行:切 tab 是換 context,整疊清掉(tdp T1);`[q]uit` 走離開流程,問題疊在
+menu 上面,取消回到 menu(tdp F4)。**目前所在的 tab 那一列變暗**:它是全域動作之一,只是你
+已經在那裡了。
+
+#### `?` menu(tdp M4)
+
+panel 上的 `?` 不再是唯讀的 help popup,而是一個 menu:上半 `global operation` 可以直接執行
+(`j`/`k`、`Enter`、熱鍵),下半 `key reference` 唯讀。reference 的列是 menu 的第四種列
+`note`:畫成鍵加說明,游標跳過、熱鍵不認,跟 header、separator 同一個 `selectable()` 判斷
+(tdp D4)。網格那組和絃照舊列在 reference 裡:格子裡 `?` 屬於遠端,這是唯一學得到它們的地方。
+
+`?` menu 在 80×40(tdp L1)剛好放得下;更矮的終端機 reference 的尾端會被截掉(menu 不捲動,
+跟其他 menu 一樣)。
+
+#### 浮層上的 `?` 是那個浮層自己的 help(tdp K6)
+
+`popupHelp()` 依最上層的浮層給一份自己的按鍵:Space menu / lock menu(`j`/`k`、`Enter`、字母、
+`Space` 或 `Alt+Enter` 關、`Esc`)、confirm(`Enter <動詞>`、`Esc`)、離開的問題、Jobs、viewer、
+明細(有 offer 時多一列 `Enter`)、picker、編輯器。正在打字的浮層沒有:那裡 `?` 是問號(tdp K8)。
+help popup 本身變成「顯示一份給定的清單」,不再有自己的內容。
+
+#### 變暗的列不作用(tdp M6)
+
+以前變暗的列按下去會說原因:file transfer 的 `[H]ost` / `[D]isconnect` 跳 `… still moving —
+cancel in [J]obs first`,lock menu 的 `Lock PTY` / `Release PTY` 跳 `Already locked` / `Not
+locked`(§11.15)。現在 `Enter` 與熱鍵都不作用:menu 本身就不把變暗的列交出去,panel 上的熱鍵
+由 `sftpKey` 同一個判斷擋下(`transfersMoving()`,原本的 `transferBusy()` 只剩這個用途)。
+原因千變萬化,塞進說明會讓每一列的字數失控 —— 要先去 `J` 取消這件事,寫在 README。
+
+#### 沒有 host 的那一側也開 menu(tdp K5、M7)
+
+撤回 §11.16:`Space` 在每個 panel 上都開 Space menu,一個 panel 例外就是一條要另外學的規則。
+沒有 host 的那一側開出 `[H]ost` 一列加 global 區;`H` 熱鍵照舊直接開 host 清單。
+
+#### 測試
+
+`TestEveryPanelMenuEndsInTheGlobalRegion` / `TestAnEmptyPanelSaysThereIsNothingToDo` /
+`TestAGlobalRowRunsFromTheSpaceMenu` / `TestTheTabYouAreOnIsDimAndDoesNothing` /
+`TestTheQuestionMenuRunsGlobalsAndOnlyReadsTheReference` / `TestQuitFromTheQuestionMenuAsksOverIt` /
+`TestAPopupsHelpIsItsOwn` / `TestEnterOnADimmedMenuRowIsSwallowed`(`tdpmenu_test.go`);改寫的:
+`TestSpaceOnAHostlessSideOpensTheMenu`(原 `…OpensTheHostListItself`)、
+`TestTheFrozenActionDoesNothingFromTheKeyOrTheMenu`(原 `…RefusesFromBoth…`)、
+`TestTheDisabledRowDoesNothing`(原 `…AnswersInsteadOfFlipping`)、
+`TestSpaceAnswersForTheSideYouAreOn`、`TestQuestionMarkTogglesTheHelp` 等區塊結構的測試改看
+`beforeGlobal()` 切掉 global 區之後的列。
+
+13 個 mutation 全數被抓。第一輪漏了兩個,各有原因:「只有一區不加標題」的 mutation 改在走不到的
+分支(沒有只有 item 的 menu),改成 panel 區;「游標停到 reference 列」的測試用 `selectable()`
+判斷游標那一列 —— 正是被改的那個函式,改成直接看列的種類。
+
+---
+
+### 11.56 `?` 只讀、global operation 自成一個 popup;ssh tab 的 `Tab` 不作用
+
+#### 使用者的要求
+
+> 「[S]SH 中 panel [1] sessions 不要有 tab 行為, 現在 tab 是切換 hide, 這原本就有嗎？移除這件事」
+>
+> 「做到這一個 app, 我發現 「?」給 item 可以選實在不應該，? 硬該要跟 space menu 的 global operation
+> 拆開, space global operation 可以是獨立的一個項目, enter 後開啟 global operation popup, 這個要寫回
+> tdp, 我們這邊就當嘗試，把「?」單純拿來做 key reference，和 menu 拆開」
+
+#### `?` 只讀
+
+§11.55 照 tdp M4 把 `?` 做成 `?` menu:上半可執行的 global operation、下半唯讀的 key reference。
+做出來之後的問題是:一個使用者按 `?` 是想**讀**按鍵,卻站在一個游標、一列列可以按下去的 menu
+上 —— 讀與做疊在同一個框裡。拆開:
+
+- panel 上的 `?`:`key reference`,唯讀的 viewport(`helpPopup` 顯示 `keyReference`)。
+- 浮層上的 `?`:那個浮層自己的按鍵(`popupHelp()`,不變)。
+- 沒有東西可以執行,所以 key reference 裡的字母不是熱鍵;menu 的 `note` 列(§11.55 為 reference
+  加的第四種列)跟著拿掉。
+
+寬度改成依最長的說明算:沿用舊 help popup 的「按鍵欄 +29」,`nested sshu: lock/release, or the
+whole chain` 這種說明會被截成 `…`,截掉的正是「這個鍵做什麼」那一半。
+
+#### global operation popup
+
+Space menu 的最後一區 `global operation` 只放一列 `Global operation`(hint `switch tab, quit`),
+`Enter` 在 Space menu 上打開 global operation popup(`globalMenu`,疊在 Space menu 上,`Esc` 回到
+menu —— tdp F4)。popup 裡是 `globalActions` 的四列,字母照舊可以直接按;目前所在的 tab 那一列變暗。
+切 tab 清掉整疊(T1),`[q]uit` 把離開的問題疊在 popup 上(F4)。
+
+這一列沒有字母:Space menu 上的字母是這個 panel 的動作;它的 key 是 `global`(不是單一字元,所以
+沒有任何按鍵會對到它)。全列在每個 Space menu 上(§11.55 的做法)會比很多 panel 自己的動作還長。
+
+兩件都偏離 tdp(M4 要 `?` 能執行 global operation 並列出離開;M2 要 global 區列出**全部**全域動作),
+寫在 dev-remarks「偏離 tdp」,並回饋給 tdp 當修改建議。
+
+#### ssh tab 的 `Tab` 不作用
+
+`Tab` 在 `[1]` sessions 上是「顯示 / 隱藏游標那個 session 的格子」,跟 `[H]ide` 同一件事 —— v0.2
+的決定(§4.4.1、§11.30):這個 tab 的 panel 輪詢是空集合(網格不是 `Tab` 能走進去的地方),所以
+把鍵讓給清單最常做的事。使用者裁定拿掉:`Tab` 不該是另一個動作的第二個拼法,也不該在 `[1]`、`[2]`
+之間跳來跳去(換 panel 用數字鍵)。現在 ssh tab 上 `Tab` 不作用;`toggleCursorShown` 隨之刪除。
+
+#### 測試
+
+`TestTabDoesNothingOnTheSessionsList`(原 `TestTabTogglesASessionsCell`)/ `TestHideIsOnH`(原
+`…AndAlsoOnTab`)/ `TestTheGlobalPopupRunsTheGlobalOperations` / `TestTheSpaceMenuDoesNotRunGlobalLetters` /
+`TestTheTabYouAreOnIsDimAndDoesNothing`(改在 popup 上)/ `TestQuestionMarkIsTheKeyReference` /
+`TestQuitFromTheGlobalPopupAsksOverIt`;`globalTail` 改看「標題 + 一列」。
+
+7 個 mutation 全數被抓。`Tab` 的測試第一版連按 `tab` 與 `shift+tab`,mutation 下兩下剛好切回原狀而
+存活,改成每按一下就檢查;「Space menu 執行 global 字母」的 mutation 改在走不到的路徑(menu 只交出自己
+列裡的鍵),不算。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -6333,7 +6479,7 @@ sshu 自己的 UX 的地方(牽涉的那幾條寫成了 dev-remarks 的「偏離
 |---|---|
 | `M` / `F` / `S`(大寫;小寫屬於各 panel) | 切 tab —— **pty 內無效**,先 `Alt+Esc`;搜尋 / 打字中無效 |
 | `1`-`9` | **當前 tab** 的 panel 直達(pty 內數字屬於遠端) |
-| `Tab` | 當前 tab 的下一個 panel(**ssh tab 例外:顯示開關**) |
+| `Tab` | 當前 tab 的下一個 panel(**ssh tab 不作用**,§11.56) |
 
 ### Core key(跨 surface 不變)
 
@@ -6389,7 +6535,7 @@ sshu 自己的 UX 的地方(牽涉的那幾條寫成了 dev-remarks 的「偏離
 | Surface | 鍵 | 動作 |
 |---|---|---|
 | `[1]` sessions | `j`/`k`/`u`/`d` | 移動 |
-| `[1]` | **`H`** / `Tab` | **`[H]ide`** —— 游標 session 的格子上/下網格。menu 寫 `[H]ide`(預設是開著,所以那一列絕大多數在做的是「拿掉」);`Tab` 是這個 panel 從 v0.2 起的慣例,照樣能按(§11.30) |
+| `[1]` | **`H`** | **`[H]ide`** —— 游標 session 的格子上/下網格。menu 寫 `[H]ide`(預設是開著,所以那一列絕大多數在做的是「拿掉」;§11.30)。`Tab` 以前也是它,§11.56 拿掉 |
 | `[1]` | `Enter` | 顯示**並把鍵盤交給那一格**(side 欄收起) |
 | `[1]` | `C` · `D` | Close(確認)/ Duplicate(確認,**完成後留在清單**;兩條到同一台不再標 `#N`,§11.32) |
 | `[1]` | (**只在 Space menu**,無熱鍵) | **Close all sessions** —— 一次關掉全部(確認,問題帶數量;§11.26) |
@@ -6418,6 +6564,7 @@ sshu 自己的 UX 的地方(牽涉的那幾條寫成了 dev-remarks 的「偏離
 
 | 鍵 | 動作 |
 |---|---|
-| `?` | help popup |
+| `?` | key reference(唯讀);浮層上是那個浮層自己的按鍵(§11.56) |
+| Space menu 最後一列 `Global operation` | global operation popup:`[M]anage` / `[F]ile transfer` / `[S]SH` / `[q]uit`(§11.56) |
 | `q` | 離開流程(打字中與 pty 以外處處有效,浮層上也是;有活的 session / 傳輸會先問,§11.54) |
 | `Ctrl+C` | 同 `q` 的離開流程,打字中也有效;問題開著時再按一次立刻離開(子行程一併帶走)—— **pty / 編輯器內除外,那裡它屬於遠端**(§11.20) |

@@ -5,11 +5,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// helpPopup is the §A.2 non-contextual entry point: every global action the app
-// has, reachable from any surface. Its completeness is the promise — a user who
-// never read a README finds the whole global vocabulary here.
+// helpPopup is what ? opens, and it only reads (§11.56): from a panel the key
+// reference, from a popup that popup's own keys (tdp K6) — what can be pressed
+// in that one box and what it does.
 type helpPopup struct {
 	anim    popupAnimator
+	title   string
+	entries []helpEntry
 	top     int
 	layer   int
 	screenW int
@@ -20,8 +22,8 @@ func newHelpPopup() helpPopup { return helpPopup{anim: newPopupAnimator("help")}
 
 func (m helpPopup) isActive() bool      { return m.anim.isActive() }
 func (m helpPopup) isInteractive() bool { return m.anim.isInteractive() }
-func (m *helpPopup) open(layer int) tea.Cmd {
-	m.layer, m.top = layer, 0
+func (m *helpPopup) open(layer int, title string, entries []helpEntry) tea.Cmd {
+	m.layer, m.top, m.title, m.entries = layer, 0, title, entries
 	return m.anim.open()
 }
 func (m *helpPopup) close() tea.Cmd   { return m.anim.close() }
@@ -30,22 +32,22 @@ func (m *helpPopup) setSize(w, h int) { m.screenW, m.screenH = w, h }
 // helpEntry is one line: a section header (key == "") or a key/description pair.
 type helpEntry struct{ key, desc string }
 
-// helpContent is the whole global vocabulary. The core keys are listed first
-// because they are the five a user has to hold to walk the app (§A.0.K).
-var helpContent = []helpEntry{
-	{"", "Core keys"},
+// keyReference is what ? shows on a panel (tdp M4's key reference): the core
+// keys first, because they are the ones a user has to hold to walk the app,
+// then the grid's chords — a cell hands ? to the remote, so this is the only
+// place to learn them — and the navigation letters.
+var keyReference = []helpEntry{
+	{"", "core keys"},
 	{"M · F · S", "switch tab"},
 	{"1-9", "panel of this tab"},
 	{"Tab", "next panel in this tab"},
 	{"Enter", "confirm / connect"},
 	{"Esc", "close popup / cancel"},
 	{"Space", "what can I do here"},
-	{"?", "this help"},
-	{"", "Global"},
+	{"?", "this list / a popup's own keys"},
 	{"q", "quit"},
 	{"Ctrl+C", "quit (twice: at once)"},
 	{"", "ssh grid"},
-	{"Tab", "toggle a session's cell (on [1])"},
 	{"Alt+arrows", "move between cells"},
 	{"Alt+Z", "bigger: zoom panel, then zoom max"},
 	{"Alt+Enter", "nested sshu: lock/release, or the whole chain"},
@@ -55,7 +57,7 @@ var helpContent = []helpEntry{
 	{"hjkl · u · d", "…move there, v / V select, y copies"},
 	{"w · e · b", "…by word, forward and back"},
 	{"0 · $", "…to either end of the line"},
-	{"", "Navigate"},
+	{"", "navigate"},
 	{"j · k", "move cursor"},
 	{"u · d", "half a page"},
 	{"gg · G", "first / last"},
@@ -67,27 +69,30 @@ func (m *helpPopup) update(msg tea.KeyMsg) {
 	}
 	// A viewport, so the same keys scroll rather than move a cursor — and it
 	// does not wrap, for the same reason [6] does not.
-	m.top = moveScroll(m.top, max(0, len(helpContent)-m.visible()), msg.String(), m.visible())
+	m.top = moveScroll(m.top, max(0, len(m.entries)-m.visible()), msg.String(), m.visible())
 }
 
 // visible is how many content lines fit; the box costs 4 rows of chrome.
-func (m helpPopup) visible() int { return max(1, min(len(helpContent), m.screenH-6)) }
+func (m helpPopup) visible() int { return max(1, min(len(m.entries), m.screenH-6)) }
 
 func (m helpPopup) view() string {
-	keyW := 0
-	for _, e := range helpContent {
+	keyW, descW := 0, 0
+	for _, e := range m.entries {
 		keyW = max(keyW, dispW(e.key))
+		descW = max(descW, dispW(e.desc))
 	}
-	innerW := popupInnerW(m.screenW, keyW+29)
+	// Wide enough for the longest description: a reference whose lines end in
+	// "…" hides the half of each line that says what the key does.
+	innerW := popupInnerW(m.screenW, max(keyW+4+descW+1, dispW(m.title)+8))
 
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	key := lipgloss.NewStyle().Foreground(handColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 
 	vis := m.visible()
-	end := min(len(helpContent), m.top+vis)
+	end := min(len(m.entries), m.top+vis)
 	rows := make([]string, 0, vis)
-	for _, e := range helpContent[m.top:end] {
+	for _, e := range m.entries[min(m.top, len(m.entries)):end] {
 		if e.key == "" {
 			rows = append(rows, dim.Render(padRight(" "+e.desc, innerW)))
 			continue
@@ -96,11 +101,11 @@ func (m helpPopup) view() string {
 			txt.Render(padRight(e.desc, innerW-keyW-4)))
 	}
 
-	pairs := [][2]string{{"Esc", "close"}}
-	if len(helpContent) > vis {
+	pairs := [][2]string{{"?", "close"}}
+	if len(m.entries) > vis {
 		pairs = append([][2]string{{"j/k", "scroll"}}, pairs...)
 	}
 	hint := hintLegend(pairs)
-	return drawPopupBox(popupLayerColor(m.layer), " "+glyphHelp+" Help ", hint,
+	return drawPopupBox(popupLayerColor(m.layer), " "+glyphHelp+" "+m.title+" ", hint,
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

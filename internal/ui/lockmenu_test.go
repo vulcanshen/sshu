@@ -163,16 +163,23 @@ func TestEscClosesTheLockMenuAndChangesNothing(t *testing.T) {
 	}
 }
 
-// The disabled row answers rather than ignoring (§A.1): committing it says why
-// nothing happened, and the state does not flip.
-func TestTheDisabledRowAnswersInsteadOfFlipping(t *testing.T) {
+// A dimmed row does nothing when run (tdp M6): no flip, no toast giving a
+// reason, and the menu stays up — nothing was committed.
+func TestTheDisabledRowDoesNothing(t *testing.T) {
 	m, _ := lockApp(t)
 	m = pressA(m, "alt+enter", "k", "enter") // wrap to Release, disabled while unlocked
 	if m.ssh.sessions[0].locked {
 		t.Error("a disabled Release must not lock")
 	}
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "Not locked") {
-		t.Errorf("the refusal should be said:\n%s", v)
+	if m.toast.isActive() {
+		t.Error("a dimmed row does not explain itself in a toast")
+	}
+	if !m.lockMenu.isActive() {
+		t.Error("nothing was committed, so the menu should still be up")
+	}
+	m = pressA(m, "R") // its letter, too
+	if m.ssh.sessions[0].locked || m.toast.isActive() || !m.lockMenu.isActive() {
+		t.Error("the dimmed row's letter must do nothing either")
 	}
 }
 

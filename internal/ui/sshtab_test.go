@@ -651,12 +651,11 @@ func TestExitedSessionLeavesWithItsReason(t *testing.T) {
 	}
 }
 
-// Hide is on H, and Tab does the same thing. Both halves matter and neither
-// implies the other: the menu row is marked [H]ide, so H has to work or the
-// marking is a lie; and Tab is this tab's own convention (§4.4.1), so dropping
-// it would break a key nothing in the menu was ever responsible for (§11.30).
-func TestHideIsOnHAndAlsoOnTab(t *testing.T) {
-	for _, key := range []string{"H", "tab"} {
+// Hide is on H: the menu row is marked [H]ide, so H has to work or the marking
+// is a lie. Tab used to do the same thing; it no longer does (§11.56,
+// TestTabDoesNothingOnTheSessionsList).
+func TestHideIsOnH(t *testing.T) {
+	for _, key := range []string{"H"} {
 		m := openOne(t)
 		next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
 		m = settle(next.(AppModel))
