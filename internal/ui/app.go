@@ -35,7 +35,7 @@ const (
 var tabLabels = []string{"[M]anage", "[F]ile transfer", "[S]SH"}
 
 // chromeRows is the fixed chrome the panels do NOT get: the capsule row, the
-// rule under it, and the footer. Locked at 3 — none of them ever reflows (§1.3).
+// rule under it, and the footer. Locked at 3 — none of them ever reflows (tdp L3).
 const chromeRows = 3
 
 // SaveFunc persists the host list. Injected so the UI never reaches for the
@@ -107,6 +107,9 @@ type AppModel struct {
 	// row every Space menu ends in, it lists what the whole app can do. It is
 	// not on ? — ? only reads (a deviation from tdp M4, §11.56).
 	globalMenu spaceMenu
+	// modeKeys is selection mode's key list (tdp K11): Space in the mode opens
+	// it, every row runs, and running one closes it.
+	modeKeys spaceMenu
 	// quitAsk is the leaving flow's question (tdp K9). It is its own popup
 	// rather than the shared confirm because Ctrl+C can raise it from on top of
 	// anything — a form, another confirm — and borrowing that confirm would
@@ -121,10 +124,10 @@ type AppModel struct {
 
 	// pendingG holds the first half of the gg chord. A chord is a shortcut for an
 	// action that already exists, so it is not a core key and brings no
-	// semantics of its own (§A.0.K).
+	// semantics of its own (tdp K1).
 	//
-	// This said "costs no core-key slot", from when the principle capped the
-	// count at five. §A.0.K prescribes what each core key MEANS and does not
+	// This said "costs no core-key slot", from when VTP capped the
+	// count at five. tdp K1 prescribes what each core key MEANS and does not
 	// limit how many there are, so there is no slot to spend — the reason the
 	// chord is not one is that it adds no meaning, not that it fits under a
 	// ceiling.
@@ -162,6 +165,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		picker:       newFilePicker(),
 		confirm:      newConfirmPopup(),
 		globalMenu:   spaceMenu{anim: newPopupAnimator("globalmenu")},
+		modeKeys:     spaceMenu{anim: newPopupAnimator("modekeys")},
 		quitAsk:      confirmPopup{anim: newPopupAnimator("quit")},
 		input:        newInputPopup(),
 		askpassUI:    newAskpassPopup(),
@@ -273,7 +277,7 @@ func (m AppModel) Init() tea.Cmd { return nil }
 func (m AppModel) panelHeight() int { return m.h - chromeRows }
 
 // layer is the depth the next float opens at: 1 normally, 2 when it is being
-// opened from the Space menu, which stays behind it (§6.4).
+// opened from the Space menu, which stays behind it (tdp F4).
 func (m AppModel) layer() int {
 	if m.spaceMenu.isActive() {
 		return 2
@@ -305,6 +309,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
 		m.globalMenu.setSize(m.w, m.h)
+		m.modeKeys.setSize(m.w, m.h)
 		m.quitAsk.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
 		m.askpassUI.setSize(m.w, m.h)
@@ -331,6 +336,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
 			m.globalMenu.anim.tick(msg),
+			m.modeKeys.anim.tick(msg),
 			m.quitAsk.anim.tick(msg),
 			m.input.anim.tick(msg),
 			m.askpassUI.anim.tick(msg),
@@ -500,7 +506,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// the cell has stopped following the remote, so it is a different surface,
 	// and a chord that zoomed it or moved the keyboard off it mid-sweep would
 	// throw the selection away for a gesture nobody meant to make (§11.33).
-	if m.ssh.copy.on {
+	//
+	// A float over the mode — its key list, its help, the leaving question —
+	// takes the keys the usual way; the mode waits underneath.
+	if m.ssh.copy.on && !m.popupOpen() {
 		if !m.ssh.copyAlive() {
 			m.ssh.copy.stop() // the session ended underneath the mode
 		} else {
@@ -619,7 +628,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Esc is one role and it is resolved in exactly one place: close the topmost
-	// visible float (§4.3). No popup re-implements cancel.
+	// visible float (tdp K4). No popup re-implements cancel.
 	if msg.Type == tea.KeyEscape && !m.popupOpen() && m.inPty() {
 		m.ssh.currentSession().pty.write(msg) // a bare Esc belongs to the remote
 		return m, nil
@@ -633,7 +642,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		// An Operation page is left the way any text surface is: Esc hands
 		// the keyboard back to the nav. It HAS to be Esc — the page swallows
-		// the digits and Tab that move focus everywhere else (§4.5).
+		// the digits and Tab that move focus everywhere else (tdp K8).
 		if m.textPage() {
 			m.pref.focus = panelPrefNav
 			m.syncPrefSizes()
@@ -733,7 +742,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m.startQuit()
 	}
-	// V is the hidden u-family easter egg: the logo, revealed. It used to stand
+	// V is the hidden terminu family easter egg: the logo, revealed. It used to stand
 	// aside for a panel with a real [V]iew; nothing claims the letter any more
 	// (§11.29), so the key is the egg's everywhere outside a pty and a text
 	// field.
@@ -756,7 +765,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// A filtering file list claims printable keys before the action table can:
 	// while a query is being typed, "a" is a letter, not Append. Arrows, Enter and
-	// Esc fall through — the same split the picker and the form make (§4.5).
+	// Esc fall through — the same split the picker and the form make (tdp K8).
 	if m.tab == tabFT && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
 		return m, nil
 	}
@@ -765,7 +774,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	// An Operation page (Export / Import) is a text surface IN a panel: while
 	// it holds focus it claims every printable key, Tab and Enter, the same
-	// §4.5 split every other typing surface makes.
+	// tdp K8 split every other typing surface makes.
 	if m.textPage() {
 		return m.bundlePageKey(msg)
 	}
@@ -840,6 +849,8 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.confirmKey(msg)
 	case m.spaceMenu.anim.owns():
 		return m.menuKey(msg)
+	case m.modeKeys.anim.owns():
+		return m.modeKeysKey(msg)
 	case m.lockMenu.anim.owns():
 		return m.lockMenuKey(msg)
 	}
@@ -916,6 +927,8 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.closeEdit(false)
 	case m.spaceMenu.anim.owns():
 		return m, m.spaceMenu.close()
+	case m.modeKeys.anim.owns():
+		return m, m.modeKeys.close()
 	case m.lockMenu.anim.owns():
 		return m, m.lockMenu.close()
 	}
@@ -924,13 +937,13 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 
 // closeStack tears the whole stack down. Committing an action is the end of the
 // errand, so the user is returned to the panel rather than to a menu they are
-// finished with (§7.1).
+// finished with (tdp T1).
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.credFormUI.close(),
 		m.sshcfgFormUI.close(), m.knownAddUI.close(),
 		m.confirm.close(), m.quitAsk.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
-		m.editorUI.close(), m.spaceMenu.close(), m.globalMenu.close(), m.lockMenu.close())
+		m.editorUI.close(), m.spaceMenu.close(), m.globalMenu.close(), m.modeKeys.close(), m.lockMenu.close())
 }
 
 // ------------------------------------------------------------- panel level
@@ -1211,7 +1224,7 @@ func (m AppModel) inPty() bool {
 }
 
 // textFloat reports whether a float that is being typed into owns the keyboard.
-// That is what makes Space a character rather than a key (§4.5), and it is the
+// That is what makes Space a character rather than a key (tdp K8), and it is the
 // one exception to the entry keys closing what they opened.
 func (m AppModel) textFloat() bool {
 	return m.askpassUI.anim.owns() || m.form.anim.owns() || m.credFormUI.anim.owns() ||
@@ -1272,7 +1285,7 @@ func (m AppModel) floatsOpen() int {
 	for _, a := range []popupAnimator{
 		m.askpassUI.anim, m.form.anim, m.credFormUI.anim, m.picker.anim,
 		m.sshcfgFormUI.anim, m.knownAddUI.anim, m.confirm.anim, m.quitAsk.anim,
-		m.input.anim, m.help.anim, m.spaceMenu.anim, m.globalMenu.anim, m.lockMenu.anim,
+		m.input.anim, m.help.anim, m.spaceMenu.anim, m.globalMenu.anim, m.modeKeys.anim, m.lockMenu.anim,
 		m.hostPicker.anim, m.credPicker.anim, m.transfersUI.anim, m.viewer.anim,
 		m.editorUI.anim, m.detail.anim,
 	} {
@@ -1288,11 +1301,12 @@ func (m AppModel) floatsOpen() int {
 // which can be raised from anywhere (tdp D2, D3).
 func (m AppModel) above() int { return m.floatsOpen() + 1 }
 
-// spaceMenuOnTop reports whether the Space menu is the float being looked at:
-// it is always the bottom of a stack (it opens from a panel), so it is on top
-// exactly when it is the only one.
+// spaceMenuOnTop reports whether the float Space opened is the one being
+// looked at — the Space menu, or selection mode's key list (tdp K11). Either is
+// always the bottom of a stack (Space opens it from a panel or the mode), so it
+// is on top exactly when it is the only one.
 func (m AppModel) spaceMenuOnTop() bool {
-	return m.spaceMenu.anim.owns() && m.floatsOpen() == 1
+	return (m.spaceMenu.anim.owns() || m.modeKeys.anim.owns()) && m.floatsOpen() == 1
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -1322,7 +1336,7 @@ func (m AppModel) hostsStartFilter() (tea.Model, tea.Cmd) {
 
 // hostAction is one contextual action on the hosts panel. This table is the
 // single declaration behind BOTH the letter hotkey and the Space menu row,
-// which is how §4.2 stays true by construction rather than by discipline: you
+// which is how tdp M3 stays true by construction rather than by discipline: you
 // cannot add a hotkey without adding a menu entry, because they are one thing.
 //
 // The two flags answer two different questions, which is why they are two:
@@ -1353,7 +1367,7 @@ var hostActions = []hostAction{
 }
 
 // hostsApplicable is what panel [1] can do right now. Both the hotkey and the
-// menu read it, so they cannot drift apart (§4.2).
+// menu read it, so they cannot drift apart (tdp M3).
 func (m AppModel) hostsApplicable() ([]string, []hostAction) {
 	_, hasHost := m.cursorHost()
 	var keys []string
@@ -1550,7 +1564,7 @@ func (m *AppModel) zoomChain(on bool) tea.Cmd {
 
 // nestRowKey addresses one inner layer from the menu. Not a letter: these
 // rows are generated from what the far side reported, so there is no fixed
-// set to assign letters from and no letter to teach (§4.2 covers the two
+// set to assign letters from and no letter to teach (tdp M3 covers the two
 // actions above, which ARE fixed).
 func nestRowKey(i int) string { return "layer" + itoa(i) }
 
@@ -1585,7 +1599,7 @@ func (m *AppModel) sendNestCmd(key string) tea.Cmd {
 
 // lockMenuKey drives the Alt+Enter float.
 func (m AppModel) lockMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// The entry chord closes its own float (§A.1) — and does NOT forward
+	// The entry chord closes its own float (tdp K5) — and does NOT forward
 	// again: a second broadcast from here would stack a second menu on every
 	// inner layer that still has its first one open.
 	if msg.Alt && msg.Type == tea.KeyEnter {
@@ -1761,6 +1775,9 @@ func (m AppModel) popupHelp() (string, []helpEntry) {
 		return "editor", []helpEntry{{"Esc", "cancel"}, closeIt}
 	case m.globalMenu.anim.owns():
 		return "global operation", menu()
+	case m.modeKeys.anim.owns():
+		return "selection mode keys", []helpEntry{{"↑ · ↓", "move"}, {"Enter", "run the row"},
+			{"its key", "run it at once"}, {"Space", "close"}, {"Esc", "close"}, closeIt}
 	case m.lockMenu.anim.owns():
 		return "lock menu", menu(helpEntry{"Alt+Enter", "close"})
 	case m.spaceMenu.anim.owns():
@@ -1958,7 +1975,7 @@ func (m AppModel) doDelete(name string) (tea.Model, tea.Cmd) {
 		m.toast.show(fmt.Sprintf("Deleted %q", name), toastInfo))
 }
 
-// doConnect is the §7.1 context shift: an ssh session is a long-lived target, so
+// doConnect is the tdp T1 context shift: an ssh session is a long-lived target, so
 // the whole float stack goes before the tab switches — coming back out of a
 // session onto a stale menu would just be disorienting. It lands in the remote,
 // because reaching a remote is what the key was pressed for.
@@ -2030,7 +2047,7 @@ func (m AppModel) formKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case formSubmit:
 		return m.commitForm()
 	case formBrowse:
-		// The picker stacks on top of the form, which stays behind it (§6.4):
+		// The picker stacks on top of the form, which stays behind it (tdp F4):
 		// cancelling the pick returns to the half-filled form, not to the panel.
 		return m, m.picker.open(identityRoot(), m.form.layer+1)
 	case formPickCred:
@@ -2251,15 +2268,65 @@ func indexOfHost(hosts []store.Host, name string) int {
 // leave any other layer in this tab — Alt+Esc peels one layer at a time
 // (§11.25), and selection mode is a layer. Everything else the mode either uses
 // or swallows.
+//
+// The core keys keep their meaning in here (tdp K11): Space lists the mode's
+// keys, ? is the mode's help, q and Ctrl+C start the leaving flow, and Tab —
+// which would move the focus off a selection half made — answers with how to
+// get out first rather than doing nothing.
 func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Alt && (msg.Type == tea.KeyEscape ||
 		(msg.Type == tea.KeyRunes && string(msg.Runes) == "v")) {
 		m.ssh.copy.stop()
 		return m, nil
 	}
-	text, yanked := m.ssh.copy.key(msg.String())
+	switch msg.String() {
+	case " ":
+		m.modeKeys.setItems(copyModeRows(), "selection mode", 1)
+		return m, m.modeKeys.open()
+	case "?":
+		return m, m.help.open(m.above(), "selection mode", copyModeHelp())
+	case "q", "ctrl+c":
+		return m.startQuit()
+	case "tab", "shift+tab":
+		return m, m.toast.show("Esc leaves selection mode first", toastInfo)
+	}
+	return m.copyKey(msg.String())
+}
+
+// copyKey runs one of selection mode's own keys — typed, or picked from its
+// key list.
+func (m AppModel) copyKey(k string) (tea.Model, tea.Cmd) {
+	if k == copyLeaveKey {
+		m.ssh.copy.stop()
+		return m, nil
+	}
+	text, yanked := m.ssh.copy.key(k)
 	if !yanked {
 		return m, nil
 	}
 	return m, copyToClipboard(text)
+}
+
+// modeKeysKey drives selection mode's key list. Its rows ARE keys, and j/k/u/d
+// are among them, so the list moves on the arrows alone: pressing a row's key
+// runs that row (tdp K11), the way it would with the list closed.
+func (m AppModel) modeKeysKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := msg.String()
+	run := ""
+	switch k {
+	case "up", "down", "enter":
+		m.modeKeys, run, _ = m.modeKeys.update(msg)
+	default:
+		for _, it := range m.modeKeys.items {
+			if it.selectable() && it.key == k {
+				run = k
+			}
+		}
+	}
+	if run == "" {
+		return m, nil
+	}
+	closing := m.modeKeys.close()
+	next, cmd := m.copyKey(run)
+	return next, tea.Batch(closing, cmd)
 }

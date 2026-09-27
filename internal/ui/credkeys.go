@@ -8,7 +8,7 @@ import (
 )
 
 // credAction mirrors hostAction: one table behind both the letter hotkey and
-// the Space menu row, so §4.2 holds by construction here too.
+// the Space menu row, so tdp M3 holds by construction here too.
 type credAction struct {
 	key       string
 	label     string
@@ -97,7 +97,7 @@ func (m AppModel) openCredEdit() (tea.Model, tea.Cmd) {
 // source of truth is a chance for the two to disagree.
 //
 // The form REPLACES the float rather than stacking on it. They are two views of
-// one row, not a target opened from a source (§6.4) — leaving the detail
+// one row, not a target opened from a source (tdp F4) — leaving the detail
 // underneath would mean Esc out of the form lands back on a copy of the row the
 // form may just have changed.
 func (m AppModel) doEditCred(name string) (tea.Model, tea.Cmd) {
@@ -222,7 +222,7 @@ func (m AppModel) commitCredForm() (tea.Model, tea.Cmd) {
 		// Said ONCE, in the form. The error row names the field, marks it red,
 		// and moves the cursor to it — a toast on top of that is the same
 		// sentence a second time, floating somewhere else, over a popup that is
-		// already showing it (§6.7: fix it in place, do not stack).
+		// already showing it (tdp F5: fix it in place, do not stack).
 		//
 		// It used to do both, and the host form never did — so the two sibling
 		// forms refused differently, which is the part that was actually wrong.

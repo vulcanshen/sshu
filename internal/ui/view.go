@@ -10,7 +10,7 @@ import (
 // footer — then composites whatever floats are up on top of that canvas.
 //
 // Both chrome rows are locked at one line each, so the panel absorbs every
-// change in terminal height and nothing shifts vertically (§1.3).
+// change in terminal height and nothing shifts vertically (tdp L3).
 func (m AppModel) View() string {
 	if m.w == 0 || m.h == 0 {
 		return "" // wait for the first WindowSizeMsg
@@ -27,7 +27,7 @@ func (m AppModel) View() string {
 
 	// A full-screen cell replaces the whole frame — the same shape as the
 	// splash above, and for a harder reason. Locking the chrome rows at one
-	// line each (§1.3) is what stops the panel shifting under a resize; it was
+	// line each (tdp L3) is what stops the panel shifting under a resize; it was
 	// never a promise that they are always drawn. A nested sshu pays for them
 	// at EVERY layer, which is what put a ceiling on how deep the nesting
 	// could go, and this state is how that ceiling comes off (§11.47).
@@ -53,6 +53,9 @@ func (m AppModel) View() string {
 	}
 	if m.globalMenu.isActive() {
 		out = overlay.Composite(m.globalMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
+	if m.modeKeys.isActive() {
+		out = overlay.Composite(m.modeKeys.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
 	if m.lockMenu.isActive() {
 		out = overlay.Composite(m.lockMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
@@ -155,9 +158,13 @@ func (m AppModel) nestChain() []nestLayer {
 // copyLegendPairs is selection mode's own keys. It has two homes — the footer,
 // and an overlay on the bottom row when the cell is full screen and there is no
 // footer to put it in — and one list, because a mode disclosed two different
-// ways in two places is a mode documented wrong in one of them (§11.33, §A.1).
+// ways in two places is a mode documented wrong in one of them (§11.33, tdp K11).
 func copyLegendPairs() [][2]string {
 	return [][2]string{
+		// The two entry keys lead, as on every other footer (tdp K11, M1): the
+		// key list behind Space carries whatever the row has to drop.
+		{"space", "keys"},
+		{"?", "help"},
 		{"y", "copy"},
 		{"v/V", "select"},
 		// The way out sits third, ahead of the motions: keyLegend drops from
@@ -194,13 +201,13 @@ func (m AppModel) panel() string {
 	return m.prefView()
 }
 
-// footer is the mandatory disclosure channel for both entry keys (§A.1 /
-// §A.2). A user who never opened a README learns from this row that Space and ?
+// footer is the mandatory disclosure channel for both entry keys (tdp M1). A
+// user who never opened a README learns from this row that Space and ?
 // exist — without it the entry keys are unreachable and nothing else says they
 // are there.
 //
-// That last clause used to read "and X collapses", after the principle's
-// disclosure score. The score was removed from the principle entirely, so the
+// That last clause used to read "and X collapses", after VTP's
+// disclosure score. The score was removed from VTP entirely, so the
 // sentence pointed at something that no longer exists — the CLAIM survives it,
 // because it never depended on a number.
 func (m AppModel) footer() string {
@@ -276,7 +283,7 @@ func (m AppModel) footer() string {
 		return keyLegend([][2]string{{"tab", "field"}, {"enter", "run"},
 			{"esc", "back"}}, m.w)
 	}
-	// The digits offered are the ones the current tab actually shows (§4.4): a
+	// The digits offered are the ones the current tab actually shows (tdp M5): a
 	// number the screen does not display is a number the keyboard ignores.
 	nav := [2]string{"1-2 M/F/S", "panel tab"}
 	if m.tab == tabFT {

@@ -21,7 +21,7 @@ const (
 )
 
 // inputPopup is one line of text with a question above it — the message class's
-// sibling (§6.1). A confirm asks yes or no; this asks "what should it be
+// sibling (tdp F1). A confirm asks yes or no; this asks "what should it be
 // called". It is NOT a form: a form is several fields and one submit, and
 // blurring the two would make Enter mean different things on different floats.
 type inputPopup struct {
@@ -91,7 +91,7 @@ func (m inputPopup) acceptVerb() string {
 
 // update edits the line. It reports the committed value, or "" — Esc is not
 // handled here, because cancelling is resolved in one place for every float
-// (§4.3).
+// (tdp K4).
 func (m *inputPopup) update(msg tea.KeyMsg) (committed string, done bool) {
 	if !m.anim.isInteractive() {
 		return "", false
@@ -120,7 +120,7 @@ func (m inputPopup) view() string {
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(editColor)
 
 	// Lavender, because this is the field being edited — the same meaning the
-	// host form gives it, and the same meaning the cwd crumb gives it (§B).
+	// host form gives it, and the same meaning the cwd crumb gives it (tdp P4).
 	value := truncate(m.value, innerW-3)
 	line := " " + edit.Render(value) + cur.Render(" ") +
 		spaces(max(0, innerW-2-dispW(value)))

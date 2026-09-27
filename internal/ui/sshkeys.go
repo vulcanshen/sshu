@@ -10,7 +10,7 @@ import (
 
 // sshAction is one contextual action inside tab [3]. Same trick as hostActions:
 // the table is the single declaration behind both the letter hotkey and the
-// Space menu row, so §4.2 holds by construction. panel scopes an action to the
+// Space menu row, so tdp M3 holds by construction. panel scopes an action to the
 // panel it acts on.
 type sshAction struct {
 	key   string

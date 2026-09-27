@@ -8,7 +8,7 @@ import (
 )
 
 // Panel numbers as they appear in the border titles. A number the screen does
-// not show is a number the keyboard does not answer to (§4.4), so these and the
+// not show is a number the keyboard does not answer to (tdp M5), so these and the
 // digit bindings are one list.
 var sftpPanelNum = map[sftpPanel]string{
 	panelLeftFiles: "[1]", panelLeftMarks: "[2]",

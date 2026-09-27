@@ -16,7 +16,7 @@ type splashIdentityMsg struct{} // fires the name + tagline together
 type splashHintMsg struct{}
 
 // splashModel renders the sshu logo as a hidden easter egg (the `V` key), a
-// sibling of kbu's and filu's splashes. The u-family mark is a navy U wrapping
+// sibling of kbu's and filu's splashes. The terminu family mark is a navy U wrapping
 // a gold figure that spells SSH — two S's stacked between the H's rails — and
 // it reveals in that order: the background sheet, S, S, then the H, then the
 // U frame rising around them.

@@ -193,7 +193,7 @@ func (m transferModel) progress() (pct int, moving bool) {
 }
 
 // summary is the one line the tab row carries while anything is moving. It is
-// the ambient channel: always visible, never in the way (§7.2 — information
+// the ambient channel: always visible, never in the way (tdp T2 — information
 // arriving is not dimmed).
 func (m transferModel) summary() string {
 	pct, moving := m.progress()

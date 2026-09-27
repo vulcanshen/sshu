@@ -9,9 +9,9 @@ import (
 )
 
 // popupLayerColor is the border colour for a popup at a given nesting depth
-// (§2.2 / §6.3): brightness climbs with the stack, so the user can see which
+// (tdp D2): brightness climbs with the stack, so the user can see which
 // float is on top. Lavender is deliberately absent — that band belongs to user
-// footprint and a popup border must never borrow it (§B).
+// footprint and a popup border must never borrow it (tdp P4).
 func popupLayerColor(layer int) lipgloss.Color {
 	switch {
 	case layer <= 1:
@@ -28,8 +28,8 @@ func popupLayerColor(layer int) lipgloss.Color {
 // ---------------------------------------------------------------- animation
 
 // A popup animates in and out, or the user cannot feel the z-axis change
-// (§6.2). animFrames * animStep lands at ~128ms, inside the 100-200ms band
-// where the motion registers without pacing the user.
+// (tdp F2). animFrames * animStep lands at ~128ms, the family default (tdp D3):
+// the motion registers without pacing the user.
 const (
 	animFrames = 8
 	animStep   = 16 * time.Millisecond
@@ -68,7 +68,7 @@ func (a popupAnimator) isActive() bool { return a.phase != animClosed }
 // which reads as "the app dropped that key", not as "the popup was still busy".
 //
 // An OPENING one does own it, and deliberately swallows: isInteractive is what
-// stops a keystroke landing on a half-drawn surface (§6.2).
+// stops a keystroke landing on a half-drawn surface (tdp F2).
 func (a popupAnimator) owns() bool {
 	return a.phase == animOpening || a.phase == animOpen
 }
@@ -148,7 +148,7 @@ func animRows(a popupAnimator, rows []string) []string {
 //
 // The hint is not decoration — it is the standing disclosure of what this
 // surface can do, and it is what lets a text-entry popup opt out of the Space
-// entry key without opening a hole in the principle (§4.5).
+// entry key without opening a hole in tdp K8.
 func drawPopupBox(bc lipgloss.Color, title, hint string, rows []string, innerW int) string {
 	return drawPopupBoxPad(bc, title, hint, rows, innerW, true)
 }
@@ -205,13 +205,13 @@ func popupInnerW(screenW, want int) int {
 
 // hintLegend builds a popup's bottom-border hint: key bright, description dim.
 // It is the same reading as the footer legend — bright is the key you press, dim
-// is what it does — so the rule is learned once and holds everywhere (§4.4).
+// is what it does — so the rule is learned once and holds everywhere (tdp M5).
 // Spacing is tighter than the footer's because a border line has no room to
 // breathe: one space inside a pair, two between them.
 func hintLegend(pairs [][2]string) string {
 	// The same blue as the footer, and for the same reason: these two ARE the
 	// one legend at two scales, so a key that is blue on the app's bottom row
-	// cannot be a different colour on a popup's (§4.4).
+	// cannot be a different colour on a popup's (tdp M5).
 	k := lipgloss.NewStyle().Foreground(focusColor)
 	d := lipgloss.NewStyle().Foreground(dimColor)
 	parts := make([]string, 0, len(pairs))
@@ -259,7 +259,7 @@ func hotkeyIndex(keys []string, pressed string) int {
 }
 
 // bracketHotkey marks a letter hotkey the one way the whole app marks them:
-// [X]label (§4.4). The letter is shown uppercase for legibility; matchesHotkey
+// [X]label (tdp M5). The letter is shown uppercase for legibility; matchesHotkey
 // is what keeps that honest. If the label already begins with the hotkey letter the
 // bracket wraps it in place; otherwise it is prefixed. Core-key actions (Enter,
 // Esc) never get brackets — their key goes in the hint column instead, so the

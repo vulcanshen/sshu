@@ -80,7 +80,7 @@ func (m *hostsModel) startFilter() {
 
 // clearFilter drops the query and LANDS THE CURSOR ON THE SAME HOST. Searching
 // for something and then losing it on the way out is worse than not searching:
-// on this tab the letter actions are typed into the query (§4.5), so
+// on this tab the letter actions are typed into the query (tdp K8), so
 // "search → Esc → act" is the whole point of the feature.
 func (m *hostsModel) clearFilter() {
 	at := 0
@@ -168,7 +168,7 @@ func hostHaystack(h store.Host) string {
 
 // filterKey edits the query. Letters type and arrows move — the same split the
 // picker, the form and tab [2] make, so there is no mode to learn here either
-// (§4.5). It reports whether it consumed the key.
+// (tdp K8). It reports whether it consumed the key.
 func (m *hostsModel) filterKey(msg tea.KeyMsg) bool {
 	if !m.filtering {
 		return false
@@ -252,7 +252,7 @@ func (m hostsModel) tableBody(innerW, innerH int) []string {
 
 	// While filtering the query takes the header's row rather than pushing the
 	// table down: the two answer the same question ("what am I looking at"), and
-	// sharing one slot keeps the row count fixed (§1.3).
+	// sharing one slot keeps the row count fixed (tdp L3).
 	if m.filtering {
 		out = append(out, m.filterRow(innerW))
 	} else {

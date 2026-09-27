@@ -7,7 +7,7 @@ import "github.com/charmbracelet/lipgloss"
 // another's band, or the user has to learn which meaning a colour carries where.
 var (
 	// structural (system) — panel chrome, the active tab capsule, and the KEY
-	// half of every legend (footer and popup hint alike, §4.4). Never user
+	// half of every legend (footer and popup hint alike, tdp M5). Never user
 	// state: a key name is the app naming its own controls, which is what puts
 	// it in this band rather than in the cursor's.
 	focusColor = lipgloss.Color("#89b4fa") // blue
@@ -18,11 +18,11 @@ var (
 	// one thing. Distinct from handColor on purpose: handColor is the cursor on a
 	// list row you would ACT on, lavender is the field you are CHANGING.
 	//
-	// This spends the band that was pencilled in for "user footprint" (§B), so
+	// This spends the band that was pencilled in for "user footprint" (tdp P4), so
 	// pins / recent connections will need a colour of their own.
 	editColor = lipgloss.Color("#b4befe") // lavender
 	// the full-screen badge (§11.47). Lavender, and the same hex as editColor
-	// rather than a band of its own: §B forbids borrowing a band because the
+	// rather than a band of its own: tdp P4 forbids borrowing a band because the
 	// user would have to learn which meaning a colour carries where, and these
 	// two never share a surface — the badge exists only once the chrome is
 	// gone, and a field under edit is drawn inside a float with its own frame.
@@ -32,11 +32,11 @@ var (
 	textColor = lipgloss.Color("#cdd6f4") // text
 	dimColor  = lipgloss.Color("#6c7086") // overlay0: glyphs, hints, secondary
 	// override — jumps out of the brightness hierarchy entirely and never takes
-	// part in the popup layer scale (§2.4).
+	// part in the popup layer scale (tdp D2).
 	//
 	// TWO tones, and the split is the whole point. Red is "something is wrong".
 	// Peach is "this is not the usual answer" — nothing is broken, but it is
-	// worth catching. §B used to bracket them as one band reserved for
+	// worth catching. tdp P4 used to bracket them as one band reserved for
 	// warning/error; a non-default ssh port is the case that showed the band was
 	// really two (§11.48).
 	//
@@ -58,7 +58,7 @@ var (
 	// the selected row in the hosts table. Blue rather than handColor because
 	// subtext1 sits too close to textColor to read as a highlight.
 	//
-	// It shares the structural band with panel chrome (§B). The two are the same
+	// It shares the structural band with panel chrome (tdp P4). The two are the same
 	// idea at different scales — "this is where you are" for a panel and for a
 	// row — and they never touch: chrome is the frame, this is inside it. List
 	// cursors elsewhere are still handColor bars; if that split starts to grate,
@@ -77,7 +77,7 @@ const (
 // The auth glyph is the one that varies with its value (key vs lock), which is
 // how auth method is encoded — deliberately NOT by colour, since peach/red are
 // reserved for warning/error and a peach "password" would read as "this host is
-// broken" (§B).
+// broken" (tdp P4).
 var (
 	// The full-screen badge's depth marker: an arrow turning inward, because
 	// the number after it counts layers going IN, not a multiplication.
@@ -149,7 +149,7 @@ var (
 	// glyphPtyLock marks a LOCKED cell — one whose keys all pass to the remote
 	// so a nested sshu can use its own chords (§11.43). A different lock from
 	// glyphLock on purpose: that one is fa-lock and means "password auth" in
-	// the tables, and one shape carrying two meanings is what §B forbids.
+	// the tables, and one shape carrying two meanings is what tdp P4 forbids.
 	// Verified against the installed font's cmap (md-lock), not remembered.
 	glyphPtyLock = string(rune(0xf033e)) // nf-md-lock
 	// The layer menu's state markers: one padlock per inner layer, leading the
@@ -159,7 +159,7 @@ var (
 	// menu already carries in its own title.
 	//
 	// fa-lock/fa-lock_open were the first ask and were turned down: fa-lock is
-	// already glyphLock, which means "password auth" in the hosts table (§B).
+	// already glyphLock, which means "password auth" in the hosts table (tdp P4).
 	// Both codepoints below read out of the installed font's cmap.
 	glyphLayerLock = string(rune(0xf0341)) // nf-md-lock_outline
 	glyphLayerOpen = string(rune(0xf0fc7)) // nf-md-lock_open_variant_outline

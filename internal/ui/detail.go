@@ -21,12 +21,12 @@ const (
 	detailEditKnown
 )
 
-// detailPopup is the §6.1 VIEWPORT class — the same family as `?` help and the
+// detailPopup is the viewport class (tdp F1) — the same family as `?` help and the
 // file viewer: scrollable, cursorless, read-only. It answers one question, "what
 // is this row actually made of", for a hosts.yaml entry or a credential.
 //
 // It exists because the table cannot answer it. Rows shed columns as the
-// terminal narrows (§1.4), the auth column is a glyph rather than a word, and
+// terminal narrows (sshu-ui-design.md §1.2), the auth column is a glyph rather than a word, and
 // the one field nobody should ever put on a table — the password — has to be
 // visible AS A FACT ("there is one, it is stored") without being visible as a
 // value. Opening the edit form to look was the alternative, and a form is a
@@ -38,7 +38,7 @@ const (
 // row, and the confirmation said strictly less than this one already does.
 //
 // Labels are dim and values bright, which is the OPPOSITE of the help popup's
-// pairing. That is not an inconsistency: §4.4's "bright key, dim description"
+// pairing. That is not an inconsistency: tdp M5's "bright key, dim description"
 // is about a key you press, and there is no key here. The bright half is
 // whichever half is the answer.
 type detailPopup struct {
@@ -107,7 +107,7 @@ func (m *detailPopup) show(c detailPopup, layer int) tea.Cmd {
 // there is anything to commit is detailCommit's question and ONLY its question:
 // asking it here as well would be the same rule written twice, and Enter on a
 // float with no offer is inert either way — a viewport has no use for the key.
-// Esc is the caller's, exactly as it is on the confirmation box (§4.3).
+// Esc is the caller's, exactly as it is on the confirmation box (tdp K4).
 func (m detailPopup) commit(msg tea.KeyMsg) bool {
 	return m.anim.isInteractive() && msg.String() == "enter"
 }

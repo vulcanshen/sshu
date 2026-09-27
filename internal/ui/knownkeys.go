@@ -130,7 +130,7 @@ func (m AppModel) openKnownDetail() (tea.Model, tea.Cmd) {
 }
 
 // openKnownEdit asks ONE question, so it is the input class rather than a form
-// (§6.1). The key itself is not editable and never will be: retyping 68
+// (tdp F1). The key itself is not editable and never will be: retyping 68
 // characters of base64 is not an edit, it is a new key — and that is what [A]
 // is for, with the fingerprint shown before anything is trusted.
 func (m AppModel) openKnownEdit() (tea.Model, tea.Cmd) {
@@ -156,7 +156,7 @@ func (m *AppModel) askKnownHosts(e store.KnownHostEntry, at, layer int) tea.Cmd 
 
 // doEditKnown is the offer at the foot of the detail float. Same rule as the
 // other two panels: what replaces it is opened and the float closed in the same
-// batch, rather than left standing underneath (§6.4).
+// batch, rather than left standing underneath (tdp F4).
 func (m AppModel) doEditKnown(at int) (tea.Model, tea.Cmd) {
 	e, ok := m.known.rowAt(at)
 	if !ok {

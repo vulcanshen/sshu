@@ -73,6 +73,8 @@ zoom max 這一階正是巢狀不再收費的原因:在那之前每層要吃 5 �
 
 進去之後那一格**停止跟著遠端跑** —— session 沒有停、照樣在讀,只是一個會在你選到一半時重排的頁面,是沒有人選得起來的頁面 —— 而外框轉黃就是在說這件事。鍵是 vim 的,word 的規則也照搬 vim(§11.53)。什麼都沒選時 `y` 拿游標那一行,於是「複製剛剛印出來的東西」是三個鍵的事。字進**系統**剪貼簿,所以貼進編輯器不需要終端機幫任何忙;而且它一定會回報複製了幾行,或者在做不到時告訴你該裝什麼。
 
+它是 tdp 所說的「模式」(K11):`Space` 列出模式的鍵(每一列可直接執行;清單用方向鍵移動,因為 `j`/`k` 本身就是列),`?` 是模式的 help,`q` / `Ctrl-C` 照樣走離開流程,`Tab` 跳 toast 說先 `Esc`。footer 最前面固定 `space` 與 `?`,放不下的 motion 由 `Space` 的清單負責揭露(§11.57)。
+
 #### 歷史與 `PgUp` / `PgDown`
 
 `PgUp` / `PgDown` 是**借**來的,不是拿走的:全螢幕程式自己就用這兩個鍵翻頁,而它進場時會切到 alt screen —— 那件事本身就是宣告,所以它在的時候鍵原封不動送過去。純 shell 輸出不會翻頁,那正好是需要有人提供捲動的時候。正在放歷史的格子會在 title 說出來(`󰋚` 加往回幾行),因為一個在放歷史的格子和一個遠端已經沒聲音的格子,是同一張靜止的畫面。
@@ -166,7 +168,7 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **`SSH_ASKPASS_PROMPT=none` 通知類提示**:FIDO 觸碰確認會讓 helper 掛著等 ssh 殺它,畫面上什麼都不出現;sshconfig host 用 FIDO key 在 file transfer tab 會卡住。
 - **`Alt+Esc` 誤觸**:遠端跑 vim 時快速連按兩次 Esc 會被讀成 `Alt+Esc`(見上方「運作方式」)。
 - **未做**:Mouse;`[1]` 的 `[S]ftp` 捷徑(從表格直接把游標那台接到 file transfer 當前 focus 的那一側);fsnotify 重讀 `hosts.yaml`;keychain 存密碼;Export / Import 已實作但遮罩中(設計未定案,§11.12)。
-- **尚未符合 tdp 的地方**:逐條列在 [`sshu-terminu-fix.md`](sshu-terminu-fix.md)。
+- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除,經過記在設計文件 §11.54–§11.57;刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
@@ -212,7 +214,6 @@ panel 想過規矩。依 tdp P0(規則服務 UX),下面這些保留 sshu 的做�
 | 檔案 | 回答什麼 |
 |---|---|
 | [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.53),最後是按鍵全表 |
-| [`sshu-terminu-fix.md`](sshu-terminu-fix.md) | 尚未符合 tdp 的地方,逐條待修 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

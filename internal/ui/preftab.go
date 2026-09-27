@@ -105,7 +105,7 @@ const (
 )
 
 // Geometry: a fixed left column, for the same reason the ssh tab's is fixed
-// (§1.2). 18 holds "credentials" plus its lead and a two-digit badge. Below
+// (tdp L2). 18 holds "credentials" plus its lead and a two-digit badge. Below
 // the narrow line the two panels cannot both be useful, so the focused one
 // takes the tab.
 const (

@@ -216,7 +216,7 @@ func (m credForm) view() string {
 	}
 	// The hint names what THIS field does with Enter — on the EMPTY path row
 	// Enter browses rather than saves, and saying so is the standing
-	// disclosure (§4.5).
+	// disclosure (tdp K8).
 	enter := "save"
 	if !m.complete() {
 		enter = "next"

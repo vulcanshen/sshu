@@ -157,20 +157,24 @@ func TestTheFooterSwitchesToTheSelectionKeys(t *testing.T) {
 	}
 	m = pressA(m, "alt+v")
 	got := m.footer()
-	for _, want := range []string{"y", "v/V", "hjkl", "w/e/b", "0/$", "u/d", "alt+v"} {
+	// The two entry keys lead (tdp K11, M1); the motions that do not fit are in
+	// the key list behind Space.
+	for _, want := range []string{"space", "?", "y", "v/V", "alt+v", "hjkl", "w/e/b"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the selection row should disclose %q: %q", want, got)
 		}
+	}
+	if !strings.HasPrefix(strings.TrimSpace(ansi.Strip(got)), "space") {
+		t.Errorf("space should lead the selection row: %q", got)
 	}
 	if strings.Contains(got, "alt+esc") {
 		t.Error("the pty's own keys are gone while the mode is up; the row must not claim them")
 	}
 }
 
-// Seven pairs are one more than an 80-column row holds, and keyLegend drops
-// from the end. The way out has to be the pair that stays, so it sits ahead
-// of the motions; the row gives up u/d instead, which j and k can stand in
-// for.
+// The row is longer than 80 columns hold, and keyLegend drops from the end.
+// The entry keys and the way out have to be the pairs that stay, so they sit
+// ahead of the motions; the motions that go are in the key list behind Space.
 func TestTheWayOutSurvivesAnEightyColumnSelectionRow(t *testing.T) {
 	m := openOne(t)
 	m.w = 80
@@ -180,7 +184,7 @@ func TestTheWayOutSurvivesAnEightyColumnSelectionRow(t *testing.T) {
 	if strings.Contains(got, "u/d") {
 		t.Fatalf("80 columns held the whole row, so the test proves nothing: %q", got)
 	}
-	for _, want := range []string{"y", "v/V", "alt+v", "hjkl", "w/e/b", "0/$"} {
+	for _, want := range []string{"space", "?", "y", "v/V", "alt+v", "hjkl"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the cramped selection row dropped %q: %q", want, got)
 		}

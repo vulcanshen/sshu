@@ -47,7 +47,7 @@ func (l layoutMode) label() string {
 
 // Geometry. The left column is fixed: a draggable split would put the panel
 // width back on the content, and every resize would have to be re-derived
-// (§1.2). Below sshNarrowW the columns cannot both be useful, so the grid
+// (tdp L2). Below sshNarrowW the columns cannot both be useful, so the grid
 // takes the screen and the list is reached with Alt+Esc.
 const (
 	// sshLeftW gives an entry's second line 23 columns for "user@host:port",
@@ -369,7 +369,7 @@ func (m sshModel) prevZoom() zoomStage {
 
 // nextZoomLabel names what the NEXT press does. The cycle has three stops, and
 // a row reading "zoom" at every one of them would be describing the key rather
-// than the state (§A.1).
+// than the state (tdp M5).
 func (m sshModel) nextZoomLabel() string {
 	switch m.nextZoom() {
 	case zoomPanel:
@@ -1021,7 +1021,7 @@ func (m sshModel) zoomBadge(s *session) string {
 
 // overlayRight paints mark onto row r, flush right, covering what was under
 // it. The row keeps its exact width: the frame invariant does not tolerate a
-// stray column, and a badge is not an excuse (§1.2).
+// stray column, and a badge is not an excuse (tdp L4).
 func overlayRight(body []string, r int, mark string) {
 	if r < 0 || r >= len(body) {
 		return
