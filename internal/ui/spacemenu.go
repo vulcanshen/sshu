@@ -9,7 +9,7 @@ import (
 
 // menuItem is one row of the Space menu. A commit dispatches key to the panel,
 // so the menu is a discoverability shell over the letter hotkeys rather than a
-// second implementation of them — which is what keeps §4.2 honest: every letter
+// second implementation of them — which is what keeps tdp M3 honest: every letter
 // hotkey IS a row here, and every row can be run without knowing its letter.
 type menuItem struct {
 	label     string
@@ -155,7 +155,7 @@ func (m spaceMenu) view() string {
 	}
 	// A menu with nothing to run says so: j/k has nowhere to go and Enter has
 	// nothing to commit, so the legend names the one key that still works —
-	// the same honesty the pty footer keeps (§4.4).
+	// the same honesty the pty footer keeps (tdp M5).
 	legend := hintLegend([][2]string{{"j/k", "move"}, {"Enter", "run"}, {"Esc", "close"}})
 	if acts == 0 {
 		legend = hintLegend([][2]string{{"Esc", "close"}})

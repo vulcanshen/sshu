@@ -14,7 +14,7 @@ import (
 // pages, not popups: they are destinations the nav cursor lands on, exactly
 // like hosts or the log, so hiding their one form behind another keypress
 // would add a step with nothing standing on it. A page that types follows the
-// same §4.5 split every text surface makes — letters (and digits) type, Tab
+// same tdp K8 split every text surface makes — letters (and digits) type, Tab
 // moves fields, Enter submits — which costs the global vocabulary while one
 // is focused: the digits cannot address panels and q cannot quit. Esc hands
 // the keyboard back to the nav, and the footer switches to the keys that are
@@ -65,7 +65,7 @@ func (p *bundlePage) moveFocus(d int) {
 }
 
 // fail parks the error on the page and moves the cursor to the offending
-// field — hostForm.fail's contract (§6.7): visible without blocking the fix.
+// field — hostForm.fail's contract (tdp F5): visible without blocking the fix.
 func (p *bundlePage) fail(msg string, field int) {
 	p.err, p.errIdx, p.done = msg, field, ""
 	if field >= 0 && field < len(p.fields) {
@@ -76,7 +76,7 @@ func (p *bundlePage) fail(msg string, field int) {
 // body renders the page: an intro naming what Enter will do, the fields, one
 // standing status row (the error OR the last success — reserved even when
 // blank, so the page never changes shape), the passwords warning where it
-// applies, and the standing key disclosure a text surface owes (§4.5).
+// applies, and the standing key disclosure a text surface owes (tdp K8).
 func (p bundlePage) body(intro, warn, submitLabel string, focused bool, innerW int) []string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	red := lipgloss.NewStyle().Foreground(warnColor)
@@ -123,7 +123,7 @@ func (p bundlePage) body(intro, warn, submitLabel string, focused bool, innerW i
 
 // textPage reports whether the keyboard is standing in an Operation page: a
 // text-entry surface that is a panel rather than a popup, claiming printable
-// keys the way a text float does (§4.5).
+// keys the way a text float does (tdp K8).
 func (m AppModel) textPage() bool {
 	return m.tab == tabPref && m.pref.focus == panelPrefContent &&
 		(m.pref.item == prefExport || m.pref.item == prefImport) && !m.popupOpen()

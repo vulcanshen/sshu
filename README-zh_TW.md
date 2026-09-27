@@ -121,11 +121,10 @@ sshu
 
 | 鍵 | 動作 |
 |---|---|
-| `Enter` | Hosts:連線(先問)· Credentials:編輯 · Errors:看完整輸出 |
-| `V` | 唯讀檢視這一列裝了什麼 —— 密碼一律遮起來 |
-| `A` | 新增 host / credential |
+| `Enter` | 唯讀看這一列的全部內容 —— 密碼一律遮起來。在 host 上,底下會問要不要連線,再按一次 `Enter` 就連進去。在 Errors 上:看完整輸出 |
+| `A` | 新增 host / credential / `~/.ssh/config` 的 block / known_hosts 的 key(先向 host 要 key,看過再決定) |
 | `E` | 編輯游標這一列 |
-| `D` | 複製 —— 開一個從這一列預先填好的新增表單,換個名字就能存 |
+| `D` | 複製 host、credential 或 `~/.ssh/config` 的 block —— 開一個從這一列預先填好的新增表單,換個名字就能存 |
 | `X` | 刪除(先問) |
 | `/` | 搜尋 host —— name、user、host、port、tags 一起比對 |
 | `C` | Errors / Connections / Changes:清空這一本(先問) |
@@ -182,6 +181,7 @@ host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **pas
 | `v` / `V` | 依字元 / 依整行選取 |
 | `y` | 複製到系統剪貼簿並離開(什麼都沒選:游標那一行) |
 | `Esc` | 先丟掉選取,再離開 |
+| `Space` / `?` | 列出這個模式的鍵,每一列都能直接執行 / 這個模式的說明 |
 
 複製靠 `pbcopy`、`wl-copy`、`xclip` 或 `xsel`,有裝哪個就用哪個。
 

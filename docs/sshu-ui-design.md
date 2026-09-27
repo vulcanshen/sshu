@@ -20,7 +20,7 @@ sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 
 > **與其他文件的分工**:以前逐條對照原則的 `sshu-implementation.md` 已退役(2026-09-26),
 > 還用得到的實作事實收進 [`dev-remarks.md`](dev-remarks.md);偏離 tdp 的地方寫在 dev-remarks
-> 「偏離 tdp」,尚未符合的寫在 [`sshu-terminu-fix.md`](sshu-terminu-fix.md)。本檔回答
+> 「偏離 tdp」;尚未符合的寫在 `sshu-terminu-fix.md`(2026-09-27 修完後刪除,§11.57)。本檔回答
 > **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法**。它跟著程式碼走;被否決的
 > 做法留在這裡不刪 —— 那份紀錄本身就是重點。
 
@@ -2114,7 +2114,6 @@ sshu/
 ├── docs/
 │   ├── sshu-ui-design.md       ← 本檔(為什麼)
 │   ├── dev-remarks.md          開發者備忘(運作方式、偏離 tdp)
-│   └── sshu-terminu-fix.md     尚未符合 tdp 的地方
 ├── README.md / README-zh_TW.md / CHANGELOG.md
 ├── go.mod
 └── Makefile
@@ -3846,6 +3845,10 @@ glyph 寬度、位址畫成縮排、cursor bar 只蓋第一行、`listBody` 容�
 ---
 
 ### 11.33 選取模式 —— 把遠端的字拿出來,而且不動滑鼠
+
+> **§11.57 起**:選取模式照 tdp K11 讓 core key 有意義 —— `Space` 列出模式的鍵、`?` 是模式的 help、
+> `q` / `Ctrl-C` 走離開流程、`Tab` 跳 toast;footer 最前面是 `space` 與 `?`。下文「其他鍵一律吞掉」
+> 是當時的做法。
 
 `[3]` 的格子印出來的東西,使用者要複製走。這件事在 sshu 之前只有一條路:
 終端機自己的選字。而**那條路正好被 grid 破壞掉**了 —— 原生選字是沿著螢幕的
@@ -6471,6 +6474,56 @@ menu —— tdp F4)。popup 裡是 `globalActions` 的四列,字母照舊可以�
 
 ---
 
+### 11.57 選取模式照 K11、README 的 manage 表、註解換成 tdp 編號 —— fix 清單修完
+
+#### 使用者的要求
+
+> 「commit,然後繼續修剩下的 12、14、15」
+
+#### 選取模式是 tdp 的「模式」(K11,fix 第 15 條)
+
+以前選取模式除了自己的鍵,`Space`、`?`、`q`、`Ctrl-C`、`Tab` 一律吞掉 —— 「模式擁有這個 panel」
+(§11.33)。tdp v0.1.1 的 K11 要模式裡的 core key 仍然有意義:
+
+- **`Space`** 開關**這個模式的按鍵清單**(`modeKeys`,`copyModeRows()`):y、v、V、h/j/k/l、w/e/b、
+  0/$、u/d、leave,每一列可以直接執行,執行後清單關掉。清單**只用方向鍵移動**:`j`/`k` 本身就是清單
+  裡的列,按下去要執行它,不是移游標。`Space` 再按一次、或 `Esc`,只關清單,模式還在。
+- **`?`** 是模式的 help(唯讀,`copyModeHelp()`)。
+- **`q` / `Ctrl-C`** 照 K9 走離開流程;取消回到模式。
+- **`Tab`** 仍然暫停(它會把 focus 帶離一個選到一半的畫面),但有回應:toast `Esc leaves selection mode first`。
+- 模式的按鍵區塊只在**沒有浮層**時接手,浮層(清單、help、離開的問題)開著時照一般路由走。
+- footer 最前面固定 `space keys   ? help`;80 欄放不下的 `w/e/b`、`0/$`、`u/d` 由 `Space` 的清單揭露。
+
+#### README 的 `[M]anage` 表(fix 第 12 條)
+
+照程式碼核對:拿掉 `V`(§11.29 起檢視改成 `Enter`,`V` 是 splash);`Enter` 改成「唯讀看完整內容,host 的
+明細底下再問要不要連線,Errors 看完整輸出」;`A` 補上 `~/.ssh/config` block 與 known_hosts key(先向
+host 要 key);`D` 註明適用 host、credential、`~/.ssh/config` block。
+
+#### 註解換成 tdp 編號(fix 第 14 條)
+
+清單上的行號盤點後已經位移,改成**依內容比對**:每一列在該檔的註解裡找「現在」那串,找到的行數跟清單
+列的一樣就直接換;對不上的逐一看過(同一檔多處、`theme.go:5` 排除、`sshtab.go` 的兩個 `§1.2` 分別是 L2
+與 L4、`popup.go` 那句重寫、`view.go` 那句被換行拆開)。共換 90 處。清單明確排除、指向本檔章節的
+(`askpass.go`、`chrome.go`、`hosts.go`、`theme.go`、`viewer.go` 那幾處)維持原樣。
+
+#### fix 清單刪除
+
+`docs/sshu-terminu-fix.md` 的條目全部修完或改寫成偏離,照家族的做法(locku、webu)刪除。經過在
+§11.54–§11.57,刻意不照做的在 dev-remarks「偏離 tdp」。
+
+#### 測試
+
+`TestSpaceListsTheSelectionKeys` / `TestARowOfTheKeyListRunsByItsKey` / `TestTheLeaveRowLeavesTheMode` /
+`TestEscOnTheKeyListClosesOnlyTheList` / `TestQuestionMarkIsTheSelectionHelp` /
+`TestQuitWorksFromSelectionMode` / `TestTabInSelectionModeSaysHowToLeave`(`tdpmode_test.go`);
+`TestTheFooterSwitchesToTheSelectionKeys`、`TestTheWayOutSurvivesAnEightyColumnSelectionRow`、
+`TestFullScreenKeepsSelectionModeDisclosed` 改成釘新的優先順序(`space`、`?` 在前)。
+
+9 個 mutation 全數被抓。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -6551,6 +6604,7 @@ menu —— tdp F4)。popup 裡是 `globalActions` 的四列,字母照舊可以�
 | 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格、border 轉黃,再按一次(或 `Alt+Esc`)離開(§11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53) |
 | 選取模式 | `v` / `V` · `y` · `Esc` | char / line 選取(再按取消)/ 複製到剪貼簿並結束 / 先丟選取、再離開 |
+| 選取模式 | `Space` · `?` · `q` / `Ctrl+C` · `Tab` | 模式的按鍵清單(可執行,方向鍵移動)/ 模式的 help / 離開流程 / toast 說先 `Esc`(§11.57) |
 
 ### 導覽(所有清單共用)
 

@@ -222,7 +222,7 @@ func (m *askpassPopup) ask(req *askpassRequest, title string, layer int) tea.Cmd
 }
 
 // update edits the line and reports Enter. Esc is the caller's, as on every
-// float (§4.3). A yes/no question takes no text: the only answers are the
+// float (tdp K4). A yes/no question takes no text: the only answers are the
 // two keys.
 func (m *askpassPopup) update(msg tea.KeyMsg) (done bool) {
 	if !m.anim.isInteractive() {

@@ -74,7 +74,7 @@ const keySelectHost = "H"
 // to be able to tell them apart without reading the hint column.
 //
 // `/` is outside the rule (not a letter) and so is Enter (a core key, whose name
-// goes in the hint rather than in a bracket, §4.4).
+// goes in the hint rather than in a bracket, tdp M5).
 var sftpActions = []sftpAction{
 	// item — the row under the cursor
 	{key: "enter", label: "Enter", hint: "Enter . open it, or go to a result", onFiles: true, run: AppModel.sftpEnter},
@@ -139,7 +139,7 @@ func (a sftpAction) appliesTo(p sftpPanel, hasHost, hasItem bool) bool {
 }
 
 // sftpApplicable is the action set for the focused panel right now. Both the
-// hotkey and the menu read it, so they cannot drift apart (§4.2).
+// hotkey and the menu read it, so they cannot drift apart (tdp M3).
 func (m AppModel) sftpApplicable() ([]string, []sftpAction) {
 	hasHost := m.sftp.cur().fs != nil
 	_, hasItem := m.sftpCursorPath()

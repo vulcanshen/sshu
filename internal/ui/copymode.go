@@ -70,6 +70,39 @@ func (c *copyState) start(s *session, w, h int) {
 
 func (c *copyState) stop() { *c = copyState{} }
 
+// copyLeaveKey is the key list's "leave" row. Longer than a keystroke, so only
+// the row can send it.
+const copyLeaveKey = "leave"
+
+// copyModeRows is selection mode's key list (tdp K11): every key the mode has,
+// each row runnable. The footer carries the short form of the same set.
+func copyModeRows() []menuItem {
+	return []menuItem{
+		{label: "copy", key: "y", hint: "the selection, or this line"},
+		{label: "select", key: "v", hint: "characters, from here"},
+		{label: "select lines", key: "V", hint: "whole lines, from here"},
+		{label: "left", key: "h"}, {label: "down", key: "j"},
+		{label: "up", key: "k"}, {label: "right", key: "l"},
+		{label: "word", key: "w", hint: "start of the next word"},
+		{label: "end of word", key: "e"},
+		{label: "back a word", key: "b"},
+		{label: "line start", key: "0"}, {label: "line end", key: "$"},
+		{label: "up half a page", key: "u"}, {label: "down half a page", key: "d"},
+		{label: "leave", key: copyLeaveKey, hint: "Esc · Alt+v"},
+	}
+}
+
+// copyModeHelp is ? in selection mode: the mode's keys, read-only.
+func copyModeHelp() []helpEntry {
+	return []helpEntry{
+		{"h j k l", "move"}, {"w · e · b", "by word"}, {"0 · $", "line start / end"},
+		{"u · d", "half a page"}, {"v · V", "select characters / lines"},
+		{"y", "copy, and leave"}, {"Esc", "drop the selection, then leave"},
+		{"Alt+v", "leave"}, {"Space", "the mode's keys, runnable"},
+		{"q · Ctrl+C", "quit"}, {"?", "close this help"},
+	}
+}
+
 // newest is the last line in view with anything on it. A shell that has just
 // printed its prompt leaves blank rows below it, and starting the cursor down
 // there would open the mode pointing at nothing.
@@ -124,7 +157,7 @@ func (c *copyState) key(k string) (text string, yanked bool) {
 		return text, true
 	case "esc":
 		// Two stages, innermost first: drop the selection, then the mode. Same
-		// shape as Esc everywhere else in sshu (§4.3).
+		// shape as Esc everywhere else in sshu (tdp K4).
 		if c.sel != selNone {
 			c.sel = selNone
 			return "", false

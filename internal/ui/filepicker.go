@@ -20,7 +20,7 @@ import (
 //
 // It is not modal. Letters always filter and the arrows always move, so there is
 // no "input state" versus "list state" to learn — the same split the form makes
-// (§4.5): in a text-entry surface, letters type and arrows navigate.
+// (tdp K8): in a text-entry surface, letters type and arrows navigate.
 type filePicker struct {
 	anim    popupAnimator
 	root    string
@@ -270,7 +270,7 @@ func (m filePicker) view() string {
 			continue
 		}
 		// A key readable by group or other is one ssh will refuse — worth
-		// flagging here, where the user is choosing it (§2.4 override colour).
+		// flagging here, where the user is choosing it (tdp D2).
 		modeStyle := dim
 		if e.mode.Perm()&0o077 != 0 {
 			modeStyle = red

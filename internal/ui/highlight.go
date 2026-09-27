@@ -9,7 +9,7 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 )
 
-// Ported from filu, unchanged in substance — the point of the u-family is that a
+// Ported from filu, unchanged in substance — the point of the terminu family is that a
 // file looks the same whichever tool you are looking at it through.
 //
 // chroma pieces resolved once: terminal16m emits truecolor ANSI (clipANSI cuts

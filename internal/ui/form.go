@@ -12,11 +12,11 @@ import (
 // The form is sshu's fifth popup class, and it exists because menu and form mean
 // different things by Enter: a menu runs the row under the cursor, a form
 // submits the whole thing whatever field you are on. Folding them together
-// would be the hybrid float §6.1 forbids.
+// would be the hybrid float tdp F1 forbids.
 //
 // Two consequences follow from a popup that eats text:
-//   - Space types a space; it is NOT the §A.1 entry key here. The standing
-//     border hint takes over the "what can I do" job (§4.5).
+//   - Space types a space; it is NOT the Space menu entry key (tdp K5) here. The standing
+//     border hint takes over the "what can I do" job (tdp K8).
 //   - j/k are characters, so field navigation is Tab / Shift+Tab / arrows only.
 
 // formResult is what a keystroke asked the caller to do. Browse exists because
@@ -428,7 +428,7 @@ func (m hostForm) host() store.Host {
 }
 
 // fail parks an error on the form instead of stacking another popup on top of
-// it — the error must be visible without blocking the fix (§6.7). It jumps focus
+// it — the error must be visible without blocking the fix (tdp F5). It jumps focus
 // to the offending field, because this is the submit path: the user asked to be
 // taken to the problem.
 func (m *hostForm) fail(msg string, field int) {
@@ -468,10 +468,10 @@ func (m hostForm) view() string {
 	}
 	// The hint is contextual: it names what THIS field can do. That is the
 	// standing disclosure a text-entry surface trades the Space entry key for
-	// (§4.5), so it has to be accurate per field, not generic.
+	// (tdp K8), so it has to be accurate per field, not generic.
 	// The hint names what THIS field does with Enter — on an EMPTY pick-a-value
 	// row Enter chooses rather than saves, and saying so is the standing
-	// disclosure (§4.5).
+	// disclosure (tdp K8).
 	//
 	// It also names what Enter does RIGHT NOW, which changes as the form fills
 	// up: `next` while something is still missing, `save` the moment nothing

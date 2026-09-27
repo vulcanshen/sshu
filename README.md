@@ -121,11 +121,10 @@ The left nav (`1`) picks a section and the content follows the cursor; `Enter` o
 
 | Key | Action |
 |---|---|
-| `Enter` | Hosts: connect (asks first) · Credentials: edit · Errors: show the full output |
-| `V` | View what this row holds, read-only — passwords are always masked |
-| `A` | Add a host / credential |
+| `Enter` | Show the row in full, read-only — passwords are always masked. On a host, the foot offers to connect: `Enter` again goes in. On Errors: the full output |
+| `A` | Add a host / credential / `~/.ssh/config` block / known_hosts key (fetched from the host, then you decide) |
 | `E` | Edit the row under the cursor |
-| `D` | Duplicate — an Add form pre-filled from this row; give it a new name and save |
+| `D` | Duplicate a host, credential or `~/.ssh/config` block — an Add form pre-filled from this row; give it a new name and save |
 | `X` | Delete (asks first) |
 | `/` | Search hosts — name, user, host, port and tags at once |
 | `C` | Errors / Connections / Changes: clear this record (asks first) |
@@ -182,6 +181,7 @@ While a transfer is running, `H` and `D` are dimmed and do nothing — cancel it
 | `v` / `V` | Select by character / by line |
 | `y` | Copy to the system clipboard and leave (nothing selected: the current line) |
 | `Esc` | Drop the selection, then leave |
+| `Space` / `?` | The mode's keys, each one runnable / the mode's help |
 
 Copying uses `pbcopy`, `wl-copy`, `xclip` or `xsel`, whichever is installed.
 

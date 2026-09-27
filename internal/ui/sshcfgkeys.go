@@ -10,7 +10,7 @@ import (
 )
 
 // sshcfgAction mirrors hostAction and credAction: one table behind both the
-// letter hotkey and the Space menu row, so §4.2 holds by construction on a
+// letter hotkey and the Space menu row, so tdp M3 holds by construction on a
 // third panel too.
 type sshcfgAction struct {
 	key        string

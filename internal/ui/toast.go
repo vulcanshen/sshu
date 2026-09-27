@@ -23,7 +23,7 @@ type toastExpireMsg struct{ gen int }
 
 // toastModel is transient feedback — the message class with an auto-dismiss.
 // Esc still kills it immediately: no float may make the user wait out a timer
-// (§6.5).
+// (tdp F3).
 type toastModel struct {
 	anim    popupAnimator
 	msg     string

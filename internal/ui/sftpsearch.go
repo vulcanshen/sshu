@@ -188,7 +188,7 @@ func (s *sftpSideModel) refilter() {
 
 // filterKey edits the query. Letters type and arrows move — the same split the
 // file picker and the host form make, so there is no mode to learn here either
-// (§4.5). It reports whether it consumed the key.
+// (tdp K8). It reports whether it consumed the key.
 func (s *sftpSideModel) filterKey(msg tea.KeyMsg) bool {
 	if !s.filtering {
 		return false

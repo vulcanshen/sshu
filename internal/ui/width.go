@@ -8,7 +8,7 @@ import (
 )
 
 // Everything drawn into a fixed slot goes through these. The card is a
-// fixed-width box (§1.2), so a field that miscounts its own width does not
+// fixed-width box (tdp L2), so a field that miscounts its own width does not
 // merely look off — it pushes the right border out and breaks the frame.
 //
 // Rule: measure and pad PLAIN text, then apply the style. lipgloss.Width knows

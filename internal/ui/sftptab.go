@@ -366,7 +366,7 @@ func (s sftpSideModel) rowAt(i int) (remote.Entry, bool) {
 //
 // While a SEARCH is showing, a row's name is a path relative to cwd, and Enter
 // is the one key the search does not swallow — every letter is a letter while a
-// query is being typed (§4.5). So Enter is what makes a result reachable: it
+// query is being typed (tdp K8). So Enter is what makes a result reachable: it
 // goes to where the thing lives and leaves the cursor on it, which is what every
 // other finder does and what the whole feature was promising.
 //

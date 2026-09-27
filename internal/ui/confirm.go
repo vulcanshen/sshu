@@ -29,7 +29,7 @@ const (
 	confirmTrustHostKey  // write a freshly fetched key into known_hosts
 )
 
-// confirmPopup is the message class (§6.1): a short question with one yes and
+// confirmPopup is the message class (tdp F1): a short question with one yes and
 // one no. It is NOT a menu — a menu is "pick one of N", and blurring the two
 // would make Enter mean different things on different floats.
 type confirmPopup struct {
@@ -68,7 +68,7 @@ func (m *confirmPopup) ask(c confirmPopup, layer int) tea.Cmd {
 }
 
 // commit reports whether the user accepted. Esc is handled by the caller, since
-// cancel is one app-wide role and must not be re-implemented per popup (§4.3).
+// cancel is one app-wide role and must not be re-implemented per popup (tdp K4).
 func (m confirmPopup) commit(msg tea.KeyMsg) bool {
 	return m.anim.isInteractive() && msg.String() == "enter"
 }
