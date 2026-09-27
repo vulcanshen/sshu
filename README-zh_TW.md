@@ -13,21 +13,13 @@
 
 > _不確定的時候,就按_ **`Space`**。
 
-靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 只是搬進了終端機。sshu 是 `u`-family 的成員,跟 [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(filesystem)用同一套設計系統。
+靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 只是搬進了終端機。
 
 ## Demo
 
-### manage tab —— host、credential、你的 `~/.ssh` 檔案,還有紀錄
-![manage](docs/demo-manage.gif)
+![ssh 網格](docs/demo-grid.gif)
 
-### 雙側檔案傳輸 —— 標記、跨過去、送出
-![file transfer](docs/demo-transfer.gif)
-
-### ssh 網格 —— 一個畫面上好幾個活的 session
-![ssh grid](docs/demo-grid.gif)
-
-### sshu 裡面的 sshu —— 整條鏈,從最外層一次驅動
-![巢狀 sshu](docs/demo-nest.gif)
+ssh 網格:一個畫面上好幾個活的 session,每一格都是真的 `ssh`。
 
 ## 特色
 
@@ -58,11 +50,7 @@ brew install vulcanshen/tap/sshu
 curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | sh
 ```
 
-**從原始碼**:
-
-```bash
-go install github.com/vulcanshen/sshu/cmd/sshu@latest
-```
+從原始碼建置見 [`docs/dev-remarks.md`](docs/dev-remarks.md)。
 
 ### 需求
 
@@ -255,15 +243,15 @@ connect_timeout: 15
 - 不能搜尋遠端檔案的內容。
 - 沒有滑鼠支援、`hosts.yaml` 在磁碟上改了不會自動重讀、不保存 session、密碼不存進 keychain。
 
-## 延伸閱讀
+## 相關連結
 
 - [CHANGELOG.md](CHANGELOG.md) —— 每一版改了什麼
-- [docs/dev-remarks.md](docs/dev-remarks.md) —— sshu 的行為細節,以及為什麼是這樣
-- [docs/sshu-ui-design.md](docs/sshu-ui-design.md) —— 完整的設計紀錄,包含被否決的做法
-- [docs/sshu-implementation.md](docs/sshu-implementation.md) —— 逐條對照 [the TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/tui-design/README.md)
+- [`docs/dev-remarks.md`](docs/dev-remarks.md) —— 開發者備忘:運作方式、設計理由、設計文件導讀、建置與測試
 
-從原始碼建置:`make build`、`make check`(fmt + vet + test),`make demo` 用 `demo/hosts.yaml` 跑、不碰你的設定 —— 直接跑 `make` 會列出其他的。
+## terminu family
 
-## 用什麼做的
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
 
-Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。
+## License
+
+[GPL-3.0](LICENSE)

@@ -1,30 +1,28 @@
 # sshu — UI 設計稿
 
-sshu 是 u-family 的第三個成員(kbu = K8s domain、filu = filesystem domain、
-**sshu = ssh/sftp domain**)。三者**平行**、共用同一套
-[this TUI Design Principle](../../thoughts/tui-design/README.md),
+sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
+**sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
 否決的做法**。它跟著程式碼走 —— 改一個使用者看得見的東西,就在同一輪改這裡。
 
-> **設計權威順序**:**通用原則**。`filu-implementation.md` /
-> `kbu-implementation.md` 是**平行實現的參照、不是上位權威**。
+> **設計權威順序**:**tdp**。其他家族成員的設計文件是**平行實現的參照、不是上位權威**。
+>
+> **章節編號**:§A、§B、§1–§7 沿用 VTP(tdp 的前身)時期的分章,各章標題標出對應的
+> tdp 條目;§8 之後是 sshu 自己的。
 >
 > **範圍**:三個 tab 都已完整設計並落地(§0)。開發順序是
 > **1. hosts → 3. ssh → 2. sftp**;章節本身照原則的條目排,不照那個順序。
 
 ---
 
-> **與 `sshu-implementation.md` 的分工**
->
-> | 文件 | 回答 |
-> |---|---|
-> | `sshu-implementation.md` | **現在是怎麼做的** —— 逐條對照原則、參數、不變量、按鍵全表(結構鏡射 filu / kbu 的同名文件) |
-> | 本檔 | **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法** |
->
-> 兩份都跟著程式碼走。要改一個看得見的行為,兩份都要改;被否決的做法留在這裡不刪
-> —— 那份紀錄本身就是重點。
+> **與其他文件的分工**:以前逐條對照原則的 `sshu-implementation.md` 已退役(2026-09-26),
+> 還用得到的實作事實收進 [`dev-remarks.md`](dev-remarks.md);偏離 tdp 的地方寫在 dev-remarks
+> 「偏離 tdp」,尚未符合的寫在 [`sshu-terminu-fix.md`](sshu-terminu-fix.md)。本檔回答
+> **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法**。它跟著程式碼走;被否決的
+> 做法留在這裡不刪 —— 那份紀錄本身就是重點。
 
 ## 0. 三個 tab 的定位
 
@@ -43,39 +41,39 @@ v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是
 
 ---
 
-## §A. 原則對照
+## §A. tdp 對照
 
-### §A.0 揭露
+### §A.0 揭露(tdp P2、M1)
 
 | Track | 入口 | 揭露 | 完整性 |
 |---|---|---|---|
 | **Contextual** | `Space` | footer 常駐 | 列出當前 focus 的全部 contextual 動作 |
 | **Non-contextual** | `?` | footer 常駐 | 列出全部全域動作 |
 
-### §A.0.K core-key 語意(跨 surface 不變)
+### §A.0.K core-key 語意(跨 surface 不變)(tdp K 章)
 
 > **v0.2**:tab 切換移到 `Alt+p/f/s` 和絃,`1`-`9` 全數改為「當前 tab 的
 > panel 直達」;ssh tab 的 `Tab` 改為顯示開關(§11.一、§11.六)。下表的
 > 「`1`/`2`/`3` 直達 alias」是 v0.1 的形狀,保留當時推理。
 
-| Core-key | sshu 語意 | 通用條款 |
+| Core-key | sshu 語意 | tdp 條目 |
 |---|---|---|
-| `Tab`(`1`/`2`/`3` 直達 alias) | 切 tab(surface 切換);popup 內切欄位 | §4.1 |
-| `Enter` | 確認 / 進入(hosts:對 cursor host 發起 ssh 連線) | §4.1 |
-| `Esc` | 取消 / 關閉最上層浮層 | §4.3 |
-| `Space` | §A.1 contextual 入口(Space menu) | §A.1 |
-| `?` | §A.2 non-contextual 入口(help popup) | §A.2 |
+| `Tab`(`1`/`2`/`3` 直達 alias) | 切 tab(surface 切換);popup 內切欄位 | K1、K2 |
+| `Enter` | 確認 / 進入(hosts:對 cursor host 發起 ssh 連線) | K1、K3 |
+| `Esc` | 取消 / 關閉最上層浮層 | K4 |
+| `Space` | §A.1 contextual 入口(Space menu) | K5、M2 |
+| `?` | §A.2 non-contextual 入口(help popup) | K6、M4 |
 
 **`q` 與 `Ctrl+C` 不是 core-key**(對齊 filu):`q` = 離開 app,是一個
 **全域動作**(列在 footer + `?` help),不是「取消」;取消語意由 `Esc`
 單獨承載。`Ctrl+C` 是逃生硬退 —— **除了鍵盤在遠端或編輯器手上的時候,那裡它
 是它們的中斷鍵**(§11.20)。**`q` 在任何浮層開著時不生效**(浮層擁有鍵盤),
-避免半套 alias 汙染取消語意(通用 §A.0.K)。
+避免半套 alias 汙染取消語意(tdp K7)。
 
 **letter hotkey 不是 core-key**:`e` / `d` / `c` / `s`、導覽 `h j k l`
 `gg` `G` 都是入口內動作的加速捷徑。
 
-### §A.1 Contextual track — Space menu
+### §A.1 Contextual track — Space menu(tdp K5、M2)
 
 入口自身在 **footer** 揭露。hosts tab 只有一個 panel,所以 focus 恆定在
 hosts 表格上。
@@ -88,9 +86,9 @@ hosts 表格上。
 | | Delete | `d` |
 | **panel** | Add | `A` |
 
-§6.6 cursor-first:item region 在前、panel region 在後。
+cursor-first(tdp M2):item region 在前、panel region 在後。
 
-### §A.2 Non-contextual track — `?` help popup
+### §A.2 Non-contextual track — `?` help popup(tdp K6、M4)
 
 | 全域動作 | key |
 |---|---|
@@ -117,7 +115,7 @@ sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
 
 ---
 
-## §B. 元素專職化
+## §B. 元素專職化(tdp P4)
 
 | 元素 | 專職語意 | 不准兼職 |
 |---|---|---|
@@ -154,7 +152,7 @@ peach 可以標非錯誤的東西 —— 所以它不再能用來擋 auth 上色
 
 ---
 
-## §1. 空間結構
+## §1. 空間結構(tdp L 章)
 
 ### 1.1 版面 grid
 
@@ -392,15 +390,15 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 取樣點:會出事的寬度正是「某欄剛被丟掉」或「某個下限剛開始咬」的那幾格,而它們
 會隨欄寬定義移動 —— 照舊數字挑的取樣點在改完之後就悄悄不覆蓋邊界了(§11.37)。
 
-### 1.3 窄寬:表格自己就是 responsive 形式
+### 1.3 窄寬:表格自己就是 responsive 形式(tdp L1)
 
 卡片時代需要一個「`w < 38` 改單行清單」的 fallback 分支。表格不需要 ——
 **收縮欄位就是它的窄寬形式**,一路降到只剩 Name 都還是同一個 widget、同一套
 游標、同一套鍵。少一個分支、少一套要維護的版面。
 
-### 1.4 Statusbar / footer 行數固定
+### 1.4 Statusbar / footer 行數固定(tdp L3)
 
-膠囊列 N=1、footer N=1,**選定即鎖死**(通用 §1.3)。內容溢出就截斷,
+膠囊列 N=1、footer N=1,**選定即鎖死**(tdp L3)。內容溢出就截斷,
 絕不 reflow 多吃一行。
 
 ### 1.5 空狀態
@@ -443,7 +441,7 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 
 ---
 
-## §2. 色彩(catppuccin-mocha,沿用 u-family 錨點)
+## §2. 色彩(catppuccin-mocha,沿用 terminu family 錨點)(tdp D2)
 
 ### 2.1 錨點
 
@@ -462,7 +460,7 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 ### 2.2 明度作 z-axis
 
 - **popup**:border 走 `popupLayerColor(layer)`(lavenphire25 → sapphire),
-  巢狀越上層越亮,不 hardcode(通用 §2.5 / §6.3)。直接沿用 filu 的實作。
+  巢狀越上層越亮,不 hardcode(tdp D2)。直接沿用 filu 的實作。
 - **表格選中列**:blue bar;未選中列的欄位退到 `dimColor`。這是
   z-axis 在 item 層的實例。
 
@@ -510,11 +508,11 @@ blue**,而不是把這裡改回去 —— 那只會退回「看不出被選中�
 
 ---
 
-## §3. 符號語彙
+## §3. 符號語彙(tdp P5)
 
 ### 3.1 Nerd Font 是設計、必裝
 
-同 kbu / filu(通用 §3.1),不做降級分支。source 內**不放 PUA 字面**,一律
+同 kbu / filu(tdp D6),不做降級分支。source 內**不放 PUA 字面**,一律
 `string(rune(0x...))`。
 
 ### 3.2 glyph 配置
@@ -569,7 +567,7 @@ sshu 是必要而非可選。
 
 ---
 
-## §4. 互動
+## §4. 互動(tdp K 章)
 
 ### 4.1 Core key 語意(見 §A.0.K)
 
@@ -658,7 +656,7 @@ menu、host picker、file picker、Transfers)。
 `TestSpaceDismissesEveryFloat` 用一張**列出全部浮層**的表釘住這件事 —— 針對被回報
 的那一個寫測試沒有用,漏掉的一定是沒被想到的那一個。
 
-### 4.3 letter hotkey ⊆ Space menu(完整性)
+### 4.3 letter hotkey ⊆ Space menu(完整性)(tdp M3)
 
 | key | 動作 | region |
 |---|---|---|
@@ -678,7 +676,7 @@ cursor 驅動,不另設 half-page)。
 而**刻意不給字母**也是一個合法的選擇:見 §11.26 的 `Close all sessions`。
 menu 是慢路徑,而有些動作的正確速度就是慢。
 
-### 4.4 hotkey 揭露 = bracket `[X]label` + 「亮鍵暗述」
+### 4.4 hotkey 揭露 = bracket `[X]label` + 「亮鍵暗述」(tdp M5)
 
 **兩個層面、一套規則**:
 
@@ -763,7 +761,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 吞了,等於把帶你進去的那把鑰匙鎖在門內。進 `[5]` 一律是明確動作(在 `[4]` 上
 按 `Enter`、或按 `5`),出來一律是 `Alt+Esc`。
 
-### 4.6 `Alt+Esc` —— sshu 專屬、只在 panel [5]
+### 4.6 `Alt+Esc` —— sshu 專屬、只在 panel [5](tdp K10)
 
 > **v0.2**:`[5]` 已成**網格**。`Alt+Esc` 的語意不變(把鍵盤收回來),落點
 > 是 `[1]` sessions,side 欄同時回來;格子之間按住 Alt 用方向鍵走,tab 和絃
@@ -797,7 +795,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 - bubbletea 靠「ESC 後緊跟另一個 byte」判斷 Alt,所以遠端跑 vim 時**快速連按
   兩次 Esc 會被讀成 `Alt+Esc`**、意外跳出 pty。按 `Enter` 或 `5` 就回得去。
 
-### 4.5 `Space` / `?` 在文字輸入 surface 內的例外(§0 規則擴充)
+### 4.5 `Space` / `?` 在文字輸入 surface 內的例外(§0 規則擴充)(tdp K8)
 
 `Space` 是 §A.1 入口,但在 **host form 的文字欄位**內,`Space` 必須輸入
 空白字元。這不是原則破洞,而是規則擴充:
@@ -813,9 +811,9 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 
 ---
 
-## §5. Mouse
+## §5. Mouse(tdp X1、X2)
 
-`(planned)` —— 沿用通用 §5 mapping(左鍵 focus+select 列、雙擊 =
+`(planned)` —— 沿用 VTP 時期的 mouse mapping(tdp X1、X2)(左鍵 focus+select 列、雙擊 =
 `Enter`、右鍵 = `Space`、滾輪 = 捲 card row)。mouse 必為 keyboard 的
 mapping、不引入新語意。
 
@@ -831,9 +829,9 @@ Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製�
 
 ---
 
-## §6. 浮層(Popup Convention)
+## §6. 浮層(Popup Convention)(tdp F 章、D3)
 
-### 6.1 taxonomy — sshu 有 **5 類**(比 filu 多一個 `form`)
+### 6.1 taxonomy — sshu 有 **5 類**(比 filu 多一個 `form`)(tdp F1)
 
 | 類型 | sshu 實例 | 特徵 |
 |---|---|---|
@@ -952,7 +950,7 @@ it off」),marks 清單的移出是 `[c]lear mark` —— 跟 `[C]lear marks` �
 
 - item region 標題帶 cursor host 的名字 —— 使用者一眼確認「這些動作打在誰身上」
 - `Connect` 不套 bracket(core-key 動作),鍵名放 hint 欄
-- 單一類動作時不分 region(通用 §6.6),但 hosts 有 item + panel 兩類,分
+- 單一類動作時不分 region(tdp M2),但 hosts 有 item + panel 兩類,分
 
 **實作上這條是「由結構保證」而不是靠自律**:letter hotkey 與 menu row 都從
 同一張 `hostActions` 表展開(`ui/app.go`),所以不可能只加 hotkey 而漏掉 menu
@@ -1135,7 +1133,7 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
 
 清單超過畫面高度時 hint 變成 ` j/k scroll   Esc close `、`j`/`k` 捲動。
 
-### 6.7 開關動畫 / border 色 / 取消鍵
+### 6.7 開關動畫 / border 色 / 取消鍵(tdp F2、D2、K4)
 
 - 每個 popup 有自己的 `popupAnimator`(name 不重複、避免 tick 互撞,§6.2)
 - border 色 = `popupLayerColor(layer)`,不 hardcode(§6.3)
@@ -1145,11 +1143,11 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
 
 ---
 
-## §7. 時間軸 UX
+## §7. 時間軸 UX(tdp T 章)
 
-### 7.1 Connect 之後 → **清除 source**(§7.1 context-shift 例外)
+### 7.1 Connect 之後 → **清除 source**(tdp T1 context-shift 例外)
 
-通用 §7.1 預設保留 source,但 **ssh session 是長時 target**:使用者從
+tdp F4 預設保留 source,但 **ssh session 是長時 target**:使用者從
 session 出來時注意力早已轉移,底下浮著的 Space menu / 明細只會恍神。
 所以在明細的 offer 上按 `Enter` 之後:
 
@@ -2102,7 +2100,8 @@ sshu/
 │       └── crypt.go        .sshukey 與 ENC: 的加解密(§11.51)
 ├── docs/
 │   ├── sshu-ui-design.md       ← 本檔(為什麼)
-│   └── sshu-implementation.md  現在是怎麼做的
+│   ├── dev-remarks.md          開發者備忘(運作方式、偏離 tdp)
+│   └── sshu-terminu-fix.md     尚未符合 tdp 的地方
 ├── README.md / README-zh_TW.md / CHANGELOG.md
 ├── go.mod
 └── Makefile
@@ -2573,7 +2572,7 @@ nothing」(它跟 Delete 的距離就靠這句話)。hotkeyIndex 無大小寫回
 
 ### 11.11 icon 與 splash 彩蛋
 
-`docs/icon.svg` 是 u-family mark 的 sshu 版:藍 U 框住一個**拼出 SSH 的
+`docs/icon.svg` 是 terminu family mark 的 sshu 版:藍 U 框住一個**拼出 SSH 的
 金色圖形** —— 兩個 S 疊在 H 的雙軌之間,rows 10-11 的整寬橫槓是 H 的
 橫畫。`V`(pty 外、無 popup 時)觸發 splash 彩蛋,kbu / filu 的同款:
 底片掃入 → 上 S 散點浮現 → 下 S → H 自上而下 → 藍 U 框自底升起 ——
@@ -3628,7 +3627,7 @@ Esc,那正是「取消」在全 app 的意思(§4.3),不必為了看而先學會
 
 #### 彩蛋把 `V` 收回去了
 
-`V` 本來是 u-family 的彩蛋(splash),而 `[V]iew` 進 `hostActions` 之後,彩蛋被降成
+`V` 本來是 terminu family 的彩蛋(splash),而 `[V]iew` 進 `hostActions` 之後,彩蛋被降成
 **全 app 最低的宣告** —— `panelClaimsView()` 去問 menu 問的同一張表,誰有真的
 `[V]iew` 就讓給誰。
 
