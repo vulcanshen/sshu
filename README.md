@@ -13,21 +13,13 @@
 
 > _When in doubt, hit_ **`Space`**.
 
-Inspired by [Termius](https://termius.com/) — hosts, sessions and transfers under one roof — but in your terminal. sshu is a member of the `u`-family, alongside [kbu](https://github.com/vulcanshen/kbu) (Kubernetes) and [filu](https://github.com/vulcanshen/filu) (filesystem), and shares their design system.
+Inspired by [Termius](https://termius.com/) — hosts, sessions and transfers under one roof — but in your terminal.
 
 ## Demo
 
-### The manage tab — hosts, credentials, your `~/.ssh` files and the logs
-![manage](docs/demo-manage.gif)
-
-### Two-sided file transfer — mark, cross, send
-![file transfer](docs/demo-transfer.gif)
-
-### The ssh grid — many live sessions on one screen
 ![ssh grid](docs/demo-grid.gif)
 
-### sshu inside sshu — the whole chain, driven from the outermost layer
-![nested sshu](docs/demo-nest.gif)
+The ssh grid: many live sessions on one screen, each cell a real `ssh`.
 
 ## Highlights
 
@@ -58,11 +50,7 @@ brew install vulcanshen/tap/sshu
 curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | sh
 ```
 
-**From source**:
-
-```bash
-go install github.com/vulcanshen/sshu/cmd/sshu@latest
-```
+Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 ### Requirements
 
@@ -255,15 +243,15 @@ A password is never displayed, and it reaches `ssh` through `SSH_ASKPASS`, never
 - No content search on remote files.
 - No mouse support, no automatic reload when `hosts.yaml` changes on disk, no saved sessions, no keychain storage for passwords.
 
-## Further reading
+## Links
 
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each release
-- [docs/dev-remarks.md](docs/dev-remarks.md) — how sshu behaves in detail, and why
-- [docs/sshu-ui-design.md](docs/sshu-ui-design.md) — the full design record, including rejected approaches
-- [docs/sshu-implementation.md](docs/sshu-implementation.md) — clause-by-clause against [the TUI Design Principle](https://github.com/vulcanshen/thoughts/blob/main/tui-design/README.md)
+- [`docs/dev-remarks.md`](docs/dev-remarks.md) — the developer's notes: how it works, why, the design docs, building and testing
 
-Building from source: `make build`, `make check` (fmt + vet + test), and `make demo` runs against `demo/hosts.yaml` without touching your config — run `make` to list the rest.
+## terminu family
 
-## Built with
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
 
-Go, [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss), [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x) for the embedded terminals, [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh` for file transfer, and [chroma](https://github.com/alecthomas/chroma) for syntax highlighting. Colours are catppuccin-mocha.
+## License
+
+[GPL-3.0](LICENSE)
