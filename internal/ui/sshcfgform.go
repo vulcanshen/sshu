@@ -163,14 +163,6 @@ func (m *sshcfgForm) openDuplicate(b store.SSHBlock, layer int) tea.Cmd {
 // rule, not a row anybody types into.
 func (m sshcfgForm) enabled(i int) bool { return i != sfDivider }
 
-// complete is §11.34's question, answered for a file where almost everything is
-// optional: a Host block needs a pattern and nothing else. HostName, User and
-// the rest are absent from most real blocks on purpose, so demanding them would
-// make Enter refuse to save a block that is already correct.
-func (m sshcfgForm) complete() bool {
-	return strings.TrimSpace(m.fields[sfHost].value) != ""
-}
-
 func (m *sshcfgForm) moveFocus(d int) {
 	n := len(m.fields)
 	for i := 0; i < n; i++ {
@@ -207,15 +199,14 @@ func (m sshcfgForm) update(msg tea.KeyMsg) (sshcfgForm, formResult) {
 		if m.focus == sfIdentity && strings.TrimSpace(f.value) == "" {
 			return m, formBrowse
 		}
-		// On the add row Enter means "add this one", which is still §11.34's one
-		// question — is this finished? A half-typed option is not, so Enter
-		// finishes it rather than saving the block around it.
+		// On the add row with something typed, Enter submits that one row: it
+		// adds the option rather than saving the block around a half-typed one
+		// (a single-field submit, tdp K3). Everywhere else it submits the block;
+		// a block only needs its Host pattern — HostName, User and the rest are
+		// absent from most real blocks on purpose — and a failed submit points
+		// at what is wrong (§11.59).
 		if m.focus == m.addRow() && strings.TrimSpace(f.value) != "" {
 			m.takeAddRow()
-			return m, formNone
-		}
-		if !m.complete() {
-			m.moveFocus(1)
 			return m, formNone
 		}
 		return m, formSubmit
@@ -368,9 +359,6 @@ func (m sshcfgForm) view() string {
 	}
 
 	enter := "save"
-	if !m.complete() {
-		enter = "next"
-	}
 	var pairs [][2]string
 	switch {
 	case m.focus == m.addRow():

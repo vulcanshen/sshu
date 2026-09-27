@@ -81,7 +81,7 @@ sshu
 | **`Enter`** | 連線 / 進入目錄 / 確認選擇 |
 | **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu;最後一列打開全域動作(切 tab、離開)。再按一次關掉 menu |
 | **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
-| **`?`** | 所有按鍵的對照表。在浮層上:那個浮層自己的按鍵 |
+| **`?`** | 這個 panel 能按的鍵,接著是到處都能用的鍵。在浮層上:那個浮層自己的按鍵 |
 
 用 **`M` / `F` / `S`** 切 tab;數字 `1`–`9` 直達當前 tab 的 panel。在遠端 session 裡打字時,每一個鍵都屬於遠端 —— 按 `Alt+Esc` 把鍵盤收回來。
 
@@ -129,7 +129,7 @@ sshu
 | `/` | 搜尋 host —— name、user、host、port、tags 一起比對 |
 | `C` | Errors / Connections / Changes:清空這一本(先問) |
 
-host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **password**、**privatekey**、**credential**、**sshconfig** 之間切 Auth。`Enter` 會跳到下一個還沒填的欄位,必填的都填了就存檔 —— 底部的提示會說它這次會做哪一個。**Tags** 選填,用空白分隔。
+host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **password**、**privatekey**、**credential**、**sshconfig** 之間切 Auth。`Enter` 就是存檔;有必填沒填或填錯的,它會帶你到第一個有問題的欄位,並說出哪裡不對。**Tags** 選填,用空白分隔。
 
 ### `[F]ile transfer` —— 小寫作用在游標那一列,大寫作用在整個 panel
 
@@ -250,7 +250,7 @@ connect_timeout: 15
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.3/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
 
 ## License
 

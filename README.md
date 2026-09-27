@@ -81,7 +81,7 @@ It opens on the hosts table. Press `A` to add your first host, `Enter` to connec
 | **`Enter`** | Connect / enter a directory / commit a choice |
 | **`Space`** | *What can I do here?* — the menu for whatever has focus; its last row opens the global operations (switch tab, quit). Press it again to close the menu |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
-| **`?`** | Every key in one list. On a popup: that popup's own keys |
+| **`?`** | The keys of the panel you are on, then the ones that work everywhere. On a popup: that popup's own keys |
 
 Switch tabs with **`M` / `F` / `S`**; the digits `1`–`9` jump to a panel of the current tab. While you are typing into a remote session every key belongs to the remote — press `Alt+Esc` to take the keyboard back.
 
@@ -129,7 +129,7 @@ The left nav (`1`) picks a section and the content follows the cursor; `Enter` o
 | `/` | Search hosts — name, user, host, port and tags at once |
 | `C` | Errors / Connections / Changes: clear this record (asks first) |
 
-In the host form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` switch Auth between **password**, **privatekey**, **credential** and **sshconfig**. `Enter` moves to the next missing field, and saves once nothing required is missing — the hint at the bottom says which it will do. **Tags** are optional and separated by spaces.
+In the host form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` switch Auth between **password**, **privatekey**, **credential** and **sshconfig**. `Enter` saves; if something required is missing or wrong, it takes you to the first such field and says what is wrong. **Tags** are optional and separated by spaces.
 
 ### `[F]ile transfer` — lower case acts on the row, upper case on the panel
 
@@ -250,7 +250,7 @@ A password is never displayed, and it reaches `ssh` through `SSH_ASKPASS`, never
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.3/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
 
 ## License
 

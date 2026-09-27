@@ -730,7 +730,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			title, entries := m.popupHelp()
 			return m, m.help.open(m.above(), title, entries)
 		}
-		return m, m.help.open(m.above(), "key reference", keyReference)
+		return m, m.help.open(m.above(), "key reference", m.panelKeyReference())
 	}
 	// q is the leaving flow from every surface but a typed-into one and a pty
 	// (tdp K1, K9) — floats included, so it sits above the float routing. On
@@ -1741,6 +1741,33 @@ func (m AppModel) regions(item, panel []menuItem) []menuItem {
 	return m.withGlobal(out)
 }
 
+// panelKeyReference is ?'s answer on a panel (tdp M4, K6): the keys of the
+// panel that has focus — read off its Space menu, so the two cannot disagree —
+// then the core keys, the grid's chords on the ssh tab, and navigation. A row
+// with no key you can press (the global row, Close all sessions) is not a key.
+func (m AppModel) panelKeyReference() []helpEntry {
+	var own []helpEntry
+	for _, it := range m.menuItems() {
+		if !it.selectable() || (len(it.key) != 1 && it.key != "enter") {
+			continue
+		}
+		key := it.key
+		if key == "enter" {
+			key = "Enter"
+		}
+		own = append(own, helpEntry{key, strings.ToLower(it.label)})
+	}
+	var out []helpEntry
+	if len(own) > 0 {
+		out = append(append(out, helpEntry{"", "this panel · " + m.menuTitle()}), own...)
+	}
+	out = append(out, coreKeyReference...)
+	if m.tab == tabSSH {
+		out = append(out, gridKeyReference...)
+	}
+	return append(out, navKeyReference...)
+}
+
 // popupHelp is ?'s answer on a popup: that popup's own keys (tdp K6). The
 // floats being typed into never get here — there ? is a question mark.
 func (m AppModel) popupHelp() (string, []helpEntry) {
@@ -2208,6 +2235,13 @@ func (m AppModel) commitForm() (tea.Model, tea.Cmd) {
 // the authority: SaveTo re-validates before it writes, so a rule added there is
 // still enforced even if this layer misses it.
 func (m AppModel) validateForm() (string, int) {
+	msg, at := m.form.missing()
+	msg2, at2 := m.checkForm()
+	return firstError(msg, at, msg2, at2)
+}
+
+// checkForm is everything about the host form beyond "is it filled in".
+func (m AppModel) checkForm() (string, int) {
 	name := strings.TrimSpace(m.form.fields[fName].value)
 	credential := m.form.auth() == store.AuthCredential
 	switch {

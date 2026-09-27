@@ -236,13 +236,13 @@ func TestAFormWithNoTagsIsStillComplete(t *testing.T) {
 	f.fields[fUser].value = "deploy"
 	f.fields[fIdentity].value = "~/.ssh/id_ed25519"
 
-	if !f.complete() {
+	if !filled(f) {
 		t.Error("a host with no tags is a finished form, not an unfinished one")
 	}
 	// ...and a required row still holds it back, or the flag has swallowed too
 	// much.
 	f.fields[fName].value = ""
-	if f.complete() {
+	if filled(f) {
 		t.Error("an empty Name must still make the form incomplete")
 	}
 }

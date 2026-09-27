@@ -85,7 +85,7 @@ func TestDuplicateOpensACreateFormHoldingTheWholeRow(t *testing.T) {
 		t.Errorf("auth = %q, want the copied %q", m.form.auth(), src.Auth)
 	}
 	// Everything filled means Enter is save, which is the whole mechanism.
-	if !m.form.complete() {
+	if !filled(m.form) {
 		t.Error("a duplicate arrives complete, or Enter would be next and nothing would be refused")
 	}
 }

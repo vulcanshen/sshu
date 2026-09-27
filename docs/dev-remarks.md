@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.3/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -29,13 +29,11 @@
 
 #### 表單的 `Enter`
 
-(這條與 tdp K3 不同,是刻意的,見下方「偏離 tdp」。)
+**`Enter` 在每一欄上都是送出**(tdp K3,§11.59)。沒填完或填錯就不存:focus 跳到**第一個**有問題的欄位,紅色的錯誤列說出缺什麼、錯在哪。這看起來像 `Tab`,但不是 —— `Tab` 一欄一欄走,`Enter` 指出問題;再按一次 `Enter` 還是停在那一欄。(§11.59 以前沒填完的 `Enter` 是「下一欄」、hint 在 `next` / `save` 之間翻面。)「填完」的定義跟著 Auth 走,因為它就是 Auth 留著亮的那幾列:`password` 要 Password、`privatekey` 要 IdentityFile、`credential` 要 Credential 而且不再要 User;`sshconfig` 除了 Host 什麼都不要 —— Port 和 User 還亮著但變成選填,空著就是 ssh 決定;一個還停在預設 `22` 的 Port 會被清空,因為送出去的 `-p 22` 會蓋掉 config 裡的。浮層底部的 hint 固定是 `Enter save`。
 
-**`Enter` 在每一欄上都只問一個問題:這張表填完了沒有?** 填完了就存;沒填完它就是「下一欄」,而且會繞回去 —— 所以按著 `Enter` 不放,會走完整張表然後把它送出去。「填完」的定義跟著 Auth 走,因為它就是 Auth 留著亮的那幾列:`password` 要 Password、`privatekey` 要 IdentityFile、`credential` 要 Credential 而且不再要 User;`sshconfig` 除了 Host 什麼都不要 —— Port 和 User 還亮著但變成選填,空著就是 ssh 決定;一個還停在預設 `22` 的 Port 會被清空,因為送出去的 `-p 22` 會蓋掉 config 裡的。浮層底部的 hint 會說 `Enter` 現在是哪一個 —— 還缺東西時是 `next`,一補齊就翻成 `save` —— 所以「為什麼 Enter 沒有存」在你問出來之前就已經有答案了。
+「有沒有填」與「填得對不對」是同一個送出的兩半:`missing()` 找第一個空著的必填欄,各表單的 `check…` 找其他錯誤(Port 範圍、名字重複、credential 不存在),`firstError` 取欄位位置在前的那一個;同一欄兩邊都有話說時,用比較具體的那句(「Choose a credential…」而不是「Credential is required」)。送出一次之後,錯誤列隨著編輯即時更新。
 
-有值不等於有效,而兩件事說在不同的地方:前者看 hint,後者看紅色的錯誤列。Port 打 `0` 是有填的,所以 `Enter` 會送出 —— 然後由驗證把它退回來。
-
-兩個「選值欄位」保留一個例外:**空著的 IdentityFile 或 Credential 上按 `Enter` 是開選單**,因為「下一欄」在那裡會跳過唯一一列沒有別的辦法可以填的欄位。有值之後它們就是普通的列,`Backspace` 整行清除。
+兩個「選值欄位」保留一個例外:**空著的 IdentityFile 或 Credential 上按 `Enter` 是開選單** —— 對那一欄的送出(K3 允許 submit 單一欄位),因為選單是那一列唯一填得進去的方式。`~/.ssh/config` 表單的 `+ add option` 列打了字時,`Enter` 是加入那一列,不是存整個 block。有值之後它們就是普通的列,`Backspace` 整行清除。
 
 選了 `credential`,User 列會變暗:user 由 credential 供應,而選單會直接說出它要用哪把金鑰 —— 換成密碼的話,那裡是一個固定長度的遮罩。**Tags** 空白分隔,其餘字元一律 literal(`k8s:prod` 是一個 tag),留空就是一份填完的表單。
 
@@ -114,8 +112,8 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 ### 按鍵與 menu
 
 - **零學習成本是結構保證的,不是靠自律。** menu 和字母快捷鍵是同一張表產生的,所以「menu 裡沒有的快捷鍵」不可能存在。
-- **Space menu 分三區** —— `item operation`(對游標那一列做什麼)、`panel operation`(對這一側做什麼)、`global operation`。global 區永遠在,所以每一區都帶標題(tdp M2);沒有 item 與 panel 動作的 panel,前面寫一句 `nothing to do here`。global 區只有一列 `Global operation`,`Enter` 打開 global operation popup(`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`,宣告在 `globalActions`),見「偏離 tdp」。
-- **`?` 只拿來讀**:在 panel 上是 key reference(`keyReference`),在浮層上是那個浮層自己的按鍵(`popupHelp()`,tdp K6)。網格的和絃在格子裡問不到(`?` 屬於遠端),所以一定要列在 key reference 裡。
+- **Space menu 分三區** —— `item operation`(對游標那一列做什麼)、`panel operation`(對這一側做什麼)、`global operation`。global 區永遠在,所以每一區都帶標題(tdp M2);沒有 item 與 panel 動作的 panel,前面寫一句 `nothing to do here`。global 區只有一列 `Global operation`,`Enter` 打開 global operation popup(`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`,宣告在 `globalActions`;tdp M2、M4)。這是 sshu 先試、tdp v0.1.2 採納的做法。
+- **`?` 只拿來讀**:在 panel 上是 key reference(`panelKeyReference()`):先是這個 panel 的鍵 —— 從它的 Space menu 讀出來,所以兩邊不會不一致 —— 再接 core key、SSH tab 上接網格的和絃、最後是導覽鍵(tdp M4、K6)。在浮層上是那個浮層自己的按鍵(`popupHelp()`)。網格的和絃在格子裡問不到(`?` 屬於遠端),所以 SSH tab 的 key reference 一定要列。
 - **global operation popup 裡,目前所在的 tab 那一列變暗**:它在、只是你已經在那裡了。
 - **方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 shift+A、`[t]ransfer` 是裸的 `t`,沒有標出來的東西不會動。
 - **`D` 一律是複製、`x`/`X` 一律是刪除。** 刪除原本是 `D`;統一之後整個 sshu 裡同一個字母只有一個意思。
@@ -172,33 +170,26 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 
 ## 偏離 tdp
 
-sshu 的偏離比家族其他成員多:它同時管很多個目標,而且畫面中央是一格一格的 PTY,tdp 目前沒有替 PTY 組成的
-panel 想過規矩。依 tdp P0(規則服務 UX),下面這些保留 sshu 的做法,並回饋給 tdp 當擴充規則的例子(使用者
-2026-09-27 裁定)。
+sshu 的偏離比家族其他成員多:它同時管很多個目標,而且畫面中央是一格一格的 PTY。依 tdp P0(規則服務 UX),
+下面這些保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.3)。sshu 回饋給 tdp 的另外幾條(`?` 只讀、
+global operation popup、K11 的方向鍵、K2 拿掉 grid 的例子)已經在 v0.1.2 採納,不再是偏離;表單的 `Enter`
+照 v0.1.3 的 K3 改了(§11.59)。
 
-- **SSH tab 的 `Tab` 不在格子之間換 focus(K2)。** tdp K2 拿「sshu 的 SSH grid」當「`Tab` 在 cell 之間切換」
-  的例子,但那是 tdp 寫錯了:格子是 PTY,focus 在格子裡時 `Tab` 屬於遠端(K10),shell 的補完就靠它,sshu
-  不能有任何反應。格子之間的切換是 `Alt`+方向鍵 —— 空間式的,不必編號,reflow 也不會讓記住的東西失效。
-  `Tab` 在 SSH tab 上**完全不作用**:網格不是 `Tab` 能走進去的地方,`Tab` 也不該在 `[1]`、`[2]` 之間跳來跳去
-  (要換 panel 用數字鍵)。它以前是 `[H]ide` 的第二個拼法,§11.56 拿掉了 —— 一個鍵一件事,而「隱藏格子」不是
-  `Tab` 在任何其他地方的意思。
-- **表單的 `Enter` 沒填完時是「下一欄」,不是 submit(K3)。** 見上方「表單的 `Enter`」:`Enter` 只問「這張表
-  填完了沒有」,填完就存、沒填完就去下一個缺的欄位,按著不放會走完整張表再送出,hint 在 `next` / `save` 之間
-  翻面,所以「為什麼沒存」一直看得到。空的 IdentityFile / Credential 上 `Enter` 開選單、`+ add option` 上
-  `Enter` 插入一列,也是同一個想法 ——「對這一欄最直觀的那件事」。K3 的 origin UX 是「送不出去卻不說為什麼
-  會卡住」,這裡那個問題不存在,所以 UX 贏。
-- **格子上的 `Alt+Z`、`Alt`+方向鍵、`PgUp` / `PgDown` 只有熱鍵(M3)。** 它們只在鍵盤在格子裡時有意義,而
-  那裡 `Space` 與 `?` 都屬於遠端(K10),沒有 menu 可以放;揭露在 PTY 的 footer(隨時看得到)與 `?` help 的
-  `ssh grid` 段。把它們搬進 `[1]` sessions 的 menu,等於要使用者先離開格子才能 zoom 那一格。
-- **`?` 不能執行任何東西,global operation 不在 `?` 上(M4、K9)。** tdp M4 要 `?` 在 panel 上是「可執行的
-  global operation + key reference」,離開(K9)也要列在那裡。sshu 試過(§11.55),結果是一個 popup 同時是
-  menu 又是參考表 —— 使用者在看按鍵對照時,游標停在一個可以按下去的列上,這兩件事不該疊在一起(F1 的精神)。
-  所以拆開:`?` 只讀(key reference,popup 上是該 popup 的按鍵),global operation 是 Space menu 的最後一區。
-  離開在 global operation popup 裡,也仍然是 `q` / `Ctrl-C`。
-- **Space menu 的 global 區只有一列(M2)。** 全域動作列滿每一個 Space menu,會比很多 panel 自己的動作還長,
-  把該 panel 的動作往下擠。global 區只放一列 `Global operation`,`Enter` 在 Space menu 上打開 global operation
-  popup(F4:取消回到 Space menu);popup 裡才有 `[M]anage` 等各列與它們的熱鍵。這一列不給字母:Space menu
-  上的字母屬於這個 panel 的動作。(webu 同樣只放一列,但它通往 `?` menu。)
+- **SSH tab 的 `Tab` 不作用(K2)。** 照 K2,這個 tab 的兩個 panel `[1]` sessions、`[2]` layout 之間應該用
+  `Tab` 輪替。sshu 不做:畫面中央那一大塊是 PTY 的網格,`Tab` 在這個 tab 上一跳,使用者的直覺是「進格子」,
+  而格子裡的 `Tab` 屬於遠端(K10);在旁邊兩個小 panel 之間跳,正好是最不會被想到的那個意思。要換 panel 用
+  數字鍵,進格子用 `Enter`,格子之間用 `Alt`+方向鍵。`Tab` 以前是 `[H]ide` 的第二個拼法,§11.56 拿掉了。
+  (tdp K2 原本拿 sshu 的 grid 當「`Tab` 在 cell 之間切換」的例子,v0.1.2 已刪。)
+- **格子裡除了出口鍵,還留著 sshu 自己的和絃(K10、M3)。** tdp K10(v0.1.2 起固定)要 PTY 裡只有出口鍵屬於
+  app,對 PTY 的動作一律先離開再從 Space menu 做。sshu 在格子裡保留:`Alt+Z`(zoom)、`Alt`+方向鍵(換格子)、
+  `Alt+v`(選取模式)、`Alt+Enter`(巢狀的 lock)、`PgUp` / `PgDown`(遠端不是全螢幕程式時翻歷史)。理由:
+  - 它們作用的對象就是**正在用的那一格**。sshu 的網格是好幾個同時活著的 session,使用者在格子之間來回、放大
+    其中一格、從某一格複製 —— 每做一次都要先 `Alt+Esc` 退到清單、開 menu、再進回去,等於把網格的用法拆成
+    三段。
+  - 它們跟出口鍵是同一類鍵:`Alt` 和絃是遠端程式幾乎不用的組合(K10 自己選出口鍵的理由);`PgUp` / `PgDown`
+    只在遠端沒進 alt screen 時才借,全螢幕程式在的時候原封不動送過去(§11.19)。
+  - 巢狀 sshu 靠和絃穿透到內層才操作得了(見下一條)。
+  - 揭露:格子有鍵盤時 footer 常駐列出這些和絃(M1),`?` 的 key reference 有 `ssh grid` 一段。
 - **明細浮層是 viewport,腳底可以掛一個 offer(F1)。** `detailPopup`(`internal/ui/detail.go`)是唯讀
   viewport,但 hosts / credentials / Config 的明細腳底掛著 `Connect to "<name>"?` / `Edit "<name>"?` 的問句,
   `Enter` 就執行 —— 等於 viewport 兼 confirm。理由(`sshu-ui-design.md` §11.29):以前 Connect 有自己的確認框,

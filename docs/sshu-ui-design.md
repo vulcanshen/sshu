@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.1/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.3/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -3981,6 +3981,9 @@ wl-clipboard, xclip or xsel` —— 講的是**該怎麼辦**,不只是出事了
 
 ### 11.34 form 的 Enter 只問一個問題
 
+> **§11.59 起**:照 tdp v0.1.3 K3,`Enter` 一律是送出;沒填完或填錯時跳到**第一個**有問題的欄位並用錯誤列
+> 說出原因,hint 固定 `Enter save`。下文「沒填完就是下一欄、hint 翻面」是當時的做法。
+
 `[2] Hosts` 的 add/edit popup「使用體驗很亂」(使用者原話),而亂的來源是
 **Enter 在不同的列上意思不一樣**:在 IdentityFile 空欄上是「開 picker」、在
 Credential 空欄上是「開選單」、在其他每一欄上是「送出」。同一個鍵,三種意思,
@@ -6521,6 +6524,75 @@ host 要 key);`D` 註明適用 host、credential、`~/.ssh/config` block。
 `TestFullScreenKeepsSelectionModeDisclosed` 改成釘新的優先順序(`space`、`?` 在前)。
 
 9 個 mutation 全數被抓。
+
+---
+
+### 11.58 對照 tdp v0.1.3 —— key reference 分 panel,偏離重寫
+
+#### 使用者的要求
+
+> 「tdp 那邊有 0.1.3 版了，我們去檢視一下，看看我們的問題有沒有答案」
+
+tdp v0.1.2 採納了 sshu 的 `?` 只讀、global operation popup、K11 的方向鍵、拿掉 K2 的 grid 例子;
+dev-remarks 裡那兩條偏離刪掉。K2(SSH tab 的 `Tab` 不作用)與 K10(v0.1.2 起固定:PTY 裡只有出口鍵屬於
+app —— sshu 保留格子裡的和絃)使用者裁定維持偏離,重寫理由。K3 v0.1.3 的差異已說明給使用者,尚未決定。
+文件裡的 tdp 連結改釘 `v0.1.3`。
+
+#### key reference 分 panel(tdp M4、K6)
+
+v0.1.2 起 panel 上的 key reference 至少要列 core key 與**這個 panel 能按的鍵**。以前是一份全 app 共用的
+清單(core key、網格的和絃、導覽鍵)。現在 `panelKeyReference()`:
+
+1. `this panel · <panel 標題>`:從 focus panel 的 Space menu 讀出每一列(只收按得出來的鍵:單一字元或
+   `Enter`;global 列、無熱鍵的 Close all sessions 不列)—— 跟 menu 同一個來源,不會不一致。
+2. core key。
+3. 只在 SSH tab:網格的和絃(`gridKeyReference`)。以前每個 panel 都列,其他 tab 用不到。
+4. 導覽鍵。
+
+80×40 下 hosts 的 key reference 約 23 列,SSH tab 約 28 列,都放得下。
+
+測試:`TestQuestionMarkIsTheKeyReference`(hosts 上有 `this panel`、`duplicate`,沒有網格的和絃;SSH tab
+有)、`TestHelpListsTheNavigationVocabulary` / `TestHelpListsTheGridKeysYouCannotAskAboutFromInside` 改讀
+`panelKeyReference()`。2 個 mutation(拿掉 panel 段、網格的和絃每個 tab 都列)都被抓。
+
+---
+
+### 11.59 表單的 `Enter` 照 tdp v0.1.3 K3 —— 一律送出,失敗時指出第一個問題
+
+#### 使用者的要求
+
+> 「K3 照 0.1.3 改，然後 commit」
+
+#### 改了什麼
+
+§11.34 的 `Enter` 問「填完了沒有」:填完就存,沒填完就是「下一欄」(`moveFocus(1)`,不管那一欄填了沒),
+hint 在 `next` / `save` 之間翻面。tdp v0.1.3 K3:`Enter` 一定是 submit;整張表送出失敗時,focus 跳到
+**第一個不合格的欄位**並揭露錯誤;這不是 `Tab`,依序換欄位只有 `Tab`。
+
+四個表單(host、credential、`~/.ssh/config`、known_hosts 的 fetch)都改成:
+
+- `Enter` 回傳 submit;「沒填完」不再在表單裡攔下,而是送出那一邊的驗證第一個說出來。
+- 每個表單有 `missing()`:第一個空著的必填欄與 `<Label> is required`。必填跟著 Auth(`enabled()` /
+  `optional()`),跟舊的 `complete()` 同一個判斷,只是多說出**哪一欄**。
+- host 與 credential 的驗證 = `firstError(missing(), check…())`:取欄位位置在前的那一個,同一欄時用比較具體
+  的那句。以前 `validateForm` 不查 Password / IdentityFile 這類依 Auth 才必填的欄 —— 那時「沒填完就不會送出」
+  替它擋著;現在送出一定會到,所以兩半要合起來問。`~/.ssh/config` 的驗證本來就先查 Host pattern;fetch 表單在
+  送出時先問 `missing()` 再查 Port 範圍。
+- hint 固定 `Enter save`(fetch 是 `Enter fetch`);空的選值欄仍然寫 `Enter browse` / `choose`。
+
+保留的單一欄位 submit(K3 讓 app 決定):空的 IdentityFile / Credential 上 `Enter` 開選單;`~/.ssh/config`
+表單 `+ add option` 列打了字時 `Enter` 加入那一列。
+
+#### 測試
+
+`TestEnterOnAnUnfinishedFormPointsAtTheFirstMissingField`(游標在 User、Host 空著 → 跳回 Host,再按還是 Host)/
+`TestEnterPointsAtAMissingPassword` / `TestTheHintAlwaysSaysEnterSaves` / `TestCredFormEnterPointsAtAMissingPassword` /
+`TestTheFetchFormPointsAtAMissingHost` / `TestTheConfigFormPointsAtAMissingPattern`;改寫的:
+`TestCredFormEnterFollowsTheSameRule`、`TestHostFormValidatesTheCredentialReference`(沒選 credential 時指到
+Credential 列,用「Choose a credential」那句)。測試用的 `filled()` 取代已刪的 `complete()`。
+
+6 個 mutation 全數被抓。credential 那個第一輪存活:測試缺的是 User,而 `checkCredForm` 本來就查 User,
+補了「密碼沒填」這個只有 `missing()` 抓得到的情境。
 
 ---
 

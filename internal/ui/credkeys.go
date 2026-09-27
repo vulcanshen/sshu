@@ -201,6 +201,13 @@ func (m *AppModel) syncCredFormError() {
 }
 
 func (m AppModel) validateCredForm() (string, int) {
+	msg, at := m.credFormUI.missing()
+	msg2, at2 := m.checkCredForm()
+	return firstError(msg, at, msg2, at2)
+}
+
+// checkCredForm is everything about the credential form beyond "is it filled in".
+func (m AppModel) checkCredForm() (string, int) {
 	c := m.credFormUI.credential()
 	switch {
 	case c.Name == "":

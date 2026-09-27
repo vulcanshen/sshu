@@ -32,11 +32,12 @@ func (m *helpPopup) setSize(w, h int) { m.screenW, m.screenH = w, h }
 // helpEntry is one line: a section header (key == "") or a key/description pair.
 type helpEntry struct{ key, desc string }
 
-// keyReference is what ? shows on a panel (tdp M4's key reference): the core
-// keys first, because they are the ones a user has to hold to walk the app,
-// then the grid's chords — a cell hands ? to the remote, so this is the only
-// place to learn them — and the navigation letters.
-var keyReference = []helpEntry{
+// The fixed parts of a panel's key reference (tdp M4, K6). What ? shows on a
+// panel is that panel's own keys first (panelKeyReference), then these: the
+// core keys, which a user has to hold to walk the app; on the ssh tab the
+// grid's chords — a cell hands ? to the remote, so this is the only place to
+// learn them; and the navigation letters.
+var coreKeyReference = []helpEntry{
 	{"", "core keys"},
 	{"M · F · S", "switch tab"},
 	{"1-9", "panel of this tab"},
@@ -47,6 +48,9 @@ var keyReference = []helpEntry{
 	{"?", "this list / a popup's own keys"},
 	{"q", "quit"},
 	{"Ctrl+C", "quit (twice: at once)"},
+}
+
+var gridKeyReference = []helpEntry{
 	{"", "ssh grid"},
 	{"Alt+arrows", "move between cells"},
 	{"Alt+Z", "bigger: zoom panel, then zoom max"},
@@ -57,6 +61,9 @@ var keyReference = []helpEntry{
 	{"hjkl · u · d", "…move there, v / V select, y copies"},
 	{"w · e · b", "…by word, forward and back"},
 	{"0 · $", "…to either end of the line"},
+}
+
+var navKeyReference = []helpEntry{
 	{"", "navigate"},
 	{"j · k", "move cursor"},
 	{"u · d", "half a page"},
