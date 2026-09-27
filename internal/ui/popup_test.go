@@ -17,7 +17,7 @@ import (
 // test passes for the wrong reason.
 var animTargets = []string{"spacemenu", "lockmenu", "hostpicker", "credpicker", "help", "form",
 	"picker", "transfers", "credform", "sshcfgform", "knownadd", "viewer", "editor", "confirm",
-	"input", "toast", "detail", "askpass"}
+	"input", "toast", "detail", "askpass", "quit"}
 
 // settle runs the animations to completion — a popup mid-open refuses keys on
 // purpose (§6.2), so a test that skips this is testing a half-drawn surface.
@@ -301,11 +301,16 @@ func TestCommitTearsDownTheStack(t *testing.T) {
 	}
 }
 
-// A popup owns the keyboard: q must not quit out from under one.
-func TestQuitIsInertUnderAPopup(t *testing.T) {
+// q is the leaving flow from every surface that is not being typed into —
+// floats included (tdp K1, K9). With nothing to lose that is leaving outright.
+func TestQuitWorksFromAPopup(t *testing.T) {
 	m := pressA(appWith(sample(), nil), " ")
-	if _, cmd := m.Update(keyMsg("q")); cmd != nil {
-		t.Error("q must not quit while a popup is open — that would make it a half-alias of cancel")
+	_, cmd := m.Update(keyMsg("q"))
+	if cmd == nil {
+		t.Fatal("q on the Space menu should start the leaving flow")
+	}
+	if _, isQuit := cmd().(tea.QuitMsg); !isQuit {
+		t.Error("with nothing to lose, q leaves outright — from a popup too")
 	}
 }
 

@@ -70,9 +70,6 @@ func (m AppModel) View() string {
 	if m.editorUI.isActive() {
 		out = overlay.Composite(m.editorUI.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
-	if m.help.isActive() {
-		out = overlay.Composite(m.help.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
 	if m.confirm.isActive() {
 		out = overlay.Composite(m.confirm.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
@@ -100,6 +97,15 @@ func (m AppModel) View() string {
 	}
 	if m.picker.isActive() {
 		out = overlay.Composite(m.picker.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
+	// The leaving question and the help can be raised from on top of anything
+	// (tdp K9, K6), so they are drawn above every float they may cover — the
+	// help highest, since it can be opened over the question too (tdp D3).
+	if m.quitAsk.isActive() {
+		out = overlay.Composite(m.quitAsk.view(), out, overlay.Center, overlay.Center, 0, 0)
+	}
+	if m.help.isActive() {
+		out = overlay.Composite(m.help.view(), out, overlay.Center, overlay.Center, 0, 0)
 	}
 	// The toast is feedback about what just happened, so it sits above the stack
 	// and out of its way — low, where it does not cover the surface being used.
@@ -200,7 +206,11 @@ func (m AppModel) footer() string {
 	// thing that is still true, which is also the only way back out. This is the
 	// mandatory disclosure for Alt+Esc: it is advertised exactly where it means
 	// something, and nowhere else.
-	if m.inPty() {
+	//
+	// That holds from the moment the cell has the keyboard, not from the moment
+	// the far end first speaks: while it is connecting every other key is
+	// swallowed, and Alt+Esc is the only one that does anything (tdp K10, M1).
+	if m.ptyFocused() {
 		// Selection mode replaces the row outright: every key under the user's
 		// fingers means something different in there, and a row still offering
 		// the pty's keys would be describing a panel that is not on screen.
@@ -226,7 +236,7 @@ func (m AppModel) footer() string {
 		// And the scrollback keys, but only where they would do something: they
 		// are the remote's while a full-screen program is up, and there is
 		// nothing to page through until more has been said than fits (§11.19).
-		if m.ssh.canScroll() {
+		if m.inPty() && m.ssh.canScroll() {
 			pairs = append(pairs, [2]string{"pgup/pgdn", "history"})
 		}
 		// The way to get text OUT of the cell. Unconditional: inPty already
@@ -235,7 +245,9 @@ func (m AppModel) footer() string {
 		// the END on a cramped footer, and there is no other way to reach this
 		// at all — a bare `?` in here belongs to the remote, so the footer is
 		// the only live disclosure the pty has (§11.33, §11.19).
-		pairs = append(pairs, [2]string{"alt+v", "select"})
+		if m.inPty() {
+			pairs = append(pairs, [2]string{"alt+v", "select"})
+		}
 		// Both of the next two sit AFTER alt+v, because §11.33 ruled that
 		// select must survive a cramped footer — and it nearly stopped doing
 		// so when the zoom label grew. "full screen" is longer than "zoom",

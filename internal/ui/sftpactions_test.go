@@ -267,7 +267,7 @@ func TestQuitClosesTheSftpConnections(t *testing.T) {
 	}
 
 	m = pressA(m, "q")
-	if m.confirm.isActive() {
+	if m.quitAsk.isActive() {
 		t.Fatal("nothing is running, so quitting should not ask")
 	}
 	for _, sd := range []side{sideLeft, sideRight} {
@@ -299,7 +299,7 @@ func TestQuitAsksAboutARunningTransfer(t *testing.T) {
 	})
 
 	m = pressA(m, "q")
-	if !m.confirm.isActive() || m.confirm.action != confirmQuit {
+	if !m.quitAsk.isActive() {
 		t.Fatal("a running transfer should raise the quit confirmation")
 	}
 	if lines := m.quitCost(); len(lines) != 1 ||

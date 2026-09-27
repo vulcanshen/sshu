@@ -64,11 +64,12 @@ v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是
 | `Space` | §A.1 contextual 入口(Space menu) | K5、M2 |
 | `?` | §A.2 non-contextual 入口(help popup) | K6、M4 |
 
-**`q` 與 `Ctrl+C` 不是 core-key**(對齊 filu):`q` = 離開 app,是一個
-**全域動作**(列在 footer + `?` help),不是「取消」;取消語意由 `Esc`
-單獨承載。`Ctrl+C` 是逃生硬退 —— **除了鍵盤在遠端或編輯器手上的時候,那裡它
-是它們的中斷鍵**(§11.20)。**`q` 在任何浮層開著時不生效**(浮層擁有鍵盤),
-避免半套 alias 汙染取消語意(tdp K7)。
+**`q` 與 `Ctrl+C` 是同一件事:離開流程**(tdp K1、K9;§11.54 起)。`q` = 離開 app,
+不是「取消」;取消語意由 `Esc` 單獨承載。有 live session 或進行中的傳輸時先問,問題
+開著時再按一次 `Ctrl+C` 立刻離開。`q` 在打字中的地方是字元(tdp K8),其餘**每一個**
+surface 都有效,浮層上也是;`Ctrl+C` 連打字中都有效 —— **除了鍵盤在遠端或編輯器手上的
+時候,那裡它是它們的中斷鍵**(§11.20)。(§11.54 以前 `q` 在浮層開著時不生效、`Ctrl+C`
+不問就走。)
 
 **letter hotkey 不是 core-key**:`e` / `d` / `c` / `s`、導覽 `h j k l`
 `gg` `G` 都是入口內動作的加速捷徑。
@@ -638,9 +639,13 @@ menu、host picker、file picker、Transfers)。
 
 ### 4.2.1 入口鍵會關掉自己開的東西
 
-**`Space` 關掉當前浮層,`?` 開關 help。** 一個只有單向的入口鍵是陷阱:使用者會
+**`Space` 開關 Space menu,`?` 開關 help。** 一個只有單向的入口鍵是陷阱:使用者會
 伸手去按同一個鍵想出來,結果沒反應,那個面看起來就像卡住了。filu 的 space menu
 一直是 `case "esc", " "`,sshu 漏掉了。
+
+**`Space` 只關 Space menu**(tdp K5、F6;§11.54 起)。以前它關掉**任何**浮層 ——
+confirm 上按 `Space` 等於取消,等於讓 `Space` 兼了 `Esc` 的工作;其他浮層上現在按
+`Space` 不作用,由 `Esc` 或自己的流程關。
 
 **在一個地方解決,不是每個 popup 各寫一份** —— 跟 `Esc` 同樣的理由(§4.3):
 一個角色一個地方,才不會有某一個浮層是「忘記做」的那個。實作在
@@ -649,11 +654,12 @@ menu、host picker、file picker、Transfers)。
 **例外:正在被打字的浮層**(host form、file picker、Rename 輸入框)。那裡的空白
 就是空白、問號就是問號(§4.5)。
 
-`?` 還會**疊在別的浮層上開**:§A.2 承諾 help 在任何 surface 都到得了,而一個迷路
-的使用者最可能站的地方,正是他剛打開的那個 menu。層級由 `m.layer()` 決定,所以
-邊框顏色會跟著往上跳一階(§6.3),`Space` 再按一次只收掉最上面那層。
+`?` 還會**疊在別的浮層上開**:tdp K6 承諾 help 在任何 surface 都到得了,而一個迷路
+的使用者最可能站的地方,正是他剛打開的那個 menu。它開在整疊的最上面(`m.above()`,
+邊框顏色跟著往上跳),而且**一直是最上面**:按鍵路由、`closeTop` 與繪製都先輪到它
+(tdp D3,§11.54)。
 
-`TestSpaceDismissesEveryFloat` 用一張**列出全部浮層**的表釘住這件事 —— 針對被回報
+`TestSpaceClosesOnlyTheSpaceMenu` 用一張**列出全部浮層**的表釘住這件事 —— 針對被回報
 的那一個寫測試沒有用,漏掉的一定是沒被想到的那一個。
 
 ### 4.3 letter hotkey ⊆ Space menu(完整性)(tdp M3)
@@ -2316,7 +2322,7 @@ X 回到 ~1.0。
 | `Clear marks` 只忘記、不刪檔 | `TestClearMarksLeavesTheFilesAlone` |
 | 遞迴刪除不會走進 symlink 的目標 | `TestRemoveAllDoesNotFollowASymlink` |
 | 有游標的清單與浮層都會繞;viewport 不繞 | `TestCursorsWrapEverywhere` / `TestSpaceMenuWrapsPastItsHeaders` / `TestViewportsDoNotWrap` |
-| 每一個浮層都關得掉(`Space`),但打字中的三個不受影響 | `TestSpaceDismissesEveryFloat` / `TestSpaceTypesIntoTheRenameBox` |
+| `Space` 只關 Space menu,其他浮層不作用;打字中的三個照樣收到空白 | `TestSpaceClosesOnlyTheSpaceMenu` / `TestSpaceTypesIntoTheRenameBox` |
 | `?` 開關 help,並且疊得到別的浮層上面 | `TestQuestionMarkTogglesTheHelp` |
 | `x` 刪游標那一項、`X` 刪 marks,互不代勞,且都先問 | `TestDeleteCursorAndDeleteMarksAreDifferentKeys` |
 | 刪掉的東西如果被 mark 過,mark 一起拿掉 | `TestDeletingAMarkedRowDropsItsMark` |
@@ -6250,6 +6256,75 @@ motion 不捲頁、`leave` 排回尾端、`b` 跳過空列、`b` 不先退一格
 
 ---
 
+### 11.54 路由照 tdp 修 —— `Space`、`q` / `Ctrl+C`、關閉中的浮層、help 在最上層
+
+#### 使用者的要求
+
+> 「commit,然後開始修路由核心」
+
+`docs/sshu-terminu-fix.md` 第 3、9、10、11、13、16 條:按鍵路由裡違反 tdp、又不牽涉
+sshu 自己的 UX 的地方(牽涉的那幾條寫成了 dev-remarks 的「偏離 tdp」)。
+
+#### `Space` 只關 Space menu(tdp K5、F6)
+
+以前 `Space` 關掉任何浮層(§4.2.1),confirm 上按它等於取消 —— `Space` 兼了 `Esc`。
+現在只有 Space menu 在最上面時它才關;其他浮層上不作用。「最上面」用 `floatsOpen()`
+判斷:Space menu 一定是一疊的最底層(它只從 panel 開),所以它是唯一開著的那一個時
+才是被看著的那一個。
+
+#### `q` 與 `Ctrl+C` 是同一個離開流程(tdp K1、K8、K9)
+
+- `startQuit()` 是兩者共用的流程:沒東西會丟就直接走,有就問。
+- `q` 的判斷搬到浮層路由**之前**:打字中(`typing()`)與 pty 以外,每一個 surface 都是
+  離開,浮層上也是。§A.0.K 以前說「`q` 在浮層開著時不生效,避免半套 alias」—— 那句
+  擔心的是 `q` 變成取消的別名;現在它在每一個地方都是離開,就不是半套。
+- `Ctrl+C` 不再不問就走:跟 `q` 一樣先問,問題開著時再按一次 `Ctrl+C` 才立刻離開,
+  使用者不會被自己的確認框困住。它在打字中也有效(K8)。
+- **離開的問題是它自己的浮層(`quitAsk`),不借共用的 confirm。** `Ctrl+C` 能從任何
+  浮層上叫出它 —— 表單、另一個 confirm —— 借用 confirm 會把使用者正在回答的那個問題
+  蓋掉(兩個編輯的 confirm 取消時還要清本地副本)。它開在整疊最上面,路由與繪製都排在
+  其他浮層之前,所以 `Enter` 是離開、不是送出底下的表單;`Esc` 只收掉它。
+- 問題上再按 `q` 不作用,不疊第二個。
+
+#### 關閉中的浮層不再吃 `Esc`(tdp F3)
+
+`closeTop()` 以前對每一個浮層都用 `isActive()`(關閉中也算),而 `close()` 會把動畫
+重設成滿格:浮層關到一半再按 `Esc`,同一段關閉動畫重來,那個 `Esc` 也到不了下一層。
+全部改成 `anim.owns()` —— 開始關的那一刻它就把鍵盤還回去了,跟按鍵路由用的是同一個
+判斷。
+
+#### help 在最上層(tdp D3)
+
+`?` 早就能疊在任何浮層上,但 `closeTop()` 把 help 排在 confirm、表單之後,繪製也把它
+畫在它們下面:confirm 上開 help,`Esc` 關掉的是底下的 confirm,`Enter` 則確認了看不見的
+那個問題。現在 help 在路由、`closeTop` 與繪製上都排在最前(askpass 除外 —— ssh 在等它),
+離開的問題緊接在它下面。開的層級用 `m.above()`(整疊深度 + 1),邊框顏色跟著往上跳。
+
+#### 連線中的格子,footer 也說出口(tdp K10、M1)
+
+格子拿到鍵盤、遠端還沒送出任何 byte 的這段時間,除了 `Alt+Esc` 以外的鍵都被吞掉
+(免得它們幾分鐘後落到遠端),但 footer 以前要等遠端開口才換成 pty 的那一列,這段時間
+寫著 `space menu`、`q quit` 這些按了沒反應的鍵,唯一的出口反而不在上面。footer 的判斷
+改成 `ptyFocused()`;`alt+v` 與 `pgup/pgdn` 仍要等遠端開口(`inPty()`)才出現,因為在那
+之前它們什麼都不做。
+
+#### 測試
+
+`TestSpaceClosesOnlyTheSpaceMenu`(由 `TestSpaceDismissesEveryFloat` 改寫)/
+`TestSpaceOnAFloatAboveTheMenuDoesNothing` / `TestQuestionMarkTogglesTheHelp`(`Space` 不再
+關 help)/ `TestQuitWorksFromAPopup`(由 `TestQuitIsInertUnderAPopup` 反轉)/
+`TestCtrlCIsTheLeavingFlowOnceTheKeyboardIsBack`(由 `TestCtrlCStillQuitsOnceTheKeyboardIsBack`
+改寫)/ `TestEscPassesAClosingFloatBy` / `TestEscPassesAClosingToastBy` /
+`TestHelpStaysOnTopOfAConfirm`(含畫面)/ `TestCtrlCInAFormAsksOnTopOfIt` /
+`TestQIsALetterInAForm` / `TestQOnTheQuitQuestionDoesNothing` /
+`TestConnectingCellFooterDisclosesTheWayOut`;既有的離開測試改看 `quitAsk`。
+
+10 個 mutation 全數被抓:toast 與表單的 `closeTop` 改回 `isActive()`、help 不在路由最前、
+不在 `closeTop` 最前、畫在 confirm 底下、`Ctrl+C` 不問就走、`Space` 關任何浮層、問題上
+`q` 再問一次、`q` 只在沒有浮層時有效、footer 等遠端開口才換。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -6344,5 +6419,5 @@ motion 不捲頁、`leave` 排回尾端、`b` 跳過空列、`b` 不先退一格
 | 鍵 | 動作 |
 |---|---|
 | `?` | help popup |
-| `q` | 離開(無浮層時才生效;有活的 session / 傳輸會先問) |
-| `Ctrl+C` | 強制離開(子行程一併帶走)—— **pty / 編輯器內除外,那裡它屬於遠端**(§11.20) |
+| `q` | 離開流程(打字中與 pty 以外處處有效,浮層上也是;有活的 session / 傳輸會先問,§11.54) |
+| `Ctrl+C` | 同 `q` 的離開流程,打字中也有效;問題開著時再按一次立刻離開(子行程一併帶走)—— **pty / 編輯器內除外,那裡它屬於遠端**(§11.20) |

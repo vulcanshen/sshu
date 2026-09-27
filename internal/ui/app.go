@@ -103,8 +103,13 @@ type AppModel struct {
 	knownAddUI   knownAddForm
 	picker       filePicker
 	confirm      confirmPopup
-	input        inputPopup
-	toast        toastModel
+	// quitAsk is the leaving flow's question (tdp K9). It is its own popup
+	// rather than the shared confirm because Ctrl+C can raise it from on top of
+	// anything — a form, another confirm — and borrowing that confirm would
+	// throw away the question the user was in the middle of answering.
+	quitAsk confirmPopup
+	input   inputPopup
+	toast   toastModel
 	// askpassUI is ssh's question during an sshconfig dial (§11.52), and
 	// askpassQueue is every question that arrived while one was up.
 	askpassUI    askpassPopup
@@ -152,6 +157,7 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		knownAddUI:   newKnownAddForm(),
 		picker:       newFilePicker(),
 		confirm:      newConfirmPopup(),
+		quitAsk:      confirmPopup{anim: newPopupAnimator("quit")},
 		input:        newInputPopup(),
 		askpassUI:    newAskpassPopup(),
 		toast:        newToast(),
@@ -293,6 +299,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.knownAddUI.setSize(m.w, m.h)
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
+		m.quitAsk.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
 		m.askpassUI.setSize(m.w, m.h)
 		m.toast.setSize(m.w, m.h)
@@ -317,6 +324,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.knownAddUI.anim.tick(msg),
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
+			m.quitAsk.anim.tick(msg),
 			m.input.anim.tick(msg),
 			m.askpassUI.anim.tick(msg),
 			m.toast.anim.tick(msg),
@@ -637,9 +645,11 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m.closeTop()
 	}
-	// Ctrl+C is the emergency exit, not a cancel — it works even under a popup,
-	// and it takes the sessions with it: an orphaned ssh holding a PTY nobody
-	// owns is worse than a slow exit.
+	// Ctrl+C is the leaving flow, the same as q (tdp K9) — but it works even
+	// under a popup and in a field being typed into, and pressed again while
+	// the flow is asking it leaves at once: nobody is trapped by their own
+	// confirmation. Leaving takes the sessions with it: an orphaned ssh holding
+	// a PTY nobody owns is worse than a slow exit.
 	//
 	// Everywhere except inside a remote. In there it is the far end's interrupt,
 	// and it is the most reflexive key a shell has: reaching for it to kill a
@@ -648,7 +658,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Alt+Esc takes the keyboard back and Ctrl+C is itself again on the far side
 	// of it, and the footer has been advertising that key the whole time.
 	if msg.Type == tea.KeyCtrlC && !m.inPty() {
-		return m.quit()
+		if m.quitAsk.anim.owns() {
+			return m.quit()
+		}
+		return m.startQuit()
 	}
 
 	// A focused PTY swallows everything else — that is what focusing it means.
@@ -672,25 +685,41 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Space and ? close what they open (§A.1 / §A.2). An entry key that only
+	// Space and ? close what they open (tdp K5, K6). An entry key that only
 	// works one way is a trap: the user reaches for the same key to get out,
 	// nothing happens, and the surface looks stuck.
 	//
-	// Resolved here rather than inside each popup, for the same reason Esc is
-	// (§4.3): one role, one place, and no float can be the one that forgot. The
-	// exception is a float being TYPED INTO — there a space is a space and a
-	// question mark is a question mark (§4.5).
+	// But Space closes ONLY the Space menu. On any other float it does nothing:
+	// a confirm that Space dismissed would give Space the job of Esc, and those
+	// floats close with Esc or finish their own way (tdp K5, F6). The exception
+	// is a float being TYPED INTO — there a space is a space and a question
+	// mark is a question mark (tdp K8).
 	if msg.Type == tea.KeySpace && m.popupOpen() && !m.textFloat() {
-		return m.closeTop()
+		if m.spaceMenuOnTop() {
+			return m.closeTop()
+		}
+		return m, nil
 	}
 	if msg.String() == "?" && !m.typing() && !m.inPty() {
 		if m.help.anim.owns() {
 			return m, m.help.close()
 		}
-		// It opens from ON TOP of another float too. §A.2 promises the help is
-		// reachable from any surface, and the surface a lost user is most likely
-		// to be standing on is the menu they just opened.
-		return m, m.help.open(m.layer())
+		// It opens from ON TOP of another float too. tdp K6 promises the help
+		// is reachable from any surface, and the surface a lost user is most
+		// likely to be standing on is the menu they just opened. It goes on the
+		// very top of the stack, and the routing below, closeTop and the view
+		// all keep it there (tdp D3).
+		return m, m.help.open(m.above())
+	}
+	// q is the leaving flow from every surface but a typed-into one and a pty
+	// (tdp K1, K9) — floats included, so it sits above the float routing. On
+	// the leaving flow's own question it does nothing: pressing it again is not
+	// a reason to ask twice.
+	if msg.String() == "q" && !m.typing() {
+		if m.quitAsk.anim.owns() {
+			return m, nil
+		}
+		return m.startQuit()
 	}
 	// V is the hidden u-family easter egg: the logo, revealed. It used to stand
 	// aside for a panel with a real [V]iew; nothing claims the letter any more
@@ -736,6 +765,18 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// ssh is waiting on this one, and it may have arrived while another
 		// float was up. It takes the keyboard from all of them (askpass.go).
 		return m.askpassKey(msg)
+	case m.help.anim.owns():
+		// On top of whatever it was opened over (tdp D3): the float under it
+		// must not see the key, or Enter on the help would accept the confirm
+		// it is covering.
+		m.help.update(msg)
+		return m, nil
+	case m.quitAsk.anim.owns():
+		// Above whatever Ctrl+C raised it over, for the same reason.
+		if m.quitAsk.commit(msg) {
+			return m.quit()
+		}
+		return m, nil
 	case m.transfersUI.anim.owns():
 		if i := m.transfersUI.update(msg, len(m.transfers.jobs)); i >= 0 {
 			m.transfers.cancelJob(i)
@@ -776,9 +817,6 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.inputKey(msg)
 	case m.confirm.anim.owns():
 		return m.confirmKey(msg)
-	case m.help.anim.owns():
-		m.help.update(msg)
-		return m, nil
 	case m.spaceMenu.anim.owns():
 		return m.menuKey(msg)
 	case m.lockMenu.anim.owns():
@@ -807,49 +845,55 @@ func (m AppModel) inputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // closeTop pops one level off the float stack. Cancelling out of a target
-// leaves its source standing (§6.4) — Esc on a form opened from the Space menu
-// lands back on the menu.
+// leaves its source standing (tdp F4) — Esc on a form opened from the Space
+// menu lands back on the menu.
+//
+// A float that is already closing is not a level any more (tdp F3): it gave
+// the keyboard back when it started to go, so Esc passes it by and closes the
+// one underneath, instead of starting the same animation over again.
 func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 	switch {
-	case m.askpassUI.isActive():
+	case m.askpassUI.anim.owns():
 		// Esc on ssh's question is "no" to the connection, not just to the
 		// box — see askpassCancel.
 		return m.askpassCancel()
-	case m.toast.isActive():
+	case m.toast.anim.owns():
 		return m, m.toast.close()
-	case m.transfersUI.isActive():
+	case m.help.anim.owns():
+		return m, m.help.close()
+	case m.quitAsk.anim.owns():
+		return m, m.quitAsk.close()
+	case m.transfersUI.anim.owns():
 		return m, m.transfersUI.close()
-	case m.viewer.isActive():
+	case m.viewer.anim.owns():
 		return m, m.viewer.close()
-	case m.detail.isActive():
+	case m.detail.anim.owns():
 		return m, m.detail.close()
-	case m.hostPicker.isActive():
+	case m.hostPicker.anim.owns():
 		return m, m.hostPicker.close()
-	case m.credPicker.isActive():
+	case m.credPicker.anim.owns():
 		return m, m.credPicker.close()
-	case m.picker.isActive():
+	case m.picker.anim.owns():
 		return m, m.picker.close()
-	case m.form.isActive():
+	case m.form.anim.owns():
 		return m, m.form.close()
-	case m.credFormUI.isActive():
+	case m.credFormUI.anim.owns():
 		return m, m.credFormUI.close()
-	case m.sshcfgFormUI.isActive():
+	case m.sshcfgFormUI.anim.owns():
 		return m, m.sshcfgFormUI.close()
-	case m.knownAddUI.isActive():
+	case m.knownAddUI.anim.owns():
 		return m, m.knownAddUI.close()
-	case m.input.isActive():
+	case m.input.anim.owns():
 		return m, m.input.close()
-	case m.confirm.isActive():
+	case m.confirm.anim.owns():
 		// Cancelling is free on every confirm but the two edit ones, which are
 		// standing on a local copy that has to be cleaned up or told about.
 		return m, tea.Batch(m.confirm.close(), m.declineEdit())
-	case m.editorUI.isActive():
+	case m.editorUI.anim.owns():
 		return m, m.closeEdit(false)
-	case m.help.isActive():
-		return m, m.help.close()
-	case m.spaceMenu.isActive():
+	case m.spaceMenu.anim.owns():
 		return m, m.spaceMenu.close()
-	case m.lockMenu.isActive():
+	case m.lockMenu.anim.owns():
 		return m, m.lockMenu.close()
 	}
 	return m, nil
@@ -861,7 +905,7 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 func (m *AppModel) closeStack() tea.Cmd {
 	return tea.Batch(m.picker.close(), m.form.close(), m.credFormUI.close(),
 		m.sshcfgFormUI.close(), m.knownAddUI.close(),
-		m.confirm.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
+		m.confirm.close(), m.quitAsk.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
 		m.editorUI.close(), m.spaceMenu.close(), m.lockMenu.close())
 }
@@ -886,23 +930,6 @@ func (m AppModel) panelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch k {
-	case "q":
-		// Quitting kills every live session and every running transfer. That is a
-		// real cost, so it gets a confirmation — but only when there is something
-		// to lose. A transfer counts: dropping a half-copied file is worse than
-		// dropping an idle shell, and warning about the shell but not about that
-		// would be an odd place to draw the line.
-		if lines := m.quitCost(); len(lines) > 0 {
-			return m, m.confirm.ask(confirmPopup{
-				glyph:  glyphWarn,
-				title:  "Quit",
-				lines:  append(lines, "Quit sshu?"),
-				accept: "quit",
-				warn:   true,
-				action: confirmQuit,
-			}, m.layer())
-		}
-		return m.quit()
 	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 		// A digit addresses a panel OF THE CURRENT TAB, and does nothing where no
 		// such panel is on screen. The rule reads off the screen: the numbers you
@@ -1110,6 +1137,29 @@ func (m AppModel) nestedLayers() int {
 	return n
 }
 
+// startQuit is the leaving flow, and both q and Ctrl+C start it (tdp K9).
+//
+// Quitting kills every live session and every running transfer. That is a real
+// cost, so it gets a confirmation — but only when there is something to lose. A
+// transfer counts: dropping a half-copied file is worse than dropping an idle
+// shell, and warning about the shell but not about that would be an odd place
+// to draw the line. The question goes on top of whatever is open, so saying no
+// lands the user back where they were.
+func (m AppModel) startQuit() (tea.Model, tea.Cmd) {
+	lines := m.quitCost()
+	if len(lines) == 0 {
+		return m.quit()
+	}
+	return m, m.quitAsk.ask(confirmPopup{
+		glyph:  glyphWarn,
+		title:  "Quit",
+		lines:  append(lines, "Quit sshu?"),
+		accept: "quit",
+		warn:   true,
+		action: confirmQuit,
+	}, m.above())
+}
+
 // quit is the single exit. Every way out goes through it — q, the quit confirm
 // and Ctrl+C — so none of them can forget one of the three things that have to
 // be let go of.
@@ -1195,13 +1245,35 @@ func (m *AppModel) relistSides() {
 // popupOpen reports whether any float owns the keyboard. A float on its way out
 // does not (popupAnimator.owns) — the keyboard is back on the panel the moment
 // the action commits, not when the animation finishes.
-func (m AppModel) popupOpen() bool {
-	return m.askpassUI.anim.owns() || m.form.anim.owns() || m.credFormUI.anim.owns() || m.picker.anim.owns() ||
-		m.sshcfgFormUI.anim.owns() || m.knownAddUI.anim.owns() ||
-		m.confirm.anim.owns() || m.input.anim.owns() || m.help.anim.owns() ||
-		m.spaceMenu.anim.owns() || m.lockMenu.anim.owns() || m.hostPicker.anim.owns() ||
-		m.credPicker.anim.owns() || m.transfersUI.anim.owns() ||
-		m.viewer.anim.owns() || m.editorUI.anim.owns() || m.detail.anim.owns()
+func (m AppModel) popupOpen() bool { return m.floatsOpen() > 0 }
+
+// floatsOpen counts the floats that own the keyboard — how deep the stack is.
+func (m AppModel) floatsOpen() int {
+	n := 0
+	for _, a := range []popupAnimator{
+		m.askpassUI.anim, m.form.anim, m.credFormUI.anim, m.picker.anim,
+		m.sshcfgFormUI.anim, m.knownAddUI.anim, m.confirm.anim, m.quitAsk.anim,
+		m.input.anim, m.help.anim, m.spaceMenu.anim, m.lockMenu.anim,
+		m.hostPicker.anim, m.credPicker.anim, m.transfersUI.anim, m.viewer.anim,
+		m.editorUI.anim, m.detail.anim,
+	} {
+		if a.owns() {
+			n++
+		}
+	}
+	return n
+}
+
+// above is the layer a float opens at when it goes on top of the whole stack
+// rather than above the Space menu alone — the help and the leaving question,
+// which can be raised from anywhere (tdp D2, D3).
+func (m AppModel) above() int { return m.floatsOpen() + 1 }
+
+// spaceMenuOnTop reports whether the Space menu is the float being looked at:
+// it is always the bottom of a stack (it opens from a panel), so it is on top
+// exactly when it is the only one.
+func (m AppModel) spaceMenuOnTop() bool {
+	return m.spaceMenu.anim.owns() && m.floatsOpen() == 1
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -1713,8 +1785,6 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.doDuplicate(m.confirm.target)
 	case confirmTransfer:
 		return m.startTransfer()
-	case confirmQuit:
-		return m.quit()
 	case confirmDeleteItem:
 		return m.doDeleteItem(m.confirm.target)
 	case confirmDeleteMarks:
