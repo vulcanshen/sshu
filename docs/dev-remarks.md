@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.5/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.6/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -188,7 +188,7 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面兩條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.5)。
+依 tdp P0(規則服務 UX),下面兩條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.6)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K11 的方向鍵、K2 拿掉 grid 的例子(v0.1.2);

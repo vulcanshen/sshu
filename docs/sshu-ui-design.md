@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.5/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.6/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -6616,6 +6616,11 @@ tdp v0.1.4 把 K10 從「PTY 裡只有出口鍵屬於 app」改成「**至少**�
 同一天 tdp 又出了 v0.1.5(K2、K8):多行文字的寫入狀態下,`Tab` 是縮排字元,不是換欄位。sshu 不受影響 ——
 四個表單都是單行欄位,唯一能寫多行的 `editorUI` 是跑外部 `$EDITOR` 的 PTY,`Tab` 本來就送給編輯器(K10)。
 連結改釘 `v0.1.5`,兩條偏離照 v0.1.5 看仍然成立。
+
+接著的 v0.1.6(K2):單一輸入框有灰字提議時,`Tab` **一定**是接受提議(原本是「可以」);input group 裡 `Tab`
+只換欄位,提議另外指定按鍵。sshu 也不受影響 —— 沒有任何自動完成:表單與輸入框裡的灰字是 placeholder,打第一個
+字就消失,不是可以接受的值;單一輸入框(`inputPopup`)裡 `Tab` 什麼都不做,表單裡 `Tab` 換欄位,都符合。
+連結改釘 `v0.1.6`。
 
 ---
 
