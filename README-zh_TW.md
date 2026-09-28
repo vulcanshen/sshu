@@ -55,6 +55,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 ### 需求
 
 - **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。
+- **truecolor 終端機**(24-bit 色)—— 配色裡的淡色、popup 的層色,以及 popup 底下變暗的畫面,在 256 色下都分不出來。
 - **會送出 Alt 的終端機** —— sshu 的 `Alt+…` 鍵(離開 session 的 `Alt+Esc`、`Alt+v`、`Alt+Z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
 
 ### 移除
@@ -95,7 +96,7 @@ sshu
 
 - **SSHU** —— **Hosts**(蓋在 `hosts.yaml` 上、可搜尋的表格;`A` 新增、`E` 編輯、`Enter` 連線)與 **Credentials**(host 可以引用的共用身分)。
 - **SSH** —— **Config**(`~/.ssh/config`,一列一個 `Host` 區塊,`Include` 會跟進去;編一個區塊只動它自己的那幾行)與 **KnownHosts**(`~/.ssh/known_hosts`;先拿到某台機器的金鑰、看過指紋再決定要不要信任,或刪掉過時的那一筆)。
-- **Logs** —— **Errors**(出了什麼事;`Enter` 看遠端印出來的全部內容)、**Connections**(每一次 ssh 和 sftp 連線)、**Changes**(你改過什麼)。三本可以各自清空。
+- **Logs** —— **Errors**(出了什麼事;`Enter` 看遠端印出來的全部內容)、**Connections**(每一次 ssh 和 sftp 連線)、**Changes**(你改過什麼);後兩本按 `Enter` 開整本,每一筆完整顯示。三本可以各自清空。
 
 **`[F]ile transfer`** —— 左右兩側,各自可以是本機或某台已存的 host,所以上傳、下載、遠端對遠端都是同一個操作。標記檔案、跨到另一邊、送出。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。進度顯示在右上角,tab 列下方也有一條進度條。
 
@@ -250,7 +251,7 @@ connect_timeout: 15
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
 
 ## License
 

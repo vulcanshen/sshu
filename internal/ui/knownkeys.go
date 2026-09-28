@@ -259,7 +259,7 @@ type hostKeyScannedMsg struct {
 type knownScanTickMsg struct{}
 
 func knownScanTick() tea.Cmd {
-	return tea.Tick(dialTickEvery, func(time.Time) tea.Msg { return knownScanTickMsg{} })
+	return tea.Tick(loadingStep, func(time.Time) tea.Msg { return knownScanTickMsg{} })
 }
 
 func scanHostKeyCmd(host string, port int, timeout time.Duration) tea.Cmd {
@@ -289,7 +289,7 @@ func (m AppModel) knownAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.knownAddUI.submitted = true
-	m.knownAddUI.scanning, m.knownAddUI.spin = true, 0
+	m.knownAddUI.scanning = true
 	m.knownAddUI.err, m.knownAddUI.errIdx = "", -1
 	return m, tea.Batch(scanHostKeyCmd(host, port, m.cfg.Timeout()), knownScanTick())
 }

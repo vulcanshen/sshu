@@ -179,8 +179,10 @@ func TestAddFetchesThenAsksBeforeWritingAnything(t *testing.T) {
 	if !m.knownAddUI.scanning {
 		t.Fatal("Enter should start the fetch and say so")
 	}
-	if v := ansi.Strip(m.View()); !strings.Contains(v, "asking new.example.com:22") {
-		t.Errorf("the wait must be visible:\n%s", v)
+	// The wait is the whole popup loading: an icon turns after its title
+	// (tdp F7, v0.1.12); the host and port it asks are the rows above.
+	if v := ansi.Strip(m.knownAddUI.view()); !strings.Contains(strings.Split(v, "\n")[0], loadingIcon()) {
+		t.Errorf("the wait must be visible after the title:\n%s", v)
 	}
 
 	key := remote.HostKey{Type: "ssh-ed25519", Key: kb64("fetched"),

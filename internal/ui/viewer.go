@@ -65,6 +65,8 @@ type viewerPopup struct {
 	// hand; 0 means it opened before the content arrived, and took the full
 	// height so the arrival cannot grow it (tdp F7).
 	fixed int
+	// loading: the read is still out. The title turns its icon until it lands.
+	loading bool
 
 	layer   int
 	screenW int
@@ -86,8 +88,8 @@ func (m *viewerPopup) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 func (m *viewerPopup) open(layer int, title string) tea.Cmd {
 	m.gen++
 	m.layer, m.title, m.top, m.fixed = layer, title, 0, 0
-	m.lines, m.note, m.kind = nil, "reading…", viewText
-	return m.anim.open()
+	m.lines, m.note, m.kind, m.loading = nil, "reading…", viewText, true
+	return tea.Batch(m.anim.open(), loadingTick())
 }
 
 // showText opens the viewer on text that is already in hand: no load, no
@@ -101,7 +103,7 @@ func (m *viewerPopup) open(layer int, title string) tea.Cmd {
 func (m *viewerPopup) showText(layer int, title string, lines []string) tea.Cmd {
 	m.gen++
 	m.layer, m.title, m.top, m.fixed = layer, title, 0, max(1, len(lines))
-	m.lines, m.note, m.kind = lines, "", viewText
+	m.lines, m.note, m.kind, m.loading = lines, "", viewText, false
 	return m.anim.open()
 }
 
@@ -111,6 +113,7 @@ func (m *viewerPopup) onLoaded(msg viewLoadedMsg) {
 		return
 	}
 	m.title, m.kind, m.lines, m.note, m.top = msg.title, msg.kind, msg.lines, msg.note, 0
+	m.loading = false
 }
 
 // rows is the box's content height: what it opened with, never more than the
@@ -150,7 +153,7 @@ func (m viewerPopup) view() string {
 	if n := len(m.lines); n > m.rows() {
 		hint = append([][2]string{{itoa(m.top + 1), "of " + itoa(n)}}, hint...)
 	}
-	return drawPopupBox(popupLayerColor(m.layer), " "+glyphEye+" "+m.title+" ",
+	return drawPopupBox(popupLayerColor(m.layer), loadingTitle(" "+glyphEye+" "+m.title+" ", m.loading),
 		hintLegend(hint), animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
 

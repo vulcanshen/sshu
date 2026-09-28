@@ -472,6 +472,25 @@ func (m connectionsModel) rows(innerW int) []string {
 	return out
 }
 
+// fullText is the whole journal for the viewer, newest first, with the date
+// the table leaves out and nothing cut to a column.
+func (m connectionsModel) fullText() []string {
+	out := make([]string, 0, len(m.entries))
+	for i := len(m.entries) - 1; i >= 0; i-- {
+		e := m.entries[i]
+		word := store.ResultSuccess
+		if !e.ok {
+			word = store.ResultFail
+		}
+		line := " " + e.at.Format("2006-01-02 15:04:05") + "  " + jField(e.host)
+		if strings.TrimSpace(e.user) != "" {
+			line += "  " + jField(e.user)
+		}
+		out = append(out, line+"  "+word)
+	}
+	return out
+}
+
 func (m connectionsModel) body(innerW, innerH int) []string {
 	if len(m.entries) == 0 {
 		return emptyBody(innerW, innerH, "No connections yet",
@@ -582,6 +601,25 @@ func (m changesModel) rows(innerW int) []string {
 		e := m.entries[i]
 		out = append(out, clipANSI(" "+dim.Render(padRight(jTime(e.at), jTimeW))+
 			spaces(jGap)+txt.Render(padRight(e.action, actionW)), innerW))
+	}
+	return out
+}
+
+// fullText is the whole journal for the viewer, newest first, each action
+// wrapped rather than cut: at 80 columns the table's Action column clips most
+// of what was changed.
+func (m changesModel) fullText(w int) []string {
+	out := make([]string, 0, len(m.entries))
+	for i := len(m.entries) - 1; i >= 0; i-- {
+		e := m.entries[i]
+		lead := " " + e.at.Format("2006-01-02 15:04:05") + "  "
+		for j, l := range wrapPlain(e.action, max(8, w-dispW(lead))) {
+			if j == 0 {
+				out = append(out, lead+l)
+				continue
+			}
+			out = append(out, spaces(dispW(lead))+l)
+		}
 	}
 	return out
 }

@@ -139,6 +139,49 @@ func animRows(a popupAnimator, rows []string) []string {
 	return rows[:min(max(0, n), len(rows))]
 }
 
+// ------------------------------------------------------------------ loading
+
+// A popup whose content is still on its way says so after its title with a
+// turning icon (tdp F7, D3): the remote [v]iew being read, [e]dit fetching or
+// writing back, the known_hosts fetch waiting for a key. The icon is webu's —
+// Nerd Font's circle slices, one square cell filling round — read out of the
+// installed font's cmap (U+F0A9E–U+F0AA5), never remembered.
+var loadingFrames = []string{
+	string(rune(0xf0a9e)), string(rune(0xf0a9f)), string(rune(0xf0aa0)), string(rune(0xf0aa1)),
+	string(rune(0xf0aa2)), string(rune(0xf0aa3)), string(rune(0xf0aa4)), string(rune(0xf0aa5)),
+}
+
+// loadingStep is how long one frame lasts: a turn every 720ms.
+const loadingStep = 90 * time.Millisecond
+
+// loadingNow is the clock the icon reads — a seam, so a test can turn it.
+var loadingNow = time.Now
+
+// loadingIcon is the frame due now. It is read from the clock rather than
+// counted, so the icon is right however many redraws land: a stray tick costs
+// a redraw, never a jump.
+func loadingIcon() string {
+	n := loadingNow().UnixNano() / int64(loadingStep)
+	return loadingFrames[n%int64(len(loadingFrames))]
+}
+
+// loadingTitle puts the icon after a title that is loading. The title sits in
+// the box's top border, so the icon takes the layer colour, bold, with it.
+func loadingTitle(title string, loading bool) string {
+	if !loading {
+		return title
+	}
+	return title + loadingIcon() + " "
+}
+
+// loadingTickMsg repaints a loading icon. It is only re-armed while something
+// is loading: an idle sshu must not repaint for an icon nobody can see.
+type loadingTickMsg struct{}
+
+func loadingTick() tea.Cmd {
+	return tea.Tick(loadingStep, func(time.Time) tea.Msg { return loadingTickMsg{} })
+}
+
 // ------------------------------------------------------------------ drawing
 
 // drawPopupBox is the shared popup frame (kbu form): the title sits in the top

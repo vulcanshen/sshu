@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 sshu joins the terminu family and follows its design principle,
-[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle): the
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle): the
 same core keys and the same menus as kbu, filu, webu and locku. Most of
 what changes is how the keys you already know behave in more places.
 
@@ -50,10 +50,17 @@ Changes since 1.7.1.
 - **Menus and Jobs taller than the screen scroll** with the cursor, and say
   where you are (`N of M`), instead of cutting rows the cursor could still
   walk onto.
-- **With a popup open, everything under it dims** — the screen, a remote
-  session still printing, and any popup lower in the stack, whose border
-  keeps a dark version of its own colour. Only the popup you are using is
-  lit. A toast dims nothing.
+- **With a popup open, everything under it dims** — every colour fades
+  toward the background, so the tab chip, the cursor bar, a selection and
+  a remote program's colours are all still there, darker; a popup lower in
+  the stack keeps a dark version of its own border colour. Only the popup
+  you are using is lit. A toast dims nothing.
+- **A popup still loading turns an icon after its title** — a remote
+  `[v]iew` being read, `[e]dit` fetching or writing back, a known_hosts
+  fetch waiting for the key.
+- **`Enter` on Connections or Changes opens the whole record**, every
+  entry whole and with its date, instead of doing nothing.
+- **sshu needs a truecolor terminal**, now said in the requirements.
 - **A refused rename, add, grid size or known_hosts name stays in its box**,
   with the reason on an error row under it, instead of closing and showing
   a toast — fix the one character and press `Enter` again.

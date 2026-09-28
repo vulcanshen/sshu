@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // With a popup open, everything below the topmost one is drawn dim (tdp F8):
@@ -15,63 +12,191 @@ import (
 // no longer tell the layers apart — brightness is what is left, and it is the
 // z-axis tdp D2 already reads it as: only the layer being used is lit.
 //
-// That includes what is still moving underneath — a remote session's output,
-// the transfer bar, a warning colour (tdp T2's exception): the attention is on
-// the popup, and a lit stream below it competes for it.
+// Dimming FADES every colour toward the canvas, foreground and background, and
+// leaves the shapes alone (tdp F8, D2). An earlier version stripped the colour
+// and redrew the text in one grey (§11.62); that took apart everything drawn
+// with a background — the tab row's powerline chip, a panel's [N] chip, every
+// cursor bar, the selection, a remote vim's status line — and left grey
+// letters where they had been (§11.64). Fading keeps each colour itself, only
+// darker: a layer border stays its layer, a warning stays a warning.
+//
+// The arithmetic is filu's (internal/ui/dim.go, the family's reference), with
+// the rule tdp v0.1.12 added: a fade never lightens.
 
-// dimScreen redraws s in the dim colour, line for line. The text is kept —
-// what is underneath is still there to be glanced at — and so is every line's
-// width, because stripping SGR does not move a single cell.
-func dimScreen(s string) string {
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	lines := strings.Split(s, "\n")
-	for i, l := range lines {
-		if plain := ansi.Strip(l); plain != "" {
-			lines[i] = dim.Render(plain)
-		}
-	}
-	return strings.Join(lines, "\n")
-}
+// dimKeep is how much of a colour survives the dim; the rest is the canvas.
+const dimKeep = 0.45
 
-// dimPopup redraws a rendered popup box as a layer below the top: its content
-// in the dim colour, its frame in a dimmed version of its own layer colour —
-// dark, but still reading as the layer it is (tdp F8, D2). The frame is the
-// first and last line and the first and last cell of every line between, which
-// is how drawPopupBox lays every box out.
-func dimPopup(s string, layer int) string {
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-	frame := lipgloss.NewStyle().Foreground(dimmedLayerColor(layer))
-	lines := strings.Split(s, "\n")
-	for i, l := range lines {
-		plain := ansi.Strip(l)
-		if i == 0 || i == len(lines)-1 {
-			lines[i] = frame.Render(plain)
-			continue
-		}
-		r := []rune(plain)
-		if len(r) < 2 {
-			lines[i] = frame.Render(plain)
-			continue
-		}
-		lines[i] = frame.Render(string(r[0])) + dim.Render(string(r[1:len(r)-1])) +
-			frame.Render(string(r[len(r)-1]))
-	}
-	return strings.Join(lines, "\n")
-}
+// dimBase is what a dimmed colour fades toward: the canvas sshu draws on.
+var dimBase = hexRGB(baseHex)
 
-// dimmedLayerColor is a layer's border colour pulled halfway to the canvas.
-func dimmedLayerColor(layer int) lipgloss.Color {
-	return lipgloss.Color(mixHex(string(popupLayerColor(layer)), baseHex, 0.5))
-}
+// dimText is the dimmed form of text that sets no colour of its own (the
+// terminal's default foreground, taken as the theme's text).
+var dimText = dimRGB(hexRGB(string(textColor)))
 
-// mixHex blends a toward b by t (0 is a, 1 is b). Both are #rrggbb.
-func mixHex(a, b string, t float64) string {
-	ca, cb := hexRGB(a), hexRGB(b)
+// dimRGB fades c toward dimBase. A channel darker than the canvas would come
+// out LIGHTER — pure black fades up toward the base — so each channel keeps
+// the smaller of the two (tdp D2): dimming never lightens.
+func dimRGB(c [3]int) [3]int {
 	var out [3]int
-	for i := range out {
-		out[i] = int(float64(ca[i])*(1-t) + float64(cb[i])*t + 0.5)
+	for i := range c {
+		out[i] = min(c[i], int(float64(c[i])*dimKeep+float64(dimBase[i])*(1-dimKeep)+0.5))
 	}
-	return fmt.Sprintf("#%02x%02x%02x", out[0], out[1], out[2])
+	return out
+}
+
+// sgrRGB writes one colour as 24-bit SGR. The family requires a truecolor
+// terminal (tdp D6), so a dimmed screen is always written in 24-bit, whatever
+// depth the colours it came in with.
+func sgrRGB(fg bool, c [3]int) string {
+	lead := "48"
+	if fg {
+		lead = "38"
+	}
+	return fmt.Sprintf("%s;2;%d;%d;%d", lead, c[0], c[1], c[2])
+}
+
+// ansi16 is the xterm palette for the 16 basic colours. A remote program's
+// 16 colours are the user's terminal palette, which sshu cannot read; tdp D2
+// converts them through xterm's, so a custom palette dims to xterm's hues.
+var ansi16 = [16][3]int{
+	{0, 0, 0}, {205, 0, 0}, {0, 205, 0}, {205, 205, 0}, {0, 0, 238}, {205, 0, 205}, {0, 205, 205}, {229, 229, 229},
+	{127, 127, 127}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0}, {92, 92, 255}, {255, 0, 255}, {0, 255, 255}, {255, 255, 255},
+}
+
+// xterm256 converts a 256-colour index to RGB.
+func xterm256(n int) [3]int {
+	switch {
+	case n < 16:
+		return ansi16[n]
+	case n < 232:
+		n -= 16
+		step := func(v int) int {
+			if v == 0 {
+				return 0
+			}
+			return 55 + v*40
+		}
+		return [3]int{step(n / 36), step(n / 6 % 6), step(n % 6)}
+	default:
+		v := 8 + (n-232)*10
+		return [3]int{v, v, v}
+	}
+}
+
+// dimANSI redraws an already-styled screen dimmed (tdp F8): every foreground
+// and background colour in its SGR sequences is faded toward the base, and
+// text with no colour of its own gets the dimmed default. Everything else —
+// bold, reverse, cursor movement, the text itself, every other escape (the
+// nest announcement included) — is left as it is, so no cell moves.
+func dimANSI(s string) string {
+	var b strings.Builder
+	b.Grow(len(s) + len(s)/4)
+	lineStart := "\x1b[" + sgrRGB(true, dimText) + "m"
+	b.WriteString(lineStart)
+	for i := 0; i < len(s); {
+		switch {
+		case s[i] == '\n':
+			b.WriteByte('\n')
+			b.WriteString(lineStart)
+			i++
+		case strings.HasPrefix(s[i:], "\x1b["):
+			end := i + 2
+			for end < len(s) && (s[end] < 0x40 || s[end] > 0x7e) {
+				end++
+			}
+			if end >= len(s) {
+				b.WriteString(s[i:])
+				return b.String()
+			}
+			if s[end] == 'm' {
+				b.WriteString("\x1b[" + dimSGR(s[i+2:end]) + "m")
+			} else {
+				b.WriteString(s[i : end+1])
+			}
+			i = end + 1
+		default:
+			b.WriteByte(s[i])
+			i++
+		}
+	}
+	return b.String()
+}
+
+// dimSGR rewrites one SGR parameter list with its colours dimmed. A reset (or a
+// "default foreground") is followed by the dimmed default so the text after it
+// stays dim.
+func dimSGR(params string) string {
+	ps := strings.Split(params, ";")
+	var out []string
+	needText := false
+	for i := 0; i < len(ps); i++ {
+		p := ps[i]
+		n, err := strconv.Atoi(p)
+		if p == "" {
+			n, err = 0, nil
+		}
+		if err != nil {
+			out = append(out, p)
+			continue
+		}
+		switch {
+		case n == 0:
+			out = append(out, "0")
+			needText = true
+		case n == 39:
+			needText = true
+		case (n == 38 || n == 48) && i+1 < len(ps):
+			fg := n == 38
+			var c [3]int
+			switch ps[i+1] {
+			case "2":
+				if i+4 >= len(ps) {
+					out = append(out, ps[i:]...)
+					i = len(ps)
+					continue
+				}
+				for k := 0; k < 3; k++ {
+					c[k], _ = strconv.Atoi(ps[i+2+k])
+				}
+				i += 4
+			case "5":
+				if i+2 >= len(ps) {
+					out = append(out, ps[i:]...)
+					i = len(ps)
+					continue
+				}
+				idx, _ := strconv.Atoi(ps[i+2])
+				c = xterm256(idx)
+				i += 2
+			default:
+				out = append(out, p)
+				continue
+			}
+			out = append(out, sgrRGB(fg, dimRGB(c)))
+			if fg {
+				needText = false
+			}
+		case n >= 30 && n <= 37, n >= 90 && n <= 97:
+			idx := n - 30
+			if n >= 90 {
+				idx = n - 90 + 8
+			}
+			out = append(out, sgrRGB(true, dimRGB(ansi16[idx])))
+			needText = false
+		case n >= 40 && n <= 47, n >= 100 && n <= 107:
+			idx := n - 40
+			if n >= 100 {
+				idx = n - 100 + 8
+			}
+			out = append(out, sgrRGB(false, dimRGB(ansi16[idx])))
+		default:
+			out = append(out, p)
+		}
+	}
+	if needText {
+		out = append(out, sgrRGB(true, dimText))
+	}
+	return strings.Join(out, ";")
 }
 
 func hexRGB(h string) [3]int {

@@ -228,10 +228,18 @@ func (m AppModel) prefKey(k string) (tea.Model, tea.Cmd) {
 				return m.openErrorDetail()
 			}
 			m.errors.handleKey(k, h)
-		case prefConnections:
-			m.connections.scrollKey(k, h)
-		default:
-			m.changes.scrollKey(k, h)
+		case prefConnections, prefChanges:
+			// No row to act on — the panel is the content (tdp K3), so Enter
+			// opens all of it: the table cuts the host and the action to fit
+			// a column, the viewer shows every entry whole, with its date.
+			if k == "enter" {
+				return m.openJournalText()
+			}
+			if m.pref.item == prefConnections {
+				m.connections.scrollKey(k, h)
+			} else {
+				m.changes.scrollKey(k, h)
+			}
 		}
 		return m, nil
 	}
@@ -273,6 +281,22 @@ func (m AppModel) openErrorDetail() (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, m.viewer.showText(m.layer(), title, lines)
+}
+
+// openJournalText is Enter on Connections or Changes: the whole journal in
+// the viewer. An empty one has nothing to open.
+func (m AppModel) openJournalText() (tea.Model, tea.Cmd) {
+	var lines []string
+	switch m.pref.item {
+	case prefConnections:
+		lines = m.connections.fullText()
+	case prefChanges:
+		lines = m.changes.fullText(popupInnerW(m.w) - 2)
+	}
+	if len(lines) == 0 {
+		return m, nil
+	}
+	return m, m.viewer.showText(m.layer(), m.pref.item.label(), lines)
 }
 
 // journalCount and journalFile answer "which one am I on" for the places that
