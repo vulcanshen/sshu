@@ -10,11 +10,11 @@ import (
 // Menu rules from the terminu design principle, and sshu's trial of splitting
 // ? from the menus (§11.56). Each test names the rule it pins.
 
-// beforeGlobal is a Space menu without its global region: the rows the panel
+// beforeGlobal is a Space menu without its global row: the rows the panel
 // itself contributes.
 func beforeGlobal(items []menuItem) []menuItem {
 	for i, it := range items {
-		if it.header && it.label == menuGlobalRegion {
+		if it.key == globalMenuKey {
 			if i > 0 && items[i-1].separator {
 				i--
 			}
@@ -24,23 +24,27 @@ func beforeGlobal(items []menuItem) []menuItem {
 	return items
 }
 
-// globalTail checks that items end in the global region — its title, then the
-// one row that opens the global operation popup — after a rule (tdp M2).
+// globalTail checks that items end in the one row that opens the global
+// operation popup, right after a rule and with no title of its own (tdp M2,
+// v0.1.7).
 func globalTail(t *testing.T, where string, items []menuItem) {
 	t.Helper()
 	if len(items) < 2 {
-		t.Errorf("%s: too short for a global region: %d rows", where, len(items))
+		t.Errorf("%s: too short for a global row: %d rows", where, len(items))
 		return
 	}
-	last, head := items[len(items)-1], items[len(items)-2]
+	last, above := items[len(items)-1], items[len(items)-2]
 	if last.key != globalMenuKey {
 		t.Errorf("%s: the last row should open the global operations, got %q", where, last.key)
 	}
-	if !head.header || head.label != menuGlobalRegion {
-		t.Errorf("%s: the global row should sit under %q, got %q", where, menuGlobalRegion, head.label)
+	if !above.separator {
+		t.Errorf("%s: a rule should sit right above the global row, got %q (header=%v)",
+			where, above.label, above.header)
 	}
-	if len(items) > 2 && !items[len(items)-3].separator {
-		t.Errorf("%s: a rule should divide the global region from the panel's", where)
+	for _, it := range items {
+		if it.header && strings.EqualFold(it.label, menuGlobalRegion) {
+			t.Errorf("%s: the global row carries no region title, found %q", where, it.label)
+		}
 	}
 	if !items[0].header {
 		t.Errorf("%s: a panel's Space menu carries region titles, first row is %q", where, items[0].label)

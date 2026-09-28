@@ -1705,17 +1705,18 @@ func (m AppModel) runGlobal(key string) (tea.Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-// withGlobal closes a Space menu with its global region (tdp M2): always
-// there, so every panel's menu has at least two regions and all of them carry
-// their titles. The region is ONE row that opens the global operation popup
-// (§11.56): the full list on every panel's menu was longer than most panels'
-// own actions, and it pushed them down to make room for things that are the
-// same everywhere.
+// withGlobal closes a Space menu with its global row (tdp M2): ONE row that
+// opens the global operation popup (§11.56) — the full list on every panel's
+// menu was longer than most panels' own actions, and it pushed them down to
+// make room for things that are the same everywhere. A rule divides it from
+// the panel's regions, and it carries no title of its own: "global operation"
+// over a single "Global operation" row said the same thing twice (tdp v0.1.7,
+// §11.61). The popup it opens keeps that title.
 func (m AppModel) withGlobal(body []menuItem) []menuItem {
 	if len(body) > 0 {
 		body = append(body, menuItem{separator: true})
 	}
-	return append(body, menuItem{label: menuGlobalRegion, header: true},
+	return append(body,
 		menuItem{label: "Global operation", key: globalMenuKey, hint: "switch tab, quit"})
 }
 
