@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -854,7 +854,7 @@ Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製�
 
 | 類別 | sshu 實例 | 使用者能做什麼 |
 |---|---|---|
-| **menu** | Space menu、global operation popup、選取模式的按鍵清單、lock menu、host / credential picker、**Jobs** | `j/k` 移動、`Enter` 或字母執行那一列;Jobs 的 `Enter` 打開那個 job 的全文 |
+| **menu** | Space menu、global operation popup、lock menu、host / credential picker、**Jobs** | `j/k` 移動、`Enter` 或字母執行那一列;Jobs 的 `Enter` 打開那個 job 的全文 |
 | **confirm** | 刪除、離開、信任 host key、**腳底掛著 offer 的明細**(§11.29、§11.62) | 讀一段提醒,`Enter` 接受、`Esc` 取消;明細是帶一段可捲動內容的 confirm |
 | **input** | rename、add、網格欄數、KnownHosts 的 `[E]`;Add / Edit host、credential、Host block、known_hosts fetch 四個表單(input group);Identity file picker(附候選清單) | 打字、`Enter` 送出、`Tab` 換欄;送出可能失敗,所以都有錯誤列 |
 | **note** | `?`、`[v]iew`、log 全文、Jobs 打開的 job、沒有 offer 的明細 | 唯讀、`j/k/u/d` 捲動 |
@@ -6738,6 +6738,41 @@ mutation 讓框一開就滿版,前後一樣高 —— 補「打開時是內容�
 
 ---
 
+### 11.63 模式裡 `Space` 不作用 —— 拿掉選取模式的按鍵清單(tdp v0.1.10 K11)
+
+#### 使用者的要求
+
+> 「tdp 更新到 0.1.10 了，對齊」
+
+盤點(`docs/sshu-terminu-fix.md`,修完刪除)只有一條。使用者 2026-09-28:模式下不應該還有 popup menu,只有 `?` 說明。
+tdp v0.1.10 改寫 K11:模式裡 `Space` 不開任何 menu、不作用;`?` 是模式的 key reference;模式的鍵直接按,揭露在 `?` 與
+footer;footer 照樣顯示 `?`,`Space` 不必列。v0.1.2 那條「按鍵清單只用方向鍵移動」隨清單一起刪掉。
+
+#### 改了什麼
+
+- §11.57 的 `modeKeys`(`spaceMenu`)與它所有的接線拿掉:欄位、`New`、`WindowSizeMsg`、動畫 tick、按鍵路由、
+  `closeTop`、`closeStack`、`floatsOpen`、`spaceMenuOnTop`、`popupHelp`、繪製清單;`modeKeysKey`、`copyModeRows`、
+  `copyLeaveKey` 刪除。
+- 選取模式裡的 `Space` 沒有自己的 case:它不是模式的鍵,`copyKey` 不認得就不做事,格子凍結著,也不會送到遠端。
+  第一版寫了 `case " ": return m, nil`,mutation(拿掉它)存活 —— 行為一模一樣,是觀察不到的分支,刪掉。
+- `?` 的 `copyModeHelp()` 拿掉「Space: the mode's keys, runnable」那一列,其餘不變。
+- footer(`copyLegendPairs`)拿掉 `space keys`,`? help` 排第一;放不下的 motion 由 `?` 揭露。
+- README 兩份選取模式的表:`Space` / `?` 那一列改成只有 `?`。
+
+#### 測試
+
+`tdpmode_test.go` 前四個守按鍵清單的測試改寫:`TestSpaceDoesNothingInSelectionMode`(原
+`TestSpaceListsTheSelectionKeys`:沒有浮層、模式與游標不動)/ `TestTheModesKeysArePressedDirectly`(原
+`TestARowOfTheKeyListRunsByItsKey`)/ `TestQuestionMarkIsTheSelectionKeyReference`(原 `…SelectionHelp`,加上
+每個鍵都在、沒有 Space)/ `TestTheSelectionFooterLeadsWithTheKeyReference`;「leave 列」與「Esc 只關清單」兩個
+隨清單刪除(離開模式的 `Esc`、`Alt+v` 由既有測試守著)。footer 的三個測試(`copymode_test.go` 兩個、
+`sshzoom_test.go` 一個)改看 `?`。
+
+4 個 mutation 全數被抓(Space 開 help、footer 列回 space、reference 列回 Space、reference 少了 word 鍵);
+第五個就是上面那個觀察不到的分支。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -6818,7 +6853,7 @@ mutation 讓框一開就滿版,前後一樣高 —— 補「打開時是內容�
 | 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格、border 轉黃,再按一次(或 `Alt+Esc`)離開(§11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53) |
 | 選取模式 | `v` / `V` · `y` · `Esc` | char / line 選取(再按取消)/ 複製到剪貼簿並結束 / 先丟選取、再離開 |
-| 選取模式 | `Space` · `?` · `q` / `Ctrl+C` · `Tab` | 模式的按鍵清單(可執行,方向鍵移動)/ 模式的 help / 離開流程 / toast 說先 `Esc`(§11.57) |
+| 選取模式 | `?` · `q` / `Ctrl+C` · `Tab` · `Space` | 模式的 key reference / 離開流程 / toast 說先 `Esc` / 不作用(§11.57、§11.63) |
 
 ### 導覽(所有清單共用)
 

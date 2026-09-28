@@ -70,36 +70,16 @@ func (c *copyState) start(s *session, w, h int) {
 
 func (c *copyState) stop() { *c = copyState{} }
 
-// copyLeaveKey is the key list's "leave" row. Longer than a keystroke, so only
-// the row can send it.
-const copyLeaveKey = "leave"
-
-// copyModeRows is selection mode's key list (tdp K11): every key the mode has,
-// each row runnable. The footer carries the short form of the same set.
-func copyModeRows() []menuItem {
-	return []menuItem{
-		{label: "copy", key: "y", hint: "the selection, or this line"},
-		{label: "select", key: "v", hint: "characters, from here"},
-		{label: "select lines", key: "V", hint: "whole lines, from here"},
-		{label: "left", key: "h"}, {label: "down", key: "j"},
-		{label: "up", key: "k"}, {label: "right", key: "l"},
-		{label: "word", key: "w", hint: "start of the next word"},
-		{label: "end of word", key: "e"},
-		{label: "back a word", key: "b"},
-		{label: "line start", key: "0"}, {label: "line end", key: "$"},
-		{label: "up half a page", key: "u"}, {label: "down half a page", key: "d"},
-		{label: "leave", key: copyLeaveKey, hint: "Esc · Alt+v"},
-	}
-}
-
-// copyModeHelp is ? in selection mode: the mode's keys, read-only.
+// copyModeHelp is ? in selection mode: the mode's key reference, read-only
+// (tdp K11). It is the one place that lists every key the mode has — the
+// footer carries what fits of the same set — because a mode has no menu to
+// pick them from: they are pressed.
 func copyModeHelp() []helpEntry {
 	return []helpEntry{
 		{"h j k l", "move"}, {"w · e · b", "by word"}, {"0 · $", "line start / end"},
 		{"u · d", "half a page"}, {"v · V", "select characters / lines"},
 		{"y", "copy, and leave"}, {"Esc", "drop the selection, then leave"},
-		{"Alt+v", "leave"}, {"Space", "the mode's keys, runnable"},
-		{"q · Ctrl+C", "quit"}, {"?", "close this help"},
+		{"Alt+v", "leave"}, {"q · Ctrl+C", "quit"}, {"?", "close this help"},
 	}
 }
 

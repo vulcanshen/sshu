@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 sshu joins the terminu family and follows its design principle,
-[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle): the
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle): the
 same core keys and the same menus as kbu, filu, webu and locku. Most of
 what changes is how the keys you already know behave in more places.
 
@@ -31,9 +31,10 @@ Changes since 1.7.1.
   the cursor goes to the first such field and the form says why, instead
   of `Enter` stepping to the next field. The hint always reads
   `Enter save`. An empty key or credential field still opens its picker.
-- **Selection mode keeps the core keys**: `Space` lists its keys (arrow
-  keys move the list), `?` explains the mode, `q` and `Ctrl+C` start the
-  way out, and `Tab` says to leave the mode first.
+- **Selection mode keeps the core keys**: `?` lists every key the mode
+  has, `q` and `Ctrl+C` start the way out, and `Tab` says to leave the
+  mode first. `Space` does nothing there — the mode's keys are pressed,
+  not picked from a menu.
 - **A dimmed menu row does nothing**, from `Enter` or its letter, instead
   of explaining itself in a toast.
 - **`Space` opens the menu on a file transfer side with no host** as well,

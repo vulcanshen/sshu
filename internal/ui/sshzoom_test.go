@@ -402,7 +402,7 @@ func TestFullScreenKeepsSelectionModeDisclosed(t *testing.T) {
 		t.Fatal("setup: alt+v should have opened selection mode")
 	}
 	v := ansi.Strip(m.View())
-	for _, want := range []string{"space", "hjkl", "alt+v"} {
+	for _, want := range []string{"? help", "hjkl", "alt+v"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("the selection keys should be disclosed (%q):\n%s", want, v)
 		}

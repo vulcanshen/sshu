@@ -181,7 +181,7 @@ host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **pas
 | `v` / `V` | 依字元 / 依整行選取 |
 | `y` | 複製到系統剪貼簿並離開(什麼都沒選:游標那一行) |
 | `Esc` | 先丟掉選取,再離開 |
-| `Space` / `?` | 列出這個模式的鍵,每一列都能直接執行 / 這個模式的說明 |
+| `?` | 這個模式所有的鍵 |
 
 複製靠 `pbcopy`、`wl-copy`、`xclip` 或 `xsel`,有裝哪個就用哪個。
 
@@ -250,7 +250,7 @@ connect_timeout: 15
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
 
 ## License
 

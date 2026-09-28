@@ -88,7 +88,6 @@ func (m AppModel) floats() []float {
 	return []float{
 		f(m.spaceMenu.anim, m.spaceMenu.layer, m.spaceMenu.view),
 		f(m.globalMenu.anim, m.globalMenu.layer, m.globalMenu.view),
-		f(m.modeKeys.anim, m.modeKeys.layer, m.modeKeys.view),
 		f(m.lockMenu.anim, m.lockMenu.layer, m.lockMenu.view),
 		f(m.hostPicker.anim, m.hostPicker.layer, m.hostPicker.view),
 		f(m.transfersUI.anim, m.transfersUI.layer,
@@ -172,9 +171,9 @@ func (m AppModel) nestChain() []nestLayer {
 // ways in two places is a mode documented wrong in one of them (§11.33, tdp K11).
 func copyLegendPairs() [][2]string {
 	return [][2]string{
-		// The two entry keys lead, as on every other footer (tdp K11, M1): the
-		// key list behind Space carries whatever the row has to drop.
-		{"space", "keys"},
+		// ? leads, as on every other footer (tdp K11, M1): the mode's key
+		// reference behind it carries whatever the row has to drop. Space is
+		// not listed — it does nothing in a mode.
 		{"?", "help"},
 		{"y", "copy"},
 		{"v/V", "select"},

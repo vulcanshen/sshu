@@ -181,7 +181,7 @@ While a transfer is running, `H` and `D` are dimmed and do nothing — cancel it
 | `v` / `V` | Select by character / by line |
 | `y` | Copy to the system clipboard and leave (nothing selected: the current line) |
 | `Esc` | Drop the selection, then leave |
-| `Space` / `?` | The mode's keys, each one runnable / the mode's help |
+| `?` | Every key the mode has |
 
 Copying uses `pbcopy`, `wl-copy`, `xclip` or `xsel`, whichever is installed.
 
@@ -250,7 +250,7 @@ A password is never displayed, and it reaches `ssh` through `SSH_ASKPASS`, never
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
 
 ## License
 
