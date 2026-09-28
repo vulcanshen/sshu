@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 sshu joins the terminu family and follows its design principle,
-[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle): the
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.13/principle): the
 same core keys and the same menus as kbu, filu, webu and locku. Most of
 what changes is how the keys you already know behave in more places.
 
