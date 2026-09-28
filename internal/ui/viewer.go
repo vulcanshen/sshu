@@ -61,6 +61,10 @@ type viewerPopup struct {
 	lines []string
 	note  string
 	top   int
+	// fixed is the content height it opened with, when the content was in
+	// hand; 0 means it opened before the content arrived, and took the full
+	// height so the arrival cannot grow it (tdp F7).
+	fixed int
 
 	layer   int
 	screenW int
@@ -81,7 +85,7 @@ func (m *viewerPopup) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 // would look like the key did nothing (the same lesson as the dial spinner).
 func (m *viewerPopup) open(layer int, title string) tea.Cmd {
 	m.gen++
-	m.layer, m.title, m.top = layer, title, 0
+	m.layer, m.title, m.top, m.fixed = layer, title, 0, 0
 	m.lines, m.note, m.kind = nil, "reading…", viewText
 	return m.anim.open()
 }
@@ -96,7 +100,7 @@ func (m *viewerPopup) open(layer int, title string) tea.Cmd {
 // moves, so a load in flight from a previous open cannot land on top of it.
 func (m *viewerPopup) showText(layer int, title string, lines []string) tea.Cmd {
 	m.gen++
-	m.layer, m.title, m.top = layer, title, 0
+	m.layer, m.title, m.top, m.fixed = layer, title, 0, max(1, len(lines))
 	m.lines, m.note, m.kind = lines, "", viewText
 	return m.anim.open()
 }
@@ -109,7 +113,15 @@ func (m *viewerPopup) onLoaded(msg viewLoadedMsg) {
 	m.title, m.kind, m.lines, m.note, m.top = msg.title, msg.kind, msg.lines, msg.note, 0
 }
 
-func (m viewerPopup) rows() int { return max(1, m.screenH-6) }
+// rows is the box's content height: what it opened with, never more than the
+// screen holds.
+func (m viewerPopup) rows() int {
+	h := popupBudget(m.screenH)
+	if m.fixed > 0 {
+		h = min(h, m.fixed)
+	}
+	return h
+}
 
 func (m *viewerPopup) update(msg tea.KeyMsg) {
 	if !m.anim.isInteractive() {
@@ -118,17 +130,13 @@ func (m *viewerPopup) update(msg tea.KeyMsg) {
 	m.top = moveScroll(m.top, max(0, len(m.lines)-m.rows()), msg.String(), m.rows())
 }
 
-// viewerW is the popup's width. Wider than the others: this one is showing file
-// content, and code wrapped at 56 columns is code you cannot read.
-const viewerW = 96
-
 func (m viewerPopup) view() string {
-	innerW := popupInnerW(m.screenW, viewerW)
+	innerW := popupInnerW(m.screenW)
 
 	var rows []string
 	switch {
 	case m.note != "":
-		rows = emptyBody(innerW, min(m.rows(), 5), m.note, nil)
+		rows = emptyBody(innerW, m.rows(), m.note, nil)
 	default:
 		// Rows go through as they are: drawPopupBox clips every one of them
 		// ANSI-aware, which is what a line of highlighted source needs — and
@@ -136,6 +144,7 @@ func (m viewerPopup) view() string {
 		end := min(len(m.lines), m.top+m.rows())
 		rows = append(rows, m.lines[min(m.top, len(m.lines)):end]...)
 	}
+	rows = fillRows(rows, m.rows(), innerW)
 
 	hint := [][2]string{{"j/k", "scroll"}, {"Esc", "close"}}
 	if n := len(m.lines); n > m.rows() {

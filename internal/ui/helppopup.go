@@ -83,14 +83,11 @@ func (m *helpPopup) update(msg tea.KeyMsg) {
 func (m helpPopup) visible() int { return max(1, min(len(m.entries), m.screenH-6)) }
 
 func (m helpPopup) view() string {
-	keyW, descW := 0, 0
+	keyW := 0
 	for _, e := range m.entries {
 		keyW = max(keyW, dispW(e.key))
-		descW = max(descW, dispW(e.desc))
 	}
-	// Wide enough for the longest description: a reference whose lines end in
-	// "…" hides the half of each line that says what the key does.
-	innerW := popupInnerW(m.screenW, max(keyW+4+descW+1, dispW(m.title)+8))
+	innerW := popupInnerW(m.screenW)
 
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	key := lipgloss.NewStyle().Foreground(handColor)

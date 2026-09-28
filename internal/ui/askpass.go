@@ -266,11 +266,9 @@ func (m askpassPopup) view() string {
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(editColor)
 
 	lines := strings.Split(strings.TrimRight(m.req.prompt, " \n"), "\n")
-	w := 44
-	for _, l := range lines {
-		w = max(w, dispW(l)+4)
-	}
-	innerW := popupInnerW(m.screenW, w)
+	// No error row on the secret either (tdp F7): sshu passes the answer to
+	// ssh without judging it, so a submit here cannot fail — ssh asks again.
+	innerW := popupInnerW(m.screenW)
 
 	var rows []string
 	glyph, accept := glyphLock, "send"

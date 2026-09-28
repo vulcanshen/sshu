@@ -241,10 +241,11 @@ func TestAFailedFetchStaysInTheFormAndSaysWhy(t *testing.T) {
 	if !strings.Contains(m.knownAddUI.err, "connection refused") {
 		t.Errorf("the reason should be in the form, got %q", m.knownAddUI.err)
 	}
-	// And it is READABLE. Two fields make a narrow box; a network error is the
-	// longest thing that ever lands in it, and half a reason is not one.
+	// And it is READABLE at the width every popup has (tdp F7): a network
+	// error is the longest thing that ever lands in it, and half a reason is
+	// not one. The box does not widen for it.
 	if v := ansi.Strip(m.knownAddUI.view()); !strings.Contains(v, "connection refused") {
-		t.Errorf("the box must widen for its error:\n%s", v)
+		t.Errorf("the error must be readable at the popup width:\n%s", v)
 	}
 	if diskText(t, p) != before {
 		t.Error("a failed fetch must write nothing")

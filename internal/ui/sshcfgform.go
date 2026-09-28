@@ -68,6 +68,7 @@ type sshcfgForm struct {
 	errIdx    int
 	submitted bool
 	layer     int
+	opened    int // fields when the box opened: its height from then on (tdp F7)
 	screenW   int
 	screenH   int
 }
@@ -101,8 +102,19 @@ func (m *sshcfgForm) openCreate(layer int) tea.Cmd {
 	m.opts, m.fixed = nil, [sfFixedCount]store.SSHOption{}
 	m.focus, m.editing, m.err, m.errIdx = sfHost, -1, "", -1
 	m.submitted = false
-	m.layer = layer
+	m.layer, m.opened = layer, len(m.fields)
 	return m.anim.open()
+}
+
+// shownRows is how many field rows the box holds: as many as the form had when
+// it opened, or what the screen allows (capRows allows screenH-6; formBody adds
+// a blank row and an error row).
+func (m sshcfgForm) shownRows() int {
+	vis := max(3, m.screenH-8)
+	if m.opened > 0 {
+		vis = min(vis, m.opened)
+	}
+	return vis
 }
 
 // openEdit lays the block out over the form. The five fixed rows take the FIRST
@@ -140,7 +152,7 @@ func (m *sshcfgForm) openEdit(b store.SSHBlock, at, layer int) tea.Cmd {
 	m.fields, m.opts, m.fixed = f, opts, fixed
 	m.focus, m.editing, m.err, m.errIdx = sfHost, at, "", -1
 	m.submitted = false
-	m.layer = layer
+	m.layer, m.opened = layer, len(m.fields)
 	return m.anim.open()
 }
 
@@ -326,13 +338,14 @@ func (m *sshcfgForm) fail(msg string, field int) {
 
 func (m *sshcfgForm) refreshError(msg string, field int) { m.err, m.errIdx = msg, field }
 
-// window is the slice of fields on screen. Unlike the other two forms this one
-// has no fixed height — a `Host *` block can carry a dozen options — so the
-// rows scroll with the cursor rather than being cut off at the bottom by
-// capRows, which would leave a field you can Tab to and cannot see.
+// window is the slice of fields on screen. A `Host *` block can carry a dozen
+// options, so the rows scroll with the cursor rather than being cut off at the
+// bottom by capRows, which would leave a field you can Tab to and cannot see.
+//
+// The box keeps the height it opened with (tdp F7): `+ add option` adds a field
+// to the form, not a row to the box — the new one scrolls in.
 func (m sshcfgForm) window() (int, int) {
-	// capRows allows screenH-6; formBody adds a blank row and an error row.
-	vis := max(3, m.screenH-8)
+	vis := m.shownRows()
 	if len(m.fields) <= vis {
 		return 0, len(m.fields)
 	}
@@ -345,13 +358,19 @@ func (m sshcfgForm) view() string {
 	for _, f := range m.fields {
 		labelW = max(labelW, dispW(f.label))
 	}
-	innerW := popupInnerW(m.screenW, labelW+38)
+	innerW := popupInnerW(m.screenW)
 	labelCol := min(labelW+4, max(0, innerW-8))
 	valueW := max(0, innerW-labelCol-1)
 
 	lo, hi := m.window()
 	rows := formBody(m.fields[lo:hi], m.focus-lo, m.errIdx-lo, m.err,
 		func(i int) bool { return m.enabled(i + lo) }, innerW, labelCol, valueW)
+	// Fewer fields than the box opened with: blank rows above the error row,
+	// so the box does not shrink either.
+	if gap := m.shownRows() - (hi - lo); gap > 0 {
+		tail := append([]string(nil), rows[len(rows)-2:]...)
+		rows = append(fillRows(rows[:len(rows)-2], len(rows)-2+gap, innerW), tail...)
+	}
 
 	glyph, title := glyphPlus, "New Host block"
 	if m.editing >= 0 {

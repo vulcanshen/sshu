@@ -807,19 +807,26 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		next, cmd, _ := m.runGlobal(key)
 		return next, cmd
-	case m.transfersUI.anim.owns():
-		if i := m.transfersUI.update(msg, len(m.transfers.jobs)); i >= 0 {
-			m.transfers.cancelJob(i)
-		}
-		return m, nil
+	// The viewer before Jobs: Enter on a job opens it in the viewer, on top.
 	case m.viewer.anim.owns():
 		m.viewer.update(msg)
 		return m, nil
+	case m.transfersUI.anim.owns():
+		jobs := m.transfers.jobs
+		switch m.transfersUI.update(msg, len(jobs)) {
+		case jobsCancel:
+			m.transfers.cancelJob(m.transfersUI.cursor)
+		case jobsDetail:
+			j := jobs[m.transfersUI.cursor]
+			return m, m.viewer.showText(m.above(), "Job",
+				jobLines(j, popupInnerW(m.w)-2))
+		}
+		return m, nil
 	case m.detail.anim.owns():
-		// The detail float is a viewport that may also be standing between the
-		// user and one action (§11.29). Enter commits that action when there is
-		// one; every other key, Enter included when there is not, is the
-		// viewport's.
+		// The detail float is a note, or — with an offer at its foot — a confirm
+		// carrying the thing to look at (§11.29, §11.62). Enter accepts the offer
+		// when there is one; every other key, Enter included when there is not,
+		// scrolls.
 		if m.detail.commit(msg) {
 			return m.detailCommit()
 		}
@@ -897,10 +904,10 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.quitAsk.close()
 	case m.globalMenu.anim.owns():
 		return m, m.globalMenu.close()
-	case m.transfersUI.anim.owns():
-		return m, m.transfersUI.close()
 	case m.viewer.anim.owns():
 		return m, m.viewer.close()
+	case m.transfersUI.anim.owns():
+		return m, m.transfersUI.close()
 	case m.detail.anim.owns():
 		return m, m.detail.close()
 	case m.hostPicker.anim.owns():
@@ -1783,11 +1790,11 @@ func (m AppModel) popupHelp() (string, []helpEntry) {
 	case m.quitAsk.anim.owns():
 		return "quit", []helpEntry{{"Enter", "quit"}, {"Ctrl+C", "quit at once"},
 			{"Esc", "stay"}, closeIt}
-	case m.transfersUI.anim.owns():
-		return "jobs", []helpEntry{{"j · k", "move"}, {"c", "cancel this job"},
-			{"Esc", "close"}, closeIt}
 	case m.viewer.anim.owns():
 		return "viewer", append(scroll, helpEntry{"Esc", "close"}, closeIt)
+	case m.transfersUI.anim.owns():
+		return "jobs", []helpEntry{{"j · k", "move"}, {"Enter", "open this job"},
+			{"c", "cancel this job"}, {"Esc", "close"}, closeIt}
 	case m.detail.anim.owns():
 		e := scroll
 		if m.detail.action != detailNone {

@@ -21,9 +21,12 @@ const (
 	detailEditKnown
 )
 
-// detailPopup is the viewport class (tdp F1) — the same family as `?` help and the
-// file viewer: scrollable, cursorless, read-only. It answers one question, "what
-// is this row actually made of", for a hosts.yaml entry or a credential.
+// detailPopup answers one question, "what is this row actually made of", for a
+// hosts.yaml entry or a credential: scrollable, cursorless, read-only. Without an
+// offer at its foot it is a note (tdp F1), the same class as `?` help and the
+// file viewer. With one — `Connect to "<name>"?` — it is a confirm that carries
+// the thing to look at before answering (§11.29, §11.62): the question is why it
+// is open, and Enter accepts it.
 //
 // It exists because the table cannot answer it. Rows shed columns as the
 // terminal narrows (sshu-ui-design.md §1.2), the auth column is a glyph rather than a word, and
@@ -46,8 +49,8 @@ type detailPopup struct {
 	title    string
 	sections []detailSection
 	// prompt is the question at the foot of the float; accept is the verb the
-	// hint gives Enter. Both empty means there is nothing to commit, and Enter
-	// belongs to the viewport.
+	// hint gives Enter. Both empty means there is nothing to commit, and the
+	// popup is a note.
 	prompt string
 	accept string
 	action detailAction
@@ -106,7 +109,7 @@ func (m *detailPopup) show(c detailPopup, layer int) tea.Cmd {
 // commit reports that Enter was pressed on a float that is listening. Whether
 // there is anything to commit is detailCommit's question and ONLY its question:
 // asking it here as well would be the same rule written twice, and Enter on a
-// float with no offer is inert either way — a viewport has no use for the key.
+// float with no offer is inert either way — a note has no use for the key.
 // Esc is the caller's, exactly as it is on the confirmation box (tdp K4).
 func (m detailPopup) commit(msg tea.KeyMsg) bool {
 	return m.anim.isInteractive() && msg.String() == "enter"
@@ -391,19 +394,12 @@ func (m detailPopup) visible() int {
 }
 
 func (m detailPopup) view() string {
-	// Sized to what it holds, the way the confirm box is: an identity path and
-	// a masked password want very different widths, and a fixed one either cuts
-	// the path or leaves half the box empty under the bullets.
-	labelW, valueW := m.labelW(), 0
-	for _, r := range m.lines() {
-		valueW = max(valueW, dispW(r.value))
-	}
-	innerW := popupInnerW(m.screenW,
-		max(labelW+4+valueW+1, dispW(m.title)+6, dispW(m.prompt)+4))
+	labelW := m.labelW()
+	innerW := popupInnerW(m.screenW)
 	// Same yielding rule the form uses: on a narrow terminal the label column
 	// gives way rather than squeezing the value out of existence.
 	labelCol := min(labelW+4, max(0, innerW-8))
-	valueW = max(0, innerW-labelCol-1)
+	valueW := max(0, innerW-labelCol-1)
 
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)

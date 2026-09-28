@@ -71,8 +71,13 @@ func TestRenameRefusesToClobber(t *testing.T) {
 	if err != nil || string(body) != "x" {
 		t.Errorf("main.go was overwritten: %q, %v", body, err)
 	}
-	if !m.toast.isActive() {
-		t.Error("a refused rename should say why")
+	// The refusal stays in the box, with the reason in its error row (tdp K3,
+	// F7), so the name can be fixed rather than retyped.
+	if !m.input.isActive() {
+		t.Error("a refused rename should leave the box open")
+	}
+	if v := ansi.Strip(m.input.view()); !strings.Contains(v, "main.go already exists") {
+		t.Errorf("a refused rename should say why in the box:\n%s", v)
 	}
 }
 
@@ -277,7 +282,7 @@ func TestAddSaysWhichKindItWillMake(t *testing.T) {
 // The same three refusals as a rename, because they are the same three ways to
 // mean something other than what you typed. Only the LAST slash is the type
 // marker; one anywhere else still makes it a path.
-func TestAddRefusesBadNames(t *testing.T) {
+func TestAddRefusesBadNamesInTheBox(t *testing.T) {
 	for _, tc := range []struct{ name, typed string }{
 		{"an existing name", "assets"},
 		{"an existing file", "main.go"},
@@ -313,15 +318,16 @@ func TestAddRefusesBadNames(t *testing.T) {
 			t.Errorf("%s: created something anyway (%d -> %d entries)",
 				tc.name, len(before), len(after))
 		}
-		if m.input.isActive() {
-			t.Errorf("%s: the box should have closed", tc.name)
+		// Nothing typed is a cancel and closes; anything else is refused in
+		// the box, with the reason in its error row (tdp K3, F7).
+		if blank := strings.TrimSpace(tc.typed) == ""; m.input.isActive() == blank {
+			t.Errorf("%s: box open=%v, want %v", tc.name, m.input.isActive(), !blank)
 		}
 		// Counting entries is not enough on its own: MkdirAll over an existing
 		// directory is a no-op, so dropping the check would leave the count
 		// unchanged and still claim success. The refusal is the thing.
-		if strings.TrimSpace(tc.typed) != "" && (!m.toast.isActive() || m.toast.kind != toastError) {
-			t.Errorf("%s: should have said no, toast=%q kind=%d",
-				tc.name, m.toast.msg, m.toast.kind)
+		if strings.TrimSpace(tc.typed) != "" && m.input.err == "" {
+			t.Errorf("%s: should have said no in the box", tc.name)
 		}
 	}
 }

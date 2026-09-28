@@ -260,15 +260,29 @@ func (m transferModel) arrivals() arrivals {
 
 // ------------------------------------------------------------------- popup
 
-// transfersPopup lists the jobs with their progress and lets one be cancelled.
-// The summary answers "is anything happening"; this answers "what, and how far".
+// transfersPopup lists the jobs with their progress — a menu (tdp F1): Enter
+// opens the job under the cursor in full, c cancels it. The summary answers "is
+// anything happening"; this answers "what, and how far", and Enter answers
+// "why" for a job that failed — the bar has room for the start of the reason,
+// not the end, where the part that says why usually is.
 type transfersPopup struct {
 	anim    popupAnimator
 	cursor  int
+	top     int // first job on screen, when there are more than fit
+	shown   int // jobs on screen when it opened: its height from then on (tdp F7)
 	layer   int
 	screenW int
 	screenH int
 }
+
+// jobsOpen is what a keystroke asks of the Jobs popup.
+type jobsOpen int
+
+const (
+	jobsNothing jobsOpen = iota
+	jobsCancel
+	jobsDetail
+)
 
 func newTransfersPopup() transfersPopup {
 	return transfersPopup{anim: newPopupAnimator("transfers")}
@@ -279,27 +293,70 @@ func (m transfersPopup) isInteractive() bool { return m.anim.isInteractive() }
 func (m *transfersPopup) close() tea.Cmd     { return m.anim.close() }
 func (m *transfersPopup) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 
-func (m *transfersPopup) open(layer int) tea.Cmd {
-	m.layer, m.cursor = layer, 0
+func (m *transfersPopup) open(layer, n int) tea.Cmd {
+	m.layer, m.cursor, m.top, m.shown = layer, 0, 0, n
 	return m.anim.open()
 }
 
-// update returns the index to cancel, or -1.
-func (m *transfersPopup) update(msg tea.KeyMsg, n int) int {
+// visible is how many jobs the box shows: the ones there were when it opened,
+// or as many as the screen holds at two rows each — beyond that it scrolls
+// with the cursor (tdp F7).
+func (m transfersPopup) visible() int {
+	return max(1, min(m.shown, popupBudget(m.screenH)/2))
+}
+
+// update reports what the key asked for, about job m.cursor.
+func (m *transfersPopup) update(msg tea.KeyMsg, n int) jobsOpen {
 	if !m.anim.isInteractive() {
-		return -1
+		return jobsNothing
 	}
 	switch k := msg.String(); k {
 	case "j", "down", "k", "up":
 		m.cursor = moveCursor(m.cursor, n, k, n)
+		m.top = scrollTop(m.top, m.cursor, m.visible(), n)
+	case "enter":
+		if m.cursor < n {
+			return jobsDetail
+		}
 	case "c", "C":
-		return m.cursor
+		if m.cursor < n {
+			return jobsCancel
+		}
 	}
-	return -1
+	return jobsNothing
+}
+
+// jobLines is the Enter view of one job: what it moved, how far it got, and —
+// the reason to open it — the whole of whatever stopped it.
+func jobLines(j *transferJob, w int) []string {
+	state := "running"
+	switch j.status() {
+	case xferDone:
+		state = "done"
+	case xferCancelled:
+		state = "cancelled"
+	case xferFailed:
+		state = "failed"
+	}
+	lines := []string{
+		" " + j.label,
+		"",
+		fmt.Sprintf(" %s · %d%% · %d/%d files · %s", state, j.percent(),
+			j.filesDone.Load(), j.files, humanSize(j.total)),
+	}
+	if e := j.err(); e != "" {
+		lines = append(lines, "")
+		for _, para := range strings.Split(e, "\n") {
+			for _, l := range wrapPlain(para, max(8, w)) {
+				lines = append(lines, " "+l)
+			}
+		}
+	}
+	return lines
 }
 
 func (m transfersPopup) view(jobs []*transferJob) string {
-	innerW := popupInnerW(m.screenW, 58)
+	innerW := popupInnerW(m.screenW)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	bar := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
@@ -308,7 +365,10 @@ func (m transfersPopup) view(jobs []*transferJob) string {
 	if len(jobs) == 0 {
 		rows = []string{dim.Render(padRight("  nothing transferred yet", innerW))}
 	}
-	for i, j := range jobs {
+	vis := m.visible()
+	top := scrollTop(m.top, m.cursor, vis, len(jobs))
+	for i := top; i < min(len(jobs), top+vis); i++ {
+		j := jobs[i]
 		style := txt
 		switch j.status() {
 		case xferDone:
@@ -324,8 +384,18 @@ func (m transfersPopup) view(jobs []*transferJob) string {
 		}
 		rows = append(rows, dim.Render(padRight("  "+progressBar(j, innerW-4), innerW)))
 	}
+	if m.shown > 0 {
+		rows = fillRows(rows, 2*vis, innerW)
+	}
 
-	hint := hintLegend([][2]string{{"j/k", "move"}, {"c", "cancel"}, {"Esc", "close"}})
+	pairs := [][2]string{{"j/k", "move"}, {"Enter", "open"}, {"c", "cancel"}, {"Esc", "close"}}
+	if len(jobs) == 0 {
+		pairs = [][2]string{{"Esc", "close"}}
+	}
+	if len(jobs) > vis {
+		pairs = append([][2]string{{itoa(m.cursor + 1), "of " + itoa(len(jobs))}}, pairs...)
+	}
+	hint := hintLegend(pairs)
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphUpload+" Transfers ", hint,
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

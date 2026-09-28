@@ -20,10 +20,15 @@ const (
 	inputKnownHosts // which names a known_hosts key is trusted for
 )
 
-// inputPopup is one line of text with a question above it — the message class's
-// sibling (tdp F1). A confirm asks yes or no; this asks "what should it be
-// called". It is NOT a form: a form is several fields and one submit, and
-// blurring the two would make Enter mean different things on different floats.
+// inputPopup is one line of text with a question above it — the input class
+// (tdp F1), one field. A confirm asks yes or no; this asks "what should it be
+// called". The host form and its siblings are the same class with several
+// fields and one submit.
+//
+// Every answer it takes can be refused — a name with a slash, one already
+// taken, a column count that is not a digit — so it keeps an error row from the
+// moment it opens, blank until a submit fails (tdp F7, K3). A refused answer
+// stays in the box with the reason under it, to be fixed rather than retyped.
 type inputPopup struct {
 	anim   popupAnimator
 	title  string
@@ -47,6 +52,9 @@ type inputPopup struct {
 	// carry — the same field confirmPopup and detailPopup grew, and for the
 	// same reason (§11.40).
 	at int
+	// err is why the last submit was refused; typing clears it, the way the
+	// form's error row gives way once the field is being fixed.
+	err string
 
 	layer   int
 	screenW int
@@ -103,19 +111,21 @@ func (m *inputPopup) update(msg tea.KeyMsg) (committed string, done bool) {
 		if r := []rune(m.value); len(r) > 0 {
 			m.value = string(r[:len(r)-1])
 		}
+		m.err = ""
 	case tea.KeySpace:
 		m.value += " "
+		m.err = ""
 	case tea.KeyRunes:
 		m.value += string(msg.Runes)
+		m.err = ""
 	}
 	return "", false
 }
 
 func (m inputPopup) view() string {
-	// The prompt sizes the box too. It is content — a path that has to be
-	// readable to answer the question — not a caption.
-	innerW := popupInnerW(m.screenW, max(44, dispW(m.value)+8, dispW(m.prompt)+3))
+	innerW := popupInnerW(m.screenW)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
+	red := lipgloss.NewStyle().Foreground(warnColor)
 	edit := lipgloss.NewStyle().Foreground(editColor)
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(editColor)
 
@@ -134,6 +144,8 @@ func (m inputPopup) view() string {
 		dim.Render(padRight(" "+m.prompt, innerW)),
 		spaces(innerW),
 		line,
+		spaces(innerW),
+		red.Render(padRight("  "+truncate(m.err, max(0, innerW-2)), innerW)),
 	}
 	hint := hintLegend([][2]string{{"Enter", m.acceptVerb()}, {"Esc", "cancel"}})
 	return drawPopupBox(popupLayerColor(m.layer), " "+m.glyph+" "+m.title+" ",

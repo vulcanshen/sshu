@@ -21,7 +21,9 @@ const (
 // timer from a toast the user already replaced would close its successor.
 type toastExpireMsg struct{ gen int }
 
-// toastModel is transient feedback — the message class with an auto-dismiss.
+// toastModel is transient feedback — the toast class (tdp F1), with an
+// auto-dismiss. It holds no keyboard and is not a layer: nothing dims for it
+// (tdp F8).
 // Esc still kills it immediately: no float may make the user wait out a timer
 // (tdp F3).
 type toastModel struct {
@@ -57,7 +59,7 @@ func (m *toastModel) expire(msg toastExpireMsg) tea.Cmd {
 }
 
 func (m toastModel) view() string {
-	innerW := popupInnerW(m.screenW, dispW(m.msg)+4)
+	innerW := popupInnerW(m.screenW)
 	style := lipgloss.NewStyle().Foreground(textColor)
 	title := " " + glyphInfo + " Info "
 	if m.kind == toastError {

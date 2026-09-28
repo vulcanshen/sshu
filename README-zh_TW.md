@@ -151,7 +151,7 @@ host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **pas
 | `c` / `C` | 清一個標記 / 清掉全部(磁碟上什麼都不動) |
 | `H` | 選這一側的 host(`local` 排第一) |
 | `D` | 這一側斷線 |
-| `J` | Jobs —— 進行中的傳輸,可逐條取消 |
+| `J` | Jobs —— 進行中的傳輸;`Enter` 看那一條的全文,`c` 取消 |
 
 傳輸進行中 `H` 和 `D` 會變暗、按了沒有反應 —— 先到 `J` 取消。
 
@@ -250,7 +250,7 @@ connect_timeout: 15
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
 
 ## License
 

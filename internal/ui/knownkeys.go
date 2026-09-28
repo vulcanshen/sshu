@@ -129,8 +129,8 @@ func (m AppModel) openKnownDetail() (tea.Model, tea.Cmd) {
 	}, m.layer())
 }
 
-// openKnownEdit asks ONE question, so it is the input class rather than a form
-// (tdp F1). The key itself is not editable and never will be: retyping 68
+// openKnownEdit asks ONE question, so it is a single-field input rather than a
+// form (tdp F1). The key itself is not editable and never will be: retyping 68
 // characters of base64 is not an edit, it is a new key — and that is what [A]
 // is for, with the fingerprint shown before anything is trusted.
 func (m AppModel) openKnownEdit() (tea.Model, tea.Cmd) {
@@ -175,7 +175,8 @@ func (m AppModel) doRenameKnown(at int, hosts string) (tea.Model, tea.Cmd) {
 	}
 	next, err := m.known.file.SetHosts(at, hosts)
 	if err != nil {
-		return m, tea.Batch(m.closeStack(), m.toast.show(err.Error(), toastError))
+		m.input.err = err.Error()
+		return m, nil
 	}
 	return m.persistKnown(next, at,
 		fmt.Sprintf("~/.ssh/known_hosts: %q is now trusted for %q",

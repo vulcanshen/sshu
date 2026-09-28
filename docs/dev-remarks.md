@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -144,6 +144,16 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **pty 在 sshu 是 panel,不是浮層**:session 是長時的、同時可以有很多個,所以它是常駐 panel 的內容(filu 的 pty 是短時浮層)。
 - **Connect 之後清掉 source**:明細腳底的 Connect 按下去,明細與 Space menu 一起收掉、切到 `[S]SH`、開 session —— ssh session 是長時 target(tdp T1)。
 
+### 浮層(tdp F 章)
+
+- **六類,一個時間只屬於一類(F1)。** menu:Space menu、global operation popup、選取模式的按鍵清單、lock menu、兩個 picker(host、credential)、Jobs。confirm:刪除、離開、信任 host key 這些確認。input:單行輸入框(rename、add、網格欄數、known_hosts 的 `[E]`)與四個表單(input group)。note:`?`、`[v]iew` 與 log 全文、沒有 offer 的明細。toast。terminal:`[e]dit` 跑編輯器的那一段(取檔與寫回時是 note)。askpass 依 ssh 問的東西是 confirm(host key)或 input(密碼)。
+- **腳底掛著 offer 的明細是 confirm,不是 note 兼 confirm。** hosts / credentials / Config 的明細腳底有 `Connect to "<name>"?` / `Edit "<name>"?`,`Enter` 就執行。它是「帶著一段可捲動內容的 confirm」:問句是它存在的理由,上面的明細是回答問句之前要看的東西 —— 以前 Connect 自己的確認框也只是明細的一個子集(§11.29)。所以不拆成「先看明細、再開一個 confirm」,也不算偏離(使用者 2026-09-28 裁定)。沒有 offer 的明細是 note。
+- **Identity file picker 是附候選清單的 input(F1)。** 可列印的鍵一律是字元(`j`、`k` 也是),只有方向鍵在候選之間移動,`Enter` 送出選中的那一筆 —— 不分「打字」與「挑選」兩個階段。
+- **Jobs 是 menu:`Enter` 打開那個 job 的全文。** 進度條只放得下失敗原因的開頭,而說明為什麼的常常在結尾;全文開在 viewer 裡、疊在 Jobs 上,`Esc` 回到 Jobs。`c` 取消照舊。
+- **一種寬度,打開時定高(F7)。** 每個 popup 都是 `min(terminal 寬 − 2, 120)` 寬(`popupInnerW`),不再依內容各自算;內容放不下就在框裡截尾或折行。高度在打開那一刻定好:picker 篩掉的列變空白、遠端讀完的 `[v]iew` 不再長高、`~/.ssh/config` 表單加 option 在框裡捲動。比畫面高的 menu 與 Jobs 跟著游標捲動,下框寫 `N of M`。`[e]dit` 是 terminal 類,寬高用滿(terminal 寬 − 2 × 高 − 2),從取檔到寫回都是同一個框。
+- **單行輸入框有錯誤列(F7、K3)。** rename、add、網格欄數、known_hosts 的名字,送出被拒時框不關、原因寫在預留的錯誤列、打字就清掉 —— 以前是關掉整疊再跳 toast,名字要整個重打。askpass 的密碼框沒有錯誤列:sshu 不判斷答案,送出不會失敗,答錯是 ssh 再問一次。
+- **最上層以外全部變暗(F8)。** popup 開著時,底下的畫面(包括還在跑的遠端 session、傳輸進度、警示色)與底下的每一層 popup 都用暗色畫;底下那幾層的框線是自己層色的暗版,還看得出是第幾層。「最上層」是握著鍵盤的那一個(`owns()`),所以上層一開始關,下一層就亮回來。toast 不算一層,不讓任何東西變暗。做法是合成時把底下整片去色重畫(`dimScreen`、`dimPopup`),寬度一格不動。
+
 ### PTY 裡的鍵
 
 - **格子裡除了出口鍵,還留著 sshu 自己的和絃(tdp K10、M3)。** tdp v0.1.4 起,K10 只要求 PTY 至少有一個出口鍵,
@@ -184,33 +194,30 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **`SSH_ASKPASS_PROMPT=none` 通知類提示**:FIDO 觸碰確認會讓 helper 掛著等 ssh 殺它,畫面上什麼都不出現;sshconfig host 用 FIDO key 在 file transfer tab 會卡住。
 - **`Alt+Esc` 誤觸**:遠端跑 vim 時快速連按兩次 Esc 會被讀成 `Alt+Esc`(見上方「運作方式」)。
 - **未做**:Mouse;`[1]` 的 `[S]ftp` 捷徑(從表格直接把游標那台接到 file transfer 當前 focus 的那一側);fsnotify 重讀 `hosts.yaml`;keychain 存密碼;Export / Import 已實作但遮罩中(設計未定案,§11.12)。
-- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條也已修完並刪除(§11.61)。刻意不照做的在下方「偏離 tdp」。
+- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條(§11.61)與對照 v0.1.9 的 popup 規則(§11.62)也已修完並刪除。刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面兩條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.7)。
+依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.9)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K11 的方向鍵、K2 拿掉 grid 的例子(v0.1.2);
 格子裡的和絃與鎖住時的出口(v0.1.4 的 K10 改成「至少一個出口鍵,其餘由 app 決定」,移到「設計決定」的
-「PTY 裡的鍵」,§11.60)。表單的 `Enter` 則是 sshu 照 v0.1.3 的 K3 改了(§11.59)。
+「PTY 裡的鍵」,§11.60)。表單的 `Enter` 則是 sshu 照 v0.1.3 的 K3 改了(§11.59)。明細腳底的 offer 原本列為
+F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁定它就是 confirm —— 帶一段內容的 confirm
+—— 移到「設計決定」的「浮層」(§11.62)。
 
 - **SSH tab 的 `Tab` 不作用(K2)。** 照 K2,這個 tab 的兩個 panel `[1]` sessions、`[2]` layout 之間應該用
   `Tab` 輪替。sshu 不做:畫面中央那一大塊是 PTY 的網格,`Tab` 在這個 tab 上一跳,使用者的直覺是「進格子」,
   而格子裡的 `Tab` 屬於遠端(K10);在旁邊兩個小 panel 之間跳,正好是最不會被想到的那個意思。要換 panel 用
   數字鍵,進格子用 `Enter`,格子之間用 `Alt`+方向鍵。`Tab` 以前是 `[H]ide` 的第二個拼法,§11.56 拿掉了。
   (tdp K2 原本拿 sshu 的 grid 當「`Tab` 在 cell 之間切換」的例子,v0.1.2 已刪。)
-- **明細浮層是 viewport,腳底可以掛一個 offer(F1)。** `detailPopup`(`internal/ui/detail.go`)是唯讀
-  viewport,但 hosts / credentials / Config 的明細腳底掛著 `Connect to "<name>"?` / `Edit "<name>"?` 的問句,
-  `Enter` 就執行 —— 等於 viewport 兼 confirm。理由(`sshu-ui-design.md` §11.29):以前 Connect 有自己的確認框,
-  但連線不是破壞性動作,那個確認框真正在做的是「先讓你看清楚要去哪」,而明細本來就說得更完整;「看」和「決定」
-  分成兩個浮層,只是讓使用者多按一次、多看一次同樣的東西。
 
 ## 設計文件導讀
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.61),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.62),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

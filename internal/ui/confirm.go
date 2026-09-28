@@ -29,7 +29,7 @@ const (
 	confirmTrustHostKey  // write a freshly fetched key into known_hosts
 )
 
-// confirmPopup is the message class (tdp F1): a short question with one yes and
+// confirmPopup is the confirm class (tdp F1): a short question with one yes and
 // one no. It is NOT a menu — a menu is "pick one of N", and blurring the two
 // would make Enter mean different things on different floats.
 type confirmPopup struct {
@@ -74,11 +74,7 @@ func (m confirmPopup) commit(msg tea.KeyMsg) bool {
 }
 
 func (m confirmPopup) view() string {
-	w := dispW(m.title) + 6
-	for _, l := range m.lines {
-		w = max(w, dispW(l)+4)
-	}
-	innerW := popupInnerW(m.screenW, w)
+	innerW := popupInnerW(m.screenW)
 
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
