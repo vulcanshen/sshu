@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.13/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -6848,6 +6848,24 @@ tab 膠囊、游標列、底下 menu 的游標是原色的淡化,底下 menu 的
 21 個 mutation 全數被抓。第一輪有兩個是「編譯失敗」才算紅,不算數,改成編譯得過的版本重跑:換回剝色重畫
 那個照樣被抓;「reset 後不補淡化字色」存活 —— 測試量的字色碼每一行開頭本來就有,量不到行中間的 reset。補了
 「reset 之後緊接淡化字色」的斷言(`0;38;2;109;113;135`)。
+
+---
+
+### 11.65 對照 tdp v0.1.13 —— Jobs 與明細的分類寫進 F1
+
+#### 使用者的要求
+
+> 「對齊新的 tdp 規範, 應該只需要對齊文件就好，程式不用改」
+
+tdp v0.1.13 只改 F1,採納的正是 sshu 在 §11.62 定下的兩個分類:
+
+- **menu 的 `Enter` 可以打開那一列的全文**:有 cursor、本身沒有別的動作的清單,`Enter` 開一個 note 顯示那一列,
+  它仍是 menu —— F1 的例子就是 sshu 的 Jobs(「工作清單」)。
+- **confirm 可以帶一段回答前要看的內容**,長時用 `j/k` 捲動,仍然只是 confirm、不必拆成兩個 popup —— 例子是
+  「連線到 X?」上面放 X 的明細,也就是 sshu 腳底掛著 offer 的明細(§11.29)。
+
+行為不變,程式不動。dev-remarks「浮層」的兩條補上 v0.1.13,偏離段改成對照 v0.1.13(仍只有 SSH tab 的 `Tab`),
+tdp 連結改釘 `v0.1.13`。
 
 ---
 

@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.13/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -147,9 +147,9 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 ### 浮層(tdp F 章)
 
 - **六類,一個時間只屬於一類(F1)。** menu:Space menu、global operation popup、lock menu、兩個 picker(host、credential)、Jobs。confirm:刪除、離開、信任 host key 這些確認。input:單行輸入框(rename、add、網格欄數、known_hosts 的 `[E]`)與四個表單(input group)。note:`?`、`[v]iew` 與 log 全文、沒有 offer 的明細。toast。terminal:`[e]dit` 跑編輯器的那一段(取檔與寫回時是 note)。askpass 依 ssh 問的東西是 confirm(host key)或 input(密碼)。
-- **腳底掛著 offer 的明細是 confirm,不是 note 兼 confirm。** hosts / credentials / Config 的明細腳底有 `Connect to "<name>"?` / `Edit "<name>"?`,`Enter` 就執行。它是「帶著一段可捲動內容的 confirm」:問句是它存在的理由,上面的明細是回答問句之前要看的東西 —— 以前 Connect 自己的確認框也只是明細的一個子集(§11.29)。所以不拆成「先看明細、再開一個 confirm」,也不算偏離(使用者 2026-09-28 裁定)。沒有 offer 的明細是 note。
+- **腳底掛著 offer 的明細是 confirm,不是 note 兼 confirm。** hosts / credentials / Config 的明細腳底有 `Connect to "<name>"?` / `Edit "<name>"?`,`Enter` 就執行。它是「帶著一段可捲動內容的 confirm」:問句是它存在的理由,上面的明細是回答問句之前要看的東西 —— 以前 Connect 自己的確認框也只是明細的一個子集(§11.29)。所以不拆成「先看明細、再開一個 confirm」,也不算偏離(使用者 2026-09-28 裁定;tdp v0.1.13 把它寫進 F1:confirm 可以帶一段回答前要看的內容,用 `j/k` 捲動)。沒有 offer 的明細是 note。
 - **Identity file picker 是附候選清單的 input(F1)。** 可列印的鍵一律是字元(`j`、`k` 也是),只有方向鍵在候選之間移動,`Enter` 送出選中的那一筆 —— 不分「打字」與「挑選」兩個階段。
-- **Jobs 是 menu:`Enter` 打開那個 job 的全文。** 進度條只放得下失敗原因的開頭,而說明為什麼的常常在結尾;全文開在 viewer 裡、疊在 Jobs 上,`Esc` 回到 Jobs。`c` 取消照舊。
+- **Jobs 是 menu:`Enter` 打開那個 job 的全文。** 進度條只放得下失敗原因的開頭,而說明為什麼的常常在結尾;全文開在 viewer 裡、疊在 Jobs 上,`Esc` 回到 Jobs。`c` 取消照舊。tdp v0.1.13 把這個形狀寫進 F1:有 cursor、本身沒有別的動作的清單,`Enter` 可以開那一列的全文,它仍是 menu。
 - **一種寬度,打開時定高(F7)。** 每個 popup 都是 `min(terminal 寬 − 2, 120)` 寬(`popupInnerW`),不再依內容各自算;內容放不下就在框裡截尾或折行。高度在打開那一刻定好:picker 篩掉的列變空白、遠端讀完的 `[v]iew` 不再長高、`~/.ssh/config` 表單加 option 在框裡捲動 —— tdp v0.1.11 起這兩種(loading、使用者自己的動作)**允許**改變高度,sshu 選擇維持定高。內容還在路上的 popup,標題後面轉一個 loading icon(tdp F7、D3,v0.1.12):遠端的 `[v]iew`、`[e]dit` 取檔與寫回、known_hosts `[A]` 等 host key;icon 是 webu 的 circle slice 八格,一格 90ms,由時鐘決定是哪一格(`loadingIcon`),內容一到就消失。比畫面高的 menu 與 Jobs 跟著游標捲動,下框寫 `N of M`。`[e]dit` 是 terminal 類,寬高用滿(terminal 寬 − 2 × 高 − 2),從取檔到寫回都是同一個框。
 - **單行輸入框有錯誤列(F7、K3)。** rename、add、網格欄數、known_hosts 的名字,送出被拒時框不關、原因寫在預留的錯誤列、打字就清掉 —— 以前是關掉整疊再跳 toast,名字要整個重打。askpass 的密碼框沒有錯誤列:sshu 不判斷答案,送出不會失敗,答錯是 ssh 再問一次。
 - **最上層以外全部變暗(F8)。** popup 開著時,底下的畫面(包括還在跑的遠端 session、傳輸進度、警示色)與底下的每一層 popup 都用暗色畫;底下那幾層的框線是自己層色的暗版,還看得出是第幾層。「最上層」是握著鍵盤的那一個(`owns()`),所以上層一開始關,下一層就亮回來。toast 不算一層,不讓任何東西變暗。做法是合成時改寫底下每一個顏色碼(`dimANSI`,照 filu 的參考實作):前景與背景都往畫布色淡化(保留 45%),絕不變亮,一律寫成 24-bit;沒有顏色的字給淡化後的字色;bold、reverse、文字本身不動,所以一格都不位移。§11.62 的第一版是「剝掉顏色、整片用一個灰重畫」,把靠背景畫的東西全拆了 —— tab 列的膠囊、panel 的 `[N]` 膠囊、游標列、選取反白、遠端 vim 的狀態列(§11.64)。遠端程式的 16 色是使用者終端機的調色盤,sshu 讀不到,照 tdp D2 用 xterm 的預設調色盤換成 RGB 再淡化,所以自訂的 16 色淡化後會變成 xterm 的色相。
@@ -198,7 +198,7 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.12)。
+依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.13)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K2 拿掉 grid 的例子(v0.1.2;同時採納的「模式按鍵清單
@@ -206,7 +206,7 @@ sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上
 格子裡的和絃與鎖住時的出口(v0.1.4 的 K10 改成「至少一個出口鍵,其餘由 app 決定」,移到「設計決定」的
 「PTY 裡的鍵」,§11.60)。表單的 `Enter` 則是 sshu 照 v0.1.3 的 K3 改了(§11.59)。明細腳底的 offer 原本列為
 F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁定它就是 confirm —— 帶一段內容的 confirm
-—— 移到「設計決定」的「浮層」(§11.62)。
+—— 移到「設計決定」的「浮層」(§11.62),v0.1.13 寫進 F1。
 
 - **SSH tab 的 `Tab` 不作用(K2)。** 照 K2,這個 tab 的兩個 panel `[1]` sessions、`[2]` layout 之間應該用
   `Tab` 輪替。sshu 不做:畫面中央那一大塊是 PTY 的網格,`Tab` 在這個 tab 上一跳,使用者的直覺是「進格子」,
@@ -218,7 +218,7 @@ F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁�
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.64),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.65),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。
