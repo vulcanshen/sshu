@@ -2,9 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -250,50 +250,53 @@ func TestARefusedAnswerStaysInTheInput(t *testing.T) {
 	}
 }
 
-var sgrRe = regexp.MustCompile("\x1b\\[([0-9;]*)m")
-
-// foregrounds lists every 24-bit foreground an ANSI string sets.
-func foregrounds(s string) []string {
-	var out []string
-	for _, m := range sgrRe.FindAllStringSubmatch(s, -1) {
-		if strings.HasPrefix(m[1], "38;2;") {
-			out = append(out, m[1])
-		}
-	}
-	return out
-}
-
-// With a popup open, everything below the top one is dim (tdp F8): the base
-// screen in the dim colour, a popup underneath with its frame in a dimmed
-// version of its own layer colour. Only the top popup is lit.
-func TestEverythingBelowTheTopPopupIsDim(t *testing.T) {
+// With a popup open, everything below the top one FADES (tdp F8, D2): every
+// colour, foreground and background, toward the canvas — so what is drawn with
+// a background is still there, darker. The expected values are written out,
+// not computed with dimRGB: a test that asked the code for its answer would
+// agree with whatever the code says. (The first version stripped the colour
+// and redrew in one grey; its test counted foregrounds and could not see the
+// tab chip, the cursor bar and the layer colours vanish.)
+func TestLowerLayersFadeTheirOwnColours(t *testing.T) {
 	withColour(t)
+	const (
+		// lipgloss writes #89b4fa as 137;179;250 and #A4C0FA as 163;192;250;
+		// the fades are worked from what is actually on screen.
+		litFocusBg  = "48;2;137;179;250" // focusColor: the tab chip, the cursor bar
+		dimFocusBg  = "48;2;78;97;138"   // its fade
+		litLayer1Fg = "38;2;163;192;250" // popupLayerColor(1)
+		dimLayer1Fg = "38;2;90;103;138"  // its fade
+		dimHandBg   = "48;2;100;104;125" // handColor #bac2de faded: a lower menu's cursor
+	)
 	m := appWith(sample(), nil)
-	dim := ansiOf(t, dimColor)
-
-	plain := m.View()
-	if fg := foregrounds(strings.Split(plain, "\n")[0]); len(fg) == 0 || allEqual(fg, dim) {
-		t.Fatalf("setup: the tab row should carry colour of its own, got %v", fg)
+	if !strings.Contains(strings.Split(m.View(), "\n")[0], litFocusBg) {
+		t.Fatalf("setup: the tab row's chip should be drawn on %s", litFocusBg)
 	}
 
 	m = pressA(m, " ")
-	for _, fg := range foregrounds(strings.Split(m.View(), "\n")[0]) {
-		if fg != dim {
-			t.Fatalf("under a popup the tab row is dim only, found %s", fg)
-		}
+	v := m.View()
+	row0 := strings.Split(v, "\n")[0]
+	if !strings.Contains(row0, dimFocusBg) || strings.Contains(row0, litFocusBg) {
+		t.Errorf("under a popup the tab chip keeps its background, faded:\n%q", row0)
 	}
-	if !strings.Contains(m.View(), ansiOf(t, popupLayerColor(1))) {
+	if strings.Count(v, dimFocusBg) < 2 {
+		t.Error("the hosts table's cursor bar should still be there, faded, under the menu")
+	}
+	if !strings.Contains(v, litLayer1Fg) {
 		t.Error("the one popup open is the top one, and lit")
 	}
 
 	// Two layers: help over the Space menu.
 	m = pressA(m, "?")
-	v := m.View()
-	if !strings.Contains(v, ansiOf(t, dimmedLayerColor(1))) {
-		t.Error("the Space menu under the help should keep a dimmed version of its layer colour")
+	v = m.View()
+	if !strings.Contains(v, dimLayer1Fg) {
+		t.Error("the Space menu under the help should keep its layer colour, faded")
 	}
-	if strings.Contains(v, ansiOf(t, popupLayerColor(1))) {
+	if strings.Contains(v, litLayer1Fg) {
 		t.Error("the Space menu under the help should not be lit")
+	}
+	if !strings.Contains(v, dimHandBg) {
+		t.Error("the Space menu's cursor bar should still be there under the help, faded")
 	}
 	if !strings.Contains(v, ansiOf(t, popupLayerColor(2))) {
 		t.Error("the help on top should be lit")
@@ -306,8 +309,196 @@ func TestEverythingBelowTheTopPopupIsDim(t *testing.T) {
 	if !m.help.isActive() || m.help.anim.owns() {
 		t.Fatal("setup: the help should be mid-close")
 	}
-	if !strings.Contains(m.View(), ansiOf(t, popupLayerColor(1))) {
+	if !strings.Contains(m.View(), litLayer1Fg) {
 		t.Error("with the help closing, the Space menu is the top again and lit")
+	}
+}
+
+// dimANSI fades every colour the way tdp D2 writes it down: 16 and 256
+// colours through xterm's palette into 24-bit, foreground and background,
+// never lighter than it was; text with no colour gets the faded text colour;
+// reverse and the text itself are left alone.
+func TestDimFadesEveryColourAndKeepsTheRest(t *testing.T) {
+	in := "\x1b[31mred\x1b[0m \x1b[38;5;196mx\x1b[48;2;0;0;0my\x1b[7mz\x1b[39mw\nplain"
+	out := dimANSI(in)
+	for _, want := range []string{
+		"38;2;109;0;0",     // 16-colour red (205,0,0): a channel below the canvas stays 0
+		"38;2;131;0;0",     // 256-colour 196 (255,0,0)
+		"48;2;0;0;0",       // black never fades UP toward the canvas
+		"38;2;109;113;135", // no colour of its own: the text colour, faded
+		"\x1b[7m",          // reverse survives
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("dimmed output should carry %q:\n%q", want, out)
+		}
+	}
+	if strings.Contains(out, "\x1b[31m") || strings.Contains(out, "38;5;") {
+		t.Errorf("no colour should come through undimmed:\n%q", out)
+	}
+	if ansi.Strip(out) != ansi.Strip(in) {
+		t.Errorf("the text must not move: %q -> %q", ansi.Strip(in), ansi.Strip(out))
+	}
+	if !strings.HasPrefix(strings.Split(out, "\n")[1], "\x1b[38;2;109;113;135m") {
+		t.Error("every line starts in the faded text colour")
+	}
+	// And a reset in the middle of a line brings the faded text colour back
+	// at once, or the text after it would be drawn lit.
+	if !strings.Contains(out, "\x1b[0;38;2;109;113;135m") {
+		t.Errorf("a reset should be followed by the faded text colour:\n%q", out)
+	}
+}
+
+// A remote program's colours and a selection's background, under a popup, are
+// their own colours faded — not one grey.
+func TestTheGridUnderAPopupKeepsItsColoursFaded(t *testing.T) {
+	withColour(t)
+	fakeSSH(t, `printf '\033[31mRED\033[42mONGREEN\033[0m $ '; exec cat`)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+	waitFor(t, "the stand-in to answer", func() bool {
+		return len(m.ssh.sessions) == 1 && m.ssh.sessions[0].pty.hasSpoken()
+	})
+	waitFor(t, "the colours to reach the cell", func() bool {
+		return strings.Contains(ansi.Strip(m.View()), "ONGREEN")
+	})
+
+	m = pressA(m, "alt+v", "v", "l", "?")
+	if !m.help.isActive() {
+		t.Fatal("setup: ? in selection mode should open its key reference")
+	}
+	v := m.View()
+	for name, want := range map[string]string{
+		"the remote's red":       "38;2;109;0;0",     // ansi 31 (205,0,0) faded
+		"the remote's green bg":  "48;2;0;109;0",     // ansi 42 (0,205,0) faded
+		"the selection's yellow": "48;2;129;118;104", // selectColor #f9e2af faded
+	} {
+		if !strings.Contains(v, want) {
+			t.Errorf("%s should be there, faded (%s)", name, want)
+		}
+	}
+	if strings.Contains(v, "48;2;249;226;175") {
+		t.Error("the selection under the popup should not be lit")
+	}
+}
+
+// A popup whose content is on its way turns an icon after its title (tdp F7,
+// D3): read off the clock, gone when the content lands.
+func TestALoadingPopupTurnsAnIconAfterItsTitle(t *testing.T) {
+	old := loadingNow
+	t.Cleanup(func() { loadingNow = old })
+	t0 := time.Unix(1000, 0)
+	loadingNow = func() time.Time { return t0 }
+	frame := func(at time.Time) string {
+		return loadingFrames[(at.UnixNano()/int64(loadingStep))%int64(len(loadingFrames))]
+	}
+	title := func(v string) string { return ansi.Strip(strings.Split(v, "\n")[0]) }
+	hasAny := func(s string) bool {
+		for _, f := range loadingFrames {
+			if strings.Contains(s, f) {
+				return true
+			}
+		}
+		return false
+	}
+
+	vw := newViewerPopup()
+	vw.setSize(100, 40)
+	vw.open(1, "deploy.sh")
+	vw.anim.phase = animOpen
+	if got := title(vw.view()); !strings.Contains(got, "deploy.sh "+frame(t0)) {
+		t.Errorf("a remote read should turn the icon after the title: %q", got)
+	}
+	t1 := t0.Add(loadingStep)
+	loadingNow = func() time.Time { return t1 }
+	if got := title(vw.view()); !strings.Contains(got, frame(t1)) || frame(t1) == frame(t0) {
+		t.Errorf("90ms later the icon should have turned: %q", got)
+	}
+	vw.onLoaded(viewLoadedMsg{gen: vw.gen, title: "deploy.sh", lines: []string{"x"}})
+	if got := title(vw.view()); hasAny(got) {
+		t.Errorf("once the file is in, the icon goes: %q", got)
+	}
+	vw.showText(1, "log", []string{"x"})
+	if got := title(vw.view()); hasAny(got) {
+		t.Errorf("text already in hand is not loading: %q", got)
+	}
+
+	ed := newEditorPopup()
+	ed.setSize(100, 40)
+	ed.open(1, "a.txt", 10)
+	ed.anim.phase = animOpen
+	for phase, want := range map[editPhase]bool{editFetching: true, editSaving: true, editRunning: false} {
+		ed.phase = phase
+		if got := title(ed.view()); hasAny(got) != want {
+			t.Errorf("editor phase %d: icon=%v, want %v: %q", phase, hasAny(got), want, got)
+		}
+	}
+
+	ka := newKnownAddForm()
+	ka.setSize(100, 40)
+	ka.anim.phase = animOpen
+	if hasAny(title(ka.view())) {
+		t.Error("the fetch form is not loading until it is sent")
+	}
+	ka.scanning = true
+	v := ka.view()
+	if !hasAny(title(v)) {
+		t.Error("waiting for the host key is loading: the icon goes after the title")
+	}
+	if strings.Contains(ansi.Strip(v), "asking") {
+		t.Error("the error row carries errors only, not the wait")
+	}
+}
+
+// The icon is repainted on a tick only while something is loading.
+func TestTheLoadingTickStopsWhenNothingLoads(t *testing.T) {
+	m := appWith(sample(), nil)
+	if _, cmd := m.Update(loadingTickMsg{}); cmd != nil {
+		t.Error("with nothing loading, the tick should not re-arm")
+	}
+	m.viewer.loading = true
+	if _, cmd := m.Update(loadingTickMsg{}); cmd == nil {
+		t.Error("while the viewer loads, the tick should re-arm")
+	}
+}
+
+// Connections and Changes have no row to act on — each panel is its content,
+// so Enter opens all of it (tdp K3), and the Space menu says so (M3).
+func TestEnterOnAJournalOpensAllOfIt(t *testing.T) {
+	long := "Wrote ~/.ssh/config: added Host block prod-* with IdentityFile ~/.ssh/id_ed25519 and ProxyJump bastion.example.com"
+	for _, item := range []prefItem{prefConnections, prefChanges} {
+		m := appWith(sample(), nil)
+		m.tab, m.pref.item, m.pref.focus = tabPref, item, panelPrefContent
+		m = pressA(m, "enter")
+		if m.viewer.isActive() {
+			t.Errorf("%s: an empty journal has nothing to open", item.label())
+		}
+
+		at := time.Date(2026, 9, 28, 14, 3, 5, 0, time.UTC)
+		m.connections.entries = []connRec{{at: at, host: "db-replica-tokyo-ap-northeast-1", user: "postgres", ok: true}}
+		m.changes.entries = []changeRec{{at: at, action: long}}
+
+		found := false
+		for _, it := range m.menuItems() {
+			if it.key == "enter" && it.label == "Open in full" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s: the Space menu should offer Enter", item.label())
+		}
+
+		m = pressA(m, "enter")
+		if !m.viewer.isActive() {
+			t.Fatalf("%s: Enter should open the journal", item.label())
+		}
+		text := strings.Join(m.viewer.lines, " ")
+		want := "db-replica-tokyo-ap-northeast-1"
+		if item == prefChanges {
+			want = "bastion.example.com"
+		}
+		if !strings.Contains(text, want) || !strings.Contains(text, "2026-09-28 14:03:05") {
+			t.Errorf("%s: the whole entry, with its date, should be there:\n%s", item.label(), text)
+		}
 	}
 }
 
@@ -322,13 +513,4 @@ func TestAToastDimsNothing(t *testing.T) {
 	if got := strings.Split(m.View(), "\n")[0]; got != before {
 		t.Errorf("a toast dimmed the screen:\n%q\n%q", before, got)
 	}
-}
-
-func allEqual(xs []string, v string) bool {
-	for _, x := range xs {
-		if x != v {
-			return false
-		}
-	}
-	return true
 }

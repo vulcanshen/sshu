@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -467,9 +467,10 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 
 - **popup**:border 走 `popupLayerColor(layer)`(lavenphire25 → sapphire),
   巢狀越上層越亮,不 hardcode(tdp D2)。直接沿用 filu 的實作。
-- **只有最上層是亮的**(tdp F8,§11.62):popup 開著時,底下的畫面與底下每一層
-  popup 都用暗色畫 —— 串流的遠端 session、警示色也一樣;底下那幾層的框線是自己
-  層色的暗版。popup 都一樣寬(F7),上層蓋住下層的左右邊,亮暗是唯一還分得出層次的線索。
+- **只有最上層是亮的**(tdp F8,§11.62、§11.64):popup 開著時,底下的畫面與底下每一層
+  popup 的每一個顏色 —— 前景與背景 —— 都往畫布色淡化(D2:保留 45%、絕不變亮):
+  膠囊、游標列、選取反白、遠端 session 的顏色都還在,只是暗了;底下那幾層的框線
+  自然是自己層色的暗版。popup 都一樣寬(F7),上層蓋住下層的左右邊,亮暗是唯一還分得出層次的線索。
 - **表格選中列**:blue bar;未選中列的欄位退到 `dimColor`。這是
   z-axis 在 item 層的實例。
 
@@ -1672,7 +1673,8 @@ panel 上 `[U]nmark` 是「這一個」、`[C]lear marks` 是「全部」,再讓
 lexer 不是免費的。畫面不該等其中任何一個。
 
 **popup 先開、內容後到。** 跟連線的 spinner 同一個教訓:一個要等 bytes 到了才有反應
-的鍵,看起來就是一個沒反應的鍵。
+的鍵,看起來就是一個沒反應的鍵。讀的時候標題後面轉 loading icon(tdp F7,§11.64),
+內容一到就停;框一開就是上限高度,讀完不再改。
 
 **ESC 一定要被吃掉**(`sanitizeLine`)。這一條在 sshu 比在 filu 更重要:那些 bytes
 是從**別人的機器**上來的。一個含有跳脫序列的檔案,不處理的話可以重畫這個 popup、
@@ -6770,6 +6772,82 @@ footer;footer 照樣顯示 `?`,`Space` 不必列。v0.1.2 那條「按鍵清單�
 
 4 個 mutation 全數被抓(Space 開 help、footer 列回 space、reference 列回 Space、reference 少了 word 鍵);
 第五個就是上面那個觀察不到的分支。
+
+---
+
+### 11.64 dim 改成淡化、loading icon、journal 的 `Enter`(tdp v0.1.11–v0.1.12)
+
+#### 使用者的要求
+
+> 「對齊新的 tdp 規範」
+
+tdp v0.1.11 收了 filu、locku、webu、sshu 對齊 v0.1.8–v0.1.10 時的回饋,v0.1.12 回答四個 app 盤點時的共同問題。
+使用者盤點成 `docs/sshu-terminu-fix.md`(三條,修完刪除),其中的待確認由 v0.1.12 定案。
+
+#### dim 是淡化,不是剝色(F8、D2)
+
+§11.62 的 `dimScreen` / `dimPopup` 對底下的畫面做 `ansi.Strip`,再整行用 `dimColor` 重畫:前景全變成同一個灰,
+背景、bold、reverse 全部丟掉。靠背景畫的東西因此在 popup 底下整個消失 —— tab 列的 powerline 膠囊、panel 上框的
+`[N] label` 膠囊、每一條游標列、底下那層 menu 的游標、選取模式的反白、網格裡遠端程式的狀態列與色塊 —— 只剩灰字
+與幾個浮在字旁的半圓。§11.62 的測試只量前景(「tab 列每一個前景都等於 `dimColor`」),舊做法的前景也是暗的,
+所以量不出來。
+
+tdp v0.1.11 把做法寫死:改寫每一個顏色碼,前景與背景都往畫布色淡化,形狀與版面不動;D2 給算式
+`dim(c) = c × 0.45 + base × 0.55`,16 色與 256 色先換 RGB,沒有前景的字給 `dim(Text)`;v0.1.12 加上「絕不變亮」
+(每個通道取原值與淡化值較小的那個 —— 比畫布還暗的黑色淡化後會變亮)與「一律輸出 24-bit」(家族要求 truecolor,D6)。
+
+`dim.go` 換成 filu 的參考實作(`dimANSI`、`dimSGR`、`dimRGB`、`xterm256`、`ansi16`),`dimBase` 與 `dimText` 取自
+sshu 的 `baseHex`、`textColor`,`dimRGB` 加上 `min`。`composeFloats` 對 base 與每一層非最上層的 popup 都用
+`dimANSI`:框線本來就是層色的 SGR,淡化後自然是層色的暗版,不用再認框線。`dimScreen`、`dimPopup`、
+`dimmedLayerColor`、`mixHex` 刪除。`nestAnnounce()` 照舊在合成之後才附加,而且 `dimANSI` 只改 `ESC[…m`。
+
+遠端程式的 16 色是使用者終端機自己的調色盤,sshu 讀不到;照 D2 用 xterm 的預設調色盤換算,自訂 16 色淡化後是
+xterm 的色相。README 兩份的需求段補上「需要 truecolor 終端機」(D6)。
+
+#### loading icon(F7、D3)
+
+內容還在路上的 popup,標題後面轉一個 icon:webu 的 Nerd Font circle slice(U+F0A9E–U+F0AA5,從已安裝字型的
+cmap 讀出來確認),一格 90ms,由時鐘決定是哪一格(`loadingIcon`,`loadingNow` 是測試的縫),顏色跟著標題(層色、
+bold)。用在三個地方:
+
+- **遠端的 `[v]iew`**:`open` 設 `loading`、排 `loadingTickMsg`;`onLoaded` 清掉,tick 就不再續排。`showText`
+  (內容在手上)不轉。框的高度照舊一開就是上限、讀完不改 —— v0.1.11 允許 loading 期間改高度,sshu 選擇不改。
+- **`[e]dit`** 取檔與寫回(`loading()` = fetching 或 saving、沒有失敗的 note)。框裡的 spinner 與位元組數留著:
+  它說進度,標題的 icon 說「還在載入」。editor 原本就有 50ms 的 tick。
+- **known_hosts `[A]` 等 host key**(v0.1.12 定案:那是整個 popup 在等結果)。原本 spinner 與「asking host:22 for
+  its key」畫在錯誤列上;錯誤列改成只放錯誤,等待交給標題的 icon —— 問的是哪台、哪個 port,就是框裡上面兩列。
+  它的 tick 改成 90ms,不用的 `spin` 計數刪掉。
+
+面板裡的 spinner(連線中的格子、sftp 撥號、傳輸 summary)不是 popup,照舊用 braille。
+
+#### journal 上的 `Enter`(K3)
+
+`[M]anage` → Logs 的 Connections 與 Changes 沒有游標:一列後面沒有東西可開,「一個按不下去的游標看起來像壞掉」。
+v0.1.11 的 K3:panel 本身是內容區、沒有項目可選時,`Enter` 對整個 panel 做最直觀的動作。這裡是開整本的全文
+(`openJournalText`,viewer 的 `showText`):每一筆完整、帶日期(表格只有時間),Changes 的動作照 viewer 的寬度
+折行(表格在 80 欄下把動作截掉大半)。Space menu 的 panel operation 多一列 `Open in full`(`Enter`),key reference
+從 menu 讀出來。空的 journal 按 `Enter` 不開東西。Errors 照舊:有游標,`Enter` 開那一筆。
+
+#### 已經符合的(對照 v0.1.11–v0.1.12)
+
+- F6 的例外(經由 picker 明確選定的那一次算已確認):`[F]ile transfer` 的 host picker 選了就連。
+- F7 使用者動作造成的高度改變是「允許」:picker 篩選、config 表單加 option 維持定高,照樣符合。
+- Jobs 的列數打開後不變(開著時不會有新 job),只有狀態與進度在背景更新;askpass 換題由 sshu 自己決定,照舊。
+
+#### 測試
+
+`tdppopup_test.go`:`TestLowerLayersFadeTheirOwnColours`(原 `TestEverythingBelowTheTopPopupIsDim`,改量**背景**:
+tab 膠囊、游標列、底下 menu 的游標是原色的淡化,底下 menu 的框線是寫死的 `38;2;90;103;138`;預期值依 lipgloss
+實際輸出的色碼手算 —— 它把 `#89b4fa` 寫成 `137;179;250`)/ `TestDimFadesEveryColourAndKeepsTheRest`(16 色、
+256 色、黑色不變亮、沒有顏色的字、reverse、文字不動)/ `TestTheGridUnderAPopupKeepsItsColoursFaded`(假的遠端印
+紅字與綠底,選取模式裡按 `?`:遠端的紅、綠底、選取的黃都是淡化後的原色)/
+`TestALoadingPopupTurnsAnIconAfterItsTitle`(viewer、editor 三個階段、known_hosts;90ms 後換下一格)/
+`TestTheLoadingTickStopsWhenNothingLoads` / `TestEnterOnAJournalOpensAllOfIt`。改寫:known_hosts 的
+「the wait must be visible」改看標題的 icon。
+
+21 個 mutation 全數被抓。第一輪有兩個是「編譯失敗」才算紅,不算數,改成編譯得過的版本重跑:換回剝色重畫
+那個照樣被抓;「reset 後不補淡化字色」存活 —— 測試量的字色碼每一行開頭本來就有,量不到行中間的 reset。補了
+「reset 之後緊接淡化字色」的斷言(`0;38;2;109;113;135`)。
 
 ---
 

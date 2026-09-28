@@ -347,13 +347,19 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case hostKeyScannedMsg:
 		return m.hostKeyScanned(msg)
 
+	case loadingTickMsg:
+		if !m.viewer.loading {
+			return m, nil
+		}
+		return m, loadingTick()
+
 	case knownScanTickMsg:
 		// Only while something is out: an idle sshu must not be repainting for
-		// a spinner nobody is looking at.
+		// an icon nobody is looking at. The icon reads the clock, so the tick
+		// only has to land.
 		if !m.knownAddUI.scanning {
 			return m, nil
 		}
-		m.knownAddUI.spin++
 		return m, knownScanTick()
 
 	case splashTickMsg, splashIdentityMsg, splashHintMsg:
@@ -1838,9 +1844,13 @@ func (m AppModel) menuItems() []menuItem {
 		}
 		// The hint names the file, because Clear is per journal now and
 		// "every entry" would read as all three.
-		return m.regions(nil, []menuItem{
-			{label: "Clear " + region, key: "C", hint: "erase " + m.journalFile()},
-		})
+		panel := []menuItem{{label: "Clear " + region, key: "C", hint: "erase " + m.journalFile()}}
+		if m.pref.item != prefErrors {
+			// Enter on a panel that is all content opens all of it (tdp K3).
+			panel = append([]menuItem{{label: "Open in full", key: "enter",
+				hint: "every entry, whole"}}, panel...)
+		}
+		return m.regions(nil, panel)
 	case prefExport, prefImport:
 		return m.withGlobal([]menuItem{
 			{label: "operation", header: true},

@@ -38,7 +38,6 @@ type knownAddForm struct {
 	// and letting the box be edited underneath would make the confirmation name
 	// something else.
 	scanning bool
-	spin     int
 	layer    int
 	screenW  int
 	screenH  int
@@ -60,7 +59,7 @@ func (m *knownAddForm) open(layer int) tea.Cmd {
 		f[i].caret = len([]rune(f[i].value))
 	}
 	m.fields, m.focus, m.err, m.errIdx = f, kfHost, "", -1
-	m.submitted, m.scanning, m.spin = false, false, 0
+	m.submitted, m.scanning = false, false
 	m.layer = layer
 	return m.anim.open()
 }
@@ -135,14 +134,13 @@ func (m knownAddForm) view() string {
 
 	pairs := [][2]string{{"Tab", "next"}, {"Enter", "fetch"}, {"Esc", "cancel"}}
 	if m.scanning {
-		host, port := m.target()
-		spin := spinnerFrames[m.spin%len(spinnerFrames)]
-		// Replaces the error row rather than adding a line, so the box does not
-		// change height the moment it starts working.
-		rows[len(rows)-1] = padRight("  "+spin+" asking "+host+":"+itoa(port)+" for its key", innerW)
+		// Waiting for the key is the whole popup waiting — loading, said by
+		// the icon after the title (tdp F7, v0.1.12). The error row carries
+		// errors only; the host and port it is asking are the two rows above.
 		pairs = [][2]string{{"Esc", "cancel"}}
 	}
 
-	return drawPopupBox(popupLayerColor(m.layer), " "+glyphPlus+" Add known host ",
+	return drawPopupBox(popupLayerColor(m.layer),
+		loadingTitle(" "+glyphPlus+" Add known host ", m.scanning),
 		hintLegend(pairs), animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

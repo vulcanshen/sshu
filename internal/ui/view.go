@@ -125,14 +125,14 @@ func (m AppModel) composeFloats(out string) string {
 	if top < 0 {
 		return out
 	}
-	out = dimScreen(out)
+	out = dimANSI(out)
 	for i, f := range fl {
 		if !f.active {
 			continue
 		}
 		v := f.view()
 		if i != top {
-			v = dimPopup(v, f.layer)
+			v = dimANSI(v)
 		}
 		out = overlay.Composite(v, out, overlay.Center, overlay.Center, 0, 0)
 	}

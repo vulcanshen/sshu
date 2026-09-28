@@ -161,9 +161,15 @@ func (m *editorPopup) close() tea.Cmd {
 	return m.anim.close()
 }
 
+// loading: the file is on its way in, or on its way back (tdp F7). The box
+// says so after its title; the spinner and byte count inside it say how far.
+func (m editorPopup) loading() bool {
+	return (m.phase == editFetching || m.phase == editSaving) && m.note == ""
+}
+
 func (m editorPopup) view() string {
 	innerW := m.innerW()
-	title := " " + glyphPencil + " " + m.name + " "
+	title := loadingTitle(" "+glyphPencil+" "+m.name+" ", m.loading())
 
 	if m.phase == editRunning && m.pty != nil {
 		// No padding rows: two lines of blank border is two lines of editor.

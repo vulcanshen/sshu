@@ -55,6 +55,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 ### Requirements
 
 - **A Nerd Font** — not optional: auth methods, file types and marks are drawn with Nerd Font glyphs.
+- **A truecolor terminal** (24-bit colour) — the theme's softer shades, the popup layers and the dimming behind a popup do not survive 256 colours.
 - **A terminal that sends Alt** — sshu's `Alt+…` keys (`Alt+Esc` to leave a session, `Alt+v`, `Alt+Z`, …) need the Option key to act as Meta. Turn on *Use Option as Meta key* in macOS Terminal, or set Option to *Esc+* in iTerm2; kitty, Alacritty and WezTerm send it by default.
 
 ### Uninstall
@@ -95,7 +96,7 @@ Switch tabs with **`M` / `F` / `S`**; the digits `1`–`9` jump to a panel of th
 
 - **SSHU** — **Hosts** (a searchable table over `hosts.yaml`; `A` adds, `E` edits, `Enter` connects) and **Credentials** (reusable identities hosts can reference).
 - **SSH** — **Config** (`~/.ssh/config`, one `Host` block per row, `Include` followed; editing a block touches only its own lines) and **KnownHosts** (`~/.ssh/known_hosts`; fetch a host's key and see its fingerprint before trusting it, or remove a stale one).
-- **Logs** — **Errors** (what went wrong; `Enter` shows everything the far end printed), **Connections** (every ssh and sftp attempt) and **Changes** (what you edited). Each can be cleared on its own.
+- **Logs** — **Errors** (what went wrong; `Enter` shows everything the far end printed), **Connections** (every ssh and sftp attempt) and **Changes** (what you edited); on these two `Enter` opens the whole record, every entry in full. Each can be cleared on its own.
 
 **`[F]ile transfer`** — two sides, each either this machine or a saved host, so upload, download and remote-to-remote are the same operation. Mark files, cross to the other side, send. `local` opens in the directory you launched sshu from, so `cd ~/release && sshu` is already looking at the release. Progress shows in the top-right corner and as a bar under the tab row.
 
@@ -250,7 +251,7 @@ A password is never displayed, and it reaches `ssh` through `SSH_ASKPASS`, never
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.10/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.12/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
 
 ## License
 
