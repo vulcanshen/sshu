@@ -587,21 +587,23 @@ func (m AppModel) doAdd(name string) (tea.Model, tea.Cmd) {
 	}
 	isDir := strings.HasSuffix(name, "/")
 	name = strings.TrimSuffix(name, "/")
+	// A refused name stays in the box with the reason under it (tdp K3, F7):
+	// the fix is usually one character, and closing would make it a retype.
 	if name == "" || strings.ContainsRune(name, '/') {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show("A name cannot contain /", toastError))
+		m.input.err = "A name cannot contain /"
+		return m, nil
 	}
 
 	p := remote.Join(s.cwd, name)
 	// Checked first, because Create TRUNCATES: without this, adding a name that
 	// is already there would empty the file instead of refusing.
 	if remote.Exists(s.fs, p) {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show(name+" already exists", toastError))
+		m.input.err = name + " already exists"
+		return m, nil
 	}
 	if err := addItem(s.fs, p, isDir); err != nil {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show(err.Error(), toastError))
+		m.input.err = err.Error()
+		return m, nil
 	}
 
 	s.reload()
@@ -648,18 +650,18 @@ func (m AppModel) doRename(subject, name string) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.closeStack(), m.input.close())
 	}
 	if strings.ContainsRune(name, '/') {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show("A name cannot contain /", toastError))
+		m.input.err = "A name cannot contain /"
+		return m, nil
 	}
 
 	dst := remote.Join(path.Dir(subject), name)
 	if remote.Exists(s.fs, dst) {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show(name+" already exists", toastError))
+		m.input.err = name + " already exists"
+		return m, nil
 	}
 	if err := s.fs.Rename(subject, dst); err != nil {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show(err.Error(), toastError))
+		m.input.err = err.Error()
+		return m, nil
 	}
 	// A mark is a path, so a renamed mark is a mark on something that is no
 	// longer there. Move it with the file rather than leaving it dangling.
@@ -783,5 +785,5 @@ func (m AppModel) sftpCursorPath() (string, bool) {
 
 // sftpTransfers opens the detail view.
 func (m AppModel) sftpTransfers() (tea.Model, tea.Cmd) {
-	return m, m.transfersUI.open(m.layer())
+	return m, m.transfersUI.open(m.layer(), len(m.transfers.jobs))
 }

@@ -858,7 +858,8 @@ func TestTheLegendFitsEvenInTheNarrowestMenu(t *testing.T) {
 	sm.setSize(100, 30)
 	sm.setItems([]menuItem{{label: "Go", key: "g"}}, "[1] x", 1)
 
+	// A one-row menu is as wide as every popup (tdp F7), so its legend fits.
 	if legend := ansi.Strip(lastLine(sm.view())); !strings.Contains(legend, "Esc close") {
-		t.Errorf("the box must be at least as wide as its legend, got %q", legend)
+		t.Errorf("the legend must fit the popup width, got %q", legend)
 	}
 }

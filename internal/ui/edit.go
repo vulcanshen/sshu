@@ -123,9 +123,12 @@ func (m *editorPopup) setSize(w, h int) {
 	}
 }
 
-// The editor gets nearly the whole terminal: it is the thing being used, not a
-// thing being glanced at.
-func (m editorPopup) innerW() int { return popupInnerW(m.screenW, m.screenW-6) }
+// The editor gets the whole terminal less one column and row each side — the
+// terminal class takes all it can have (tdp F7): it is the thing being used,
+// not a thing being glanced at. The box is that size from the moment it opens,
+// through the fetch and the write-back too, so a [e]dit never changes size
+// under the user; only what is inside it changes class (tdp F1).
+func (m editorPopup) innerW() int { return terminalInnerW(m.screenW) }
 func (m editorPopup) rows() int   { return max(3, m.screenH-4) }
 
 // open shows the box before the first byte arrives — the same reason the viewer
@@ -168,9 +171,12 @@ func (m editorPopup) view() string {
 			hintLegend([][2]string{{"alt+esc", "abandon"}}),
 			animRows(m.anim, m.pty.render(innerW, m.rows())), innerW, false)
 	}
-	return drawPopupBox(popupLayerColor(m.layer), title,
+	wait := m.waitingRows(innerW)
+	rows := fillRows(nil, max(0, (m.rows()-len(wait))/2), innerW)
+	rows = fillRows(append(rows, wait...), m.rows(), innerW)
+	return drawPopupBoxPad(popupLayerColor(m.layer), title,
 		hintLegend([][2]string{{"Esc", "cancel"}}),
-		animRows(m.anim, capRows(m.waitingRows(innerW), m.screenH)), innerW)
+		animRows(m.anim, rows), innerW, false)
 }
 
 // waitingRows is the spinner while bytes are moving. Same answer as the dial

@@ -89,8 +89,8 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 func (m AppModel) applyGridDims(value string) (tea.Model, tea.Cmd) {
 	c, ok := parseGridCols(value)
 	if !ok {
-		return m, tea.Batch(m.closeStack(), m.input.close(),
-			m.toast.show("Columns must be a single number, 1-9", toastError))
+		m.input.err = "Columns must be a single number, 1-9"
+		return m, nil
 	}
 	m.ssh.gridC = c
 	m.ssh.layout = layoutCustom

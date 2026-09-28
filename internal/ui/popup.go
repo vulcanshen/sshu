@@ -186,21 +186,64 @@ func drawPopupBoxPad(bc lipgloss.Color, title, hint string, rows []string, inner
 	return b.String()
 }
 
+// popupBudget is how many content rows a padded popup can hold: two borders,
+// two padding rows and a margin top and bottom (tdp F7). A popup whose content
+// is longer scrolls inside the box; capRows is only the last guard.
+func popupBudget(screenH int) int { return max(1, screenH-6) }
+
 // capRows limits a popup to what the terminal can hold. A float taller than the
 // canvas would push its own bottom border off screen and shear the frame, so the
 // content is cut before the box is drawn rather than the box clipped after.
+// Every popup that can outgrow the screen scrolls first (tdp F7); this is what
+// stops a resize from shearing the frame before the popup catches up.
 func capRows(rows []string, screenH int) []string {
-	budget := max(1, screenH-6) // two borders, two padding rows, a margin
-	if len(rows) > budget {
+	if budget := popupBudget(screenH); len(rows) > budget {
 		return rows[:budget]
 	}
 	return rows
 }
 
-// popupInnerW picks a popup's inner width: what it asked for, capped so the box
-// always leaves a margin inside the terminal.
-func popupInnerW(screenW, want int) int {
-	return max(10, min(want, screenW-6))
+// popupMaxW is the widest a popup gets (tdp F7): on a wide terminal a menu's
+// names and descriptions would otherwise sit a screen apart.
+const popupMaxW = 120
+
+// popupInnerW is every popup's inner width (tdp F7): the box is
+// min(terminal width − 2, 120), one column of margin each side, and the two
+// border columns come out of that. One width for every popup, whatever it
+// holds, so no box is a surprise and none changes width while it is open —
+// content that does not fit wraps or is cut, the box does not grow for it
+// (tdp D4).
+func popupInnerW(screenW int) int {
+	return max(1, min(screenW-2, popupMaxW)-2)
+}
+
+// terminalInnerW is the terminal class's inner width (tdp F7): a child process
+// needs the room, so it takes the whole terminal less one column each side,
+// with no 120 cap.
+func terminalInnerW(screenW int) int { return max(1, screenW-4) }
+
+// fillRows pads rows with blank lines to n, so a popup keeps the height it
+// opened with when its content comes up short (tdp F7).
+func fillRows(rows []string, n, innerW int) []string {
+	for len(rows) < n {
+		rows = append(rows, spaces(innerW))
+	}
+	return rows
+}
+
+// scrollTop keeps row cursor inside a window of vis rows over n, moving the
+// window only as far as it has to.
+func scrollTop(top, cursor, vis, n int) int {
+	if vis <= 0 || n <= vis {
+		return 0
+	}
+	if cursor < top {
+		top = cursor
+	}
+	if cursor >= top+vis {
+		top = cursor - vis + 1
+	}
+	return clamp(top, 0, n-vis)
 }
 
 // hintLegend builds a popup's bottom-border hint: key bright, description dim.

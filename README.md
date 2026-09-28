@@ -151,7 +151,7 @@ In the host form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `
 | `c` / `C` | Clear one mark / all marks (nothing on disk changes) |
 | `H` | Pick the host for this side (`local` is first) |
 | `D` | Disconnect this side |
-| `J` | Jobs — transfers in flight, each cancellable |
+| `J` | Jobs — transfers in flight; `Enter` opens one in full, `c` cancels it |
 
 While a transfer is running, `H` and `D` are dimmed and do nothing — cancel it in `J` first.
 
@@ -250,7 +250,7 @@ A password is never displayed, and it reaches `ssh` through `SSH_ASKPASS`, never
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (screen lock).
 
 ## License
 

@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -467,6 +467,9 @@ chip 底色 —— 上面就是 panel 膠囊,再來一排填色形狀會打架(f
 
 - **popup**:border 走 `popupLayerColor(layer)`(lavenphire25 → sapphire),
   巢狀越上層越亮,不 hardcode(tdp D2)。直接沿用 filu 的實作。
+- **只有最上層是亮的**(tdp F8,§11.62):popup 開著時,底下的畫面與底下每一層
+  popup 都用暗色畫 —— 串流的遠端 session、警示色也一樣;底下那幾層的框線是自己
+  層色的暗版。popup 都一樣寬(F7),上層蓋住下層的左右邊,亮暗是唯一還分得出層次的線索。
 - **表格選中列**:blue bar;未選中列的欄位退到 `dimColor`。這是
   z-axis 在 item 層的實例。
 
@@ -844,19 +847,23 @@ Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製�
 
 ## §6. 浮層(Popup Convention)(tdp F 章、D3)
 
-### 6.1 taxonomy — sshu 有 **5 類**(比 filu 多一個 `form`)(tdp F1)
+### 6.1 taxonomy —— tdp 的六類(tdp F1,v0.1.8 起)
 
-| 類型 | sshu 實例 | 特徵 |
+> **v0.1.8 起對照 tdp 的六類**(§11.62)。以前這裡是 sshu 自己的五類(menu、message、viewport、form、pty),
+> 下表是換成 tdp 的名字之後的對照。
+
+| 類別 | sshu 實例 | 使用者能做什麼 |
 |---|---|---|
-| **menu** | Space menu、**Identity file picker** | 分 region / 清單、cursor-first、選一個執行 |
-| **message** | Delete 確認、Quit 確認、Toast | 短、確認 / auto-dismiss |
-| **viewport** | `?` help、**Connections / Changes**、`[v]iew`、**Enter 明細**(§11.29) | 可捲、沒有游標;**明細的腳底下可以掛一個 offer**。**Errors 不在這一格** —— 它有游標,因為 `Enter` 有東西可開(§11.50) |
-| **form** ← **新** | Add host / Edit host / **Edit Host block**(§11.39) | 多欄位、逐欄位 focus、一次提交;**欄位數不必固定** |
-| **input** ← **新** | tab [2] 的 Rename、**KnownHosts 的 `[E]`**(§11.40) | **一行**文字、一個問題、Enter 送出 |
-| **pty** | **tab [3] 的 panel [5]**(ssh session) | 外部程式在 sshu 內 render |
+| **menu** | Space menu、global operation popup、選取模式的按鍵清單、lock menu、host / credential picker、**Jobs** | `j/k` 移動、`Enter` 或字母執行那一列;Jobs 的 `Enter` 打開那個 job 的全文 |
+| **confirm** | 刪除、離開、信任 host key、**腳底掛著 offer 的明細**(§11.29、§11.62) | 讀一段提醒,`Enter` 接受、`Esc` 取消;明細是帶一段可捲動內容的 confirm |
+| **input** | rename、add、網格欄數、KnownHosts 的 `[E]`;Add / Edit host、credential、Host block、known_hosts fetch 四個表單(input group);Identity file picker(附候選清單) | 打字、`Enter` 送出、`Tab` 換欄;送出可能失敗,所以都有錯誤列 |
+| **note** | `?`、`[v]iew`、log 全文、Jobs 打開的 job、沒有 offer 的明細 | 唯讀、`j/k/u/d` 捲動 |
+| **toast** | 資訊與錯誤 | 一行、下方、不握鍵盤 |
+| **terminal** | `[e]dit` 跑編輯器的那一段(取檔、寫回時是 note) | 按鍵都給編輯器,`Alt+Esc` 放棄 |
 
-前四類都已落地(`ui/spacemenu.go` / `ui/confirm.go` + `ui/toast.go` /
-`ui/helppopup.go` / `ui/form.go`),共用 `drawPopupBox` 與 `popupAnimator`。
+askpass(sshconfig host 撥號時 ssh 的問題)依問題換類:host key 是 confirm,密碼 / passphrase 是 input。
+全部共用 `drawPopupBox` 與 `popupAnimator`;寬度一律 `popupInnerW`(F7:`min(terminal 寬 − 2, 120)`,
+terminal 類用滿),高度在打開時定好,比畫面高就在框裡捲動(§11.62)。
 
 sftp 的傳輸進度**不是** pty:sshu 自己說 SFTP 協定,進度是自己畫的
 (`ui/transfer.go`),沒有外部程式可以 render。
@@ -865,15 +872,10 @@ sftp 的傳輸進度**不是** pty:sshu 自己說 SFTP 協定,進度是自己畫
 pty 是「開 `$EDITOR`,關掉就結束」的短時浮層;sshu 的 session 是長時的、而且
 同時可以有很多個,所以它是常駐 panel 的內容,不是疊在上面的東西。
 
-**為什麼 input 不算 form**:form 是「填 N 個欄位、一次提交」,input 是「回答一
-個問題」—— 跟 confirm 是同一個家族(短、一問一答),差別只在答案是文字而不是
-yes/no。做成單欄位的 form 會讓 `Tab` 這個「切欄位」的鍵在只有一欄的地方變成死鍵。
-
-**為什麼 form 要獨立成一類、不塞進 menu**:menu 的語意是「從 N 個選項挑
-一個執行」,form 的語意是「填 N 個欄位、一次提交」。混成一個浮層就是 §6.1
-禁止的「混血」—— 使用者會分不清「按 Enter 是執行這一列、還是送出整張表」。
-分家後語意乾淨:menu 的 `Enter` = 執行 cursor 那列;form 的 `Enter` = 送出
-整張表(不論 cursor 在哪一欄)。
+**為什麼表單不塞進 menu**:menu 的語意是「從 N 個選項挑一個執行」,表單的語意是
+「填 N 個欄位、一次提交」。混成一個浮層,使用者會分不清「按 Enter 是執行這一列、
+還是送出整張表」。menu 的 `Enter` = 執行 cursor 那列;表單的 `Enter` = 送出整張表
+(不論 cursor 在哪一欄)。單行輸入框與表單在 tdp 裡同屬 input,差別只在欄位數。
 
 全部走共用 `drawPopupBox`(title 嵌上邊框、hint 嵌下邊框)。
 
@@ -978,7 +980,7 @@ entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
 這個 panel、只是此刻被擋住」的動作用的 —— 讓它消失會被學成「這裡沒有這個
 動作」。見 §11.15。
 
-### 6.3 Host form(form)—— Add / Edit 共用
+### 6.3 Host form(input group)—— Add / Edit 共用
 
 > **v0.2**:Auth 變三選(password / privatekey / **credential**),選
 > credential 時 User 欄整列變暗(credential 整包供應 user);IdentityFile 與
@@ -1044,7 +1046,7 @@ border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surf
 選項被切一半會讀成另一個值。label 欄在極窄時也會讓位,寧可截斷 label 也要
 留住 value 欄 —— 截斷的 label 還讀得懂,消失的 value 不行。
 
-### 6.3.1 Identity file picker(menu)—— `Tab`
+### 6.3.1 Identity file picker(input 附候選清單)—— `Tab`
 
 > **v0.2**:開啟鍵由 `Tab` 改為**空欄位上的 `Enter`**(§11.五)。picker 本身
 > 的行為不變。
@@ -1112,7 +1114,7 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
 > 問句掛在它的腳底下,`Esc` 一樣是取消、留在 hosts。完整理由與被否決的做法在
 > §11.29,`confirmConnect` 已從 `confirmAction` 移除。
 
-### 6.5 Delete 確認(message)
+### 6.5 Delete 確認(confirm)
 
 ```
             ╭─ ◆ Confirm ─────────────────╮
@@ -1125,7 +1127,7 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
 
 第一行走 Red override(§2.4)—— 這是不可逆的寫入。
 
-### 6.6 `?` help(viewport)
+### 6.6 `?` help(note)
 
 ```
       ╭─ ◆ Help ─────────────────────────╮
@@ -6648,6 +6650,91 @@ global operation popup 本身的標題不變,仍是 `global operation`(`menuGlob
 兩個。
 
 2 個 mutation 都被抓:標題加回去(5 個測試紅)、拿掉分隔線(`TestEveryPanelMenuEndsInTheGlobalRegion`)。
+
+---
+
+### 11.62 popup 照 tdp v0.1.8–v0.1.9 —— 六類、一種寬度、打開時定高、只有最上層是亮的
+
+#### 使用者的要求
+
+> 「對齊最新 tdp」
+
+tdp v0.1.8 把 popup 的規則重寫(F1 六類、新增 F7 尺寸與 F8 層疊),v0.1.9 補細節(finder、input 附候選清單、
+多步驟、錯誤列只給送出可能失敗的 input、terminal 類用滿、底下的框線保留層色的暗版)。使用者盤點成
+`docs/sshu-terminu-fix.md`(七條,修完刪除),另外兩個待確認由使用者裁定:
+
+- **Jobs 是 menu,`Enter` 打開那個 job 的全文**(使用者選的,在 menu / `Enter` 取消 / note 三個做法之間)。
+- **腳底掛著 offer 的明細是 confirm**:「帶有 note 的 confirm,嚴格意義上是 confirm,不需要拆成兩步驟」。
+  dev-remarks「偏離 tdp」的 F1 那一條因此刪除,移到「設計決定」。
+
+#### 一種寬度(F7、D4)
+
+`popupInnerW(screenW)` 只看終端機寬:框是 `min(W − 2, 120)`,內寬再扣兩欄框線。每個 popup 原本各自依內容算
+`want`(menu 量 label + hint、confirm 量最長一行、input 連打的字都算進去、known_hosts 的 fetch 為錯誤變寬、help 依最長
+說明、viewer 固定 96、Jobs 58、picker 54),全部拿掉。內容放不下就截尾或折行,框不為它變寬。label / hint 的分欄
+照舊量,只是總寬由 F7 決定。`viewerW` 刪除;log 全文的折行寬度改用同一個函式。
+
+terminal 類例外(v0.1.9):`[e]dit` 的框是 `W − 2 × H − 2`(`terminalInnerW`),沒有 120 上限。
+
+#### 打開時定高(F7)
+
+- **picker**:打開時依全部檔案數定下候選列數(`results`),打字篩掉的列變空白。
+- **viewer**:從遠端讀時內容還不知道,打開就用上限高度,`reading…` 置中在同一個框裡;`showText`(內容在手上)
+  依內容定高(`fixed`)。讀完不再改高度。
+- **`~/.ssh/config` 表單**:打開時的欄位數就是框的高度(`opened`),`+ add option` 加出來的欄位在框裡捲動;
+  欄位變少時錯誤列上方補空白。
+- **`[e]dit`**:取檔、跑編輯器、寫回都是同一個滿版框,spinner 置中。框內的類別依階段換(note → terminal →
+  note,F1 允許),框不換。
+
+#### 超過畫面就捲動(F7)
+
+menu 系(Space menu、global operation popup、選取模式清單、lock menu、兩個 picker)與 Jobs 加上 `top`,可見範圍
+跟著游標(`scrollTop`),下框多一組 `N of M`。以前 `capRows` 直接切掉,`j` 會把游標走到畫面上看不到的列、
+`Enter` 卻執行它。`capRows` 留作 resize 時的最後保險。
+
+#### 單行輸入框的錯誤列(F7、K3)
+
+`inputPopup` 多一列空白與一列錯誤列,打開時就在。rename、add、網格欄數、known_hosts 的名字,送出被拒時框不關、
+原因寫在錯誤列(`m.input.err`),打字就清掉;以前是關掉整疊再跳 toast,名字要重打。遠端 I/O 的錯誤(Rename、
+SetHosts)也一樣留在框裡。askpass 的密碼框沒有錯誤列(v0.1.9:只有送出可能失敗的 input 才預留)—— sshu 不判斷
+答案,答錯是 ssh 再問一次。
+
+#### 只有最上層是亮的(F8、T2)
+
+`View()` 的浮層改成一張清單(`floats()`,由下往上,順序照舊),`composeFloats` 先把 base 整片去色重畫成
+`dimColor`(`dimScreen`),再逐層疊上;不是最上層的 popup 用 `dimPopup` 重畫:內容 `dimColor`、框線是自己層色往
+畫布色混一半的暗版(`dimmedLayerColor`,v0.1.9)。「最上層」是最後一個 `owns()` 的 popup —— 跟按鍵路由同一把尺
+(D3),所以上層一開始關,下層就亮回來;全部都在關的時候,最後那個仍算最上層。串流的遠端 session、傳輸進度、
+警示色都一起暗(T2 的例外)。toast 不算一層,疊之前不 dim。`nestAnnounce()` 照舊在所有合成之後才附加。
+
+#### Jobs 與明細
+
+- **Jobs**:`update` 回傳 `jobsCancel` / `jobsDetail`;`Enter` 用 viewer(`showText`)在 Jobs 上開那個 job 的
+  全文(`jobLines`:label、狀態、百分比與檔案數、完整的錯誤)。為此 viewer 在按鍵路由、`closeTop` 與 `popupHelp`
+  都排到 Jobs 前面 —— 繪製本來就在它上面(「放在最上層」三處,D3)。
+- **明細**:行為不變,只改分類。沒有 offer 是 note,有 offer 是 confirm。
+
+#### 其他
+
+- Identity file picker 照 v0.1.9 是「input 附候選清單」:字母一律篩選(`j`、`k` 也是),方向鍵移動,不分階段 ——
+  原本就是這樣,只改註解。
+- 程式註解與 §6.1 的分類換成六類的名字(message → confirm / toast、viewport → note、form → input group);§11.x
+  的舊紀錄不動。
+
+#### 測試
+
+`tdppopup_test.go`:`TestEveryPopupIsTheSameWidth`(80 / 100 / 200 欄,九種 popup 每一行都是 F7 的寬度;
+editor 是 `W − 2`、取檔時就是 `H − 2` 高)/ `TestAPopupKeepsTheHeightItOpenedWith`(picker 篩選、viewer 讀完、
+config 表單加欄位;viewer 的等待置中、config 表單打開時是內容高度)/ `TestAMenuTallerThanTheScreenScrolls` /
+`TestJobsScrollsAndEnterOpensTheJob`(含 `Esc` 回到 Jobs)/ `TestARefusedAnswerStaysInTheInput` /
+`TestEverythingBelowTheTopPopupIsDim`(tab 列只剩 dim 色、兩層時底下的框是暗版層色、上層在關時下層亮回來)/
+`TestAToastDimsNothing`。改寫的:`TestRenameRefusesToClobber`、`TestAddRefusesBadNamesInTheBox`(原
+`TestAddRefusesBadNames`,「框要關、要跳 toast」反轉成「框留著、錯誤在框裡」)、known_hosts 的「must widen」與
+`TestTheLegendFitsEvenInTheNarrowestMenu` 的斷言措辭。
+
+23 個 mutation 全數被抓。第一輪有三個存活,各有原因:input 寬度的測試打了 150 個字,舊的「依內容算」剛好也被
+截到同一個寬度 —— 改用一個字;viewer 的等待列高度照樣被補齊,差別只在位置 —— 補「置中」的斷言;config 表單的
+mutation 讓框一開就滿版,前後一樣高 —— 補「打開時是內容高度」。
 
 ---
 

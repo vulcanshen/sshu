@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 sshu joins the terminu family and follows its design principle,
-[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle): the
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.9/principle): the
 same core keys and the same menus as kbu, filu, webu and locku. Most of
 what changes is how the keys you already know behave in more places.
 
@@ -42,6 +42,22 @@ Changes since 1.7.1.
   session's cell, a second spelling of `[H]ide`.
 - **A connecting cell's footer shows `alt+esc`**, the one key that works
   before the remote answers.
+- **Every popup is the same width** — the terminal less two columns, 120 at
+  most — and keeps the height it opened with: the identity picker no longer
+  shrinks as you type, a remote `[v]iew` no longer grows when the file
+  arrives, and `[e]dit` is one full-size box from fetch to write-back.
+- **Menus and Jobs taller than the screen scroll** with the cursor, and say
+  where you are (`N of M`), instead of cutting rows the cursor could still
+  walk onto.
+- **With a popup open, everything under it dims** — the screen, a remote
+  session still printing, and any popup lower in the stack, whose border
+  keeps a dark version of its own colour. Only the popup you are using is
+  lit. A toast dims nothing.
+- **A refused rename, add, grid size or known_hosts name stays in its box**,
+  with the reason on an error row under it, instead of closing and showing
+  a toast — fix the one character and press `Enter` again.
+- **`Enter` in Jobs opens the job in full**, including the whole of a
+  failure the progress bar had room only to start.
 
 ## [1.7.1] — 2026-09-17
 

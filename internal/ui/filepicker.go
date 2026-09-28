@@ -13,13 +13,14 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// filePicker is the menu class with a filter row (filu's finder form): type to
-// narrow, arrows to select, Enter to take. It exists so an identity file is
-// PICKED rather than typed — a mistyped key path fails at connect time, far from
-// where the mistake was made.
+// filePicker is an input with a candidate list (tdp F1): type to narrow,
+// arrows to select, Enter to take. It exists so an identity file is PICKED
+// rather than typed — a mistyped key path fails at connect time, far from where
+// the mistake was made.
 //
-// It is not modal. Letters always filter and the arrows always move, so there is
-// no "input state" versus "list state" to learn — the same split the form makes
+// It is one class, not two at once: every printable key is a character, j and
+// k included, and only the arrows move among the candidates — so there is no
+// "input state" versus "list state" to learn, the same split the form makes
 // (tdp K8): in a text-entry surface, letters type and arrows navigate.
 type filePicker struct {
 	anim    popupAnimator
@@ -30,6 +31,9 @@ type filePicker struct {
 	cursor  int
 	top     int
 	note    string // why the list is empty or short — never a silent cap
+	// results is how many candidate rows the box opened with. Typing narrows
+	// the list, not the box: the rows it gives up turn blank (tdp F7).
+	results int
 	layer   int
 	screenW int
 	screenH int
@@ -87,6 +91,7 @@ func (m *filePicker) open(root string, layer int) tea.Cmd {
 		m.entries, m.note = scanFiles(root)
 	}
 	m.refilter()
+	m.results = max(1, len(m.entries))
 	return m.anim.open()
 }
 
@@ -227,10 +232,20 @@ func (m *filePicker) scroll() {
 
 // visible is how many result rows fit: the box costs its borders, and the query
 // row and its divider come out of the content budget.
-func (m filePicker) visible() int { return max(1, m.screenH-9) }
+func (m filePicker) visible() int { return max(1, min(m.results, m.screenH-9)) }
+
+// height is the box's content rows: the query row, its divider, the candidate
+// rows and the note — fixed when the picker opens (tdp F7).
+func (m filePicker) height() int {
+	h := 2 + m.visible()
+	if m.note != "" && len(m.entries) > 0 {
+		h++
+	}
+	return h
+}
 
 func (m filePicker) view() string {
-	innerW := popupInnerW(m.screenW, 54)
+	innerW := popupInnerW(m.screenW)
 
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
@@ -281,6 +296,7 @@ func (m filePicker) view() string {
 	if m.note != "" && len(m.matches) > 0 {
 		rows = append(rows, dim.Render(padRight("  "+m.note, innerW)))
 	}
+	rows = fillRows(rows, m.height(), innerW)
 
 	title := " " + glyphKey + " Identity file  " + store.FoldHome(m.root) + " "
 	hint := hintLegend([][2]string{{arrowUpDown, "select"}, {"Enter", "pick"}, {"Esc", "cancel"}})

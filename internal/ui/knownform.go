@@ -118,14 +118,10 @@ func (m knownAddForm) view() string {
 	for _, f := range m.fields {
 		labelW = max(labelW, dispW(f.label))
 	}
-	// The box widens for its error. Two fields make a narrow box, and the thing
-	// that lands in it is a network error — "dial tcp 127.0.0.1:1: connect:
-	// connection refused" is the whole answer, and half of it is not.
-	want := labelW + 38
-	if m.err != "" {
-		want = max(want, dispW(m.err)+6)
-	}
-	innerW := popupInnerW(m.screenW, want)
+	// The box does not widen for its error (tdp F7): at the width every popup
+	// has, a network error — "dial tcp 127.0.0.1:1: connect: connection
+	// refused" — fits whole on any terminal sshu runs in.
+	innerW := popupInnerW(m.screenW)
 	labelCol := min(labelW+4, max(0, innerW-8))
 	valueW := max(0, innerW-labelCol-1)
 

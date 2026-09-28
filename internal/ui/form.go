@@ -9,10 +9,11 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// The form is sshu's fifth popup class, and it exists because menu and form mean
-// different things by Enter: a menu runs the row under the cursor, a form
-// submits the whole thing whatever field you are on. Folding them together
-// would be the hybrid float tdp F1 forbids.
+// The form is the input class with several fields — an input group (tdp F1) —
+// and it is not a menu because the two mean different things by Enter: a menu
+// runs the row under the cursor, a form submits the whole thing whatever field
+// you are on. Folding them together would be the two-classes-at-once float tdp
+// F1 forbids.
 //
 // Two consequences follow from a popup that eats text:
 //   - Space types a space; it is NOT the Space menu entry key (tdp K5) here. The standing
@@ -467,9 +468,9 @@ func (m hostForm) view() string {
 	for _, f := range m.fields {
 		labelW = max(labelW, dispW(f.label))
 	}
-	// Wide enough that the four-way Auth toggle shows all its options on a
-	// normal terminal; narrow ones still fall back to the selected-only form.
-	innerW := popupInnerW(m.screenW, labelW+56)
+	// The four-way Auth toggle shows all its options at the width every popup
+	// has; a terminal too narrow for it falls back to the selected-only form.
+	innerW := popupInnerW(m.screenW)
 	// On a narrow terminal the label column yields rather than squeezing the
 	// value out of existence — a truncated label still reads, an empty value does
 	// not.

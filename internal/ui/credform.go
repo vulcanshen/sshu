@@ -195,7 +195,7 @@ func (m credForm) view() string {
 	for _, f := range m.fields {
 		labelW = max(labelW, dispW(f.label))
 	}
-	innerW := popupInnerW(m.screenW, labelW+38)
+	innerW := popupInnerW(m.screenW)
 	labelCol := min(labelW+4, max(0, innerW-8))
 	valueW := max(0, innerW-labelCol-1)
 

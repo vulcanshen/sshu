@@ -37,6 +37,7 @@ type spaceMenu struct {
 	anim    popupAnimator
 	items   []menuItem
 	cursor  int
+	top     int // first row on screen, when the menu is taller than the screen
 	title   string
 	layer   int
 	screenW int
@@ -61,8 +62,14 @@ func newCredPicker() spaceMenu {
 
 func (m *spaceMenu) setItems(items []menuItem, title string, layer int) {
 	m.items, m.title, m.layer = items, title, layer
-	m.cursor = m.firstSelectable()
+	m.cursor, m.top = m.firstSelectable(), 0
+	m.top = scrollTop(0, m.cursor, m.visible(), len(m.items))
 }
+
+// visible is how many rows the box shows: all of them, or as many as the
+// screen holds — beyond that the menu scrolls with the cursor (tdp F7), so
+// j can never walk it onto a row that is not drawn.
+func (m spaceMenu) visible() int { return min(len(m.items), popupBudget(m.screenH)) }
 
 func (m spaceMenu) isActive() bool      { return m.anim.isActive() }
 func (m spaceMenu) isInteractive() bool { return m.anim.isInteractive() }
@@ -92,6 +99,7 @@ func (m *spaceMenu) step(d int) {
 		at = (at + d + n) % n
 		if m.items[at].selectable() {
 			m.cursor = at
+			m.top = scrollTop(m.top, at, m.visible(), n)
 			return
 		}
 	}
@@ -133,36 +141,32 @@ func (m spaceMenu) update(msg tea.KeyMsg) (spaceMenu, string, tea.Cmd) {
 }
 
 func (m spaceMenu) view() string {
-	// Everything that has to fit inside the box gets measured: an action row
-	// (label column plus hint column), a header on a line of its own, the
-	// title, and the legend along the bottom border.
-	//
-	// Headers used to be skipped here, which measured a menu that is ALL
-	// description — "nothing recorded yet", "j/k choose a section" — at zero.
-	// It came out a stub with its own words clipped and its legend cut
-	// mid-key: a box that reads as breakage rather than as an answer.
-	labelW, hintW, headW, acts := 0, 0, 0, 0
+	// The label and hint columns are measured; the box is not — its width is
+	// the one every popup has (tdp F7, D4).
+	labelW, hintW, acts := 0, 0, 0
 	for _, it := range m.items {
-		switch {
-		case it.separator:
-		case it.header:
-			headW = max(headW, dispW(it.label)+2)
-		default:
+		if it.selectable() {
 			acts++
 			labelW = max(labelW, dispW(bracketHotkey(it.label, it.key)))
 			hintW = max(hintW, dispW(it.hint))
 		}
 	}
+	vis := m.visible()
+	top := scrollTop(m.top, m.cursor, vis, len(m.items))
 	// A menu with nothing to run says so: j/k has nowhere to go and Enter has
 	// nothing to commit, so the legend names the one key that still works —
-	// the same honesty the pty footer keeps (tdp M5).
-	legend := hintLegend([][2]string{{"j/k", "move"}, {"Enter", "run"}, {"Esc", "close"}})
+	// the same honesty the pty footer keeps (tdp M5). A menu taller than the
+	// screen says where in it the box is, the way the viewer does.
+	pairs := [][2]string{{"j/k", "move"}, {"Enter", "run"}, {"Esc", "close"}}
 	if acts == 0 {
-		legend = hintLegend([][2]string{{"Esc", "close"}})
+		pairs = [][2]string{{"Esc", "close"}}
 	}
+	if len(m.items) > vis {
+		pairs = append([][2]string{{itoa(top + 1), "of " + itoa(len(m.items))}}, pairs...)
+	}
+	legend := hintLegend(pairs)
 	// " " + label + "  " + hint + " "
-	innerW := popupInnerW(m.screenW,
-		max(dispW(m.title)+6, labelW+hintW+4, headW, dispW(legend)+1))
+	innerW := popupInnerW(m.screenW)
 	// When the box cannot hold both columns the hint yields: the label is what
 	// the action IS, the hint only elaborates on it.
 	hintW = max(0, min(hintW, innerW-labelW-3))
@@ -175,8 +179,9 @@ func (m spaceMenu) view() string {
 	// the same one an unfocused panel's chip and nav cursor wear.
 	curOff := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(borderDim)
 
-	rows := make([]string, 0, len(m.items))
-	for i, it := range m.items {
+	rows := make([]string, 0, vis)
+	for i := top; i < min(len(m.items), top+vis); i++ {
+		it := m.items[i]
 		switch {
 		case it.separator:
 			rows = append(rows, dim.Render(" "+strings.Repeat("─", max(0, innerW-2))))

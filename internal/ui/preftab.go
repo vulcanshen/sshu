@@ -265,7 +265,7 @@ func (m AppModel) openErrorDetail() (tea.Model, tea.Cmd) {
 	// Indented by one, which the viewer does not do for itself: it passes rows
 	// straight through because a line of source has to keep its own column, and
 	// prose set hard against a border reads as damage.
-	inner := max(8, popupInnerW(m.w, viewerW)-2)
+	inner := max(8, popupInnerW(m.w)-2)
 	var lines []string
 	for _, para := range strings.Split(e.text, "\n") {
 		for _, l := range wrapPlain(para, inner) {

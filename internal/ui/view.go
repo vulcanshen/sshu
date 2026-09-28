@@ -46,80 +46,10 @@ func (m AppModel) View() string {
 		}, "\n")
 	}
 
-	// Bottom to top. The Space menu goes down first so anything it launches
-	// lands above it and Esc unwinds in the order the user built the stack.
-	if m.spaceMenu.isActive() {
-		out = overlay.Composite(m.spaceMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.globalMenu.isActive() {
-		out = overlay.Composite(m.globalMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.modeKeys.isActive() {
-		out = overlay.Composite(m.modeKeys.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.lockMenu.isActive() {
-		out = overlay.Composite(m.lockMenu.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.hostPicker.isActive() {
-		out = overlay.Composite(m.hostPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.transfersUI.isActive() {
-		out = overlay.Composite(m.transfersUI.view(m.transfers.jobs), out,
-			overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.viewer.isActive() {
-		out = overlay.Composite(m.viewer.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.detail.isActive() {
-		out = overlay.Composite(m.detail.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.editorUI.isActive() {
-		out = overlay.Composite(m.editorUI.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.confirm.isActive() {
-		out = overlay.Composite(m.confirm.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.input.isActive() {
-		out = overlay.Composite(m.input.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.form.isActive() {
-		out = overlay.Composite(m.form.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.credFormUI.isActive() {
-		out = overlay.Composite(m.credFormUI.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.sshcfgFormUI.isActive() {
-		out = overlay.Composite(m.sshcfgFormUI.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.knownAddUI.isActive() {
-		out = overlay.Composite(m.knownAddUI.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	// Above both forms: this menu is OPENED FROM the host form, and a popup
-	// painted under the surface that launched it is a popup that never opened
-	// — which is exactly how it shipped the first time. isActive tests cannot
-	// catch a z-order bug; only a rendered frame can.
-	if m.credPicker.isActive() {
-		out = overlay.Composite(m.credPicker.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.picker.isActive() {
-		out = overlay.Composite(m.picker.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	// The leaving question and the help can be raised from on top of anything
-	// (tdp K9, K6), so they are drawn above every float they may cover — the
-	// help highest, since it can be opened over the question too (tdp D3).
-	if m.quitAsk.isActive() {
-		out = overlay.Composite(m.quitAsk.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
-	if m.help.isActive() {
-		out = overlay.Composite(m.help.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
+	out = m.composeFloats(out)
 	// The toast is feedback about what just happened, so it sits above the stack
 	// and out of its way — low, where it does not cover the surface being used.
-	// ssh's question outranks every float it may have arrived on top of —
-	// it holds the keyboard (app.go), so it has to be the thing on top.
-	if m.askpassUI.isActive() {
-		out = overlay.Composite(m.askpassUI.view(), out, overlay.Center, overlay.Center, 0, 0)
-	}
+	// It holds no keyboard and is not a layer (tdp F8): nothing is dimmed for it.
 	if m.toast.isActive() {
 		out = overlay.Composite(m.toast.view(), out, overlay.Center, overlay.Bottom, 0, -2)
 	}
@@ -127,6 +57,87 @@ func (m AppModel) View() string {
 	// buys idempotence: a parent that missed one report gets the next one,
 	// with no edge to lose and no channel to keep alive (§11.44).
 	return out + m.nestAnnounce()
+}
+
+// float is one popup as the compositor sees it.
+type float struct {
+	active bool
+	owns   bool
+	layer  int
+	view   func() string
+}
+
+// floats lists the popups bottom to top — the order they are drawn in. The
+// Space menu goes down first so anything it launches lands above it and Esc
+// unwinds in the order the user built the stack.
+//
+// The credential picker sits above both forms: it is OPENED FROM the host form,
+// and a popup painted under the surface that launched it is a popup that never
+// opened — which is exactly how it shipped the first time. isActive tests
+// cannot catch a z-order bug; only a rendered frame can.
+//
+// The leaving question and the help can be raised from on top of anything
+// (tdp K9, K6), so they are drawn above every float they may cover — the help
+// highest but one, since it can be opened over the question too (tdp D3).
+// ssh's question outranks every float it may have arrived on top of: it holds
+// the keyboard (app.go), so it has to be the thing on top.
+func (m AppModel) floats() []float {
+	f := func(a popupAnimator, layer int, view func() string) float {
+		return float{active: a.isActive(), owns: a.owns(), layer: layer, view: view}
+	}
+	return []float{
+		f(m.spaceMenu.anim, m.spaceMenu.layer, m.spaceMenu.view),
+		f(m.globalMenu.anim, m.globalMenu.layer, m.globalMenu.view),
+		f(m.modeKeys.anim, m.modeKeys.layer, m.modeKeys.view),
+		f(m.lockMenu.anim, m.lockMenu.layer, m.lockMenu.view),
+		f(m.hostPicker.anim, m.hostPicker.layer, m.hostPicker.view),
+		f(m.transfersUI.anim, m.transfersUI.layer,
+			func() string { return m.transfersUI.view(m.transfers.jobs) }),
+		f(m.viewer.anim, m.viewer.layer, m.viewer.view),
+		f(m.detail.anim, m.detail.layer, m.detail.view),
+		f(m.editorUI.anim, m.editorUI.layer, m.editorUI.view),
+		f(m.confirm.anim, m.confirm.layer, m.confirm.view),
+		f(m.input.anim, m.input.layer, m.input.view),
+		f(m.form.anim, m.form.layer, m.form.view),
+		f(m.credFormUI.anim, m.credFormUI.layer, m.credFormUI.view),
+		f(m.sshcfgFormUI.anim, m.sshcfgFormUI.layer, m.sshcfgFormUI.view),
+		f(m.knownAddUI.anim, m.knownAddUI.layer, m.knownAddUI.view),
+		f(m.credPicker.anim, m.credPicker.layer, m.credPicker.view),
+		f(m.picker.anim, m.picker.layer, m.picker.view),
+		f(m.quitAsk.anim, m.quitAsk.layer, m.quitAsk.view),
+		f(m.help.anim, m.help.layer, m.help.view),
+		f(m.askpassUI.anim, m.askpassUI.layer, m.askpassUI.view),
+	}
+}
+
+// composeFloats lays the popups over the screen, and dims everything that is
+// not the top one (tdp F8). The top is the last popup that still holds the
+// keyboard — the same test routing uses (owns, tdp D3) — so the moment one
+// starts to close, the one under it is lit again; while the last one closes,
+// it is still the top.
+func (m AppModel) composeFloats(out string) string {
+	fl := m.floats()
+	top := -1
+	for i, f := range fl {
+		if f.active && (f.owns || top < 0 || !fl[top].owns) {
+			top = i
+		}
+	}
+	if top < 0 {
+		return out
+	}
+	out = dimScreen(out)
+	for i, f := range fl {
+		if !f.active {
+			continue
+		}
+		v := f.view()
+		if i != top {
+			v = dimPopup(v, f.layer)
+		}
+		out = overlay.Composite(v, out, overlay.Center, overlay.Center, 0, 0)
+	}
+	return out
 }
 
 // nestAnnounce is what this sshu tells whatever is drawing it — which is a
