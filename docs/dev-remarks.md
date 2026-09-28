@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.6/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -112,7 +112,7 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 ### 按鍵與 menu
 
 - **零學習成本是結構保證的,不是靠自律。** menu 和字母快捷鍵是同一張表產生的,所以「menu 裡沒有的快捷鍵」不可能存在。
-- **Space menu 分三區** —— `item operation`(對游標那一列做什麼)、`panel operation`(對這一側做什麼)、`global operation`。global 區永遠在,所以每一區都帶標題(tdp M2);沒有 item 與 panel 動作的 panel,前面寫一句 `nothing to do here`。global 區只有一列 `Global operation`,`Enter` 打開 global operation popup(`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`,宣告在 `globalActions`;tdp M2、M4)。這是 sshu 先試、tdp v0.1.2 採納的做法。
+- **Space menu 分三塊** —— `item operation`(對游標那一列做什麼)、`panel operation`(對這一側做什麼),最後一條分隔線下面是一列 `Global operation`。global 那一列永遠在,menu 永遠不只一種東西,所以 item 與 panel 兩區即使只剩一區也帶標題;global 那一列本身不加標題 —— 列名已經說了它是什麼,再掛一個 `global operation` 標題只是同一句話講兩次(tdp M2,v0.1.7)。沒有 item 與 panel 動作的 panel,前面寫一句 `nothing to do here`。`Global operation` 的 `Enter` 打開 global operation popup(`[M]anage`、`[F]ile transfer`、`[S]SH`、`[q]uit`,宣告在 `globalActions`;tdp M2、M4)—— sshu 先試、tdp v0.1.2 採納的做法。
 - **`?` 只拿來讀**:在 panel 上是 key reference(`panelKeyReference()`):先是這個 panel 的鍵 —— 從它的 Space menu 讀出來,所以兩邊不會不一致 —— 再接 core key、SSH tab 上接網格的和絃、最後是導覽鍵(tdp M4、K6)。在浮層上是那個浮層自己的按鍵(`popupHelp()`)。網格的和絃在格子裡問不到(`?` 屬於遠端),所以 SSH tab 的 key reference 一定要列。
 - **global operation popup 裡,目前所在的 tab 那一列變暗**:它在、只是你已經在那裡了。
 - **方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 shift+A、`[t]ransfer` 是裸的 `t`,沒有標出來的東西不會動。
@@ -184,11 +184,11 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **`SSH_ASKPASS_PROMPT=none` 通知類提示**:FIDO 觸碰確認會讓 helper 掛著等 ssh 殺它,畫面上什麼都不出現;sshconfig host 用 FIDO key 在 file transfer tab 會卡住。
 - **`Alt+Esc` 誤觸**:遠端跑 vim 時快速連按兩次 Esc 會被讀成 `Alt+Esc`(見上方「運作方式」)。
 - **未做**:Mouse;`[1]` 的 `[S]ftp` 捷徑(從表格直接把游標那台接到 file transfer 當前 focus 的那一側);fsnotify 重讀 `hosts.yaml`;keychain 存密碼;Export / Import 已實作但遮罩中(設計未定案,§11.12)。
-- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除,經過記在設計文件 §11.54–§11.57;刻意不照做的在下方「偏離 tdp」。
+- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條也已修完並刪除(§11.61)。刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面兩條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.6)。
+依 tdp P0(規則服務 UX),下面兩條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.7)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K11 的方向鍵、K2 拿掉 grid 的例子(v0.1.2);
@@ -210,7 +210,7 @@ sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.60),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.61),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

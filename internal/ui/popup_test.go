@@ -825,8 +825,11 @@ func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
 	if !strings.Contains(view, "nothing recorded yet") {
 		t.Errorf("the menu's own words must fit in its box:\n%s", view)
 	}
-	if !strings.Contains(view, menuGlobalRegion) || !strings.Contains(view, "Global operation") {
-		t.Errorf("the global region must close every Space menu:\n%s", view)
+	if !strings.Contains(view, "Global operation") {
+		t.Errorf("the global row must close every Space menu:\n%s", view)
+	}
+	if strings.Contains(view, menuGlobalRegion) {
+		t.Errorf("the global row carries no %q title (tdp M2):\n%s", menuGlobalRegion, view)
 	}
 
 	// Same shape on the nav, whose menu is a sentence about j/k rather than a

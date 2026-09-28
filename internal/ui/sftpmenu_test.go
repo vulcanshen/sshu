@@ -235,8 +235,8 @@ func TestEveryTabWordsItsRegionsTheSameWay(t *testing.T) {
 	collect(h.sshMenuItems())
 
 	for label := range seen {
-		if label != menuItemRegion && label != menuPanelRegion && label != menuGlobalRegion {
-			t.Errorf("a menu region is worded %q, want one of the three constants", label)
+		if label != menuItemRegion && label != menuPanelRegion {
+			t.Errorf("a menu region is worded %q, want one of the two constants", label)
 		}
 	}
 	if !seen[menuItemRegion] || !seen[menuPanelRegion] {

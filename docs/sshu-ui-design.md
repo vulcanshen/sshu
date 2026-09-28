@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.6/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -6621,6 +6621,33 @@ tdp v0.1.4 把 K10 從「PTY 裡只有出口鍵屬於 app」改成「**至少**�
 只換欄位,提議另外指定按鍵。sshu 也不受影響 —— 沒有任何自動完成:表單與輸入框裡的灰字是 placeholder,打第一個
 字就消失,不是可以接受的值;單一輸入框(`inputPopup`)裡 `Tab` 什麼都不做,表單裡 `Tab` 換欄位,都符合。
 連結改釘 `v0.1.6`。
+
+---
+
+### 11.61 Space menu 的 global 列不加標題(tdp v0.1.7 M2)
+
+#### 使用者的要求
+
+使用者 2026-09-28 盤點(`docs/sshu-terminu-fix.md`,修完刪除):「一個 global operation 的 section 只有一個
+Global operation 的項目」太奇怪。tdp v0.1.7 的 M2 跟著改:global 那一列不加區塊標題。
+
+#### 改了什麼
+
+`withGlobal()` 拿掉 `global operation` 標題列:panel 自己的區塊之後照舊一條分隔線,接著就是 `Global operation`
+那一列。§11.55 的「每一區帶標題」現在只指 item 與 panel 兩區 —— 它們即使只剩一區也帶標題,因為 global 那一列
+永遠在,menu 永遠不只一種東西;`nothing to do here` 的情況是那一句、分隔線、`Global operation`。
+
+global operation popup 本身的標題不變,仍是 `global operation`(`menuGlobalRegion`):那是 popup 的名字,底下有
+四列,不是重複。
+
+#### 測試
+
+`globalTail()` 改成:最後一列是 `Global operation`、緊接在分隔線下面、整個 menu 沒有 `global operation` 標題;
+`beforeGlobal()` 改靠 `globalMenuKey` 那一列切。`TestAMenuOfNothingToDoIsStillReadable` 改成畫面上有
+`Global operation`、沒有 `global operation`;`TestEveryTabWordsItsRegionsTheSameWay` 的合法標題只剩 item、panel
+兩個。
+
+2 個 mutation 都被抓:標題加回去(5 個測試紅)、拿掉分隔線(`TestEveryPanelMenuEndsInTheGlobalRegion`)。
 
 ---
 

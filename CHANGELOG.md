@@ -1,5 +1,48 @@
 # Changelog
 
+## [Unreleased]
+
+sshu joins the terminu family and follows its design principle,
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.7/principle): the
+same core keys and the same menus as kbu, filu, webu and locku. Most of
+what changes is how the keys you already know behave in more places.
+
+Changes since 1.7.1.
+
+### Changed
+
+- **`q` and `Ctrl+C` are the same way out.** Both ask first when leaving
+  would lose something, and both work from any popup, not only from a
+  panel. `Ctrl+C` works while typing too; pressed again while the question
+  is open, it leaves at once, so you are never trapped by your own
+  confirmation.
+- **`Space` closes only the Space menu.** It used to close any popup,
+  which made it a second `Esc` on a confirmation.
+- **Every Space menu ends in one `Global operation` row**, below a rule,
+  which opens a popup with `[M]anage`, `[F]ile transfer`, `[S]SH` and
+  `[q]uit`; the tab you are on is dimmed there. A panel's own actions keep
+  their `item operation` and `panel operation` titles, and a panel with
+  none says `nothing to do here`.
+- **`?` only reads.** On a panel it lists that panel's keys, then the core
+  keys, the grid's chords on the ssh tab, and navigation; on a popup, that
+  popup's keys. The help stays on top of everything, and `Esc` closes it
+  first.
+- **`Enter` on a form always saves.** If something is missing or wrong,
+  the cursor goes to the first such field and the form says why, instead
+  of `Enter` stepping to the next field. The hint always reads
+  `Enter save`. An empty key or credential field still opens its picker.
+- **Selection mode keeps the core keys**: `Space` lists its keys (arrow
+  keys move the list), `?` explains the mode, `q` and `Ctrl+C` start the
+  way out, and `Tab` says to leave the mode first.
+- **A dimmed menu row does nothing**, from `Enter` or its letter, instead
+  of explaining itself in a toast.
+- **`Space` opens the menu on a file transfer side with no host** as well,
+  like every other panel.
+- **`Tab` does nothing on the ssh tab.** It used to show or hide a
+  session's cell, a second spelling of `[H]ide`.
+- **A connecting cell's footer shows `alt+esc`**, the one key that works
+  before the remote answers.
+
 ## [1.7.1] — 2026-09-17
 
 Selection mode learns to walk. Five of vim's motions — `w`, `e`, `b`, `0`
