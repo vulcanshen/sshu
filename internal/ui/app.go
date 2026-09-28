@@ -107,9 +107,6 @@ type AppModel struct {
 	// row every Space menu ends in, it lists what the whole app can do. It is
 	// not on ? — ? only reads (tdp M4, §11.56).
 	globalMenu spaceMenu
-	// modeKeys is selection mode's key list (tdp K11): Space in the mode opens
-	// it, every row runs, and running one closes it.
-	modeKeys spaceMenu
 	// quitAsk is the leaving flow's question (tdp K9). It is its own popup
 	// rather than the shared confirm because Ctrl+C can raise it from on top of
 	// anything — a form, another confirm — and borrowing that confirm would
@@ -165,7 +162,6 @@ func New(hosts []store.Host, save SaveFunc, cfg store.Config) AppModel {
 		picker:       newFilePicker(),
 		confirm:      newConfirmPopup(),
 		globalMenu:   spaceMenu{anim: newPopupAnimator("globalmenu")},
-		modeKeys:     spaceMenu{anim: newPopupAnimator("modekeys")},
 		quitAsk:      confirmPopup{anim: newPopupAnimator("quit")},
 		input:        newInputPopup(),
 		askpassUI:    newAskpassPopup(),
@@ -309,7 +305,6 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.picker.setSize(m.w, m.h)
 		m.confirm.setSize(m.w, m.h)
 		m.globalMenu.setSize(m.w, m.h)
-		m.modeKeys.setSize(m.w, m.h)
 		m.quitAsk.setSize(m.w, m.h)
 		m.input.setSize(m.w, m.h)
 		m.askpassUI.setSize(m.w, m.h)
@@ -336,7 +331,6 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.picker.anim.tick(msg),
 			m.confirm.anim.tick(msg),
 			m.globalMenu.anim.tick(msg),
-			m.modeKeys.anim.tick(msg),
 			m.quitAsk.anim.tick(msg),
 			m.input.anim.tick(msg),
 			m.askpassUI.anim.tick(msg),
@@ -856,8 +850,6 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.confirmKey(msg)
 	case m.spaceMenu.anim.owns():
 		return m.menuKey(msg)
-	case m.modeKeys.anim.owns():
-		return m.modeKeysKey(msg)
 	case m.lockMenu.anim.owns():
 		return m.lockMenuKey(msg)
 	}
@@ -934,8 +926,6 @@ func (m AppModel) closeTop() (tea.Model, tea.Cmd) {
 		return m, m.closeEdit(false)
 	case m.spaceMenu.anim.owns():
 		return m, m.spaceMenu.close()
-	case m.modeKeys.anim.owns():
-		return m, m.modeKeys.close()
 	case m.lockMenu.anim.owns():
 		return m, m.lockMenu.close()
 	}
@@ -950,7 +940,7 @@ func (m *AppModel) closeStack() tea.Cmd {
 		m.sshcfgFormUI.close(), m.knownAddUI.close(),
 		m.confirm.close(), m.quitAsk.close(), m.input.close(), m.help.close(), m.hostPicker.close(),
 		m.credPicker.close(), m.transfersUI.close(), m.viewer.close(), m.detail.close(),
-		m.editorUI.close(), m.spaceMenu.close(), m.globalMenu.close(), m.modeKeys.close(), m.lockMenu.close())
+		m.editorUI.close(), m.spaceMenu.close(), m.globalMenu.close(), m.lockMenu.close())
 }
 
 // ------------------------------------------------------------- panel level
@@ -1292,7 +1282,7 @@ func (m AppModel) floatsOpen() int {
 	for _, a := range []popupAnimator{
 		m.askpassUI.anim, m.form.anim, m.credFormUI.anim, m.picker.anim,
 		m.sshcfgFormUI.anim, m.knownAddUI.anim, m.confirm.anim, m.quitAsk.anim,
-		m.input.anim, m.help.anim, m.spaceMenu.anim, m.globalMenu.anim, m.modeKeys.anim, m.lockMenu.anim,
+		m.input.anim, m.help.anim, m.spaceMenu.anim, m.globalMenu.anim, m.lockMenu.anim,
 		m.hostPicker.anim, m.credPicker.anim, m.transfersUI.anim, m.viewer.anim,
 		m.editorUI.anim, m.detail.anim,
 	} {
@@ -1308,12 +1298,11 @@ func (m AppModel) floatsOpen() int {
 // which can be raised from anywhere (tdp D2, D3).
 func (m AppModel) above() int { return m.floatsOpen() + 1 }
 
-// spaceMenuOnTop reports whether the float Space opened is the one being
-// looked at — the Space menu, or selection mode's key list (tdp K11). Either is
-// always the bottom of a stack (Space opens it from a panel or the mode), so it
-// is on top exactly when it is the only one.
+// spaceMenuOnTop reports whether the Space menu is the float being looked at.
+// It is always the bottom of a stack (Space opens it from a panel), so it is on
+// top exactly when it is the only one.
 func (m AppModel) spaceMenuOnTop() bool {
-	return (m.spaceMenu.anim.owns() || m.modeKeys.anim.owns()) && m.floatsOpen() == 1
+	return m.spaceMenu.anim.owns() && m.floatsOpen() == 1
 }
 
 // hostsKey dispatches one key on the hosts panel: an action from the table, or
@@ -1810,9 +1799,6 @@ func (m AppModel) popupHelp() (string, []helpEntry) {
 		return "editor", []helpEntry{{"Esc", "cancel"}, closeIt}
 	case m.globalMenu.anim.owns():
 		return "global operation", menu()
-	case m.modeKeys.anim.owns():
-		return "selection mode keys", []helpEntry{{"↑ · ↓", "move"}, {"Enter", "run the row"},
-			{"its key", "run it at once"}, {"Space", "close"}, {"Esc", "close"}, closeIt}
 	case m.lockMenu.anim.owns():
 		return "lock menu", menu(helpEntry{"Alt+Enter", "close"})
 	case m.spaceMenu.anim.owns():
@@ -2311,10 +2297,13 @@ func indexOfHost(hosts []store.Host, name string) int {
 // (§11.25), and selection mode is a layer. Everything else the mode either uses
 // or swallows.
 //
-// The core keys keep their meaning in here (tdp K11): Space lists the mode's
-// keys, ? is the mode's help, q and Ctrl+C start the leaving flow, and Tab —
-// which would move the focus off a selection half made — answers with how to
-// get out first rather than doing nothing.
+// The core keys keep their meaning in here (tdp K11): ? is the mode's key
+// reference, q and Ctrl+C start the leaving flow, and Tab — which would move the
+// focus off a selection half made — answers with how to get out first rather
+// than doing nothing. Space does nothing: a mode has no menu, and its keys are
+// pressed, not picked from a list (tdp v0.1.10, §11.63). It needs no case of its
+// own — it is not one of the mode's keys, so copyKey ignores it, and nothing
+// here reaches the remote: the cell is frozen.
 func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if msg.Alt && (msg.Type == tea.KeyEscape ||
 		(msg.Type == tea.KeyRunes && string(msg.Runes) == "v")) {
@@ -2322,9 +2311,6 @@ func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch msg.String() {
-	case " ":
-		m.modeKeys.setItems(copyModeRows(), "selection mode", 1)
-		return m, m.modeKeys.open()
 	case "?":
 		return m, m.help.open(m.above(), "selection mode", copyModeHelp())
 	case "q", "ctrl+c":
@@ -2335,40 +2321,11 @@ func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.copyKey(msg.String())
 }
 
-// copyKey runs one of selection mode's own keys — typed, or picked from its
-// key list.
+// copyKey runs one of selection mode's own keys.
 func (m AppModel) copyKey(k string) (tea.Model, tea.Cmd) {
-	if k == copyLeaveKey {
-		m.ssh.copy.stop()
-		return m, nil
-	}
 	text, yanked := m.ssh.copy.key(k)
 	if !yanked {
 		return m, nil
 	}
 	return m, copyToClipboard(text)
-}
-
-// modeKeysKey drives selection mode's key list. Its rows ARE keys, and j/k/u/d
-// are among them, so the list moves on the arrows alone: pressing a row's key
-// runs that row (tdp K11), the way it would with the list closed.
-func (m AppModel) modeKeysKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := msg.String()
-	run := ""
-	switch k {
-	case "up", "down", "enter":
-		m.modeKeys, run, _ = m.modeKeys.update(msg)
-	default:
-		for _, it := range m.modeKeys.items {
-			if it.selectable() && it.key == k {
-				run = k
-			}
-		}
-	}
-	if run == "" {
-		return m, nil
-	}
-	closing := m.modeKeys.close()
-	next, cmd := m.copyKey(run)
-	return next, tea.Batch(closing, cmd)
 }

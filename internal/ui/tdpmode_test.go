@@ -18,75 +18,68 @@ func inSelection(t *testing.T) AppModel {
 	return m
 }
 
-// Space opens the mode's key list and closes it again; the mode stays.
-func TestSpaceListsTheSelectionKeys(t *testing.T) {
-	m := pressA(inSelection(t), " ")
-	if !m.modeKeys.isActive() {
-		t.Fatal("Space in selection mode should list the mode's keys")
-	}
-	keys := map[string]bool{}
-	for _, it := range m.modeKeys.items {
-		keys[it.key] = true
-	}
-	for _, k := range []string{"y", "v", "V", "h", "j", "k", "l", "w", "e", "b", "0", "$", "u", "d", copyLeaveKey} {
-		if !keys[k] {
-			t.Errorf("the list is missing %q", k)
-		}
-	}
+// Space does nothing in a mode (tdp v0.1.10 K11): no menu, no key list, and
+// the mode stays exactly where it was. (It used to open a runnable key list.)
+func TestSpaceDoesNothingInSelectionMode(t *testing.T) {
+	m := inSelection(t)
+	row, col := m.ssh.copy.row, m.ssh.copy.col
 	m = pressA(m, " ")
-	if m.modeKeys.isActive() || !m.ssh.copy.on {
-		t.Error("Space should close the list and leave the mode running")
+	if m.floatsOpen() != 0 || m.help.isActive() {
+		t.Errorf("Space in selection mode should open nothing, %d floats open", m.floatsOpen())
+	}
+	if !m.ssh.copy.on || m.ssh.copy.row != row || m.ssh.copy.col != col {
+		t.Error("Space should leave the mode and its cursor as they were")
 	}
 }
 
-// A row runs by its own key — l moves, as it would with the list closed — and
-// running it closes the list.
-func TestARowOfTheKeyListRunsByItsKey(t *testing.T) {
+// The mode's keys are pressed, not picked: l moves the cursor at once.
+func TestTheModesKeysArePressedDirectly(t *testing.T) {
 	m := inSelection(t)
 	col := m.ssh.copy.col
-	m = pressA(m, " ", "l")
-	if m.modeKeys.isActive() {
-		t.Error("running a row should close the list")
-	}
+	m = pressA(m, "l")
 	if m.ssh.copy.col != col+1 {
-		t.Errorf("l from the list should move the cursor right: col %d → %d", col, m.ssh.copy.col)
+		t.Errorf("l should move the cursor right: col %d → %d", col, m.ssh.copy.col)
 	}
-	if !m.ssh.copy.on {
-		t.Error("the mode should still be on")
-	}
-}
-
-// The leave row, picked with the arrows and Enter, leaves the mode.
-func TestTheLeaveRowLeavesTheMode(t *testing.T) {
-	m := pressA(inSelection(t), " ")
-	for i, it := range m.modeKeys.items {
-		if it.key == copyLeaveKey {
-			m.modeKeys.cursor = i
-		}
-	}
-	m = pressA(m, "enter")
-	if m.ssh.copy.on || m.modeKeys.isActive() {
-		t.Error("the leave row should leave selection mode")
+	if !m.ssh.copy.on || m.floatsOpen() != 0 {
+		t.Error("a mode key should run in place, with nothing opened")
 	}
 }
 
-// Esc on the list closes the list, not the mode: one layer at a time (tdp K4).
-func TestEscOnTheKeyListClosesOnlyTheList(t *testing.T) {
-	m := pressA(inSelection(t), " ", "esc")
-	if m.modeKeys.isActive() || !m.ssh.copy.on {
-		t.Error("Esc should close the list and leave the mode running")
-	}
-}
-
-// ? is the mode's help, read-only; ? closes it and the mode stays.
-func TestQuestionMarkIsTheSelectionHelp(t *testing.T) {
+// ? is the mode's key reference, read-only: every key the mode has, and no
+// mention of a Space list; ? closes it and the mode stays.
+func TestQuestionMarkIsTheSelectionKeyReference(t *testing.T) {
 	m := pressA(inSelection(t), "?")
 	if !m.help.isActive() || m.help.title != "selection mode" {
-		t.Fatalf("? should open the selection mode help, got %q", m.help.title)
+		t.Fatalf("? should open the selection mode key reference, got %q", m.help.title)
+	}
+	keys := map[string]bool{}
+	for _, e := range m.help.entries {
+		keys[e.key] = true
+		if e.key == "Space" {
+			t.Error("the reference should not offer Space: it does nothing in a mode")
+		}
+	}
+	for _, k := range []string{"h j k l", "w · e · b", "0 · $", "u · d", "v · V", "y", "Esc", "Alt+v"} {
+		if !keys[k] {
+			t.Errorf("the reference is missing %q", k)
+		}
 	}
 	m = pressA(m, "?")
 	if m.help.isActive() || !m.ssh.copy.on {
-		t.Error("? should close the help and leave the mode running")
+		t.Error("? should close the reference and leave the mode running")
+	}
+}
+
+// The footer leads with ? and does not list Space (tdp K11, M1).
+func TestTheSelectionFooterLeadsWithTheKeyReference(t *testing.T) {
+	pairs := copyLegendPairs()
+	if pairs[0][0] != "?" {
+		t.Errorf("the selection footer should lead with ?, got %q", pairs[0][0])
+	}
+	for _, p := range pairs {
+		if p[0] == "space" {
+			t.Error("Space does nothing in a mode, so the footer should not list it")
+		}
 	}
 }
 
