@@ -1,8 +1,12 @@
 # sshu — terminu fix
 
-sshu 尚未符合 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.19/principle)（tdp v0.1.19）的地方，逐條待修。
+sshu 尚未符合 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.20/principle)（tdp v0.1.20）的地方，逐條待修。
 修好一條就刪掉一條，並同步 README（兩份）與 `docs/dev-remarks.md` 裡描述該行為的段落。有意不修的，改寫成
 `dev-remarks.md`「偏離 tdp」的一條並附理由。
+
+> **v0.1.20（2026-09-29）**：K11 / D3 —— 模式名夾在兩個框線接頭之間（雙線 `╡Drag╞`、單線 `┤Visual├`），模式色加粗、盡量一個詞，
+> 放不下先截標題，panel 膠囊跟著外框換色；D6 —— icon 寬度量的是游標實際前進幾格，參考實作的完整清單、`<APP>_ICON_WIDTH`
+> 覆寫、只在 unix 探測、做完的驗收。filu 的參考實作已完成，icon 寬度那一條現在可以做。本清單的每一條已照 v0.1.20 重新核對過。
 
 盤點日期：2026-09-29（對照 tdp v0.1.18，v0.1.19 重核）。同一份清單的第 1–3b 條（模式名、hint 整組丟、連線中的 `Ctrl-C`、
 focus 雙線）已於 2026-09-29 修完並刪除（設計文件 §11.67）；只剩下面這一條，**等 filu** 把 `width.go` 的做法定下來再照搬。
@@ -16,7 +20,21 @@ focus 雙線）已於 2026-09-29 修完並刪除（設計文件 §11.67）；只
 - **不 push、不發版。** 修完把這一輪寫進 terminu repo 的 `.local/family-fix/sshu/README.md`，然後刪掉這份清單。
 
 
-## 4. icon 的實際寬度 —— D6（等 filu 做完再照搬）
+## 4. icon 的實際寬度 —— D6（filu 已完成，照搬）
+
+**filu 的參考實作已完成**（2026-09-29，`e1de220`，filu 第六輪）。照搬的東西（v0.1.20 的 D6 有同一份清單，細節在 terminu
+`.local/family-fix/filu/README.md`「第六輪」最後的「D6 照搬清單」）：
+
+- filu `internal/ui/width.go` 整個檔：`iconCells` / `IconCells()`、`isWideIcon()`、`iconCount()`、`dispWidth()`、`dispClip()`、
+  `padDisp()`、`padDispRight()`、`truncate()`、`dispCutLeft()`、`compositeDisp()`（跟 `overlay.Composite` 同介面，直接換掉呼叫）、
+  `centerDisp()`（取代 `lipgloss.Place`）、`blockWidth()`、`joinH()` / `joinV()`（取代 lipgloss 的 Join）。
+- `iconwidth_unix.go` 的 `DetectIconWidth()`，在 `tea.NewProgram` 之前呼叫；手動覆寫用 `<APP>_ICON_WIDTH`（filu 是
+  `FILU_ICON_WIDTH`）。探測只在 unix 做，Windows 預設一格、靠環境變數覆寫。
+- 測試照 `d6_test.go`：icon 1 / 2 格下每一種 popup 各開一次，量**單獨的框**（並排的框量單一個）與**疊上去的整個畫面**每一列；
+  `compositeDisp()` 的四種邊界（popup 列有 icon、被蓋的列有 icon、icon 被左 / 右框邊切半）。
+- 驗收：`grep -n 'lipgloss.Width\|lipgloss.Size\|lipgloss.Place\|ansi.StringWidth\|ansi.Truncate' internal/ui/*.go` 只剩寬度函式本身。
+- filu 的提醒：寬度改走 `dispWidth()` 後，在 `iconCells = 1` 的終端機上畫面完全不變（既有測試原封不動通過），只有探測到 2 才作用。
+
 
 filu 要先補完自己的內容列，sshu 等 filu 做完、照它定下來的 `width.go` 搬。這一條先把 sshu 量寬度的地方盤點好。
 
@@ -79,3 +97,18 @@ filu 的 `iconwidth_unix.go`（CPR 探測，另有 `FILU_ICON_WIDTH` 手動覆�
   mutation：任一處繞過漏斗改回 lipgloss 的量法。
 - 文件：README 兩份的需求段（Nerd Font 那一條）補一句 CJK icon 字型也支援；dev-remarks「畫面」的 frame 不變量一條補上探測與
   手動覆寫。
+
+
+## 5. 模式名沒有夾在框線接頭之間 —— K11、D3（v0.1.20）
+
+**現況**：`chrome.go` `panelChromeMode()` 在上框右側寫 ` selection mode `（`sshtab.go` 的 `copyModeName`，前後各一個空白，沒有接頭），
+兩個詞；滿版沒有框，名字疊在第 0 列靠右。
+
+**規則**：K11（v0.1.20）—— 模式名夾在兩個框線接頭之間，像框上嵌了一個標籤。D3 —— 接頭跟框同色、線型跟著框（雙線 `╡` `╞`、
+單線 `┤` `├`）；模式名用模式色加粗；盡量一個詞；放不下先截標題、模式名留著；panel 膠囊跟著外框換成模式色（sshu 已經是）。
+
+**怎麼改**：`panelChromeMode()` 把名字畫成 `╡Select╞`（選取中的格子是 focus 的雙線；若是單線框就用 `┤` `├`），接頭用框色、名字用
+Yellow 加粗；名字改成一個詞（例：`Select`，用字由 sshu 定）。`copyModeName` 也是 `?` 標題的來源，要不要拆成兩個常數由 sshu 定。
+滿版沒有框、沒有接頭可夾：照舊疊在第 0 列靠右，只寫名字（模式色加粗），寫法寫進 dev-remarks。測試：選取模式的上框含 `╡Select╞`、
+接頭是框色、名字是 Yellow；窄格子時標題先截、名字留著。參考 kbu `app.go` 的上框標籤（`248f883`）。
+
