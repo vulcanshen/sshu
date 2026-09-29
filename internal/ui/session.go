@@ -163,7 +163,7 @@ func buildSFTPCmd(ctx context.Context, h store.Host, self, sock string, timeoutS
 // sshEnv builds the child environment.
 //
 // For a password host it wires SSH_ASKPASS back at sshu itself: ssh runs
-// `sshu` with SSHU_ASKPASS_HOST set, and that mode prints the stored password.
+// `sshu` with SSHU__ASKPASS_HOST set, and that mode prints the stored password.
 // SSH_ASKPASS_REQUIRE=force is what makes ssh use the helper even though a TTY
 // is present (OpenSSH 8.4+); without it ssh would prompt on the PTY instead —
 // which still works, the user just types it.
@@ -221,7 +221,7 @@ func envOr(key, fallback string) string {
 
 // askpassHostEnv names the host whose password sshu should print when it is
 // re-executed as ssh's askpass helper.
-const askpassHostEnv = "SSHU_ASKPASS_HOST"
+const askpassHostEnv = "SSHU__ASKPASS_HOST"
 
 // AskpassHost reports the host name when this process was started as ssh's
 // askpass helper, or "" for a normal run.

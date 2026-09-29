@@ -17,12 +17,12 @@ import (
 // lands, not how wide the glyph looks: a font whose icon spills into the next
 // cell but moves the cursor one is one cell. It prints an icon at column 1 and
 // asks for the cursor position (CPR). Any failure — not a tty, no reply, a
-// timeout — leaves the default of 1. SSHU_ICON_WIDTH (1 or 2) overrides the
+// timeout — leaves the default of 1. SSHU__ICON_WIDTH (1 or 2) overrides the
 // probe, for a terminal that answers wrongly, and for a nested sshu: its probe
 // is answered by the outer sshu's emulator, which counts an icon as one.
 // Call once, before Bubble Tea starts reading stdin.
 func DetectIconWidth() {
-	if v := os.Getenv("SSHU_ICON_WIDTH"); v != "" {
+	if v := os.Getenv("SSHU__ICON_WIDTH"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 2 {
 			iconCells, iconFixed = n, true
 			return

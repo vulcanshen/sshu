@@ -23,11 +23,11 @@ import (
 // other way. The port follows filu's width.go, the family reference.
 
 // iconCells is how many cells the terminal moves the cursor for a Nerd Font
-// icon. 1 on a normal font; DetectIconWidth or SSHU_ICON_WIDTH sets 2. At 1
+// icon. 1 on a normal font; DetectIconWidth or SSHU__ICON_WIDTH sets 2. At 1
 // every function here measures exactly as x/ansi does.
 var iconCells = 1
 
-// iconFixed is set when SSHU_ICON_WIDTH chose the width: then neither the probe
+// iconFixed is set when SSHU__ICON_WIDTH chose the width: then neither the probe
 // nor the layer above this one changes it.
 var iconFixed bool
 

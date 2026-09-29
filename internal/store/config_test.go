@@ -10,7 +10,7 @@ import (
 // A missing config.yaml is the normal case, not an error: every setting has a
 // default that is what sshu did before the setting existed.
 func TestNoConfigIsNotAProblem(t *testing.T) {
-	t.Setenv("SSHU_CONFIG", t.TempDir())
+	t.Setenv("SSHU__CONFIG", t.TempDir())
 
 	c, err := LoadConfig()
 	if err != nil {
@@ -23,7 +23,7 @@ func TestNoConfigIsNotAProblem(t *testing.T) {
 
 func TestConfigIsRead(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("SSHU_CONFIG", dir)
+	t.Setenv("SSHU__CONFIG", dir)
 	if err := os.WriteFile(filepath.Join(dir, "config.yaml"),
 		[]byte("# how long one connection attempt gets\nconnect_timeout: 4\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestAnAbsurdTimeoutFallsBackToTheDefault(t *testing.T) {
 // defaults, and the caller decides how to tell somebody.
 func TestABrokenConfigIsReportedButNotFatal(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("SSHU_CONFIG", dir)
+	t.Setenv("SSHU__CONFIG", dir)
 	if err := os.WriteFile(filepath.Join(dir, "config.yaml"),
 		[]byte("connect_timeout: [this is not a number\n"), 0o644); err != nil {
 		t.Fatal(err)

@@ -16,7 +16,7 @@ import (
 // serves SFTP over its own stdin and stdout and exits when they close. That
 // is what `ssh -s sftp` looks like from this side, minus the network — which
 // is the part DialPipe does not touch.
-const serveEnv = "SSHU_TEST_SFTP_SERVER"
+const serveEnv = "SSHU__TEST_SFTP_SERVER"
 
 func TestMain(m *testing.M) {
 	if os.Getenv(serveEnv) == "1" {

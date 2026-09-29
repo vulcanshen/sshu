@@ -189,15 +189,15 @@ func TestARemoteIconCannotBreakTheCell(t *testing.T) {
 	}
 }
 
-// SSHU_ICON_WIDTH overrides the probe, which a nested sshu needs: its probe is
+// SSHU__ICON_WIDTH overrides the probe, which a nested sshu needs: its probe is
 // answered by the outer sshu's emulator, which counts an icon as one.
 func TestTheIconWidthCanBeSetByHand(t *testing.T) {
 	old, oldFixed := iconCells, iconFixed
 	t.Cleanup(func() { iconCells, iconFixed = old, oldFixed })
-	t.Setenv("SSHU_ICON_WIDTH", "2")
+	t.Setenv("SSHU__ICON_WIDTH", "2")
 	DetectIconWidth()
 	if iconCells != 2 {
-		t.Errorf("SSHU_ICON_WIDTH=2 should set two cells, got %d", iconCells)
+		t.Errorf("SSHU__ICON_WIDTH=2 should set two cells, got %d", iconCells)
 	}
 	// Set by hand, it also outranks what the layer above says.
 	sized(sample(), 80, 24).applyNestCmd(nestCmdMsg{Hop: 0, Verb: nestVerbIcon1})
@@ -205,7 +205,14 @@ func TestTheIconWidthCanBeSetByHand(t *testing.T) {
 		t.Error("a width set by hand must outrank the layer above")
 	}
 	iconCells, iconFixed = 1, false
-	t.Setenv("SSHU_ICON_WIDTH", "7")
+	// The old name is not read any more (tdp v0.1.21 D6).
+	t.Setenv("SSHU__ICON_WIDTH", "")
+	t.Setenv("SSHU_ICON_WIDTH", "2")
+	DetectIconWidth()
+	if iconCells != 1 || iconFixed {
+		t.Error("SSHU_ICON_WIDTH is the old name and must not be read")
+	}
+	t.Setenv("SSHU__ICON_WIDTH", "7")
 	DetectIconWidth() // out of range, and not a terminal: stays at the default
 	if iconCells != 1 {
 		t.Errorf("a bad value should be ignored, got %d", iconCells)
@@ -272,7 +279,7 @@ func TestAPlainCellIsNotToldTheIconWidth(t *testing.T) {
 }
 
 // The inner side: the command sets the width with no session open, and a width
-// set by hand with SSHU_ICON_WIDTH stays.
+// set by hand with SSHU__ICON_WIDTH stays.
 func TestTheIconWidthCommandIsTakenUnlessSetByHand(t *testing.T) {
 	old, oldFixed := iconCells, iconFixed
 	t.Cleanup(func() { iconCells, iconFixed = old, oldFixed })

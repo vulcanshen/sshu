@@ -32,7 +32,7 @@ import (
 
 // askpassSockEnv carries the socket path to the helper. Its presence is what
 // puts the re-executed sshu into relay mode rather than the TUI.
-const askpassSockEnv = "SSHU_ASKPASS_SOCK"
+const askpassSockEnv = "SSHU__ASKPASS_SOCK"
 
 // AskpassSock reports the socket when this process was started as ssh's
 // askpass helper for an sshconfig dial, or "" for a normal run.

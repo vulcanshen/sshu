@@ -8,15 +8,29 @@ import (
 )
 
 func TestDirPrecedence(t *testing.T) {
-	t.Setenv("SSHU_CONFIG", "/tmp/override")
+	t.Setenv("SSHU__CONFIG", "/tmp/override")
 	t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg")
 	if got, _ := Dir(); got != "/tmp/override" {
-		t.Fatalf("SSHU_CONFIG should win, got %q", got)
+		t.Fatalf("SSHU__CONFIG should win, got %q", got)
 	}
 
-	t.Setenv("SSHU_CONFIG", "")
+	t.Setenv("SSHU__CONFIG", "")
 	if got, _ := Dir(); got != "/tmp/xdg/sshu" {
 		t.Fatalf("XDG_CONFIG_HOME should win, got %q", got)
+	}
+
+	// The old name is not read any more: renamed variables keep no old names
+	// (tdp v0.1.21 D6).
+	t.Setenv("SSHU_CONFIG", "/tmp/old-name")
+	if got, _ := Dir(); got == "/tmp/old-name" {
+		t.Fatal("SSHU_CONFIG is the old name and must not be read")
+	}
+}
+
+// Every variable sshu reads is named SSHU__<NAME> (tdp v0.1.21 D6).
+func TestTheKeyFileVariableIsNamedTheFamilyWay(t *testing.T) {
+	if KeyEnv != "SSHU__KEY_FILE" {
+		t.Errorf("KeyEnv = %q", KeyEnv)
 	}
 }
 

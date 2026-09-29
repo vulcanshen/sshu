@@ -54,7 +54,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 ### Requirements
 
-- **A Nerd Font** — not optional: auth methods, file types and marks are drawn with Nerd Font glyphs. Fonts made for CJK that draw icons two cells wide (e.g. Maple Mono NF CN) work too: sshu asks the terminal how wide an icon is when it starts, and a sshu nested inside it is told the same. If it guesses wrong, set `SSHU_ICON_WIDTH=2` (or `1`).
+- **A Nerd Font** — not optional: auth methods, file types and marks are drawn with Nerd Font glyphs. Fonts made for CJK that draw icons two cells wide (e.g. Maple Mono NF CN) work too: sshu asks the terminal how wide an icon is when it starts, and a sshu nested inside it is told the same. If it guesses wrong, set `SSHU__ICON_WIDTH=2` (or `1`).
 - **A truecolor terminal** (24-bit colour) — the theme's softer shades, the popup layers and the dimming behind a popup do not survive 256 colours.
 - **A terminal that sends Alt** — sshu's `Alt-…` keys (`Alt-Esc` to leave a session, `Alt-v`, `Alt-z`, …) need the Option key to act as Meta. Turn on *Use Option as Meta key* in macOS Terminal, or set Option to *Esc+* in iTerm2; kitty, Alacritty and WezTerm send it by default.
 
@@ -179,6 +179,7 @@ A row that cannot run right now is dimmed, in the `Space` menu and in `?`, and i
 | `w/e/b` | Next word start / word end / previous word start |
 | `0/$` | Start / end of the line |
 | `u/d` | Half a screen up / down |
+| `gg/G` | The first / last line, scrollback included |
 | `v/V` | Select by character / by line |
 | `y` | Copy to the system clipboard and leave (nothing selected: the current line) |
 | `Esc` | Drop the selection, then leave |
@@ -196,7 +197,7 @@ All of sshu's files live in one directory:
 
 | | |
 |---|---|
-| `$SSHU_CONFIG` | if set, this directory |
+| `$SSHU__CONFIG` | if set, this directory |
 | `$XDG_CONFIG_HOME/sshu` | if set — on macOS too |
 | otherwise | `os.UserConfigDir()/sshu` (`~/Library/Application Support/sshu` on macOS, `~/.config/sshu` on Linux) |
 
@@ -221,14 +222,14 @@ connect_timeout: 15
 
 ### Passwords
 
-Stored passwords are encrypted with AES-256-GCM, so a `password:` field reads `ENC:…`. The key is `.sshukey` in the same directory, created on first run; `SSHU_KEY_FILE` moves it elsewhere.
+Stored passwords are encrypted with AES-256-GCM, so a `password:` field reads `ENC:…`. The key is `.sshukey` in the same directory, created on first run; `SSHU__KEY_FILE` moves it elsewhere.
 
 |  |  |
 |---|---|
 | **protects** | `hosts.yaml` or `credentials.yaml` leaking on its own — pasted into a chat, committed by accident, picked up by a backup |
 | **does not protect** | the whole config directory being copied, since **the key is in it** — nor anything else running as your user |
 
-So **keep the config directory out of version control, syncing folders and backups.** To guard against the whole directory being copied, put the key elsewhere with `SSHU_KEY_FILE` — and back that key up yourself, because losing it loses every stored password.
+So **keep the config directory out of version control, syncing folders and backups.** To guard against the whole directory being copied, put the key elsewhere with `SSHU__KEY_FILE` — and back that key up yourself, because losing it loses every stored password.
 
 A password is never displayed, and it reaches `ssh` through `SSH_ASKPASS`, never through an environment variable or the command line. If you would rather sshu held no password at all, use `auth: privatekey` (stores only a path) or `auth: sshconfig` (stores nothing).
 

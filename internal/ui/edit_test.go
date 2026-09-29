@@ -76,7 +76,7 @@ func TestTheEditorIsNotToldWhichTerminalThisIs(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "ghostty")
 	t.Setenv("KITTY_WINDOW_ID", "3")
 	t.Setenv("COLORTERM", "truecolor")
-	t.Setenv("SSHU_KEEP_ME", "yes")
+	t.Setenv("SSHU__KEEP_ME", "yes")
 
 	env := editorEnv()
 	for _, banned := range []string{"TERM_PROGRAM=", "KITTY_WINDOW_ID=", "COLORTERM="} {
@@ -92,7 +92,7 @@ func TestTheEditorIsNotToldWhichTerminalThisIs(t *testing.T) {
 	if slices.Contains(env, "TERM=xterm-ghostty") {
 		t.Error("the outer terminal's TERM was passed through")
 	}
-	if !slices.Contains(env, "SSHU_KEEP_ME=yes") {
+	if !slices.Contains(env, "SSHU__KEEP_ME=yes") {
 		t.Error("an unrelated variable was dropped")
 	}
 }

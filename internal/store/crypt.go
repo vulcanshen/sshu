@@ -29,7 +29,7 @@ import (
 // actually escape — but §8.3's warning stays, and the directory is still not
 // something to sync.
 //
-// SSHU_KEY_FILE moves the key somewhere that is not copied with the config,
+// SSHU__KEY_FILE moves the key somewhere that is not copied with the config,
 // which is the one way to cover the second row. It is deliberately not the
 // default: a key outside the config directory is a key the user has to
 // remember to back up, and losing it loses every password.
@@ -56,7 +56,7 @@ const encPrefix = "ENC:"
 const keyFileName = ".sshukey"
 
 // KeyEnv names the environment variable that moves the key elsewhere.
-const KeyEnv = "SSHU_KEY_FILE"
+const KeyEnv = "SSHU__KEY_FILE"
 
 // keyBytes is AES-256. The nonce is what GCM asks for, and a fresh one is
 // generated per encryption — reusing one with the same key is the single way
