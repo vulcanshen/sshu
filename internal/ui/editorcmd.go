@@ -82,5 +82,7 @@ func editorEnv() []string {
 	}
 	// What the emulator actually implements — the same claim an ssh session
 	// gets, and for the same reason.
-	return append(env, "TERM=xterm-256color")
+	// And the icon width, so a family app opened as the editor draws its
+	// borders straight (tdp D6).
+	return withIconWidth(append(env, "TERM=xterm-256color"))
 }

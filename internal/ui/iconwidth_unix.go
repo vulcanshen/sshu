@@ -17,16 +17,22 @@ import (
 // lands, not how wide the glyph looks: a font whose icon spills into the next
 // cell but moves the cursor one is one cell. It prints an icon at column 1 and
 // asks for the cursor position (CPR). Any failure — not a tty, no reply, a
-// timeout — leaves the default of 1. SSHU__ICON_WIDTH (1 or 2) overrides the
-// probe, for a terminal that answers wrongly, and for a nested sshu: its probe
-// is answered by the outer sshu's emulator, which counts an icon as one.
+// timeout — leaves the default of 1.
+//
+// Two variables come first (tdp D6, v0.1.22). SSHU__ICON_WIDTH is the user's,
+// for a terminal that answers wrongly, and outranks everything, the layer above
+// included. TERMINU__ICON_WIDTH is what a family app running sshu in its PTY
+// hands down: there the probe is answered by that app's emulator, which counts
+// an icon as one. Either one, when it holds 1 or 2, means no probe is sent.
 // Call once, before Bubble Tea starts reading stdin.
 func DetectIconWidth() {
-	if v := os.Getenv("SSHU__ICON_WIDTH"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 2 {
-			iconCells, iconFixed = n, true
-			return
-		}
+	if n, ok := iconWidthVar("SSHU__ICON_WIDTH"); ok {
+		iconCells, iconFixed = n, true
+		return
+	}
+	if n, ok := iconWidthVar(terminuIconEnv); ok {
+		iconCells = n
+		return
 	}
 	in, out := os.Stdin, os.Stdout
 	if !term.IsTerminal(in.Fd()) || !term.IsTerminal(out.Fd()) {
@@ -47,6 +53,13 @@ func DetectIconWidth() {
 	if ok && col >= 2 {
 		iconCells = min(col-1, 2) // the cursor started at column 1
 	}
+}
+
+// iconWidthVar reads an icon width from the environment: 1 or 2, anything else
+// as if unset.
+func iconWidthVar(name string) (int, bool) {
+	n, err := strconv.Atoi(os.Getenv(name))
+	return n, err == nil && n >= 1 && n <= 2
 }
 
 // readCPRColumn reads a reply "\x1b[<row>;<col>R" within a short deadline and

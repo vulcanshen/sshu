@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -30,6 +31,24 @@ var iconCells = 1
 // iconFixed is set when SSHU__ICON_WIDTH chose the width: then neither the probe
 // nor the layer above this one changes it.
 var iconFixed bool
+
+// terminuIconEnv is the family's variable for the icon width (tdp D6): an app
+// that runs a child in a PTY sets it to its own width, and a family app started
+// there reads it rather than probe an emulator that counts an icon as one.
+const terminuIconEnv = "TERMINU__ICON_WIDTH"
+
+// withIconWidth is env with TERMINU__ICON_WIDTH set to this layer's width,
+// replacing whatever the parent's environment said: this layer's width is the
+// one that is true in the PTY it is about to open.
+func withIconWidth(env []string) []string {
+	out := make([]string, 0, len(env)+1)
+	for _, v := range env {
+		if !strings.HasPrefix(v, terminuIconEnv+"=") {
+			out = append(out, v)
+		}
+	}
+	return append(out, terminuIconEnv+"="+strconv.Itoa(iconCells))
+}
 
 // IconCells reports the detected icon width.
 func IconCells() int { return iconCells }

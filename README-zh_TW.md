@@ -54,7 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 ### 需求
 
-- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。把 icon 畫成兩格寬的 CJK 字型(例:Maple Mono NF CN)也可以:sshu 啟動時會問終端機 icon 佔幾格,巢狀在它裡面的 sshu 也會由它告知。問錯了就設 `SSHU__ICON_WIDTH=2`(或 `1`)。
+- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。把 icon 畫成兩格寬的 CJK 字型(例:Maple Mono NF CN)也可以:sshu 啟動時會問終端機 icon 佔幾格,也會告訴它跑起來的程式:巢狀在裡面的 sshu,或是當作編輯器打開的家族 app(`TERMINU__ICON_WIDTH`)。問錯了就設 `SSHU__ICON_WIDTH=2`(或 `1`)。
 - **truecolor 終端機**(24-bit 色)—— 配色裡的淡色、popup 的層色,以及 popup 底下變暗的畫面,在 256 色下都分不出來。
 - **會送出 Alt 的終端機** —— sshu 的 `Alt-…` 鍵(離開 session 的 `Alt-Esc`、`Alt-v`、`Alt-z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
 
