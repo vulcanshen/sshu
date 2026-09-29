@@ -297,7 +297,7 @@ func (m askpassPopup) view() string {
 			" "+edit.Render(masked)+cur.Render(" ")+spaces(max(0, innerW-2-dispW(masked))))
 	}
 
-	hint := hintLegend([][2]string{{"Enter", accept}, {"Esc", "cancel connection"}})
+	hint := [][2]string{{"Enter", accept}, {"Esc", "cancel connection"}}
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+m.title+" ",
 		hint, animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

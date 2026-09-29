@@ -304,8 +304,44 @@ func panelChrome(innerW int, body []string, title string, focused bool) string {
 // two things a border can say, and spelling that as a bool at eleven call sites
 // reads better than a constant.
 func panelChromeTone(innerW int, body []string, title string, tone borderTone) string {
+	return panelChromeMode(innerW, body, title, tone, "")
+}
+
+// frameLines is a border's set of pieces: corners, then the two straights.
+type frameLines struct{ tl, tr, bl, br, h, v string }
+
+var (
+	frameRound  = frameLines{"╭", "╮", "╰", "╯", "─", "│"}
+	frameDouble = frameLines{"╔", "╗", "╚", "╝", "═", "║"}
+)
+
+// frameFor is the line style a tone draws in. Focus is not told by colour
+// alone (tdp L5): a mode repaints the frame in its own colour (K11), and with
+// colour as the only sign the focus would vanish the moment a mode starts. So
+// the panel holding the keyboard is double-lined and every other one rounded —
+// the family default, the same width, so switching never shifts a cell.
+func frameFor(tone borderTone) frameLines {
+	if tone == toneFocus || tone == toneSelect {
+		return frameDouble
+	}
+	return frameRound
+}
+
+// panelChromeMode is the frame with a mode's name at the right of its top
+// border, in the frame's colour (tdp K11). The name is not a capsule: two
+// capsules would read as two titles. It always shows, so the title gives way to
+// it; only when even the name cannot fit is the name itself cut.
+func panelChromeMode(innerW int, body []string, title string, tone borderTone, mode string) string {
 	bc := toneColor(tone)
 	bs := lipgloss.NewStyle().Foreground(bc)
+	f := frameFor(tone)
+
+	// " name " and one straight after it, before the corner.
+	right, rightW := "", 0
+	if mode != "" && innerW >= 4 {
+		name := truncate(mode, innerW-3)
+		right, rightW = bs.Render(" "+name+" "+f.h), dispW(name)+3
+	}
 
 	// An empty title means NO capsule. Rendering panelChip("") would still draw
 	// both round caps with nothing between them — two stray glyphs sitting on
@@ -313,19 +349,19 @@ func panelChromeTone(innerW int, body []string, title string, tone borderTone) s
 	chip, chipW := "", 0
 	if title != "" {
 		chip, chipW = panelChip(title, tone), dispW(title)+2
-		if chipW > innerW {
+		if chipW > innerW-rightW {
 			chip, chipW = "", 0
 		}
 	}
 
 	out := make([]string, 0, len(body)+2)
-	out = append(out, bs.Render("╭")+chip+
-		bs.Render(strings.Repeat("─", max(0, innerW-chipW))+"╮"))
-	side := bs.Render("│")
+	out = append(out, bs.Render(f.tl)+chip+
+		bs.Render(strings.Repeat(f.h, max(0, innerW-chipW-rightW)))+right+bs.Render(f.tr))
+	side := bs.Render(f.v)
 	for _, l := range body {
 		out = append(out, side+l+strings.Repeat(" ", max(0, innerW-dispW(l)))+side)
 	}
-	out = append(out, bs.Render("╰"+strings.Repeat("─", innerW)+"╯"))
+	out = append(out, bs.Render(f.bl+strings.Repeat(f.h, innerW)+f.br))
 	return strings.Join(out, "\n")
 }
 

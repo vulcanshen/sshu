@@ -169,7 +169,7 @@ A row that cannot run right now is dimmed, in the `Space` menu and in `?`, and i
 | `Alt-Enter` | Lock / release — for a nested sshu: pass every key through to the one inside |
 | `Alt-←/→/↑/↓` | Move to the neighbouring cell |
 | `Alt-Esc` | Back out one step — selection mode, then zoom, then the keyboard (that last step asks first) |
-| `Alt-v` | Selection mode — freeze this cell to copy from it |
+| `Alt-v` | Selection mode — freeze this cell to copy from it; its frame turns yellow and says `selection mode` |
 
 **Selection mode** (`Alt-v`) uses vim's keys:
 

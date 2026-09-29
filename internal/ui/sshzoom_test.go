@@ -11,7 +11,8 @@ import (
 
 // cellFrames counts the terminal frames actually drawn on the grid.
 func cellFrames(grid string) int {
-	return strings.Count(ansi.Strip(grid), "\u256d")
+	g := ansi.Strip(grid)
+	return strings.Count(g, "╭") + strings.Count(g, "╔") // rounded, or focused (double)
 }
 
 // ------------------------------------------------------------------- the cycle

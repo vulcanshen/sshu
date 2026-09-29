@@ -971,8 +971,18 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 		m.markMaxed(body, s)
 		return strings.Join(body, "\n")
 	}
+	// A mode names itself at the top right (tdp K11); the title gives up the
+	// room it takes, and the name stays.
+	if m.copy.on && m.copy.sessID == s.id {
+		titleW := max(0, innerW-dispW(copyModeName)-3)
+		return panelChromeMode(innerW, body, m.cellTitle(s, i, titleW), m.cellTone(s, i), copyModeName)
+	}
 	return panelChromeTone(innerW, body, m.cellTitle(s, i, innerW), m.cellTone(s, i))
 }
+
+// copyModeName is what selection mode is called on screen: at the top right of
+// its cell, and as the title of its key reference.
+const copyModeName = "selection mode"
 
 // markMaxed paints sshu's own disclosures over a full-screen cell.
 //
@@ -991,6 +1001,12 @@ func (m sshModel) markMaxed(body []string, s *session) {
 	if m.copy.on && m.copy.sessID == s.id && len(body) > 0 {
 		w := dispW(body[len(body)-1])
 		overlayRight(body, len(body)-1, padRight(keyLegend(copyLegendPairs(), w), w))
+		// No frame here, so the mode's name goes where the frame's top right
+		// would be, in the mode's colour (tdp K11). This layer draws no badge
+		// while the mode is up, so nothing of its own covers it; an outer layer
+		// in a nest may, and the legend on the last row still says it (user
+		// ruling 2026-09-29).
+		overlayRight(body, 0, lipgloss.NewStyle().Foreground(selectColor).Render(" "+copyModeName+" "))
 		return
 	}
 	overlayRight(body, 0, m.zoomBadge(s))

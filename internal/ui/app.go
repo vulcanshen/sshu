@@ -685,7 +685,11 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// emergency exit, it is the emergency. Nothing is stranded by giving it up —
 	// Alt+Esc takes the keyboard back and Ctrl+C is itself again on the far side
 	// of it, and the footer has been advertising that key the whole time.
-	if msg.Type == tea.KeyCtrlC && !m.inPty() {
+	//
+	// "Inside a remote" starts when the cell takes the keyboard, not when the
+	// far end first speaks: while it connects, Ctrl+C is ssh's (tdp K9, K10),
+	// handled below.
+	if msg.Type == tea.KeyCtrlC && !m.ptyFocused() {
 		if m.quitAsk.anim.owns() {
 			return m.quit()
 		}
@@ -709,7 +713,16 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// a `q` meant for sshu, run on somebody else's machine. They are swallowed
 	// instead, because the panel does have the keyboard; the way out is the
 	// Alt+Esc the footer is already advertising.
+	//
+	// Except Ctrl+C, which is forwarded (tdp K10, user ruling 2026-09-29):
+	// with the keyboard in the cell every key is taken as pressed there, and
+	// ssh has not put the tty in raw mode yet, so the line discipline turns it
+	// into SIGINT and the connection is given up at once — a failed session,
+	// reported like any other.
 	if m.ptyFocused() {
+		if msg.Type == tea.KeyCtrlC {
+			m.ssh.currentSession().pty.write(msg)
+		}
 		return m, nil
 	}
 
@@ -2389,7 +2402,7 @@ func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch msg.String() {
 	case "?":
-		return m, m.help.open(m.above(), "selection mode", copyModeHelp())
+		return m, m.help.open(m.above(), copyModeName, copyModeHelp())
 	case "q", "ctrl+c":
 		return m.startQuit()
 	case "tab", "shift+tab":

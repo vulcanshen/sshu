@@ -72,7 +72,7 @@ zoom max 這一階正是巢狀不再收費的原因:在那之前每層要吃 5 �
 
 終端機自己的選字是最明顯的那條路,而網格正好是破壞它的東西:拖曳是沿著螢幕的實體列走的,一拖就順手把邊框和隔壁格子同一列的輸出一起抓進來。業界的標準解法是開滑鼠、自己接管拖曳 —— sshu 不做,因為開了 mouse tracking 就等於把**整個 app** 的原生選字拿掉,包括清單和浮層這些原生選字仍然好用的地方。所以這是一個鍵盤模式,而它在自己以外不花任何東西。
 
-進去之後那一格**停止跟著遠端跑** —— session 沒有停、照樣在讀,只是一個會在你選到一半時重排的頁面,是沒有人選得起來的頁面 —— 而外框轉黃就是在說這件事。鍵是 vim 的,word 的規則也照搬 vim(§11.53)。什麼都沒選時 `y` 拿游標那一行,於是「複製剛剛印出來的東西」是三個鍵的事。字進**系統**剪貼簿,所以貼進編輯器不需要終端機幫任何忙;而且它一定會回報複製了幾行,或者在做不到時告訴你該裝什麼。
+進去之後那一格**停止跟著遠端跑** —— session 沒有停、照樣在讀,只是一個會在你選到一半時重排的頁面,是沒有人選得起來的頁面 —— 而外框轉黃、上框右側寫出 `selection mode` 就是在說這件事(模式要標示自己,tdp K11,v0.1.18)。名字一律顯示,格子窄的時候先讓標題截短;滿版沒有框,名字疊在右上角 —— 巢狀時可能被外層的 badge 蓋住,最後一列的 legend 照樣說明(使用者 2026-09-29 裁定)。鍵是 vim 的,word 的規則也照搬 vim(§11.53)。什麼都沒選時 `y` 拿游標那一行,於是「複製剛剛印出來的東西」是三個鍵的事。字進**系統**剪貼簿,所以貼進編輯器不需要終端機幫任何忙;而且它一定會回報複製了幾行,或者在做不到時告訴你該裝什麼。
 
 它是 tdp 所說的「模式」(K11):`?` 是模式的 key reference,列出模式所有的鍵;`q` / `Ctrl-C` 照樣走離開流程,`Tab` 跳 toast 說先 `Esc`,toast 還在時第一個 `Esc` 先收掉它、選取與模式都留著(tdp K11,v0.1.14);`Space` 不作用。模式的鍵是直接按的移動與選取,沒有 item / panel / global 可分,做成一份能選、能執行的清單(連 `h/j/k/l` 都從清單執行)只是多繞一層 —— §11.57 曾經這樣做,tdp v0.1.10 拿掉了,sshu 跟著拿掉(§11.63)。footer 最前面固定 `?`,放不下的 motion 由 `?` 負責揭露。
 
@@ -104,6 +104,8 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 ### 畫面
 
 - **frame 不變量** —— 每一條畫出來的線都剛好是終端機的寬度,任何尺寸、任何內容。從遠端來的寬字元、量起來不一樣的 Nerd Font glyph、CJK 檔名,全部靠「量」而不是「猜」;有一個測試橫跨尺寸、focus 狀態與資料在檢查它。這也是 Nerd Font 是必要條件的原因:版面會去量它們。
+- **focus 不只靠顏色(tdp L5,v0.1.19)。** 有鍵盤的 panel 與格子畫雙線 `╔═╗`,其他是圓角 `╭─╮`,兩套同寬,切換時一格都不動。以前只換顏色,而選取模式會把框換成黃色 —— 只靠顏色,模式一開 focus 就看不出來了。網格裡被清單游標指到的格子(echo)不是 focus,維持圓角。
+- **下框的 hint 放不下時,從尾端整組丟(tdp D3,v0.1.18)。** 跟 footer 同一個做法:`drawPopupBox()` 收的是 `鍵:說明` 的 pairs,自己依框寬(`fitLegend()`)丟到放得下為止,不會切在某個項目中間。以前是整串畫好再照欄數硬切。
 - **量並補齊純文字,再上色。** `lipgloss.Width` 會跳過 ANSI,但對已上色的字串補空白會讓那些空白落進樣式範圍內、吃到背景色;已上色的字串要裁切一律走 `clipANSI`。遠端的寬字元(vt10x 一個 rune 算一格)也是 `ptyTerm.render` 每一行先 `clipANSI` 再補齊,代價是這種行被切掉最後一兩欄。
 - **chrome 固定三列**:頂部膠囊 tab 列、其下一條整寬分隔線、底部 footer,`chromeRows = 3`。窄寬門檻是推導的:`sshNarrowW = sshLeftW + 28`(pty 至少留 28 欄)、`sftpNarrowW = 72`;`panes()` 是唯一決定版面形狀的地方。
 - **導覽詞彙只有一份**(`internal/ui/nav.go`):`j`/`k` 繞、`u`/`d` 半頁不繞、沒有游標的 viewport 不繞(`moveScroll`);導覽字母不被任何動作佔用,由 `TestNoActionClaimsANavigationKey` 擋。
@@ -176,6 +178,10 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
     是 overlay,蓋掉幾格輸出、不佔任何一列,每一層畫在同一個位置、互相蓋住(tdp K10,使用者 2026-09-29 裁定,§11.66)。
     zoom 裡按 `Alt-Esc` 是退一階,所以寫 `unzoom`,footer 在 zoom 中也是 `Alt-Esc:unzoom`;`leave pty` 留給真的離開 PTY
     的那一下。
+- **連線中的格子,`Ctrl-C` 轉送給 ssh(tdp K9、K10,v0.1.19)。** 格子有鍵盤、遠端還沒開口時,一般的鍵吞掉(ssh 還沒在讀
+  stdin,轉過去會在幾分鐘後落到遠端),`Ctrl-C` 例外:鍵盤在格子裡時,使用者把每一個鍵都當成在格子裡按的,中斷鍵也是。
+  ssh 還沒把 tty 切成 raw,`Ctrl-C` 經 line discipline 變成 SIGINT,這條連線當場放棄,照一般的失敗記進 Errors。以前這一下
+  走的是 sshu 的離開流程(使用者 2026-09-29 裁定改)。
 - **鎖住的格子,出口是 `Alt-Enter`,不是 `Alt-Esc`(tdp K10)。** K10 只要求至少一個出口鍵,換成哪一個由 app
   決定(曾列為偏離,v0.1.4 起不是)。格子被 lock(巢狀 sshu 用)之後,`Alt-Esc`、`Alt-z`、`Alt-v`、方向鍵
   全部穿透到內層,只有 `Alt-Enter` 留著(打開 lock menu,`Release PTY`)。理由
@@ -208,11 +214,13 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
   進離開流程 —— 離開流程把進行中的編輯算進代價,所以一定再問一次 —— 而那一問的 `Enter` 就真的離開了。兩層 confirm
   都在動畫中時 `Enter` 不作用,打得快多半會落空,但不是保證。
 - **未做**:Mouse;`[1]` 的 `[S]ftp` 捷徑(從表格直接把游標那台接到 file transfer 當前 focus 的那一側);fsnotify 重讀 `hosts.yaml`;keychain 存密碼;Export / Import 已實作但遮罩中(設計未定案,§11.12)。
-- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條(§11.61)、對照 v0.1.9 的 popup 規則(§11.62)、v0.1.10 的 K11(§11.63)與 v0.1.11–v0.1.12 的三條(dim 的算法、loading icon、journal 的 `Enter`,§11.64)也已修完並刪除;2026-09-29 對照 v0.1.14–v0.1.17 的九條(toast 的 `Esc`、`Alt-Esc` 先問、鍵的寫法、`?` 變暗、file transfer 有條件的列、空網格與 layout 的舊鍵、Errors 的 `Enter`、zoom max 的出口鍵,§11.66)也已修完並刪除。刻意不照做的在下方「偏離 tdp」。
+- **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條(§11.61)、對照 v0.1.9 的 popup 規則(§11.62)、v0.1.10 的 K11(§11.63)與 v0.1.11–v0.1.12 的三條(dim 的算法、loading icon、journal 的 `Enter`,§11.64)也已修完並刪除;2026-09-29 對照 v0.1.14–v0.1.17 的九條(toast 的 `Esc`、`Alt-Esc` 先問、鍵的寫法、`?` 變暗、file transfer 有條件的列、空網格與 layout 的舊鍵、Errors 的 `Enter`、zoom max 的出口鍵,§11.66)也已修完並刪除;對照 v0.1.18–v0.1.19 的四條(模式名、focus 雙線、hint 整組丟、連線中的 `Ctrl-C`,§11.67)也已修完。
+  還差一條:**icon 的實際寬度(tdp D6)** —— CJK 用的 Nerd Font 把 icon 畫成兩格、lipgloss 量成一格,框線會歪。等 filu 把
+  `width.go` 的做法定下來再照搬;盤點寫在 `docs/sshu-terminu-fix.md`,那份清單只剩這一條。刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.17)。
+依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.19)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K2 拿掉 grid 的例子(v0.1.2;同時採納的「模式按鍵清單
@@ -233,7 +241,7 @@ F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁�
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.66),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.67),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

@@ -147,7 +147,7 @@ func (m inputPopup) view() string {
 		spaces(innerW),
 		red.Render(padRight("  "+truncate(m.err, max(0, innerW-2)), innerW)),
 	}
-	hint := hintLegend([][2]string{{"Enter", m.acceptVerb()}, {"Esc", "cancel"}})
+	hint := [][2]string{{"Enter", m.acceptVerb()}, {"Esc", "cancel"}}
 	return drawPopupBox(popupLayerColor(m.layer), " "+m.glyph+" "+m.title+" ",
 		hint, animRows(m.anim, rows), innerW)
 }
