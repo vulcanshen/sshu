@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.20/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.21/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
