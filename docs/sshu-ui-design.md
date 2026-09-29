@@ -7005,6 +7005,51 @@ discipline 變成 SIGINT,連線當場放棄、以失敗結束。測試的 stand-
 
 ---
 
+### 11.68 對照 tdp v0.1.20 —— 模式名的接頭、icon 的實際寬度
+
+#### 使用者的要求
+
+> 「對齊新的 tdp」
+
+v0.1.20 把 v0.1.18 的兩條寫細:模式名夾在框線接頭之間,D6 給出 filu 的完整參考實作。清單留著的第 4 條(icon 寬度)因為
+filu 已經做完,這一輪一起修,清單刪除。
+
+#### 模式名夾在接頭之間(K11、D3)
+
+§11.67 的 ` selection mode ` 只是在橫線上留兩格空白。v0.1.20 要的是框上嵌一個標籤:`╡Select╞`(雙線框)、`┤Select├`
+(圓角框),接頭是框色、跟著框的線型,名字模式色加粗、盡量一個詞 —— 窄的 panel 放不下兩個詞,整個標籤會被丟掉。`frameLines`
+多兩個接頭;框上的字 `copyModeLabel` 是 `Select`,`?` 的標題有空間,留 `copyModeName`(`selection mode`)。選取中的格子是 focus,
+所以永遠是雙線的那一種;圓角的接頭由單元測試守。
+
+#### icon 的實際寬度(D6)
+
+有些 CJK 用的 Nerd Font 把 icon 畫成兩格(游標前進兩格),lipgloss 與 x/ansi 量成一格,框線跟著歪。照 filu 的參考實作:
+
+- `width.go` 整個換成認得寬 icon 的版本:`iconCells`、`isWideIcon()`(PUA 與 PUA-A,powerline 端點除外)、`dispW`、`clipANSI`
+  (從 filu 的 `dispClip`)、`dispCutLeft`、`compositeDisp`(取代 `overlay.Composite`)、`centerDisp`(取代 `lipgloss.Place`)、
+  `joinHorizontal` / `joinVertical`(取代 lipgloss 的 Join)。sshu 保留自己的函式名,兩百多處呼叫不用動。新加 `dispCut`
+  (display 欄的 `ansi.Cut`),給選取模式用。
+- `iconwidth_unix.go` 的 `DetectIconWidth()`:在 `NestInput` 接手 stdin、Bubble Tea 開始之前,印一個 icon、用 CPR 問游標位置;
+  `SSHU_ICON_WIDTH` 蓋過探測。
+- 繞過漏斗的五處:`overlay.Composite` 兩處(popup、toast);splash 的像素(icon 兩格時不再補空白)與置中;session 清單的
+  `glyphCell`;credentials 的 Auth 欄寬(改成 `credAuthW()`)。hosts 表格裡 credential 名字的預算(`colAuthW-2`)清單建議改,
+  但 mutation 顯示改了看不出差別 —— 外層的 `padRight` 本來就會截到同一個結果 —— 所以留著。
+- 選取模式:量欄位用 `dispW`,切段原本用 `ansi.Cut`;兩把尺在有 icon 的列上對不起來,反白會錯位、複製會拿錯字。都改走 `dispCut`。
+- 驗收:`width.go` 以外沒有 `lipgloss.Width` / `Place` / `Join*`、`ansi.StringWidth` / `Truncate` / `Cut`、`overlay.Composite`。
+  畫面測試的量尺也從 `lipgloss.Width` 換成 `dispW`(一格時完全相同),`TestTheFramesHoldWithTwoCellIcons` 把十五個 frame 測試在
+  兩格下各跑一次。toast 那一處的 mutation 起先活下來:toast 自己的標題列有 icon,但 overlay 取整塊最寬的一列當寬度,量得對;
+  會歪的是它蓋住的那幾列 —— 測試要讓 toast 底下的列有 icon(把 hosts 表格填滿)才量得出來。
+- 巢狀:內層的探測由外層的模擬器回答,vt10x 把 icon 算一格,所以內層會量到 1。第一版只留 `SSHU_ICON_WIDTH` 讓使用者在內層
+  手動設;使用者指出通道早就有了(「讓外層透過巢狀的通報通道直接告訴內層, 這通道已經有了，應該不難吧？」),於是補上:
+  - 指令通道(§11.45,OSC 7181)多兩個動詞 `icon1`、`icon2`。它們說的是整個 layer,不是游標那一格,所以 hop 0 收到時不需要
+    有 session。
+  - 外層在 `sshTickMsg` 裡(`tellIconWidth()`)看每一格:有 sshu 在通報(`nestChain()` 有值)而還沒說過,就送一次;通報停了
+    (內層結束、離開 alt screen)就清掉,同一格再開 sshu 會再說一次。沒有通報的格子什麼都不送 —— 那些 bytes 會落進 shell。
+  - 中間層從上一層學到不同的寬度時,`retellIconWidth()` 讓下一個 tick 對每一格再說一次,所以任何深度都傳得到。
+  - 手動設了 `SSHU_ICON_WIDTH`(`iconFixed`)的那一層不聽外層:使用者親手設的比猜的準。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
@@ -7085,7 +7130,7 @@ discipline 變成 SIGINT,連線當場放棄、以失敗結束。測試的 stand-
 | 格子(pty) | **`Alt-z`** | **zoom,三階段循環**:**zoompanel**(佔滿網格區)→ **zoommax**(連 chrome 與邊框都不畫)→ 正常。空轉的階自動跳過(一格時直接到 zoommax);永遠被攔截,要送進內層得先鎖住這一層(§11.47;由 `Alt-Enter` 搬來,§11.43) |
 | 格子(pty) | **`Alt-Enter`** | **layer 鍵**(§11.43)—— 開本層的 Lock/Release 選單(內層沒回報過才轉發,§11.45);有內層時選單多兩列**無熱鍵**的整鏈動作:全部 zoommax + 除最內層外全鎖 / 全部還原(§11.47);locked 的格子所有鍵穿透,這是唯一例外 |
 | 格子(pty) | **`Alt-Esc`** | 一次剝一層:**先離開選取模式**,再**逐階**退出 zoom(滿版 → 網格 zoom → 正常),再收回鍵盤、回 `[1]`(§11.47)—— 最後這一步**先問**,`Esc` 回格子(tdp D5,§11.66) |
-| 格子(pty) | **`Alt-v`** | **選取模式** —— 凍結這一格、border 轉黃、上框右側寫 `selection mode`(滿版時疊在右上角,§11.67),再按一次(或 `Alt-Esc`)離開(§11.33) |
+| 格子(pty) | **`Alt-v`** | **選取模式** —— 凍結這一格、border 轉黃、上框右側嵌 `╡Select╞`(滿版時疊在右上角,§11.67、§11.68),再按一次(或 `Alt-Esc`)離開(§11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53) |
 | 選取模式 | `v` / `V` · `y` · `Esc` | char / line 選取(再按取消)/ 複製到剪貼簿並結束 / 先丟選取、再離開 |
 | 選取模式 | `?` · `q` / `Ctrl-C` · `Tab` · `Space` | 模式的 key reference / 離開流程 / toast 說先 `Esc`,toast 還在時第一個 `Esc` 先收它(§11.66)/ 不作用(§11.57、§11.63) |

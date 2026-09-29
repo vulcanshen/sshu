@@ -374,6 +374,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// costs nothing.
 		m.ssh.spinAt++
 		m.ssh.sweepStalled()
+		m.ssh.tellIconWidth()
 		ended := m.ssh.reap()
 		if len(ended) > 0 {
 			m.ssh.setSize(m.w, m.panelHeight())
@@ -1452,6 +1453,19 @@ func (m AppModel) applyNestCmd(msg nestCmdMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		s.pty.writeRaw(nestCmdEncode(msg.Hop-1, msg.Verb))
+		return m, nil
+	}
+	// The icon width is about this whole layer, not the focused cell, so it is
+	// taken with no session at all. A width the user set by hand stays (tdp D6).
+	if msg.Verb == nestVerbIcon1 || msg.Verb == nestVerbIcon2 {
+		n := 1
+		if msg.Verb == nestVerbIcon2 {
+			n = 2
+		}
+		if !iconFixed && n != iconCells {
+			iconCells = n
+			m.ssh.retellIconWidth() // and on down to the layers below this one
+		}
 		return m, nil
 	}
 	if s == nil {

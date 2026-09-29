@@ -53,6 +53,10 @@ type session struct {
 	// Per session, not per app: locking the cell that leads to serverA says
 	// nothing about the cell that leads to serverX.
 	locked bool
+	// iconTold is whether the sshu reporting from inside this cell has been
+	// told how many cells an icon takes. Cleared when the reports stop, so a
+	// sshu started again in the same cell is told again (tdp D6).
+	iconTold bool
 	// appliedCols/Rows is the grid-cell geometry last pushed to the PTY, so a
 	// reflow only SIGWINCHes the sessions whose numbers actually changed.
 	appliedCols, appliedRows int
@@ -231,4 +235,34 @@ func selfPath() string {
 		return ""
 	}
 	return p
+}
+
+// tellIconWidth tells each sshu running inside a cell how many cells an icon
+// takes (tdp D6). The inner layer's own probe is answered by this layer's
+// emulator, which counts an icon as one whatever the terminal draws, so it
+// cannot find out for itself; this layer knows, from its probe or from the
+// layer above it. It rides the command channel (§11.45) once per sshu: when a
+// cell starts reporting, which is how this layer learns a sshu is there.
+func (m *sshModel) tellIconWidth() {
+	for _, s := range m.sessions {
+		if s.state != sessLive || s.pty == nil {
+			continue
+		}
+		if _, ok := s.pty.nestChain(); !ok {
+			s.iconTold = false
+			continue
+		}
+		if !s.iconTold {
+			s.pty.writeRaw(nestCmdEncode(0, iconVerb(iconCells)))
+			s.iconTold = true
+		}
+	}
+}
+
+// retellIconWidth makes the next tellIconWidth say it again to every cell: this
+// layer has just learned a different width from the one above it.
+func (m *sshModel) retellIconWidth() {
+	for _, s := range m.sessions {
+		s.iconTold = false
+	}
 }

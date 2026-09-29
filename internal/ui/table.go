@@ -24,9 +24,8 @@ const (
 	// one also has to say WHICH credential — a name the user chose, and the only
 	// cell in this table whose content nobody can bound — so it gets room past
 	// the longest method name instead of being sized by it.
-	colAuthW  = 16
-	credAuthW = 12 // glyph + space + "privatekey", and never anything else
-	colGap    = 2
+	colAuthW = 16
+	colGap   = 2
 
 	// Minimums below which a column stops carrying information and is dropped
 	// instead of being shaved to nothing.

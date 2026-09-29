@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/store"
 )
@@ -112,7 +111,7 @@ func TestPrefTabPreservesFrame(t *testing.T) {
 				t.Fatalf("%dx%d %v: %d lines, want %d", w, h, keys, len(lines), h)
 			}
 			for i, l := range lines {
-				if lw := lipgloss.Width(l); lw != w {
+				if lw := dispW(l); lw != w {
 					t.Errorf("%dx%d %v line %d: width %d, want %d\n%q",
 						w, h, keys, i, lw, w, l)
 				}

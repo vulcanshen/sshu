@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
@@ -164,7 +163,7 @@ func TestPopupPreservesFrame(t *testing.T) {
 				continue
 			}
 			for i, l := range lines {
-				if lw := lipgloss.Width(l); lw != w {
+				if lw := dispW(l); lw != w {
 					t.Errorf("%s %dx%d line %d: width %d, want %d\n%q", name, w, h, i, lw, w, l)
 				}
 			}

@@ -131,7 +131,7 @@ func TestFullScreenStillDisclosesTheWayOut(t *testing.T) {
 		t.Fatalf("the hint must not cost a row: %d rows", len(rows))
 	}
 	for i, r := range rows {
-		if w := ansi.StringWidth(r); w != m.w {
+		if w := dispW(r); w != m.w {
 			t.Errorf("row %d is %d wide, not %d", i, w, m.w)
 		}
 	}

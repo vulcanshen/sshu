@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -25,8 +26,8 @@ func TestFocusIsADoubleLine(t *testing.T) {
 		t.Errorf("an unfocused frame should be rounded:\n%s", strings.Join(off, "\n"))
 	}
 	for i := range on {
-		if ansi.StringWidth(on[i]) != ansi.StringWidth(off[i]) {
-			t.Errorf("row %d changes width with focus: %d vs %d", i, ansi.StringWidth(on[i]), ansi.StringWidth(off[i]))
+		if dispW(on[i]) != dispW(off[i]) {
+			t.Errorf("row %d changes width with focus: %d vs %d", i, dispW(on[i]), dispW(off[i]))
 		}
 	}
 	// The echo of a list cursor is not the keyboard: rounded.
@@ -48,22 +49,26 @@ func TestSelectionModeNamesItselfOnItsFrame(t *testing.T) {
 	grid := m.ssh.gridView()
 	top := strings.Split(grid, "\n")[0]
 	plain := ansi.Strip(top)
-	if !strings.Contains(plain, "╔") || !strings.Contains(plain, " selection mode ═╗") {
-		t.Errorf("the cell in the mode should be double-lined and named at the top right: %q", plain)
+	// One word set between two junctions of the double line (tdp v0.1.20).
+	if !strings.Contains(plain, "╔") || !strings.Contains(plain, "╡Select╞═╗") {
+		t.Errorf("the cell in the mode should be double-lined and labelled at the top right: %q", plain)
 	}
 	yellow := sgr(ansiOf(t, selectColor))
-	if !strings.Contains(top, yellow+" selection mode ") {
-		t.Errorf("the name should be in the mode colour: %q", top)
+	if !strings.Contains(top, yellow+"╡") {
+		t.Errorf("the junctions should be in the frame colour: %q", top)
+	}
+	if bold := lipgloss.NewStyle().Foreground(selectColor).Bold(true).Render("Select"); !strings.Contains(top, bold) {
+		t.Errorf("the name should be bold in the mode colour: %q", top)
 	}
 	for i, r := range strings.Split(grid, "\n") {
-		if w := ansi.StringWidth(r); w != ansi.StringWidth(top) {
-			t.Errorf("row %d is %d wide, the top %d", i, w, ansi.StringWidth(top))
+		if w := dispW(r); w != dispW(top) {
+			t.Errorf("row %d is %d wide, the top %d", i, w, dispW(top))
 		}
 	}
 
 	m = pressA(m, "alt+v")
 	grid = ansi.Strip(m.ssh.gridView())
-	if strings.Contains(grid, "selection mode") {
+	if strings.Contains(grid, "Select") {
 		t.Error("leaving the mode should take its name off")
 	}
 	if !strings.Contains(grid, "╔") {
@@ -76,19 +81,23 @@ func TestSelectionModeNamesItselfOnItsFrame(t *testing.T) {
 func TestTheModeNameOutlastsTheTitle(t *testing.T) {
 	body := []string{strings.Repeat(" ", 24)}
 	out := strings.Split(ansi.Strip(panelChromeMode(24, body, "a-very-long-host-name", toneSelect, "selection mode")), "\n")
-	if !strings.Contains(out[0], "selection mode") {
-		t.Errorf("the name must show: %q", out[0])
+	if !strings.Contains(out[0], "╡selection mode╞") {
+		t.Errorf("the name must show between its junctions: %q", out[0])
+	}
+	// A rounded frame takes the single-line junctions.
+	if r := ansi.Strip(panelChromeMode(24, body, "t", toneIdle, "Select")); !strings.Contains(r, "┤Select├─╮") {
+		t.Errorf("a rounded frame should use ┤ ├: %q", strings.Split(r, "\n")[0])
 	}
 	if strings.Contains(out[0], "a-very-long-host-name") {
 		t.Errorf("the title should give way: %q", out[0])
 	}
 	for i, r := range out {
-		if ansi.StringWidth(r) != 26 {
-			t.Errorf("row %d is %d wide, not 26", i, ansi.StringWidth(r))
+		if dispW(r) != 26 {
+			t.Errorf("row %d is %d wide, not 26", i, dispW(r))
 		}
 	}
 	narrow := strings.Split(ansi.Strip(panelChromeMode(8, []string{"        "}, "t", toneSelect, "selection mode")), "\n")
-	if ansi.StringWidth(narrow[0]) != 10 || !strings.Contains(narrow[0], "sel") {
+	if dispW(narrow[0]) != 10 || !strings.Contains(narrow[0], "sel") {
 		t.Errorf("a narrow frame cuts the name and keeps its width: %q", narrow[0])
 	}
 	// The cell cuts its title to the room the name leaves, rather than losing
@@ -98,7 +107,7 @@ func TestTheModeNameOutlastsTheTitle(t *testing.T) {
 	m = pressA(m, "alt+v")
 	m.ssh.currentSession().host.Host = "a" + strings.Repeat("b", 80)
 	top := ansi.Strip(strings.Split(m.ssh.gridView(), "\n")[0])
-	if !strings.Contains(top, "abbb") || !strings.Contains(top, "selection mode") {
+	if !strings.Contains(top, "abbb") || !strings.Contains(top, "╡Select╞") {
 		t.Errorf("both the cut title and the name should show: %q", top)
 	}
 }
@@ -110,15 +119,15 @@ func TestFullScreenSelectionModeNamesItself(t *testing.T) {
 	waitFor(t, "the remote to answer", func() bool { return m.inPty() })
 	m = pressA(m, "alt+z", "alt+z", "alt+v")
 	rows := strings.Split(m.View(), "\n")
-	if got := strings.TrimRight(ansi.Strip(rows[0]), " "); !strings.HasSuffix(got, "selection mode") {
+	if got := strings.TrimRight(ansi.Strip(rows[0]), " "); !strings.HasSuffix(got, "Select") {
 		t.Errorf("the name should sit at the top right: %q", got)
 	}
 	if last := ansi.Strip(rows[len(rows)-1]); !strings.Contains(last, "Alt-v:leave") {
 		t.Errorf("the legend should stay on the last row: %q", last)
 	}
 	for i, r := range rows {
-		if ansi.StringWidth(r) != m.w {
-			t.Errorf("row %d is %d wide, not %d", i, ansi.StringWidth(r), m.w)
+		if dispW(r) != m.w {
+			t.Errorf("row %d is %d wide, not %d", i, dispW(r), m.w)
 		}
 	}
 }
@@ -138,7 +147,7 @@ func TestAHintDropsWholeItemsFromTheEnd(t *testing.T) {
 		}
 	}
 	// Narrow enough that even the first item cannot fit: cut, but never wider.
-	if got := fitLegend(pairs, 5); ansi.StringWidth(got) > 5 {
+	if got := fitLegend(pairs, 5); dispW(got) > 5 {
 		t.Errorf("the last resort must still fit: %q", ansi.Strip(got))
 	}
 
@@ -149,7 +158,7 @@ func TestAHintDropsWholeItemsFromTheEnd(t *testing.T) {
 	if !strings.Contains(bottom, " j/k:move Enter:run ") || strings.Contains(bottom, "Esc") {
 		t.Errorf("the hint should end on a whole item: %q", bottom)
 	}
-	if ansi.StringWidth(bottom) != ansi.StringWidth(box[0]) {
+	if dispW(bottom) != dispW(box[0]) {
 		t.Errorf("the bottom border changed width: %q", bottom)
 	}
 }

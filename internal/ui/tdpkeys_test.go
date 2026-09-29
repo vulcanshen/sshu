@@ -29,7 +29,7 @@ func TestHintsAndTheFooterWriteKeyColonDescription(t *testing.T) {
 	if strings.TrimRight(footer, " ") != " Space:menu ?:help q:quit" {
 		t.Errorf("footer = %q", footer)
 	}
-	if n := ansi.StringWidth(footer); n != 30 {
+	if n := dispW(footer); n != 30 {
 		t.Errorf("the footer should still fill its width: %d", n)
 	}
 	// A position is not a key: no colon, and nothing in the key colour.

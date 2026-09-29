@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/vulcanshen/sshu/internal/store"
 )
@@ -61,7 +60,7 @@ func TestViewLineWidths(t *testing.T) {
 						len(hosts), w, h, tab, len(lines), h)
 				}
 				for i, l := range lines {
-					if lw := lipgloss.Width(l); lw != w {
+					if lw := dispW(l); lw != w {
 						t.Errorf("hosts=%d %dx%d tab=%s line %d: width %d, want %d\n%q",
 							len(hosts), w, h, tab, i, lw, w, l)
 					}

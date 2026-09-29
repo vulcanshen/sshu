@@ -39,7 +39,20 @@ const (
 	nestVerbRelease = "release"
 	nestVerbZoomMax = "zoommax"
 	nestVerbUnzoom  = "unzoom"
+	// icon1 / icon2 tell a layer how many cells an icon takes (tdp D6). Its
+	// own probe cannot find out: the question reaches the parent's emulator,
+	// which counts an icon as one, not the terminal that draws it.
+	nestVerbIcon1 = "icon1"
+	nestVerbIcon2 = "icon2"
 )
+
+// iconVerb is the command that says an icon takes n cells.
+func iconVerb(n int) string {
+	if n == 2 {
+		return nestVerbIcon2
+	}
+	return nestVerbIcon1
+}
 
 // maxNestHop refuses an address that could only be a mistake or a loop. Sixteen
 // is the same ceiling OpenSSH puts on nested Includes, and for the same reason:
@@ -64,7 +77,7 @@ func nestCmdParse(payload string) (nestCmdMsg, bool) {
 		return nestCmdMsg{}, false
 	}
 	switch f[2] {
-	case nestVerbLock, nestVerbRelease, nestVerbZoomMax, nestVerbUnzoom:
+	case nestVerbLock, nestVerbRelease, nestVerbZoomMax, nestVerbUnzoom, nestVerbIcon1, nestVerbIcon2:
 		return nestCmdMsg{Hop: hop, Verb: f[2]}, true
 	}
 	return nestCmdMsg{}, false

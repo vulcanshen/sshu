@@ -175,6 +175,10 @@ func main() {
 	// stdin goes through sshu first: a parent sshu addresses a layer with an
 	// escape sequence, and Bubble Tea would decode it into keystrokes of its
 	// own (design §11.45). Everything that is not a command passes through.
+	//
+	// Before that, and before Bubble Tea takes the screen, ask the terminal how
+	// wide it draws an icon (tdp D6): the probe reads its answer from stdin.
+	ui.DetectIconWidth()
 	in, pump := ui.NestInput(os.Stdin)
 	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithInput(in))
 	go pump(func(m any) { p.Send(m) })

@@ -89,8 +89,12 @@ Changes since 1.7.1.
   covering a few cells rather than taking a row.
 - **The panel or cell with the keyboard is drawn in a double line**, so
   focus still shows when selection mode turns the frame yellow.
-- **Selection mode says so on its frame**: `selection mode` at the top
-  right, in yellow; in full screen, at the top right of the screen.
+- **Selection mode says so on its frame**: `╡Select╞` set into the top
+  border at the right, in yellow; in full screen, at the top right of the
+  screen.
+- **Fonts that draw icons two cells wide keep every border straight.** sshu
+  asks the terminal how wide an icon is when it starts, and tells a sshu
+  nested inside it, which cannot ask; `SSHU_ICON_WIDTH` sets it by hand.
 - **`Ctrl-C` in a cell that is still connecting goes to ssh** and gives the
   connection up, instead of asking whether to quit sshu.
 - **A popup's hint that does not fit drops whole keys from the end**
