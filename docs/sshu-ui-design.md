@@ -7084,6 +7084,26 @@ popup 照樣剛好蓋住。測試照搬 filu 的邊界(比畫面寬、比畫面�
 
 ---
 
+### 11.71 對照 tdp v0.1.22 —— `TERMINU__ICON_WIDTH`
+
+#### 使用者的要求
+
+> 「對齊 tdp 新規範」
+
+sshu 在 §11.68 回報了「在別的 app 的 PTY 裡,探測由外層的模擬器回答,icon 量成一格」;sshu 自己用巢狀指令通道解了 sshu 套 sshu,
+tdp 採用了另一條給全家族的路:家族共用一個變數,所有 app 互通。
+
+- **讀**:`DetectIconWidth()` 的順序改成 `SSHU__ICON_WIDTH` → `TERMINU__ICON_WIDTH` → 探測,都只收 1 或 2;前兩個有值時不送 CPR。
+  `SSHU__ICON_WIDTH` 設 `iconFixed`(外層的通知也不聽);`TERMINU__ICON_WIDTH` 不設 —— 它是上一個 app 交下來的,不是使用者的
+  手動設定,外層 sshu 經通道說的更新仍然照收。
+- **交**:`withIconWidth()` 在子程序環境設 `TERMINU__ICON_WIDTH=<iconCells>`,先拿掉從上面繼承來的那一份(同名兩個,讀的人不一定
+  拿哪一個)。用在 `editorEnv()`(`[e]dit` 的編輯器,可能正是另一個家族 app)與 `sshEnv()`(格子;變數過不了 ssh,遠端還是靠通道,
+  但格子裡的 ProxyCommand、LocalCommand 是這個 PTY 的子程序,設了沒有代價)。
+- 兩條路並存:同一台機器上家族 app 互相嵌著跑,靠變數;隔著 ssh 的 sshu 套 sshu,靠通道。
+- tdp 同版也把「疊 popup 時兩個方向都比畫面大也要切」寫清楚,sshu 在 §11.70 照搬 filu 時已經是這樣。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel

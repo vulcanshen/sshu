@@ -105,11 +105,12 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 
 - **frame 不變量** —— 每一條畫出來的線都剛好是終端機的寬度,任何尺寸、任何內容。從遠端來的寬字元、量起來不一樣的 Nerd Font glyph、CJK 檔名,全部靠「量」而不是「猜」;有一個測試橫跨尺寸、focus 狀態與資料在檢查它。這也是 Nerd Font 是必要條件的原因:版面會去量它們。
 - **環境變數一律 `SSHU__<NAME>`(tdp D6,v0.1.21)。** app 名後兩個底線、變數名全大寫單底線:`SSHU__CONFIG`(設定目錄)、`SSHU__ICON_WIDTH`、`SSHU__KEY_FILE`、傳給自己 askpass 子程序的 `SSHU__ASKPASS_HOST` / `SSHU__ASKPASS_SOCK`、測試用的也是。舊名(`SSHU_CONFIG` 等單底線)不再讀,不留相容(使用者 2026-09-29 裁定)。例外是 `LC_SSHU_COLORTERM`:它是給遠端讀的,而 OpenSSH 預設只轉送 `LC_*`。
-- **icon 佔幾格,啟動時問終端機(tdp D6)。** 有些 CJK 用的 Nerd Font 把 icon 畫成兩格(游標前進兩格),lipgloss 卻量成一格,框線就歪。`DetectIconWidth()`(`iconwidth_unix.go`)在 Bubble Tea 接手 stdin 之前印一個 icon、用 CPR 問游標停在哪,得到 `iconCells`;沒回答、不是 tty、逾時都留在 1。`SSHU__ICON_WIDTH`(1 或 2)蓋過探測。`internal/ui` 裡所有量寬、截斷、補齊、置中、並排、疊 popup 都走 `width.go`(照 filu 的參考實作:`dispW`、`clipANSI`、`dispCutLeft`、`dispCut`、`compositeDisp`、`centerDisp`、`joinHorizontal` / `joinVertical`),`lipgloss.Width` / `Place` / `Join*`、`ansi.StringWidth` / `Truncate` / `Cut`、`overlay.Composite` 在 `width.go` 以外一處都沒有。`iconCells = 1` 時畫面跟以前一模一樣;畫面測試另外在兩格下全部重跑一次。疊 popup 時 popup 可能比畫面大(調整終端機大小的那一格,popup 還是舊尺寸):起點取 0、超出的部分切掉,不 panic(D6,v0.1.21)。powerline 的膠囊端點雖然也在 PUA,仍是一格。
+- **icon 佔幾格,啟動時問終端機(tdp D6)。** 有些 CJK 用的 Nerd Font 把 icon 畫成兩格(游標前進兩格),lipgloss 卻量成一格,框線就歪。`DetectIconWidth()`(`iconwidth_unix.go`)在 Bubble Tea 接手 stdin 之前印一個 icon、用 CPR 問游標停在哪,得到 `iconCells`;沒回答、不是 tty、逾時都留在 1。探測之前先看兩個變數(tdp D6,v0.1.22):`SSHU__ICON_WIDTH`(1 或 2,使用者手動設的,蓋過一切,連外層的通知也不聽),再來是家族共用的 `TERMINU__ICON_WIDTH` —— sshu 在別的家族 app 的 PTY 裡跑時(kbu 的 Alterm、filu 的 shell),探測會被那個 app 的模擬器回答、量成一格,所以由它把自己的格數交下來;有值就不送 CPR。反方向也一樣:sshu 開的每一個 PTY(格子的 ssh、`[e]dit` 的編輯器)都在子程序環境設 `TERMINU__ICON_WIDTH=<自己的格數>`,蓋掉從上面繼承來的那一份。`internal/ui` 裡所有量寬、截斷、補齊、置中、並排、疊 popup 都走 `width.go`(照 filu 的參考實作:`dispW`、`clipANSI`、`dispCutLeft`、`dispCut`、`compositeDisp`、`centerDisp`、`joinHorizontal` / `joinVertical`),`lipgloss.Width` / `Place` / `Join*`、`ansi.StringWidth` / `Truncate` / `Cut`、`overlay.Composite` 在 `width.go` 以外一處都沒有。`iconCells = 1` 時畫面跟以前一模一樣;畫面測試另外在兩格下全部重跑一次。疊 popup 時 popup 可能比畫面大(調整終端機大小的那一格,popup 還是舊尺寸):起點取 0、超出的部分切掉,不 panic(D6,v0.1.21)。powerline 的膠囊端點雖然也在 PUA,仍是一格。
   - 巢狀:內層 sshu 的探測由外層的 pty 模擬器回答,而 vt10x 把 icon 算一格,內層自己問不出來。所以外層告訴它:外層在某一格
     第一次收到 sshu 的通報(§11.44)時,沿指令通道(§11.45)送一個 `icon1` / `icon2`,內層收到就改寬度、下一次重畫照新的量;
     中間層從上一層學到不同的寬度時,再往下說一次。每個 sshu 只說一次,通報停了(內層結束)就重來。手動設了
-    `SSHU__ICON_WIDTH` 的那一層不聽外層的。
+    `SSHU__ICON_WIDTH` 的那一層不聽外層的。環境變數過不了 ssh,所以遠端的巢狀只能靠這條通道;`TERMINU__ICON_WIDTH` 管的是同一台
+    機器上的家族 app 互相嵌著跑。
   - 遠端畫的東西照 vt 模擬器的格子(遠端的尺寸、游標、捲動都是它的格數),只在最後切到格子寬時走顯示寬度,所以遠端印 icon 時被切掉的是那一列最後一兩格,跟 emoji 一樣。選取模式量欄位與切段用同一把尺(`lineChars` 與 `dispCut`),有 icon 的列反白才對得上。
 - **focus 不只靠顏色(tdp L5,v0.1.19)。** 有鍵盤的 panel 與格子畫雙線 `╔═╗`,其他是圓角 `╭─╮`,兩套同寬,切換時一格都不動。以前只換顏色,而選取模式會把框換成黃色 —— 只靠顏色,模式一開 focus 就看不出來了。網格裡被清單游標指到的格子(echo)不是 focus,維持圓角。
 - **下框的 hint 放不下時,從尾端整組丟(tdp D3,v0.1.18)。** 跟 footer 同一個做法:`drawPopupBox()` 收的是 `鍵:說明` 的 pairs,自己依框寬(`fitLegend()`)丟到放得下為止,不會切在某個項目中間。以前是整串畫好再照欄數硬切。
@@ -223,12 +224,12 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **未做**:Mouse;`[1]` 的 `[S]ftp` 捷徑(從表格直接把游標那台接到 file transfer 當前 focus 的那一側);fsnotify 重讀 `hosts.yaml`;keychain 存密碼;Export / Import 已實作但遮罩中(設計未定案,§11.12)。
 - **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條(§11.61)、對照 v0.1.9 的 popup 規則(§11.62)、v0.1.10 的 K11(§11.63)與 v0.1.11–v0.1.12 的三條(dim 的算法、loading icon、journal 的 `Enter`,§11.64)也已修完並刪除;2026-09-29 對照 v0.1.14–v0.1.17 的九條(toast 的 `Esc`、`Alt-Esc` 先問、鍵的寫法、`?` 變暗、file transfer 有條件的列、空網格與 layout 的舊鍵、Errors 的 `Enter`、zoom max 的出口鍵,§11.66)也已修完並刪除;對照 v0.1.18–v0.1.19 的四條(模式名、focus 雙線、hint 整組丟、連線中的 `Ctrl-C`,§11.67)也已修完。
   同一份清單的最後一條 icon 的實際寬度(D6),在 filu 定下參考實作之後對照 v0.1.20 修完,連同模式名的接頭(§11.68),清單已刪除。
-  對照 v0.1.21 的三條(環境變數改名 `SSHU__<NAME>`、選取模式的 `gg/G`、popup 比畫面大時不 panic,§11.69、§11.70)也已修完,
-  清單已刪除。刻意不照做的在下方「偏離 tdp」。
+  對照 v0.1.21 的三條(環境變數改名 `SSHU__<NAME>`、選取模式的 `gg/G`、popup 比畫面大時不 panic,§11.69、§11.70)與 v0.1.22
+  的兩條(讀 `TERMINU__ICON_WIDTH`、開 PTY 時交下去,§11.71)也已修完,清單已刪除。刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.21)。
+依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.22)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K2 拿掉 grid 的例子(v0.1.2;同時採納的「模式按鍵清單
@@ -249,7 +250,7 @@ F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁�
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.70),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.71),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

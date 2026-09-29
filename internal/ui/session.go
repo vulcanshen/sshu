@@ -191,7 +191,11 @@ func sshEnv(h store.Host, self string) []string {
 			askpassHostEnv+"="+h.Name,
 		)
 	}
-	return env
+	// The family's icon width for whatever runs in the PTY (tdp D6). It does
+	// not cross ssh — a sshu on the far side is told over the nest channel —
+	// but a local command in the cell (a ProxyCommand, a LocalCommand) is a
+	// child of this PTY, and it costs nothing to be right there too.
+	return withIconWidth(env)
 }
 
 // colorEnv is the name the depth travels under. LC_ so sshd accepts it, and

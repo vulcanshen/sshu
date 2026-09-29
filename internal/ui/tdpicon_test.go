@@ -2,6 +2,7 @@ package ui
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -331,5 +332,60 @@ func TestAnOverlayLargerThanTheScreenIsCutNotAPanic(t *testing.T) {
 	same := strings.TrimSuffix(strings.Repeat(strings.Repeat("#", 10)+"\n", 5), "\n")
 	if got := compositeDisp(same, bg, overlay.Left, overlay.Top, 0, 0); got != same {
 		t.Errorf("a box the size of the screen should cover it exactly: %q", got)
+	}
+}
+
+// tdp v0.1.22 D6: SSHU__ICON_WIDTH, then TERMINU__ICON_WIDTH — what a family app
+// running sshu in its PTY hands down — then the probe. The family variable is
+// not a hand setting: the layer above may still correct it over the channel.
+func TestTheIconWidthIsReadInTheFamilyOrder(t *testing.T) {
+	old, oldFixed := iconCells, iconFixed
+	t.Cleanup(func() { iconCells, iconFixed = old, oldFixed })
+	reset := func(own, family string) {
+		iconCells, iconFixed = 1, false
+		t.Setenv("SSHU__ICON_WIDTH", own)
+		t.Setenv("TERMINU__ICON_WIDTH", family)
+		DetectIconWidth()
+	}
+	reset("1", "2")
+	if iconCells != 1 || !iconFixed {
+		t.Errorf("SSHU__ICON_WIDTH should win: %d fixed=%v", iconCells, iconFixed)
+	}
+	reset("", "2")
+	if iconCells != 2 || iconFixed {
+		t.Errorf("TERMINU__ICON_WIDTH should be used, and not as a hand setting: %d fixed=%v", iconCells, iconFixed)
+	}
+	reset("9", "x")
+	if iconCells != 1 || iconFixed {
+		t.Errorf("values other than 1 or 2 are as if unset: %d fixed=%v", iconCells, iconFixed)
+	}
+}
+
+// Every PTY sshu opens hands its own width down as TERMINU__ICON_WIDTH, once,
+// replacing what sshu itself was started with.
+func TestAPtyChildIsToldTheIconWidth(t *testing.T) {
+	old := iconCells
+	t.Cleanup(func() { iconCells = old })
+	t.Setenv("TERMINU__ICON_WIDTH", "7") // inherited from whatever started sshu
+	for _, n := range []int{1, 2} {
+		iconCells = n
+		want := "TERMINU__ICON_WIDTH=" + strconv.Itoa(n)
+		for name, env := range map[string][]string{
+			"ssh cell": sshEnv(sample()[0], ""),
+			"editor":   editorEnv(),
+		} {
+			got := 0
+			for _, v := range env {
+				if strings.HasPrefix(v, "TERMINU__ICON_WIDTH=") {
+					got++
+					if v != want {
+						t.Errorf("%s at %d: %q", name, n, v)
+					}
+				}
+			}
+			if got != 1 {
+				t.Errorf("%s at %d: TERMINU__ICON_WIDTH appears %d times", name, n, got)
+			}
+		}
 	}
 }
