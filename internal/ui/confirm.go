@@ -23,6 +23,8 @@ const (
 	confirmDeleteCred    // remove a credential from credentials.yaml
 	confirmEditBinary    // open something that does not look like text
 	confirmEditOverwrite // write back over a file that changed underneath
+	confirmEditAbandon   // Alt+Esc in a running editor: stop it, keep nothing
+	confirmLeavePty      // Alt+Esc in a cell: the keyboard back to the list
 	confirmClearLogs     // erase the app log, applogs.yaml and all
 	confirmDeleteSSHCfg  // remove a Host block from ~/.ssh/config
 	confirmDeleteKnown   // stop trusting a key in ~/.ssh/known_hosts

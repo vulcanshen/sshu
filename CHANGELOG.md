@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 sshu joins the terminu family and follows its design principle,
-[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.13/principle): the
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.17/principle): the
 same core keys and the same menus as kbu, filu, webu and locku. Most of
 what changes is how the keys you already know behave in more places.
 
@@ -11,9 +11,9 @@ Changes since 1.7.1.
 
 ### Changed
 
-- **`q` and `Ctrl+C` are the same way out.** Both ask first when leaving
+- **`q` and `Ctrl-C` are the same way out.** Both ask first when leaving
   would lose something, and both work from any popup, not only from a
-  panel. `Ctrl+C` works while typing too; pressed again while the question
+  panel. `Ctrl-C` works while typing too; pressed again while the question
   is open, it leaves at once, so you are never trapped by your own
   confirmation.
 - **`Space` closes only the Space menu.** It used to close any popup,
@@ -30,10 +30,10 @@ Changes since 1.7.1.
 - **`Enter` on a form always saves.** If something is missing or wrong,
   the cursor goes to the first such field and the form says why, instead
   of `Enter` stepping to the next field. The hint always reads
-  `Enter save`. An empty key or credential field still opens its picker.
+  `Enter:save`. An empty key or credential field still opens its picker.
 - **Selection mode keeps the core keys**: `?` lists every key the mode
-  has, `q` and `Ctrl+C` start the way out, and `Tab` says to leave the
-  mode first. `Space` does nothing there — the mode's keys are pressed,
+  has, `q` and `Ctrl-C` start the way out, and `Tab` says to leave the
+  mode first — while that note is up, the first `Esc` only closes it. `Space` does nothing there — the mode's keys are pressed,
   not picked from a menu.
 - **A dimmed menu row does nothing**, from `Enter` or its letter, instead
   of explaining itself in a toast.
@@ -41,7 +41,7 @@ Changes since 1.7.1.
   like every other panel.
 - **`Tab` does nothing on the ssh tab.** It used to show or hide a
   session's cell, a second spelling of `[H]ide`.
-- **A connecting cell's footer shows `alt+esc`**, the one key that works
+- **A connecting cell's footer shows `Alt-Esc`**, the one key that works
   before the remote answers.
 - **Every popup is the same width** — the terminal less two columns, 120 at
   most — and keeps the height it opened with: the identity picker no longer
@@ -66,6 +66,33 @@ Changes since 1.7.1.
   a toast — fix the one character and press `Enter` again.
 - **`Enter` in Jobs opens the job in full**, including the whole of a
   failure the progress bar had room only to start.
+- **`Alt-Esc` asks before it takes the keyboard off a cell or abandons an
+  edit.** A quick double `Esc` in vim can arrive as `Alt-Esc`, and it used
+  to drop you out of the session, or throw an edit away with its local
+  copy. Now `Enter` leaves and `Esc` goes back in; stepping out of a zoom
+  or out of selection mode still happens at once. Quitting while an editor
+  is open asks first too.
+- **Keys are written one way everywhere**: `key:description` in the footer
+  and popup hints (`j/k:move Enter:run Esc:close`), the names on the key
+  caps (`Alt-Esc`, `Ctrl-C`, `PgUp/PgDn`), and square brackets around keys
+  in a sentence (`Press [A] or [Space]`). Rows run by `Enter` say so in the
+  menu: `[Enter] Connect`.
+- **`?` dims what cannot run right now**, the way the menu does, and the
+  file transfer menu dims more of it: `a` on a file still arriving, `e` on
+  a directory, `t` and `T` while the other side has no host — pressing
+  them does nothing instead of explaining itself. With nothing marked,
+  `T`, `X` and `C` are not offered.
+- **`Esc` closes a message at the bottom first**, before it clears a search
+  or leaves a directory.
+- **Errors has `[Enter] Open` in its Space menu**, the key it already had.
+- **Full screen shows the way out** — `Alt-Esc:unzoom` under the badge,
+  covering a few cells rather than taking a row.
+
+### Fixed
+
+- **The empty grid and the layout strip named keys sshu no longer has**:
+  the grid now says `[H]` shows or hides a cell, and custom asks only for
+  the number of columns.
 
 ## [1.7.1] — 2026-09-17
 

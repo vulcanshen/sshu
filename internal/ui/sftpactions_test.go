@@ -335,8 +335,16 @@ func TestAFileStillArrivingCannotBeMarked(t *testing.T) {
 	if len(after.sftp.sides[sideLeft].marks) != 0 {
 		t.Errorf("marked a file that is still arriving: %v", after.sftp.sides[sideLeft].marks)
 	}
-	if !strings.Contains(ansi.Strip(after.View()), "Still arriving") {
-		t.Errorf("the refusal has to say why:\n%s", ansi.Strip(after.View()))
+	// The row is there, dimmed with its usual words, and the letter does
+	// nothing at all — no reason is added (tdp M6).
+	if after.toast.isActive() {
+		t.Error("a dimmed row's letter does nothing, not even a toast")
+	}
+	if it, ok := menuRow(m.sftpMenuItems(), "a"); !ok || !it.disabled {
+		t.Errorf("the mark row should be listed and dimmed: %+v", it)
+	}
+	if !hasDimmedKey(m.panelKeyReference(), "a") {
+		t.Error("? should list a dimmed as well")
 	}
 
 	// The same key on a row that is NOT arriving still marks, so the refusal is

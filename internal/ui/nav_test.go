@@ -203,7 +203,7 @@ func TestHelpListsTheNavigationVocabulary(t *testing.T) {
 		keys = append(keys, e.key)
 	}
 	joined := strings.Join(keys, " | ")
-	for _, want := range []string{"u · d", "Tab"} {
+	for _, want := range []string{"u/d", "Tab"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("help does not mention %q (has %s)", want, joined)
 		}
@@ -220,7 +220,7 @@ func TestHelpListsTheGridKeysYouCannotAskAboutFromInside(t *testing.T) {
 		keys = append(keys, e.key)
 	}
 	joined := strings.Join(keys, " | ")
-	for _, want := range []string{"Alt+arrows", "Alt+Enter", "Alt+Esc", "PgUp · PgDn"} {
+	for _, want := range []string{"Alt-←/→/↑/↓", "Alt-Enter", "Alt-Esc", "PgUp/PgDn"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("help does not mention %q (has %s)", want, joined)
 		}

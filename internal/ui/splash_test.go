@@ -78,7 +78,7 @@ func TestSplashRevealsTheByline(t *testing.T) {
 	if strings.Contains(out, "developed by vulcan") {
 		t.Error("the address must be its own line, not appended to the label")
 	}
-	if strings.Index(out, "vulcan.shen.2304@gmail.com") > strings.Index(out, "Press Esc to close") {
+	if strings.Index(out, "vulcan.shen.2304@gmail.com") > strings.Index(out, "Press [Esc] to close") {
 		t.Error("the byline must sit above the Esc hint")
 	}
 }

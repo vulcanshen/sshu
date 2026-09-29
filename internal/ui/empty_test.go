@@ -125,8 +125,8 @@ func TestEveryEmptyPanelIsTheSameShape(t *testing.T) {
 func TestAShortPanelKeepsTheFact(t *testing.T) {
 	for _, innerH := range []int{1, 2, 3, 6} {
 		got := emptyBody(40, innerH, "No hosts yet",
-			emptyHint("Press [A] to add a host, or Space to see what you can do here",
-				"[A]", "Space"))
+			emptyHint("Press [A] to add a host, or [Space] to see what you can do here",
+				"[A]", "[Space]"))
 		if len(got) == 0 {
 			t.Fatalf("innerH=%d: nothing at all", innerH)
 		}

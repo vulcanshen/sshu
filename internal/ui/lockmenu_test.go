@@ -215,7 +215,7 @@ func TestALockedFooterOffersOnlyTheRelease(t *testing.T) {
 	m, _ := lockApp(t)
 	m = pressA(m, "alt+enter", "enter")
 	foot := ansi.Strip(m.footer())
-	if !strings.Contains(foot, "alt+enter") || !strings.Contains(foot, "release") {
+	if !strings.Contains(foot, "Alt-Enter") || !strings.Contains(foot, "release") {
 		t.Errorf("the footer must offer the way back: %q", foot)
 	}
 	for _, gone := range []string{"leave pty", "zoom", "select"} {

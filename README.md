@@ -24,10 +24,10 @@ The ssh grid: many live sessions on one screen, each cell a real `ssh`.
 ## Highlights
 
 - **Nothing to memorize** — `Space` on any panel lists everything that panel can do. Every letter hotkey is also a row in that menu.
-- **A grid of live ssh sessions** — each cell is a real `ssh` on its own terminal, as many as you like on screen, arranged horizontally, vertically or in columns you choose. Page back through a session's history with `PgUp` / `PgDown`.
-- **Copy out of a session with the keyboard** — `Alt+v` freezes a cell and lets you select with vim keys; `y` puts the text on the system clipboard.
+- **A grid of live ssh sessions** — each cell is a real `ssh` on its own terminal, as many as you like on screen, arranged horizontally, vertically or in columns you choose. Page back through a session's history with `PgUp/PgDn`.
+- **Copy out of a session with the keyboard** — `Alt-v` freezes a cell and lets you select with vim keys; `y` puts the text on the system clipboard.
 - **File transfer between any two machines** — local ↔ remote ↔ remote in one view. Search a whole subtree, read a file before fetching it, or open it in your own `$EDITOR` and have it written back.
-- **sshu inside sshu, at any depth** — install it on the server too. `Alt+Z` takes a cell to full screen with no chrome, and `Alt+Enter` passes the keyboard down the chain, so nested layers cost nothing.
+- **sshu inside sshu, at any depth** — install it on the server too. `Alt-z` takes a cell to full screen with no chrome, and `Alt-Enter` passes the keyboard down the chain, so nested layers cost nothing.
 - **Your `~/.ssh` files, in place** — browse and edit `~/.ssh/config` and `~/.ssh/known_hosts` without losing a comment. An `auth: sshconfig` host stores nothing at all and lets `~/.ssh/config` decide — ProxyJump, agent and key included.
 - **Reusable credentials** — define a user and how it authenticates once, and point any number of hosts at it.
 - **Tags** — your own words on a host, searchable with `/`: type `prod` and the group is there.
@@ -56,7 +56,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 - **A Nerd Font** — not optional: auth methods, file types and marks are drawn with Nerd Font glyphs.
 - **A truecolor terminal** (24-bit colour) — the theme's softer shades, the popup layers and the dimming behind a popup do not survive 256 colours.
-- **A terminal that sends Alt** — sshu's `Alt+…` keys (`Alt+Esc` to leave a session, `Alt+v`, `Alt+Z`, …) need the Option key to act as Meta. Turn on *Use Option as Meta key* in macOS Terminal, or set Option to *Esc+* in iTerm2; kitty, Alacritty and WezTerm send it by default.
+- **A terminal that sends Alt** — sshu's `Alt-…` keys (`Alt-Esc` to leave a session, `Alt-v`, `Alt-z`, …) need the Option key to act as Meta. Turn on *Use Option as Meta key* in macOS Terminal, or set Option to *Esc+* in iTerm2; kitty, Alacritty and WezTerm send it by default.
 
 ### Uninstall
 
@@ -78,13 +78,13 @@ It opens on the hosts table. Press `A` to add your first host, `Enter` to connec
 
 | Key | Behavior |
 |---|---|
-| **`Tab`** | Move focus to the next panel of this tab (manage and file transfer; on the ssh tab use `1` `2`) |
+| **`Tab`** | Move focus to the next panel of this tab (manage and file transfer; on the ssh tab use `1–2`) |
 | **`Enter`** | Connect / enter a directory / commit a choice |
 | **`Space`** | *What can I do here?* — the menu for whatever has focus; its last row opens the global operations (switch tab, quit). Press it again to close the menu |
 | **`Esc`** | Back out — leave a search, go up a directory, close the top popup |
 | **`?`** | The keys of the panel you are on, then the ones that work everywhere. On a popup: that popup's own keys |
 
-Switch tabs with **`M` / `F` / `S`**; the digits `1`–`9` jump to a panel of the current tab. While you are typing into a remote session every key belongs to the remote — press `Alt+Esc` to take the keyboard back.
+Switch tabs with **`M/F/S`**; the digits `1`–`9` jump to a panel of the current tab. While you are typing into a remote session every key belongs to the remote — press `Alt-Esc` to take the keyboard back. It asks first, because a quick double `Esc` (everyday in vim) can arrive as `Alt-Esc`: `Enter` leaves, `Esc` goes back in.
 
 ## The three tabs
 
@@ -100,20 +100,20 @@ Switch tabs with **`M` / `F` / `S`**; the digits `1`–`9` jump to a panel of th
 
 **`[F]ile transfer`** — two sides, each either this machine or a saved host, so upload, download and remote-to-remote are the same operation. Mark files, cross to the other side, send. `local` opens in the directory you launched sshu from, so `cd ~/release && sshu` is already looking at the release. Progress shows in the top-right corner and as a bar under the tab row.
 
-**`[S]SH`** — a grid of live terminals. `Enter` on a session hands it the keyboard, `Alt`+arrows move between cells, `Alt+Z` makes the focused cell bigger, `Alt+Esc` takes the keyboard back. A layout strip picks horizontal, vertical or a number of columns.
+**`[S]SH`** — a grid of live terminals. `Enter` on a session hands it the keyboard, `Alt-←/→/↑/↓` move between cells, `Alt-z` makes the focused cell bigger, `Alt-Esc` takes the keyboard back (asking first). A layout strip picks horizontal, vertical or a number of columns.
 
 ## Key bindings
 
-Every letter hotkey below is also a row in that panel's `Space` menu. The bracket shows the key **exactly as you press it**: `[A]dd` is shift+A, `[t]ransfer` is a bare `t`.
+Every letter hotkey below is also a row in that panel's `Space` menu. The bracket shows the key **exactly as you press it**: `[A]dd` is `Shift-A`, `[t]ransfer` is a bare `t`.
 
 ### Everywhere
 
 ```
- tabs      M / F / S                 (inside a session: they are the remote's)
+ tabs      M/F/S                     (inside a session: they are the remote's)
  panels    1–9 of the current tab  ·  Tab (manage, file transfer)
- cursor    j k    u d (half page)     gg G      arrows are synonyms
- global    Space menu    ? help    q quit    Ctrl+C quit (twice: at once)
-           (in a session or an editor, Ctrl+C is theirs — Alt+Esc first)
+ cursor    j/k    u/d (half page)    gg/G      arrows are synonyms
+ global    Space menu    ? help    q quit    Ctrl-C quit (twice: at once)
+           (in a session or an editor, Ctrl-C is theirs — Alt-Esc first)
 ```
 
 ### `[M]anage`
@@ -130,18 +130,18 @@ The left nav (`1`) picks a section and the content follows the cursor; `Enter` o
 | `/` | Search hosts — name, user, host, port and tags at once |
 | `C` | Errors / Connections / Changes: clear this record (asks first) |
 
-In the host form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `→` switch Auth between **password**, **privatekey**, **credential** and **sshconfig**. `Enter` saves; if something required is missing or wrong, it takes you to the first such field and says what is wrong. **Tags** are optional and separated by spaces.
+In the host form: `Tab/Shift-Tab/↑/↓` move between fields, `←/→` switch Auth between **password**, **privatekey**, **credential** and **sshconfig**. `Enter` saves; if something required is missing or wrong, it takes you to the first such field and says what is wrong. **Tags** are optional and separated by spaces.
 
 ### `[F]ile transfer` — lower case acts on the row, upper case on the panel
 
 | Key | Action |
 |---|---|
-| `h` `l` | Cross to the other side |
+| `h/l` | Cross to the other side |
 | `Enter` | Enter the directory — or go to a search result |
 | `a` | Mark / unmark |
 | `r` | Rename |
 | `v` | View — text with syntax highlighting, binary as hex, a directory as its listing |
-| `e` | Edit in `$EDITOR` — remote files are fetched and written back |
+| `e` | Edit in `$EDITOR` — remote files are fetched and written back. In the editor `Alt-Esc` abandons the edit, asking first |
 | `t` | Transfer to the other side's current directory |
 | `x` | Delete (asks first) |
 | `/` | Search the whole subtree |
@@ -149,12 +149,12 @@ In the host form: `Tab` / `Shift+Tab` / `↑` `↓` move between fields, `←` `
 | `R` | Refresh this directory |
 | `T` | Transfer every mark on this side |
 | `X` | Delete every mark on this side (asks first) |
-| `c` / `C` | Clear one mark / all marks (nothing on disk changes) |
+| `c/C` | Clear one mark / all marks (nothing on disk changes) |
 | `H` | Pick the host for this side (`local` is first) |
 | `D` | Disconnect this side |
 | `J` | Jobs — transfers in flight; `Enter` opens one in full, `c` cancels it |
 
-While a transfer is running, `H` and `D` are dimmed and do nothing — cancel it in `J` first.
+A row that cannot run right now is dimmed, in the `Space` menu and in `?`, and its key does nothing: `H` and `D` while a transfer is running (cancel it in `J` first), `a` on a file still arriving, `e` on a directory, `t` and `T` while the other side has no host. With nothing marked, `T`, `X` and `C` are not offered.
 
 ### `[S]SH`
 
@@ -164,29 +164,29 @@ While a transfer is running, `H` and `D` are dimmed and do nothing — cancel it
 | `Enter` | Show this session and hand it the keyboard |
 | `C` | Close this session (asks first) — *Close all sessions* is in the `Space` menu |
 | `D` | Open a second session to the same host (asks first) |
-| `PgUp` / `PgDown` | Page through this cell's history (typing snaps back to live) |
-| `Alt+Z` | Bigger, in stages: fill the grid, then the whole screen, then back |
-| `Alt+Enter` | Lock / release — for a nested sshu: pass every key through to the one inside |
-| `Alt+arrows` | Move to the neighbouring cell |
-| `Alt+Esc` | Back out one step — selection mode, then zoom, then the keyboard |
-| `Alt+v` | Selection mode — freeze this cell to copy from it |
+| `PgUp/PgDn` | Page through this cell's history (typing snaps back to live) |
+| `Alt-z` | Bigger, in stages: fill the grid, then the whole screen, then back |
+| `Alt-Enter` | Lock / release — for a nested sshu: pass every key through to the one inside |
+| `Alt-←/→/↑/↓` | Move to the neighbouring cell |
+| `Alt-Esc` | Back out one step — selection mode, then zoom, then the keyboard (that last step asks first) |
+| `Alt-v` | Selection mode — freeze this cell to copy from it |
 
-**Selection mode** (`Alt+v`) uses vim's keys:
+**Selection mode** (`Alt-v`) uses vim's keys:
 
 | Key | Action |
 |---|---|
-| `h` `j` `k` `l` | Move (past the top or bottom, the frozen page scrolls) |
-| `w` / `e` / `b` | Next word start / word end / previous word start |
-| `0` / `$` | Start / end of the line |
-| `u` / `d` | Half a screen up / down |
-| `v` / `V` | Select by character / by line |
+| `h/j/k/l` | Move (past the top or bottom, the frozen page scrolls) |
+| `w/e/b` | Next word start / word end / previous word start |
+| `0/$` | Start / end of the line |
+| `u/d` | Half a screen up / down |
+| `v/V` | Select by character / by line |
 | `y` | Copy to the system clipboard and leave (nothing selected: the current line) |
 | `Esc` | Drop the selection, then leave |
 | `?` | Every key the mode has |
 
 Copying uses `pbcopy`, `wl-copy`, `xclip` or `xsel`, whichever is installed.
 
-The layout strip (`2`, bottom left): `j` / `k` switch between **horizontal**, **vertical** and **custom**; `Enter` on custom asks for a number of columns.
+The layout strip (`2`, bottom left): `j/k` switch between **horizontal**, **vertical** and **custom**; `Enter` on custom asks for a number of columns.
 
 ## Configuration
 

@@ -310,22 +310,123 @@ func TestCtrlCInsideTheEditorDoesNotQuitSshu(t *testing.T) {
 	}
 }
 
-// Alt+Esc is the way out, and it is the ONLY key the editor does not get.
-func TestAltEscStillAbandonsTheEdit(t *testing.T) {
+// Alt+Esc is the way out, and it is the ONLY key the editor does not get. It
+// asks first (tdp v0.1.16 D5): a busy terminal reads two quick Esc presses — an
+// everyday vim gesture — as Alt+Esc. The editor keeps running under the
+// question and gets none of its keys; Esc goes back to it with nothing lost.
+func TestAltEscAsksBeforeAbandoningTheEdit(t *testing.T) {
 	m := editFixture(t, `trap "" INT; cat >`, 110, 30)
-	m, _ = atFile(t, m, "notes.txt", "before\n")
+	m, p := atFile(t, m, "notes.txt", "before\n")
 
 	next, cmd := m.Update(keyMsg("e"))
 	m = drive(t, next.(AppModel), cmd, func(m AppModel) bool { return m.editorUI.running() })
 	if !m.editorUI.running() {
 		t.Fatal("the editor never started")
 	}
-
-	next, _ = m.Update(keyMsg("alt+esc"))
-	m = next.(AppModel)
 	t.Cleanup(func() { m.editorUI.stop() })
+	// Stand in for a fetched copy, so the cleanup Enter does can be seen and the
+	// cleanup Esc must not do can be ruled out.
+	copyDir := t.TempDir()
+	m.pendingEdit.dir = copyDir
+
+	m = pressA(m, "alt+esc")
+	if !m.confirm.anim.owns() || m.confirm.action != confirmEditAbandon {
+		t.Fatal("alt+esc should ask before abandoning the edit")
+	}
+	if !m.editorUI.running() {
+		t.Fatal("the editor should keep running under the question")
+	}
+	if !strings.Contains(stripANSI(m.View()), "notes.txt") {
+		t.Error("the question should name the file")
+	}
+	m = pressA(m, "z") // not the editor's while the question is up
+
+	m = pressA(m, "esc")
+	if m.confirm.anim.owns() || !m.editorUI.running() {
+		t.Fatal("Esc should cancel the question and go back to the editor")
+	}
+	if _, err := os.Stat(copyDir); err != nil {
+		t.Errorf("cancelling deleted the local copy: %v", err)
+	}
+	m = typeText(m, "x")
+	m = pressA(m, "enter")
+	waitFor(t, "the editor to get the keys again", func() bool {
+		body, _ := os.ReadFile(p)
+		return string(body) == "x\n"
+	})
+
+	m = pressA(m, "alt+esc", "enter")
 	if m.editorUI.running() {
-		t.Error("alt+esc must abandon the edit")
+		t.Error("Enter on the question should abandon the edit")
+	}
+	if _, err := os.Stat(copyDir); !os.IsNotExist(err) {
+		t.Errorf("abandoning should delete the local copy: %v", err)
+	}
+}
+
+// A second Alt+Esc on the question cancels it, like Esc: a double misfire lands
+// back in the editor.
+func TestAltEscOnTheAbandonQuestionGoesBackToTheEditor(t *testing.T) {
+	m := editFixture(t, `trap "" INT; cat >`, 110, 30)
+	m, _ = atFile(t, m, "notes.txt", "before\n")
+	next, cmd := m.Update(keyMsg("e"))
+	m = drive(t, next.(AppModel), cmd, func(m AppModel) bool { return m.editorUI.running() })
+	t.Cleanup(func() { m.editorUI.stop() })
+
+	m = pressA(m, "alt+esc", "alt+esc")
+	if m.confirm.anim.owns() || !m.editorUI.running() {
+		t.Error("a second alt+esc should cancel the question, back to the editor")
+	}
+}
+
+// The misfire the question exists for is followed by what the user meant to
+// type in vim: :wq. q on the question starts the leaving flow (tdp K9), and with
+// no session and no transfer the only thing to lose is the edit — so the leaving
+// flow has to count it, or q would leave at once.
+func TestQuittingFromTheAbandonQuestionCountsTheEdit(t *testing.T) {
+	m := editFixture(t, `trap "" INT; cat >`, 110, 30)
+	m, _ = atFile(t, m, "notes.txt", "before\n")
+	next, cmd := m.Update(keyMsg("e"))
+	m = drive(t, next.(AppModel), cmd, func(m AppModel) bool { return m.editorUI.running() })
+	t.Cleanup(func() { m.editorUI.stop() })
+
+	m = pressA(m, "alt+esc", ":", "w")
+	next, cmd = m.Update(keyMsg("q"))
+	m = settle(next.(AppModel))
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("q left at once with an edit running")
+		}
+	}
+	if !m.quitAsk.anim.owns() {
+		t.Fatal("q should ask before leaving with an edit running")
+	}
+	if !strings.Contains(stripANSI(m.View()), "notes.txt") {
+		t.Error("the leaving question should say the edit is lost")
+	}
+	// Its Esc is its own, back to the abandon question — not the editor's.
+	m = pressA(m, "esc")
+	if m.quitAsk.anim.owns() || !m.confirm.anim.owns() {
+		t.Error("Esc on the leaving question should land back on the abandon question")
+	}
+}
+
+// ? on the question opens its key reference over it; that is on top too, so its
+// Esc closes it rather than reaching the editor.
+func TestTheAbandonQuestionsHelpTakesItsOwnKeys(t *testing.T) {
+	m := editFixture(t, `trap "" INT; cat >`, 110, 30)
+	m, _ = atFile(t, m, "notes.txt", "before\n")
+	next, cmd := m.Update(keyMsg("e"))
+	m = drive(t, next.(AppModel), cmd, func(m AppModel) bool { return m.editorUI.running() })
+	t.Cleanup(func() { m.editorUI.stop() })
+
+	m = pressA(m, "alt+esc", "?")
+	if !m.help.anim.owns() {
+		t.Fatal("? on the question should open its key reference")
+	}
+	m = pressA(m, "esc")
+	if m.help.anim.owns() || !m.confirm.anim.owns() {
+		t.Error("Esc should close the key reference and leave the question up")
 	}
 }
 
@@ -372,6 +473,8 @@ func TestEditAsksBeforeOpeningSomethingThatIsNotText(t *testing.T) {
 }
 
 // A directory, a device, a socket: there is nothing to read out and put back.
+// The row is there but cannot run, so it is dimmed and the letter does nothing
+// — no editor, and no toast giving a reason (tdp M6).
 func TestEditRefusesWhatIsNotAFile(t *testing.T) {
 	m := editFixture(t, "true", 110, 30)
 	if err := os.Mkdir(filepath.Join(m.sftp.sides[sideLeft].cwd, "adir"), 0o755); err != nil {
@@ -389,8 +492,14 @@ func TestEditRefusesWhatIsNotAFile(t *testing.T) {
 	if m.editorUI.isActive() {
 		t.Error("an editor was opened on a directory")
 	}
-	if view := ansi.Strip(m.View()); !strings.Contains(view, "Cannot edit a directory") {
-		t.Errorf("nothing said why:\n%s", view)
+	if m.toast.isActive() {
+		t.Error("a dimmed row's letter does nothing, not even a toast")
+	}
+	if it, ok := menuRow(m.sftpMenuItems(), "e"); !ok || !it.disabled {
+		t.Errorf("the edit row should be listed and dimmed on a directory: %+v", it)
+	}
+	if !hasDimmedKey(m.panelKeyReference(), "e") {
+		t.Error("? should list e dimmed as well")
 	}
 }
 

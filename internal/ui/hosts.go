@@ -296,8 +296,8 @@ func (m hostsModel) filterRow(w int) string {
 // discoverability dies (§1.5).
 func (m hostsModel) emptyState(innerW, innerH int) []string {
 	return emptyBody(innerW, innerH, "No hosts yet",
-		emptyHint("Press [A] to add a host, or Space to see what you can do here",
-			"[A]", "Space"))
+		emptyHint("Press [A] to add a host, or [Space] to see what you can do here",
+			"[A]", "[Space]"))
 }
 
 // centerLine centres styled within innerW, measuring plain (styled carries ANSI).

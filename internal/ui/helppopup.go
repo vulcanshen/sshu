@@ -30,45 +30,64 @@ func (m *helpPopup) close() tea.Cmd   { return m.anim.close() }
 func (m *helpPopup) setSize(w, h int) { m.screenW, m.screenH = w, h }
 
 // helpEntry is one line: a section header (key == "") or a key/description pair.
-type helpEntry struct{ key, desc string }
+// dim marks a key whose target is there but which cannot run right now: it is
+// listed, dimmed, the way the menu draws that row (tdp M6).
+type helpEntry struct {
+	key, desc string
+	dim       bool
+}
+
+// refs turns key/description pairs into entries, none of them dimmed.
+func refs(pairs [][2]string) []helpEntry {
+	out := make([]helpEntry, len(pairs))
+	for i, p := range pairs {
+		out[i] = helpEntry{key: p[0], desc: p[1]}
+	}
+	return out
+}
 
 // The fixed parts of a panel's key reference (tdp M4, K6). What ? shows on a
 // panel is that panel's own keys first (panelKeyReference), then these: the
 // core keys, which a user has to hold to walk the app; on the ssh tab the
 // grid's chords — a cell hands ? to the remote, so this is the only place to
 // learn them; and the navigation letters.
-var coreKeyReference = []helpEntry{
+//
+// Tab is not among the core keys here: it does not move between panels on the
+// ssh tab (a deviation from tdp K2), and a key with nothing to do there is not
+// "cannot run now", so it is not listed there at all (tdp M6).
+var coreKeyReference = refs([][2]string{
 	{"", "core keys"},
-	{"M · F · S", "switch tab"},
-	{"1-9", "panel of this tab"},
-	{"Tab", "next panel in this tab"},
+	{"M/F/S", "switch tab"},
+	{"1–9", "panel of this tab"},
 	{"Enter", "confirm / connect"},
 	{"Esc", "close popup / cancel"},
 	{"Space", "what can I do here"},
 	{"?", "this list / a popup's own keys"},
 	{"q", "quit"},
-	{"Ctrl+C", "quit (twice: at once)"},
-}
+	{"Ctrl-C", "quit (twice: at once)"},
+})
 
-var gridKeyReference = []helpEntry{
+var tabKeyReference = helpEntry{key: "Tab", desc: "next panel in this tab"}
+
+var gridKeyReference = refs([][2]string{
 	{"", "ssh grid"},
-	{"Alt+arrows", "move between cells"},
-	{"Alt+Z", "bigger: zoom panel, then zoom max"},
-	{"Alt+Enter", "nested sshu: lock/release, or the whole chain"},
-	{"Alt+Esc", "back out one layer at a time"},
-	{"PgUp · PgDn", "page this cell's history"},
-	{"Alt+v", "select and copy out of this cell"},
-	{"hjkl · u · d", "…move there, v / V select, y copies"},
-	{"w · e · b", "…by word, forward and back"},
-	{"0 · $", "…to either end of the line"},
-}
+	{"Alt-←/→/↑/↓", "move between cells"},
+	{"Alt-z", "bigger: zoom panel, then zoom max"},
+	{"Alt-Enter", "nested sshu: lock/release, or the whole chain"},
+	{"Alt-Esc", "back out one layer at a time, asking before the last"},
+	{"PgUp/PgDn", "page this cell's history"},
+	{"Alt-v", "select and copy out of this cell"},
+	{"h/j/k/l/u/d", "…move there, [v]/[V] select, [y] copies"},
+	{"w/e/b", "…by word, forward and back"},
+	{"0/$", "…to either end of the line"},
+})
 
-var navKeyReference = []helpEntry{
+var navKeyReference = refs([][2]string{
 	{"", "navigate"},
-	{"j · k", "move cursor"},
-	{"u · d", "half a page"},
-	{"gg · G", "first / last"},
-}
+	{"j/k", "move cursor"},
+	{"u/d", "half a page"},
+	{"gg/G", "first / last"},
+})
 
 func (m *helpPopup) update(msg tea.KeyMsg) {
 	if !m.anim.isInteractive() {
@@ -89,8 +108,10 @@ func (m helpPopup) view() string {
 	}
 	innerW := popupInnerW(m.screenW)
 
+	// Keys Blue, descriptions Text (tdp D2); a key that cannot run now is
+	// drawn in the dim register a disabled menu row uses (tdp M6).
 	dim := lipgloss.NewStyle().Foreground(dimColor)
-	key := lipgloss.NewStyle().Foreground(handColor)
+	key := lipgloss.NewStyle().Foreground(focusColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 
 	vis := m.visible()
@@ -101,8 +122,12 @@ func (m helpPopup) view() string {
 			rows = append(rows, dim.Render(padRight(" "+e.desc, innerW)))
 			continue
 		}
-		rows = append(rows, key.Render(padRight("  "+e.key, keyW+4))+
-			txt.Render(padRight(e.desc, innerW-keyW-4)))
+		k, d := key, txt
+		if e.dim {
+			k, d = dim, dim
+		}
+		rows = append(rows, k.Render(padRight("  "+e.key, keyW+4))+
+			d.Render(padRight(e.desc, innerW-keyW-4)))
 	}
 
 	pairs := [][2]string{{"?", "close"}}

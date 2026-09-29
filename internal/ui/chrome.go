@@ -179,14 +179,14 @@ func tabRow(w int, labels []string, active int, status string, live bool) string
 // When the terminal is too narrow, pairs are dropped from the RIGHT — the entry
 // keys are listed first precisely so they are the last thing to go.
 func keyLegend(pairs [][2]string, w int) string {
-	const sep = "   "
+	const sep = " "
 	plainW := func(n int) int {
 		total := 1
 		for i := 0; i < n; i++ {
 			if i > 0 {
 				total += dispW(sep)
 			}
-			total += dispW(pairs[i][0]) + 1 + dispW(pairs[i][1])
+			total += legendPairW(pairs[i])
 		}
 		return total
 	}
@@ -205,7 +205,7 @@ func keyLegend(pairs [][2]string, w int) string {
 	d := lipgloss.NewStyle().Foreground(dimColor)
 	parts := make([]string, 0, n)
 	for i := 0; i < n; i++ {
-		parts = append(parts, k.Render(pairs[i][0])+" "+d.Render(pairs[i][1]))
+		parts = append(parts, legendPair(k, d, pairs[i]))
 	}
 	return " " + strings.Join(parts, sep) + strings.Repeat(" ", max(0, w-plainW(n)))
 }

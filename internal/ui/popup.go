@@ -298,13 +298,34 @@ func hintLegend(pairs [][2]string) string {
 	// The same blue as the footer, and for the same reason: these two ARE the
 	// one legend at two scales, so a key that is blue on the app's bottom row
 	// cannot be a different colour on a popup's (tdp M5).
+	//
+	// Written key:description, one space between items (tdp M5): the colour
+	// tells the key from its word, so the colon goes with the word, dim. A pair
+	// with no key is not a key at all — a position such as "3 of 12" — and is
+	// drawn dim, with no colon.
 	k := lipgloss.NewStyle().Foreground(focusColor)
 	d := lipgloss.NewStyle().Foreground(dimColor)
 	parts := make([]string, 0, len(pairs))
 	for _, p := range pairs {
-		parts = append(parts, k.Render(p[0])+" "+d.Render(p[1]))
+		parts = append(parts, legendPair(k, d, p))
 	}
-	return " " + strings.Join(parts, "  ") + " "
+	return " " + strings.Join(parts, " ") + " "
+}
+
+// legendPair draws one item of a hint or the footer.
+func legendPair(k, d lipgloss.Style, p [2]string) string {
+	if p[0] == "" {
+		return d.Render(p[1])
+	}
+	return k.Render(p[0]) + d.Render(":"+p[1])
+}
+
+// legendPairW is how wide legendPair draws p.
+func legendPairW(p [2]string) int {
+	if p[0] == "" {
+		return dispW(p[1])
+	}
+	return dispW(p[0]) + 1 + dispW(p[1])
 }
 
 // sameHotkey reports whether two declared keys are the same letter, ignoring
@@ -351,6 +372,10 @@ func hotkeyIndex(keys []string, pressed string) int {
 // Esc) never get brackets — their key goes in the hint column instead, so the
 // bracket keeps meaning exactly one thing.
 func bracketHotkey(label, key string) string {
+	// A core key is written into the label, in front (tdp M5, D4: [Enter] Edit).
+	if key == "enter" {
+		return "[Enter] " + label
+	}
 	if len(key) != 1 {
 		return label
 	}

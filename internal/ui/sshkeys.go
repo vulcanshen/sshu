@@ -37,7 +37,7 @@ const keyCloseAll = "close-all"
 
 var sshActions = []sshAction{
 	// item — the session under the cursor
-	{key: "enter", label: "Open", hint: "Enter . show and take the keyboard", panel: panelSessions, run: AppModel.openSession},
+	{key: "enter", label: "Open", hint: "show and take the keyboard", panel: panelSessions, run: AppModel.openSession},
 	{key: "H", label: "Hide", hint: "hide/show this session's cell", panel: panelSessions, run: AppModel.toggleSessionDisplay},
 	{key: "C", label: "Close", hint: "end this session", panel: panelSessions, run: AppModel.askClose},
 	{key: "D", label: "Duplicate", hint: "another to this host", panel: panelSessions, run: AppModel.askDuplicate},
@@ -255,14 +255,14 @@ func (m AppModel) sshMenuItems() []menuItem {
 		return m.withGlobal([]menuItem{
 			{label: "session", header: true},
 			{label: "the remote has the keyboard", header: true},
-			{label: "alt+esc comes back · hold alt, arrows switch cells", header: true},
+			{label: "[Alt-Esc] comes back · [Alt-←/→/↑/↓] switch cells", header: true},
 		})
 	}
 	if m.ssh.focus == panelLayout {
 		return m.withGlobal([]menuItem{
 			{label: "layout", header: true},
-			{label: "j/k choose an arrangement — it applies as you move", header: true},
-			{label: "Enter on custom asks for rows × columns", header: true},
+			{label: "[j/k] choose an arrangement — it applies as you move", header: true},
+			{label: "[Enter] on custom asks for the number of columns", header: true},
 		})
 	}
 

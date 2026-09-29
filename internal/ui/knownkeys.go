@@ -27,7 +27,7 @@ type knownAction struct {
 // occupies a letter and teaches the wrong model of the file.
 var knownActions = []knownAction{
 	// item — the key under the cursor
-	{key: "enter", label: "View", hint: "Enter . the whole key, and where it sits", needsEntry: true, run: AppModel.openKnownDetail},
+	{key: "enter", label: "View", hint: "the whole key, and where it sits", needsEntry: true, run: AppModel.openKnownDetail},
 	{key: "E", label: "Edit", hint: "which names this key is trusted for", needsEntry: true, run: AppModel.openKnownEdit},
 	{key: "X", label: "Delete", hint: "stop trusting this key", needsEntry: true, run: AppModel.askDeleteKnown},
 

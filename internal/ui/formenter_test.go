@@ -143,11 +143,11 @@ func TestWhatIsRequiredFollowsTheAuthChoice(t *testing.T) {
 func TestTheHintAlwaysSaysEnterSaves(t *testing.T) {
 	m := pressA(appWith(sample(), nil), "A")
 	m.form.focus = fName
-	if h := formHint(m); !strings.Contains(h, "Enter save") || strings.Contains(h, "Enter next") {
+	if h := formHint(m); !strings.Contains(h, "Enter:save") || strings.Contains(h, "Enter:next") {
 		t.Errorf("an unfinished form still advertises Enter as save\n%q", h)
 	}
 	m = fillHostForm(m, "hint-box")
-	if h := formHint(m); !strings.Contains(h, "Enter save") {
+	if h := formHint(m); !strings.Contains(h, "Enter:save") {
 		t.Errorf("a finished form must advertise Enter as save\n%q", h)
 	}
 }

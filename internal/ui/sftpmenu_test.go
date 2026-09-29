@@ -33,7 +33,7 @@ func regions(items []menuItem) map[string][]string {
 func TestSFTPMenuHasItemAndPanelRegions(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "j") // deploy.sh
+	m = pressA(m, "j", "a") // deploy.sh, marked so the mark actions are offered
 
 	items := m.sftpMenuItems()
 	if items[0].label != menuItemRegion || !items[0].header {
@@ -228,7 +228,7 @@ func TestEveryTabWordsItsRegionsTheSameWay(t *testing.T) {
 
 	h := openOne(t)
 	next, _ := h.Update(keyMsg("alt+esc"))
-	h = settle(next.(AppModel))
+	h = pressA(settle(next.(AppModel)), "enter")
 	if h.ssh.focus != panelSessions {
 		t.Fatalf("setup: alt+esc should leave the pty, focus=%d", h.ssh.focus)
 	}
@@ -273,6 +273,7 @@ func TestASideCannotChangeItsFilesystemMidTransfer(t *testing.T) {
 	withColour(t)
 	m := busy(sftpFixture(t, 100, 26))
 	m.sftp.focus = panelLeftFiles
+	m = pressA(m, "j", "a") // on a file, with a mark: nothing else has a reason to dim
 
 	frozen := map[string]bool{keySelectHost: true, "D": true}
 	seen := 0
@@ -327,6 +328,7 @@ func TestASideCannotChangeItsFilesystemMidTransfer(t *testing.T) {
 func TestTheSameRowsAreLiveWhenNothingIsMoving(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.focus = panelLeftFiles
+	m = pressA(m, "j", "a")
 	for _, it := range beforeGlobal(m.sftpMenuItems()) {
 		if it.disabled {
 			t.Errorf("%q is dim with nothing running", it.key)

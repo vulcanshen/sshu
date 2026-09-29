@@ -836,7 +836,7 @@ func TestAMenuOfNothingToDoIsStillReadable(t *testing.T) {
 	// list of things to press.
 	m = pressA(m, "esc", "1", " ")
 	view = ansi.Strip(m.spaceMenu.view())
-	if !strings.Contains(view, "j/k choose a section — Enter opens it") {
+	if !strings.Contains(view, "[j/k] choose a section — [Enter] opens it") {
 		t.Errorf("the nav menu's sentence must fit too:\n%s", view)
 	}
 
@@ -859,7 +859,7 @@ func TestTheLegendFitsEvenInTheNarrowestMenu(t *testing.T) {
 	sm.setItems([]menuItem{{label: "Go", key: "g"}}, "[1] x", 1)
 
 	// A one-row menu is as wide as every popup (tdp F7), so its legend fits.
-	if legend := ansi.Strip(lastLine(sm.view())); !strings.Contains(legend, "Esc close") {
+	if legend := ansi.Strip(lastLine(sm.view())); !strings.Contains(legend, "Esc:close") {
 		t.Errorf("the legend must fit the popup width, got %q", legend)
 	}
 }

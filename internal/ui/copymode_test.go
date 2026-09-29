@@ -65,8 +65,8 @@ func TestAltEscLeavesSelectionModeBeforeThePty(t *testing.T) {
 	if m.ssh.copy.on {
 		t.Fatal("alt+esc should have taken the mode off")
 	}
-	if m.ssh.focus != panelPty {
-		t.Error("and only the mode — the keyboard stays in the cell")
+	if m.ssh.focus != panelPty || m.popupOpen() {
+		t.Error("and only the mode, unasked — the keyboard stays in the cell")
 	}
 }
 
@@ -135,7 +135,7 @@ func TestYPutsTheSelectionOnTheClipboardAndSaysSo(t *testing.T) {
 // the remote, so a key that is not on this row cannot be found at all.
 func TestThePtyFooterOffersTheWayIn(t *testing.T) {
 	m := openOne(t)
-	if !strings.Contains(m.footer(), "alt+v") {
+	if !strings.Contains(m.footer(), "Alt-v") {
 		t.Errorf("the pty row must advertise the way into selection mode: %q", m.footer())
 	}
 	// And it survives the squeeze: keyLegend drops from the end, so alt+v has
@@ -145,7 +145,7 @@ func TestThePtyFooterOffersTheWayIn(t *testing.T) {
 	narrow := m
 	narrow.w = 40
 	narrow.ssh.setSize(40, 30)
-	if !strings.Contains(narrow.footer(), "alt+v") {
+	if !strings.Contains(narrow.footer(), "Alt-v") {
 		t.Errorf("alt+v was the first thing dropped on a narrow footer: %q", narrow.footer())
 	}
 }
@@ -159,7 +159,7 @@ func TestTheFooterSwitchesToTheSelectionKeys(t *testing.T) {
 	got := m.footer()
 	// ? leads (tdp K11, M1); the motions that do not fit are in the mode's key
 	// reference behind it. Space does nothing in a mode, so it is not listed.
-	for _, want := range []string{"?", "y", "v/V", "alt+v", "hjkl", "w/e/b"} {
+	for _, want := range []string{"?", "y", "v/V", "Alt-v", "h/j/k/l", "w/e/b"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the selection row should disclose %q: %q", want, got)
 		}
@@ -167,10 +167,10 @@ func TestTheFooterSwitchesToTheSelectionKeys(t *testing.T) {
 	if !strings.HasPrefix(strings.TrimSpace(ansi.Strip(got)), "?") {
 		t.Errorf("? should lead the selection row: %q", got)
 	}
-	if strings.Contains(ansi.Strip(got), "space") {
+	if strings.Contains(ansi.Strip(got), "Space") {
 		t.Errorf("Space does nothing in a mode and should not be listed: %q", got)
 	}
-	if strings.Contains(got, "alt+esc") {
+	if strings.Contains(got, "Alt-Esc") {
 		t.Error("the pty's own keys are gone while the mode is up; the row must not claim them")
 	}
 }
@@ -187,7 +187,7 @@ func TestTheWayOutSurvivesAnEightyColumnSelectionRow(t *testing.T) {
 	if strings.Contains(got, "u/d") {
 		t.Fatalf("80 columns held the whole row, so the test proves nothing: %q", got)
 	}
-	for _, want := range []string{"?", "y", "v/V", "alt+v", "hjkl"} {
+	for _, want := range []string{"?", "y", "v/V", "Alt-v", "h/j/k/l"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the cramped selection row dropped %q: %q", want, got)
 		}

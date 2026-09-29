@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -484,7 +485,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	//
 	// One key is kept: Alt+Esc abandons the edit — in tab [3] it means "take the
 	// keyboard back", and here there is nowhere else to take it, so leaving is
-	// what taking it back is.
+	// what taking it back is. It asks first (tdp D5): a busy terminal reads two
+	// quick Esc presses as Alt+Esc, and two Esc presses are everyday vim. While
+	// the question is up the keys are its — and of what it opens (its ?, the
+	// leaving flow of its q), which can only be opened from it, over it.
 	//
 	// Ctrl+C is NOT kept. It used to quit sshu from in here, on the grounds that
 	// an emergency exit which means something different in one PTY has stopped
@@ -493,9 +497,9 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// something — and losing every session instead is not an emergency exit, it
 	// is the emergency. The exit is one keystroke further away and always
 	// advertised: Alt+Esc, then Ctrl+C.
-	if m.editorUI.running() {
+	if m.editorUI.running() && !m.confirm.anim.owns() {
 		if msg.Type == tea.KeyEscape && msg.Alt {
-			return m.abandonEdit()
+			return m, m.askAbandonEdit()
 		}
 		m.editorUI.pty.write(msg)
 		return m, nil
@@ -621,8 +625,11 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.ssh.unzoomOne() {
 				return m, nil
 			}
-			m.ssh.setFocus(panelSessions)
-			return m, nil
+			// Taking the keyboard off the cell asks first (tdp D5): a busy
+			// terminal reads two quick Esc presses — everyday vim — as Alt+Esc.
+			// The session runs on under the question; Esc goes back to it, and
+			// so does a second Alt+Esc, which lands in closeTop below.
+			return m, m.askLeavePty()
 		}
 		return m.closeTop()
 	}
@@ -634,6 +641,11 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.Type == tea.KeyEscape {
+		// A toast is the nearest thing Esc can close: it goes before a search
+		// or a directory does (tdp F1, K4). Under a popup closeTop decides.
+		if !m.popupOpen() && m.toast.anim.owns() {
+			return m, m.toast.close()
+		}
 		// A search is the innermost thing Esc can drop, on either tab that has
 		// one.
 		if !m.popupOpen() && m.tab == tabPref && m.pref.item == prefHosts && m.hosts.filtering {
@@ -832,10 +844,6 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.detail.update(msg)
 		return m, nil
-	case m.editorUI.anim.owns():
-		// Fetching or writing: the only keys are Esc and Space, and both were
-		// resolved above as "close the topmost float".
-		return m, nil
 	case m.hostPicker.anim.owns():
 		return m.hostPickerKey(msg)
 	case m.credPicker.anim.owns():
@@ -854,6 +862,12 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.inputKey(msg)
 	case m.confirm.anim.owns():
 		return m.confirmKey(msg)
+	// After the confirm: the one that asks whether to abandon a running edit
+	// sits over it.
+	case m.editorUI.anim.owns():
+		// Fetching or writing: the only keys are Esc and Space, and both were
+		// resolved above as "close the topmost float".
+		return m, nil
 	case m.spaceMenu.anim.owns():
 		return m.menuKey(msg)
 	case m.lockMenu.anim.owns():
@@ -1144,6 +1158,12 @@ func (m AppModel) quitCost() []string {
 	if n := m.transfers.runningCount(); n > 0 {
 		lines = append(lines, plural(n, "running transfer")+" will be cancelled.")
 	}
+	// The editor is stopped on the way out, and what it has not saved goes
+	// with it — reachable from the abandon question, where q is still q.
+	if m.editorUI.running() {
+		lines = append(lines, "The editor on "+m.editorUI.name+
+			" will be stopped; what it has not saved is lost.")
+	}
 	return lines
 }
 
@@ -1206,6 +1226,22 @@ func (m AppModel) quit() (tea.Model, tea.Cmd) {
 	// way out is exactly when an unsaved edit is worth keeping.
 	m.editorUI.stop()
 	return m, tea.Quit
+}
+
+// askLeavePty is Alt+Esc on a cell with nothing left to unzoom: the keyboard
+// goes back to the list once the user says so (tdp D5).
+func (m *AppModel) askLeavePty() tea.Cmd {
+	lines := []string{"Back to the list?"}
+	if s := m.ssh.currentSession(); s != nil {
+		lines = append(lines, "The session to "+s.host.Name+" keeps running; [Enter] on it comes back.")
+	}
+	return m.confirm.ask(confirmPopup{
+		glyph:  glyphWarn,
+		title:  "Confirm",
+		lines:  lines,
+		accept: "leave",
+		action: confirmLeavePty,
+	}, m.above())
 }
 
 // ptyFocused reports whether panel [5] holds the keyboard: there is a live
@@ -1358,7 +1394,7 @@ type hostAction struct {
 // menu should show (bracketHotkey). Either case still fires it — see hotkeyIndex.
 var hostActions = []hostAction{
 	// item — the host under the cursor
-	{key: "enter", label: "Connect", hint: "Enter . what it is, then in", needsHost: true, run: AppModel.openHost},
+	{key: "enter", label: "Connect", hint: "what it is, then in", needsHost: true, run: AppModel.openHost},
 	{key: "E", label: "Edit", hint: "change this host", needsHost: true, run: AppModel.openEdit},
 	{key: "D", label: "Duplicate", hint: "a new host starting from this one", needsHost: true, run: AppModel.openHostDuplicate},
 	{key: "X", label: "Delete", hint: "remove from hosts.yaml", needsHost: true, run: AppModel.askDelete},
@@ -1758,13 +1794,25 @@ func (m AppModel) panelKeyReference() []helpEntry {
 		if key == "enter" {
 			key = "Enter"
 		}
-		own = append(own, helpEntry{key, strings.ToLower(it.label)})
+		// A row the menu draws dimmed is dimmed here too (tdp M6).
+		own = append(own, helpEntry{key: key, desc: strings.ToLower(it.label), dim: it.disabled})
+	}
+	// The layout panel's menu only describes it, so its keys come from here.
+	// Enter does something only on custom (tdp M4, M6).
+	if m.tab == tabSSH && m.ssh.focus == panelLayout {
+		own = append(own, helpEntry{key: "j/k", desc: "choose an arrangement"},
+			helpEntry{key: "Enter", desc: "ask for the number of columns",
+				dim: m.ssh.layout != layoutCustom})
 	}
 	var out []helpEntry
 	if len(own) > 0 {
-		out = append(append(out, helpEntry{"", "this panel · " + m.menuTitle()}), own...)
+		out = append(append(out, helpEntry{desc: "this panel · " + m.menuTitle()}), own...)
 	}
-	out = append(out, coreKeyReference...)
+	core := coreKeyReference
+	if m.tab != tabSSH {
+		core = slices.Insert(slices.Clone(core), 3, tabKeyReference) // after 1–9
+	}
+	out = append(out, core...)
 	if m.tab == tabSSH {
 		out = append(out, gridKeyReference...)
 	}
@@ -1774,41 +1822,51 @@ func (m AppModel) panelKeyReference() []helpEntry {
 // popupHelp is ?'s answer on a popup: that popup's own keys (tdp K6). The
 // floats being typed into never get here — there ? is a question mark.
 func (m AppModel) popupHelp() (string, []helpEntry) {
-	closeIt := helpEntry{"?", "close this help"}
-	scroll := []helpEntry{{"j · k", "scroll"}, {"u · d", "half a page"}, {"G", "bottom"}}
+	closeIt := helpEntry{key: "?", desc: "close this help"}
+	esc := func(desc string) helpEntry { return helpEntry{key: "Esc", desc: desc} }
+	scroll := refs([][2]string{{"j/k", "scroll"}, {"u/d", "half a page"}, {"G", "bottom"}})
 	menu := func(extra ...helpEntry) []helpEntry {
-		e := []helpEntry{{"j · k", "move"}, {"Enter", "run the row"},
-			{"letter", "run its row at once"}}
-		return append(append(e, extra...), helpEntry{"Esc", "close"}, closeIt)
+		e := refs([][2]string{{"j/k", "move"}, {"Enter", "run the row"},
+			{"a–z/A–Z", "run its row at once"}})
+		return append(append(e, extra...), esc("close"), closeIt)
 	}
 	switch {
 	case m.quitAsk.anim.owns():
-		return "quit", []helpEntry{{"Enter", "quit"}, {"Ctrl+C", "quit at once"},
-			{"Esc", "stay"}, closeIt}
+		return "quit", append(refs([][2]string{{"Enter", "quit"}, {"Ctrl-C", "quit at once"}}),
+			esc("stay"), closeIt)
 	case m.viewer.anim.owns():
-		return "viewer", append(scroll, helpEntry{"Esc", "close"}, closeIt)
+		return "viewer", append(scroll, esc("close"), closeIt)
 	case m.transfersUI.anim.owns():
-		return "jobs", []helpEntry{{"j · k", "move"}, {"Enter", "open this job"},
-			{"c", "cancel this job"}, {"Esc", "close"}, closeIt}
+		// With no job there is nothing to move to, open or cancel, so none of
+		// them is listed; c on a job that has finished is there but cannot run
+		// (tdp M6).
+		jobs := m.transfers.jobs
+		if len(jobs) == 0 {
+			return "jobs", []helpEntry{esc("close"), closeIt}
+		}
+		running := m.transfersUI.cursor < len(jobs) &&
+			jobs[m.transfersUI.cursor].status() == xferRunning
+		return "jobs", append(refs([][2]string{{"j/k", "move"}, {"Enter", "open this job"}}),
+			helpEntry{key: "c", desc: "cancel this job", dim: !running}, esc("close"), closeIt)
 	case m.detail.anim.owns():
 		e := scroll
 		if m.detail.action != detailNone {
-			e = append(e, helpEntry{"Enter", "do what the foot asks"})
+			e = append(e, helpEntry{key: "Enter", desc: "do what the foot asks"})
 		}
-		return "detail", append(e, helpEntry{"Esc", "close"}, closeIt)
+		return "detail", append(e, esc("close"), closeIt)
 	case m.hostPicker.anim.owns(), m.credPicker.anim.owns():
-		return "picker", []helpEntry{{"j · k", "move"}, {"Enter", "pick"},
-			{"Esc", "close"}, closeIt}
+		return "picker", append(refs([][2]string{{"j/k", "move"}, {"Enter", "pick"}}),
+			esc("close"), closeIt)
 	case m.confirm.anim.owns():
-		return "confirm", []helpEntry{{"Enter", m.confirm.accept}, {"Esc", "cancel"}, closeIt}
+		return "confirm", []helpEntry{{key: "Enter", desc: m.confirm.accept}, esc("cancel"), closeIt}
 	case m.editorUI.anim.owns():
-		return "editor", []helpEntry{{"Esc", "cancel"}, closeIt}
+		return "editor", []helpEntry{esc("cancel"), closeIt}
 	case m.globalMenu.anim.owns():
 		return "global operation", menu()
 	case m.lockMenu.anim.owns():
-		return "lock menu", menu(helpEntry{"Alt+Enter", "close"})
+		return "lock menu", menu(helpEntry{key: "Alt-Enter", desc: "close"})
 	case m.spaceMenu.anim.owns():
-		return "space menu", menu(helpEntry{"Space", "close"})
+		return "space menu", menu(helpEntry{key: "Space", desc: "close"})
 	}
 	return "help", []helpEntry{closeIt}
 }
@@ -1824,7 +1882,7 @@ func (m AppModel) menuItems() []menuItem {
 	if m.pref.focus == panelPrefNav {
 		return m.withGlobal([]menuItem{
 			{label: "sections", header: true},
-			{label: "j/k choose a section — Enter opens it", header: true},
+			{label: "[j/k] choose a section — [Enter] opens it", header: true},
 		})
 	}
 	switch m.pref.item {
@@ -1845,16 +1903,20 @@ func (m AppModel) menuItems() []menuItem {
 		// The hint names the file, because Clear is per journal now and
 		// "every entry" would read as all three.
 		panel := []menuItem{{label: "Clear " + region, key: "C", hint: "erase " + m.journalFile()}}
-		if m.pref.item != prefErrors {
-			// Enter on a panel that is all content opens all of it (tdp K3).
-			panel = append([]menuItem{{label: "Open in full", key: "enter",
-				hint: "every entry, whole"}}, panel...)
+		if m.pref.item == prefErrors {
+			// Errors has a cursor, and Enter opens the entry under it: an item
+			// operation, so it is in the menu like every other (tdp M3).
+			return m.regions([]menuItem{{label: "Open", key: "enter",
+				hint: "everything the far end said"}}, panel)
 		}
+		// Enter on a panel that is all content opens all of it (tdp K3).
+		panel = append([]menuItem{{label: "Open in full", key: "enter",
+			hint: "every entry, whole"}}, panel...)
 		return m.regions(nil, panel)
 	case prefExport, prefImport:
 		return m.withGlobal([]menuItem{
 			{label: "operation", header: true},
-			{label: "a form — letters type, Enter runs it", header: true},
+			{label: "a form — letters type, [Enter] runs it", header: true},
 		})
 	}
 	_, acts := m.hostsApplicable()
@@ -1976,6 +2038,11 @@ func (m AppModel) confirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.launchEditor()
 	case confirmEditOverwrite:
 		return m.saveEditForced()
+	case confirmEditAbandon:
+		return m.abandonEdit()
+	case confirmLeavePty:
+		m.ssh.setFocus(panelSessions)
+		return m, m.confirm.close()
 	case confirmClearLogs:
 		return m.doClearJournal()
 	case confirmDeleteSSHCfg:
@@ -2259,7 +2326,7 @@ func (m AppModel) checkForm() (string, int) {
 	if credential {
 		cn := strings.TrimSpace(m.form.fields[fCredential].value)
 		if cn == "" {
-			return "Choose a credential (Enter opens the list)", fCredential
+			return "Choose a credential ([Enter] opens the list)", fCredential
 		}
 		found := false
 		for _, c := range m.creds.creds {
@@ -2326,7 +2393,13 @@ func (m AppModel) copyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m.startQuit()
 	case "tab", "shift+tab":
-		return m, m.toast.show("Esc leaves selection mode first", toastInfo)
+		return m, m.toast.show("[Esc] leaves selection mode first", toastInfo)
+	case "esc":
+		// The toast Tab raised is the nearest thing Esc can close, so it goes
+		// before the selection does (tdp K11, K4).
+		if m.toast.anim.owns() {
+			return m, m.toast.close()
+		}
 	}
 	return m.copyKey(msg.String())
 }

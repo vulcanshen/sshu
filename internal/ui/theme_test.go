@@ -101,7 +101,7 @@ func TestALegendKeyIsBlueEverywhere(t *testing.T) {
 	withColour(t)
 	blue, hand := ansiOf(t, focusColor), ansiOf(t, handColor)
 
-	footer := keyLegend([][2]string{{"alt+v", "select"}}, 40)
+	footer := keyLegend([][2]string{{"Alt-v", "select"}}, 40)
 	if !strings.Contains(footer, blue) {
 		t.Errorf("the footer key must be blue: %q", footer)
 	}

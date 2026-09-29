@@ -24,10 +24,10 @@ ssh 網格:一個畫面上好幾個活的 session,每一格都是真的 `ssh`。
 ## 特色
 
 - **不用背任何東西** —— 在任何 panel 上按 `Space`,列出來的就是這裡能做的全部。每一個字母快捷鍵也都是那個 menu 裡的一列。
-- **活 ssh session 的網格** —— 每一格都是自己終端機上的真 `ssh`,同時開幾個都行,可以水平、垂直或自訂欄數排列。`PgUp` / `PgDown` 翻回這個 session 的歷史。
-- **用鍵盤從 session 裡複製** —— `Alt+v` 凍結一格,用 vim 的鍵選字,`y` 放進系統剪貼簿。
+- **活 ssh session 的網格** —— 每一格都是自己終端機上的真 `ssh`,同時開幾個都行,可以水平、垂直或自訂欄數排列。`PgUp/PgDn` 翻回這個 session 的歷史。
+- **用鍵盤從 session 裡複製** —— `Alt-v` 凍結一格,用 vim 的鍵選字,`y` 放進系統剪貼簿。
 - **任兩台機器之間傳檔** —— 本機 ↔ 遠端 ↔ 遠端,同一個畫面。可以搜尋整棵子樹、不抓下來就先讀檔,或直接用你自己的 `$EDITOR` 打開、改完自動寫回去。
-- **sshu 裡面再開 sshu,幾層都行** —— 在 server 上也裝一份就好。`Alt+Z` 讓一格佔滿整個畫面、連 sshu 自己的框都不畫,`Alt+Enter` 把鍵盤一路往內層傳,所以多一層不多花任何畫面。
+- **sshu 裡面再開 sshu,幾層都行** —— 在 server 上也裝一份就好。`Alt-z` 讓一格佔滿整個畫面、連 sshu 自己的框都不畫,`Alt-Enter` 把鍵盤一路往內層傳,所以多一層不多花任何畫面。
 - **就地管理你的 `~/.ssh` 檔案** —— 瀏覽、編輯 `~/.ssh/config` 與 `~/.ssh/known_hosts`,註解一行都不會掉。`auth: sshconfig` 的 host 什麼都不存,全部交給 `~/.ssh/config` 決定 —— ProxyJump、agent、金鑰都算在內。
 - **可重用的 credential** —— 一個 user 和它的驗證方式定義一次,任意數量的 host 都能引用。
 - **tag** —— 你自己下在 host 上的字,`/` 搜得到:打 `prod`,整群就出來了。
@@ -56,7 +56,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 - **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。
 - **truecolor 終端機**(24-bit 色)—— 配色裡的淡色、popup 的層色,以及 popup 底下變暗的畫面,在 256 色下都分不出來。
-- **會送出 Alt 的終端機** —— sshu 的 `Alt+…` 鍵(離開 session 的 `Alt+Esc`、`Alt+v`、`Alt+Z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
+- **會送出 Alt 的終端機** —— sshu 的 `Alt-…` 鍵(離開 session 的 `Alt-Esc`、`Alt-v`、`Alt-z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
 
 ### 移除
 
@@ -78,13 +78,13 @@ sshu
 
 | 鍵 | 行為 |
 |---|---|
-| **`Tab`** | 移到當前 tab 的下一個 panel(manage 與 file transfer;ssh tab 用 `1` `2`) |
+| **`Tab`** | 移到當前 tab 的下一個 panel(manage 與 file transfer;ssh tab 用 `1–2`) |
 | **`Enter`** | 連線 / 進入目錄 / 確認選擇 |
 | **`Space`** | *我在這裡能做什麼?* —— 當前 focus 的 menu;最後一列打開全域動作(切 tab、離開)。再按一次關掉 menu |
 | **`Esc`** | 退一層 —— 離開搜尋、回上層目錄、關掉最上面的浮層 |
 | **`?`** | 這個 panel 能按的鍵,接著是到處都能用的鍵。在浮層上:那個浮層自己的按鍵 |
 
-用 **`M` / `F` / `S`** 切 tab;數字 `1`–`9` 直達當前 tab 的 panel。在遠端 session 裡打字時,每一個鍵都屬於遠端 —— 按 `Alt+Esc` 把鍵盤收回來。
+用 **`M/F/S`** 切 tab;數字 `1`–`9` 直達當前 tab 的 panel。在遠端 session 裡打字時,每一個鍵都屬於遠端 —— 按 `Alt-Esc` 把鍵盤收回來。它會先問一聲:在 vim 裡快速按兩下 `Esc` 是家常便飯,這兩下可能被讀成 `Alt-Esc`。`Enter` 離開,`Esc` 回到 session 裡。
 
 ## 三個 tab
 
@@ -100,20 +100,20 @@ sshu
 
 **`[F]ile transfer`** —— 左右兩側,各自可以是本機或某台已存的 host,所以上傳、下載、遠端對遠端都是同一個操作。標記檔案、跨到另一邊、送出。`local` 開在你啟動 sshu 的目錄,所以 `cd ~/release && sshu` 一進去就在那批東西上。進度顯示在右上角,tab 列下方也有一條進度條。
 
-**`[S]SH`** —— 活終端機的網格。在 session 上按 `Enter` 把鍵盤交給它,`Alt`+方向鍵在格子間移動,`Alt+Z` 放大焦點格,`Alt+Esc` 把鍵盤收回來。layout 條紋選水平、垂直或指定欄數。
+**`[S]SH`** —— 活終端機的網格。在 session 上按 `Enter` 把鍵盤交給它,`Alt-←/→/↑/↓` 在格子間移動,`Alt-z` 放大焦點格,`Alt-Esc` 把鍵盤收回來(會先問)。layout 條紋選水平、垂直或指定欄數。
 
 ## 按鍵
 
-底下每一個字母快捷鍵,同時都是那個 panel 的 `Space` menu 裡的一列。**方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 shift+A、`[t]ransfer` 是裸的 `t`。
+底下每一個字母快捷鍵,同時都是那個 panel 的 `Space` menu 裡的一列。**方括號印的大小寫就是你要按的那個鍵**:`[A]dd` 是 `Shift-A`、`[t]ransfer` 是裸的 `t`。
 
 ### 到處都通
 
 ```
- tab       M / F / S(session 裡:它們屬於遠端)
+ tab       M/F/S(session 裡:它們屬於遠端)
  panel     當前 tab 的 1–9  ·  Tab(manage、file transfer)
- 游標      j k    u d(半頁)          gg G      方向鍵同義
- 全域      Space menu    ? help    q 離開    Ctrl+C 離開(按兩次:立刻走)
-           (session / 編輯器裡 Ctrl+C 屬於它們 —— 先 Alt+Esc)
+ 游標      j/k    u/d(半頁)          gg/G      方向鍵同義
+ 全域      Space menu    ? help    q 離開    Ctrl-C 離開(按兩次:立刻走)
+           (session / 編輯器裡 Ctrl-C 屬於它們 —— 先 Alt-Esc)
 ```
 
 ### `[M]anage`
@@ -130,18 +130,18 @@ sshu
 | `/` | 搜尋 host —— name、user、host、port、tags 一起比對 |
 | `C` | Errors / Connections / Changes:清空這一本(先問) |
 
-host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **password**、**privatekey**、**credential**、**sshconfig** 之間切 Auth。`Enter` 就是存檔;有必填沒填或填錯的,它會帶你到第一個有問題的欄位,並說出哪裡不對。**Tags** 選填,用空白分隔。
+host 表單裡:`Tab/Shift-Tab/↑/↓` 換欄位,`←/→` 在 **password**、**privatekey**、**credential**、**sshconfig** 之間切 Auth。`Enter` 就是存檔;有必填沒填或填錯的,它會帶你到第一個有問題的欄位,並說出哪裡不對。**Tags** 選填,用空白分隔。
 
 ### `[F]ile transfer` —— 小寫作用在游標那一列,大寫作用在整個 panel
 
 | 鍵 | 動作 |
 |---|---|
-| `h` `l` | 跨到另一側 |
+| `h/l` | 跨到另一側 |
 | `Enter` | 進入目錄 —— 或前往搜尋結果 |
 | `a` | 標記 / 取消標記 |
 | `r` | 改名 |
 | `v` | 檢視 —— 文字帶語法上色,二進位轉 hex,目錄列出內容 |
-| `e` | 用 `$EDITOR` 編輯 —— 遠端的檔案會抓下來、改完寫回去 |
+| `e` | 用 `$EDITOR` 編輯 —— 遠端的檔案會抓下來、改完寫回去。編輯器裡按 `Alt-Esc` 放棄這次編輯,會先問 |
 | `t` | 傳到另一側的當前目錄 |
 | `x` | 刪除(先問) |
 | `/` | 搜尋整棵子樹 |
@@ -149,12 +149,12 @@ host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **pas
 | `R` | 重讀這個目錄 |
 | `T` | 傳這一側全部的標記 |
 | `X` | 刪這一側全部的標記(先問) |
-| `c` / `C` | 清一個標記 / 清掉全部(磁碟上什麼都不動) |
+| `c/C` | 清一個標記 / 清掉全部(磁碟上什麼都不動) |
 | `H` | 選這一側的 host(`local` 排第一) |
 | `D` | 這一側斷線 |
 | `J` | Jobs —— 進行中的傳輸;`Enter` 看那一條的全文,`c` 取消 |
 
-傳輸進行中 `H` 和 `D` 會變暗、按了沒有反應 —— 先到 `J` 取消。
+現在按不了的列會變暗(`Space` menu 與 `?` 都一樣),按它的鍵也沒有反應:傳輸進行中的 `H` 和 `D`(先到 `J` 取消)、還在傳進來的檔案上的 `a`、目錄上的 `e`、另一側還沒有 host 時的 `t` 和 `T`。一個標記都沒有時,`T`、`X`、`C` 不會出現。
 
 ### `[S]SH`
 
@@ -164,29 +164,29 @@ host 表單裡:`Tab` / `Shift+Tab` / `↑` `↓` 換欄位,`←` `→` 在 **pas
 | `Enter` | 顯示這個 session 並把鍵盤交給它 |
 | `C` | 關掉這個 session(先問)—— 「全部關掉」在 `Space` menu 裡 |
 | `D` | 對同一台再開一個 session(先問) |
-| `PgUp` / `PgDown` | 翻這一格的歷史(打字就回到即時畫面) |
-| `Alt+Z` | 分階段放大:佔滿網格區、再佔滿整個畫面、再回到原樣 |
-| `Alt+Enter` | Lock / release —— 巢狀 sshu 用:把每一個鍵都傳給內層那一個 |
-| `Alt+方向鍵` | 移到那個方向的鄰格 |
-| `Alt+Esc` | 退一步 —— 先離開選取模式,再退出放大,最後把鍵盤收回來 |
-| `Alt+v` | 選取模式 —— 凍結這一格,從裡面複製 |
+| `PgUp/PgDn` | 翻這一格的歷史(打字就回到即時畫面) |
+| `Alt-z` | 分階段放大:佔滿網格區、再佔滿整個畫面、再回到原樣 |
+| `Alt-Enter` | Lock / release —— 巢狀 sshu 用:把每一個鍵都傳給內層那一個 |
+| `Alt-←/→/↑/↓` | 移到那個方向的鄰格 |
+| `Alt-Esc` | 退一步 —— 先離開選取模式,再退出放大,最後把鍵盤收回來(這一步會先問) |
+| `Alt-v` | 選取模式 —— 凍結這一格,從裡面複製 |
 
-**選取模式**(`Alt+v`)用 vim 的鍵:
+**選取模式**(`Alt-v`)用 vim 的鍵:
 
 | 鍵 | 動作 |
 |---|---|
-| `h` `j` `k` `l` | 移動(超過上下邊界時,凍結的頁面會跟著捲) |
-| `w` / `e` / `b` | 下一個 word 開頭 / word 結尾 / 上一個 word 開頭 |
-| `0` / `$` | 列首 / 列尾 |
-| `u` / `d` | 往上 / 往下半個畫面 |
-| `v` / `V` | 依字元 / 依整行選取 |
+| `h/j/k/l` | 移動(超過上下邊界時,凍結的頁面會跟著捲) |
+| `w/e/b` | 下一個 word 開頭 / word 結尾 / 上一個 word 開頭 |
+| `0/$` | 列首 / 列尾 |
+| `u/d` | 往上 / 往下半個畫面 |
+| `v/V` | 依字元 / 依整行選取 |
 | `y` | 複製到系統剪貼簿並離開(什麼都沒選:游標那一行) |
 | `Esc` | 先丟掉選取,再離開 |
 | `?` | 這個模式所有的鍵 |
 
 複製靠 `pbcopy`、`wl-copy`、`xclip` 或 `xsel`,有裝哪個就用哪個。
 
-layout 條紋(`2`,左下角):`j` / `k` 在**水平**、**垂直**、**自訂**之間切換;在自訂上按 `Enter` 輸入欄數。
+layout 條紋(`2`,左下角):`j/k` 在**水平**、**垂直**、**自訂**之間切換;在自訂上按 `Enter` 輸入欄數。
 
 ## 設定
 
