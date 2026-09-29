@@ -174,14 +174,14 @@ func (m editorPopup) view() string {
 	if m.phase == editRunning && m.pty != nil {
 		// No padding rows: two lines of blank border is two lines of editor.
 		return drawPopupBoxPad(popupLayerColor(m.layer), title,
-			hintLegend([][2]string{{"Alt-Esc", "abandon"}}),
+			[][2]string{{"Alt-Esc", "abandon"}},
 			animRows(m.anim, m.pty.render(innerW, m.rows())), innerW, false)
 	}
 	wait := m.waitingRows(innerW)
 	rows := fillRows(nil, max(0, (m.rows()-len(wait))/2), innerW)
 	rows = fillRows(append(rows, wait...), m.rows(), innerW)
 	return drawPopupBoxPad(popupLayerColor(m.layer), title,
-		hintLegend([][2]string{{"Esc", "cancel"}}),
+		[][2]string{{"Esc", "cancel"}},
 		animRows(m.anim, rows), innerW, false)
 }
 

@@ -446,7 +446,7 @@ func (m detailPopup) view() string {
 	// The glyph says what the float IS, not what it offers: a read-only look at
 	// a row, whichever door happens to be at the bottom of it.
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphEye+" "+m.title+" ",
-		hintLegend(pairs), animRows(m.anim, capRows(rows, m.screenH)), innerW)
+		pairs, animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
 
 // openHost and openCredDetail are what Enter does on the two tables. Both read

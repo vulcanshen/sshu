@@ -134,7 +134,7 @@ func (m helpPopup) view() string {
 	if len(m.entries) > vis {
 		pairs = append([][2]string{{"j/k", "scroll"}}, pairs...)
 	}
-	hint := hintLegend(pairs)
+	hint := pairs
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphHelp+" "+m.title+" ", hint,
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

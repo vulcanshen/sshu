@@ -142,5 +142,5 @@ func (m knownAddForm) view() string {
 
 	return drawPopupBox(popupLayerColor(m.layer),
 		loadingTitle(" "+glyphPlus+" Add known host ", m.scanning),
-		hintLegend(pairs), animRows(m.anim, capRows(rows, m.screenH)), innerW)
+		pairs, animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

@@ -154,7 +154,7 @@ func (m viewerPopup) view() string {
 		hint = append([][2]string{{"", itoa(m.top+1) + " of " + itoa(n)}}, hint...)
 	}
 	return drawPopupBox(popupLayerColor(m.layer), loadingTitle(" "+glyphEye+" "+m.title+" ", m.loading),
-		hintLegend(hint), animRows(m.anim, capRows(rows, m.screenH)), innerW)
+		hint, animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
 
 // ------------------------------------------------------------------ loading

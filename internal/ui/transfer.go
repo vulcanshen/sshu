@@ -401,7 +401,7 @@ func (m transfersPopup) view(jobs []*transferJob) string {
 	if len(jobs) > vis {
 		pairs = append([][2]string{{"", itoa(m.cursor+1) + " of " + itoa(len(jobs))}}, pairs...)
 	}
-	hint := hintLegend(pairs)
+	hint := pairs
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphUpload+" Transfers ", hint,
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }

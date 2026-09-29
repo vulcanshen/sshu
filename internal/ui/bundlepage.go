@@ -118,7 +118,7 @@ func (p bundlePage) body(intro, warn, submitLabel string, focused bool, innerW i
 	if len(p.fields) > 1 {
 		pairs = append([][2]string{{"Tab", "next"}}, pairs...)
 	}
-	return append(rows, clipANSI("  "+hintLegend(pairs), innerW))
+	return append(rows, "  "+fitLegend(pairs, innerW-2))
 }
 
 // textPage reports whether the keyboard is standing in an Operation page: a

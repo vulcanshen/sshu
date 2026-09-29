@@ -291,7 +291,9 @@ func frameSGRs(t *testing.T, grid string) []string {
 	t.Helper()
 	var out []string
 	for i := 0; ; {
-		at := strings.Index(grid[i:], "╭")
+		// A frame's top-left corner: rounded, or double for the one holding
+		// the keyboard (tdp L5).
+		at := strings.IndexAny(grid[i:], "╭╔")
 		if at < 0 {
 			return out
 		}
@@ -305,7 +307,7 @@ func frameSGRs(t *testing.T, grid string) []string {
 			t.Fatal("an unterminated escape before a cell corner")
 		}
 		out = append(out, grid[open+2:open+end])
-		i = at + len("╭")
+		i = at + len("╭") // both corners are three bytes
 	}
 }
 

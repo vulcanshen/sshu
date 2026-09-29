@@ -348,6 +348,50 @@ func TestKeysAreNotSentToAConnectionThatHasNotAnswered(t *testing.T) {
 	}
 }
 
+// Ctrl-C in a cell that is still connecting is ssh's, not sshu's way out
+// (tdp v0.1.19 K9, K10): with the keyboard in the cell every key is taken as
+// pressed there. It is forwarded even though the other keys are held back, and
+// the line discipline turns it into SIGINT for ssh — the stand-in records it.
+// Once the keyboard is back on the list, Ctrl-C is the leaving flow again.
+func TestCtrlCReachesAConnectionThatHasNotAnswered(t *testing.T) {
+	dir := t.TempDir()
+	got, ready := filepath.Join(dir, "sigint"), filepath.Join(dir, "ready")
+	// Silent, so it stays "connecting"; it says it is ready through a file,
+	// because a byte on the pty would count as the remote answering.
+	fakeSSH(t, `trap "echo got > '`+got+`'; exit 1" INT; touch '`+ready+`'; while :; do sleep 0.05; done`)
+	m := pressA(sshApp(t, sample()), "enter", "enter")
+	t.Cleanup(func() { m.ssh.stopAll() })
+	waitFor(t, "the stand-in to set its trap", func() bool {
+		_, err := os.Stat(ready)
+		return err == nil
+	})
+	if m.inPty() || !m.ptyFocused() {
+		t.Fatal("setup: the cell should hold the keyboard with the remote not yet speaking")
+	}
+
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = settle(next.(AppModel))
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("Ctrl-C while connecting left sshu")
+		}
+	}
+	if m.quitAsk.anim.owns() {
+		t.Fatal("Ctrl-C while connecting should not raise the leaving question")
+	}
+	waitFor(t, "ssh to get SIGINT", func() bool {
+		_, err := os.Stat(got)
+		return err == nil
+	})
+
+	// On the list it is the leaving flow, as everywhere outside a remote.
+	m.ssh.setFocus(panelSessions)
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if m = settle(next.(AppModel)); len(m.ssh.sessions) > 0 && !m.quitAsk.anim.owns() {
+		t.Error("Ctrl-C on the list should start the leaving flow")
+	}
+}
+
 // A live session that has said NOTHING yet is not an empty terminal, it is a
 // wait — and the two look identical: an empty bordered box.
 //

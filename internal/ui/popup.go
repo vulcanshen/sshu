@@ -192,19 +192,19 @@ func loadingTick() tea.Cmd {
 // The hint is not decoration — it is the standing disclosure of what this
 // surface can do, and it is what lets a text-entry popup opt out of the Space
 // entry key without opening a hole in tdp K8.
-func drawPopupBox(bc lipgloss.Color, title, hint string, rows []string, innerW int) string {
-	return drawPopupBoxPad(bc, title, hint, rows, innerW, true)
+func drawPopupBox(bc lipgloss.Color, title string, pairs [][2]string, rows []string, innerW int) string {
+	return drawPopupBoxPad(bc, title, pairs, rows, innerW, true)
 }
 
-func drawPopupBoxPad(bc lipgloss.Color, title, hint string, rows []string, innerW int, pad bool) string {
+func drawPopupBoxPad(bc lipgloss.Color, title string, pairs [][2]string, rows []string, innerW int, pad bool) string {
 	bs := lipgloss.NewStyle().Foreground(bc)
 	ts := lipgloss.NewStyle().Foreground(bc).Bold(true)
 
 	// A title or hint wider than the box would push the border out and shear the
-	// frame — clip both. The hint arrives pre-styled from hintLegend, so it has to
-	// be clipped ANSI-aware; only the title is styled here.
+	// frame. The title is cut; the hint gives up whole items from the end, as the
+	// footer does, never one cut in the middle (tdp D3).
 	title = truncate(title, innerW-1)
-	hint = clipANSI(hint, innerW-1)
+	hint := fitLegend(pairs, innerW-1)
 
 	var b strings.Builder
 	b.WriteString(bs.Render("╭─") + ts.Render(title) +
@@ -310,6 +310,27 @@ func hintLegend(pairs [][2]string) string {
 		parts = append(parts, legendPair(k, d, p))
 	}
 	return " " + strings.Join(parts, " ") + " "
+}
+
+// fitLegend is hintLegend within w cells: whole items are dropped from the
+// end until the rest fits (tdp D3). Only when not even the first one fits is it
+// cut — a box that narrow has no room for any key, and the frame still must
+// not shear.
+func fitLegend(pairs [][2]string, w int) string {
+	n := len(pairs)
+	for n > 1 && legendW(pairs[:n]) > w {
+		n--
+	}
+	return clipANSI(hintLegend(pairs[:n]), w)
+}
+
+// legendW is how wide hintLegend draws pairs.
+func legendW(pairs [][2]string) int {
+	w := 2 + max(0, len(pairs)-1)
+	for _, p := range pairs {
+		w += legendPairW(p)
+	}
+	return w
 }
 
 // legendPair draws one item of a hint or the footer.

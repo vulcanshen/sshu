@@ -299,7 +299,7 @@ func (m filePicker) view() string {
 	rows = fillRows(rows, m.height(), innerW)
 
 	title := " " + glyphKey + " Identity file  " + store.FoldHome(m.root) + " "
-	hint := hintLegend([][2]string{{arrowUpDown, "select"}, {"Enter", "pick"}, {"Esc", "cancel"}})
+	hint := [][2]string{{arrowUpDown, "select"}, {"Enter", "pick"}, {"Esc", "cancel"}}
 	return drawPopupBoxPad(popupLayerColor(m.layer), title, hint,
 		animRows(m.anim, capRows(rows, m.screenH)), innerW, false)
 }

@@ -87,6 +87,14 @@ Changes since 1.7.1.
 - **Errors has `[Enter] Open` in its Space menu**, the key it already had.
 - **Full screen shows the way out** — `Alt-Esc:unzoom` under the badge,
   covering a few cells rather than taking a row.
+- **The panel or cell with the keyboard is drawn in a double line**, so
+  focus still shows when selection mode turns the frame yellow.
+- **Selection mode says so on its frame**: `selection mode` at the top
+  right, in yellow; in full screen, at the top right of the screen.
+- **`Ctrl-C` in a cell that is still connecting goes to ssh** and gives the
+  connection up, instead of asking whether to quit sshu.
+- **A popup's hint that does not fit drops whole keys from the end**
+  instead of being cut in the middle of one.
 
 ### Fixed
 

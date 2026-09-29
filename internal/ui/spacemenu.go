@@ -164,7 +164,7 @@ func (m spaceMenu) view() string {
 	if len(m.items) > vis {
 		pairs = append([][2]string{{"", itoa(top+1) + " of " + itoa(len(m.items))}}, pairs...)
 	}
-	legend := hintLegend(pairs)
+	legend := pairs
 	// " " + label + "  " + hint + " "
 	innerW := popupInnerW(m.screenW)
 	// When the box cannot hold both columns the hint yields: the label is what

@@ -221,6 +221,6 @@ func (m credForm) view() string {
 		pairs = [][2]string{{"Tab", "next"}, {"Enter", enter}, {"Esc", "cancel"}}
 	}
 
-	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+title+" ", hintLegend(pairs),
+	return drawPopupBox(popupLayerColor(m.layer), " "+glyph+" "+title+" ", pairs,
 		animRows(m.anim, capRows(rows, m.screenH)), innerW)
 }
