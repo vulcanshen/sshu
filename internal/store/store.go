@@ -11,14 +11,14 @@ import (
 // Dir resolves the directory holding hosts.yaml (and later config.yaml /
 // state.yaml).
 //
-// SSHU_CONFIG overrides everything — it names the directory outright, for demo
+// SSHU__CONFIG overrides everything — it names the directory outright, for demo
 // recordings and isolated tests. Otherwise XDG_CONFIG_HOME wins on every
 // platform when set, so a macOS user can opt into ~/.config/sshu instead of
 // being stuck with ~/Library/Application Support; without it os.UserConfigDir
 // decides. Go already honours XDG_CONFIG_HOME on Linux, so this only changes
 // macOS behaviour.
 func Dir() (string, error) {
-	if p := os.Getenv("SSHU_CONFIG"); p != "" {
+	if p := os.Getenv("SSHU__CONFIG"); p != "" {
 		return p, nil
 	}
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {

@@ -54,7 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 ### 需求
 
-- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。把 icon 畫成兩格寬的 CJK 字型(例:Maple Mono NF CN)也可以:sshu 啟動時會問終端機 icon 佔幾格,巢狀在它裡面的 sshu 也會由它告知。問錯了就設 `SSHU_ICON_WIDTH=2`(或 `1`)。
+- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。把 icon 畫成兩格寬的 CJK 字型(例:Maple Mono NF CN)也可以:sshu 啟動時會問終端機 icon 佔幾格,巢狀在它裡面的 sshu 也會由它告知。問錯了就設 `SSHU__ICON_WIDTH=2`(或 `1`)。
 - **truecolor 終端機**(24-bit 色)—— 配色裡的淡色、popup 的層色,以及 popup 底下變暗的畫面,在 256 色下都分不出來。
 - **會送出 Alt 的終端機** —— sshu 的 `Alt-…` 鍵(離開 session 的 `Alt-Esc`、`Alt-v`、`Alt-z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
 
@@ -179,6 +179,7 @@ host 表單裡:`Tab/Shift-Tab/↑/↓` 換欄位,`←/→` 在 **password**、**
 | `w/e/b` | 下一個 word 開頭 / word 結尾 / 上一個 word 開頭 |
 | `0/$` | 列首 / 列尾 |
 | `u/d` | 往上 / 往下半個畫面 |
+| `gg/G` | 第一行 / 最後一行(含捲回去的歷史) |
 | `v/V` | 依字元 / 依整行選取 |
 | `y` | 複製到系統剪貼簿並離開(什麼都沒選:游標那一行) |
 | `Esc` | 先丟掉選取,再離開 |
@@ -196,7 +197,7 @@ sshu 所有的檔案都在同一個目錄:
 
 | | |
 |---|---|
-| `$SSHU_CONFIG` | 有設就用這個目錄 |
+| `$SSHU__CONFIG` | 有設就用這個目錄 |
 | `$XDG_CONFIG_HOME/sshu` | 有設就用 —— macOS 上也一樣 |
 | 都沒有 | `os.UserConfigDir()/sshu`(macOS 是 `~/Library/Application Support/sshu`,Linux 是 `~/.config/sshu`) |
 
@@ -221,14 +222,14 @@ connect_timeout: 15
 
 ### 密碼
 
-存起來的密碼用 AES-256-GCM 加密,所以 `password:` 那一欄是 `ENC:…`。鑰匙是同一個目錄裡的 `.sshukey`,第一次啟動時自動產生;想放到別處,設 `SSHU_KEY_FILE`。
+存起來的密碼用 AES-256-GCM 加密,所以 `password:` 那一欄是 `ENC:…`。鑰匙是同一個目錄裡的 `.sshukey`,第一次啟動時自動產生;想放到別處,設 `SSHU__KEY_FILE`。
 
 |  |  |
 |---|---|
 | **擋得住** | 只有 `hosts.yaml` 或 `credentials.yaml` 流出去 —— 貼到聊天室、不小心 commit、被備份掃走 |
 | **擋不住** | 整個設定目錄被複製走,因為**鑰匙就在裡面**;以及任何以你的身分在跑的其他程式 |
 
-所以**設定目錄不要進版控、不要放進同步資料夾、不要讓備份掃到。** 想連「整個目錄被複製」都擋住,就用 `SSHU_KEY_FILE` 把鑰匙放到別的地方 —— 但那把鑰匙得你自己備份,鑰匙掉了,存起來的密碼就全部跟著沒了。
+所以**設定目錄不要進版控、不要放進同步資料夾、不要讓備份掃到。** 想連「整個目錄被複製」都擋住,就用 `SSHU__KEY_FILE` 把鑰匙放到別的地方 —— 但那把鑰匙得你自己備份,鑰匙掉了,存起來的密碼就全部跟著沒了。
 
 密碼從不顯示在畫面上,交給 `ssh` 的方式是 `SSH_ASKPASS`,不會經過環境變數或命令列。如果你根本不想讓 sshu 存密碼,用 `auth: privatekey`(只存一條路徑)或 `auth: sshconfig`(什麼都不存)。
 

@@ -202,3 +202,43 @@ func TestEscInAPtyStillReachesTheRemoteUnderAToast(t *testing.T) {
 		t.Error("in a pty the toast should wait for its timer, not take Esc")
 	}
 }
+
+// gg and G go to the first and last line of the frozen page, scrollback and
+// all, as in vim (tdp v0.1.21 D5); a lone g waits for the next key, and a
+// selection stretches with them.
+func TestGgAndGReachEitherEndOfThePage(t *testing.T) {
+	lines := make([]string, 50)
+	for i := range lines {
+		lines[i] = "line"
+	}
+	c := copyState{on: true, lines: lines, w: 20, h: 10, row: 20, col: 2, top: 15}
+	c.key("G")
+	if c.row != 49 || c.top != 40 {
+		t.Errorf("G should land on the last line in view: row %d top %d", c.row, c.top)
+	}
+	c.key("g")
+	if c.row != 49 {
+		t.Error("a lone g should wait")
+	}
+	c.key("g")
+	if c.row != 0 || c.top != 0 || c.col != 2 {
+		t.Errorf("gg should land on the first line: row %d top %d col %d", c.row, c.top, c.col)
+	}
+	c.key("g")
+	c.key("j")
+	if c.row != 1 || c.gPending {
+		t.Errorf("g then j is just j: row %d", c.row)
+	}
+	c.key("v")
+	c.key("G")
+	if r0, _, r1, _ := c.span(); r0 != 1 || r1 != 49 {
+		t.Errorf("the selection should stretch to the bottom: %d..%d", r0, r1)
+	}
+	found := false
+	for _, e := range copyModeHelp() {
+		found = found || e.key == "gg/G"
+	}
+	if !found {
+		t.Error("? should list gg/G")
+	}
+}

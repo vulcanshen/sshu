@@ -186,6 +186,7 @@ func copyLegendPairs() [][2]string {
 		{"w/e/b", "word"},
 		{"0/$", "line start/end"},
 		{"u/d", "half page"},
+		{"gg/G", "top/bottom"},
 	}
 }
 

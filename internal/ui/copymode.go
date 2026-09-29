@@ -44,6 +44,8 @@ type copyState struct {
 	row, col   int
 	ancR, ancC int
 	sel        selKind
+	// gPending is the first g of gg, waiting for the second.
+	gPending bool
 }
 
 // selStyle paints the selection. It replaces the text's own colour rather than
@@ -77,7 +79,7 @@ func (c *copyState) stop() { *c = copyState{} }
 func copyModeHelp() []helpEntry {
 	return refs([][2]string{
 		{"h/j/k/l", "move"}, {"w/e/b", "by word"}, {"0/$", "line start / end"},
-		{"u/d", "half a page"}, {"v/V", "select characters / lines"},
+		{"u/d", "half a page"}, {"gg/G", "top / bottom"}, {"v/V", "select characters / lines"},
 		{"y", "copy, and leave"}, {"Esc", "drop the selection, then leave"},
 		{"Alt-v", "leave"}, {"q/Ctrl-C", "quit"}, {"?", "close this help"},
 	})
@@ -104,7 +106,20 @@ func (c copyState) newest() int {
 // owns the panel: a stray letter reaching the remote from a screen that stopped
 // following it is exactly the accident §11.19 already refuses for scrollback.
 func (c *copyState) key(k string) (text string, yanked bool) {
+	// gg is the top and G the bottom, as in vim (tdp D5): a g waits for the
+	// next key, and anything but another g lets it go.
+	if c.gPending {
+		c.gPending = false
+		if k == "g" {
+			c.moveTo(0, c.col)
+			return "", false
+		}
+	}
 	switch k {
+	case "g":
+		c.gPending = true
+	case "G":
+		c.moveTo(len(c.lines)-1, c.col)
 	case "j", "down":
 		c.moveRow(1)
 	case "k", "up":

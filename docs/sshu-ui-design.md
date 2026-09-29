@@ -1900,7 +1900,7 @@ XDG_CONFIG_HOME 有設   → $XDG_CONFIG_HOME/sshu/
 ```
 
 `XDG_CONFIG_HOME` **在所有平台都優先** —— 讓 macOS 使用者可以主動選
-`~/.config/sshu`。另留 `SSHU_CONFIG` 環境變數覆寫整個目錄(demo 錄製 /
+`~/.config/sshu`。另留 `SSHU__CONFIG` 環境變數覆寫整個目錄(demo 錄製 /
 隔離測試用,同 filu 的 `FILU_CONFIG`)。
 
 | 檔 | 內容 | 誰維護 |
@@ -1987,12 +1987,12 @@ AES-256-GCM,每個值一個新 nonce,key 在同目錄的 `.sshukey`。
 >
 > **所以這是分離,不是機密性**:原本一個檔就外洩,現在要兩個。上面這條「不可
 > 同步」的警告因此**完全有效**,一個字都不能拿掉。要蓋掉第二種情況只有一個
-> 辦法:`SSHU_KEY_FILE` 把 key 移到不會被一起複製的地方 —— 而那是你得記得自己
+> 辦法:`SSHU__KEY_FILE` 把 key 移到不會被一起複製的地方 —— 而那是你得記得自己
 > 備份的東西,弄丟它等於弄丟每一個密碼,所以刻意不是預設。
 >
 **密碼怎麼送給 ssh**:走 `SSH_ASKPASS` + `SSH_ASKPASS_REQUIRE=force`
 (OpenSSH 8.4+)。ssh 會把 sshu 自己再執行一次、環境變數帶
-`SSHU_ASKPASS_HOST=<name>`,那個模式**只印出該 host 的密碼然後結束**,不啟動
+`SSHU__ASKPASS_HOST=<name>`,那個模式**只印出該 host 的密碼然後結束**,不啟動
 TUI。
 
 - **密碼不進子行程的環境變數** —— helper 自己重讀 `hosts.yaml`(0600)**並自己
@@ -5706,7 +5706,7 @@ written by a newer sshu (version 99, this build understands 2)`)。真的變成�
 
 #### 實測
 
-`SSHU_CONFIG` 指到合成目錄,`tmux` 裡跑真的 binary,`capture-pane -e` 讀回 ANSI:
+`SSHU__CONFIG` 指到合成目錄,`tmux` 裡跑真的 binary,`capture-pane -e` 讀回 ANSI:
 
 - 兩列、截斷 `…`、佔位符 `—` 都對
 - `5432` 與 `2222` 帶 `38;2;250;179;135`(peach),`22` 是 dim ✓
@@ -5920,7 +5920,7 @@ user|result),預算只扣了兩個,`Result` 被邊框吃掉一格。在加欄位
 ### 11.51 密碼不再是明碼 —— AES-256-GCM 與一把獨立的 key
 
 `password:` 欄位在磁碟上變成 `ENC:<base64(nonce‖ciphertext)>`,讀取時拆掉前綴。
-key 在 `.sshukey`,`SSHU_KEY_FILE` 可以移走,啟動時不存在就產生。
+key 在 `.sshukey`,`SSHU__KEY_FILE` 可以移走,啟動時不存在就產生。
 
 #### 先說它買到什麼 —— 不然這是一個聽起來比實際安全的功能
 
@@ -5933,7 +5933,7 @@ key 在 `.sshukey`,`SSHU_KEY_FILE` 可以移走,啟動時不存在就產生。
 那一列才是祕密真正逃走的地方 —— 但 **§8.3 的警告完全保留**,那個目錄仍然不是能
 拿去同步的東西。
 
-`SSHU_KEY_FILE` 是蓋掉第二列的唯一方法,而它**刻意不是預設**:key 放到 config
+`SSHU__KEY_FILE` 是蓋掉第二列的唯一方法,而它**刻意不是預設**:key 放到 config
 目錄之外,就是一個你得記得自己備份的東西,而弄丟它等於弄丟每一個密碼。
 
 #### 兩個被否決的做法
@@ -6022,7 +6022,7 @@ cause 是一行,Enter 展開完整說明**和 key 的路徑**。
 
 #### 實測
 
-`SSHU_CONFIG` 指到合成目錄,跑真的 binary:
+`SSHU__CONFIG` 指到合成目錄,跑真的 binary:
 
 - 明文 v2 config → 啟動一次 → `ENC:` 值,位元組裡找不到密碼
 - **askpass helper**(另一個 process,也正是「解密如果寫在 UI 層就會壞」的那個
@@ -6085,8 +6085,8 @@ backlog 的「未知 host key 互動確認」與「加密私鑰 / ssh-agent」�
 
 #### askpass 中繼:helper 的第二種模式
 
-sshu 已經會把自己當 ssh 的 askpass helper(`SSHU_ASKPASS_HOST` → 印存的密碼)。
-現在多一種:`SSHU_ASKPASS_SOCK` 指到一個 unix socket,helper 把 ssh 給的提示
+sshu 已經會把自己當 ssh 的 askpass helper(`SSHU__ASKPASS_HOST` → 印存的密碼)。
+現在多一種:`SSHU__ASKPASS_SOCK` 指到一個 unix socket,helper 把 ssh 給的提示
 逐字送進正在畫畫面的 sshu,那邊跳 popup,答案回傳,helper 印出、exit 0。
 
 - **一個 dial 一個 socket**,不是一個 app 一個。socket 路徑就是「這題屬於哪一側、
@@ -7030,7 +7030,7 @@ filu 已經做完,這一輪一起修,清單刪除。
   `joinHorizontal` / `joinVertical`(取代 lipgloss 的 Join)。sshu 保留自己的函式名,兩百多處呼叫不用動。新加 `dispCut`
   (display 欄的 `ansi.Cut`),給選取模式用。
 - `iconwidth_unix.go` 的 `DetectIconWidth()`:在 `NestInput` 接手 stdin、Bubble Tea 開始之前,印一個 icon、用 CPR 問游標位置;
-  `SSHU_ICON_WIDTH` 蓋過探測。
+  `SSHU__ICON_WIDTH` 蓋過探測。
 - 繞過漏斗的五處:`overlay.Composite` 兩處(popup、toast);splash 的像素(icon 兩格時不再補空白)與置中;session 清單的
   `glyphCell`;credentials 的 Auth 欄寬(改成 `credAuthW()`)。hosts 表格裡 credential 名字的預算(`colAuthW-2`)清單建議改,
   但 mutation 顯示改了看不出差別 —— 外層的 `padRight` 本來就會截到同一個結果 —— 所以留著。
@@ -7039,14 +7039,37 @@ filu 已經做完,這一輪一起修,清單刪除。
   畫面測試的量尺也從 `lipgloss.Width` 換成 `dispW`(一格時完全相同),`TestTheFramesHoldWithTwoCellIcons` 把十五個 frame 測試在
   兩格下各跑一次。toast 那一處的 mutation 起先活下來:toast 自己的標題列有 icon,但 overlay 取整塊最寬的一列當寬度,量得對;
   會歪的是它蓋住的那幾列 —— 測試要讓 toast 底下的列有 icon(把 hosts 表格填滿)才量得出來。
-- 巢狀:內層的探測由外層的模擬器回答,vt10x 把 icon 算一格,所以內層會量到 1。第一版只留 `SSHU_ICON_WIDTH` 讓使用者在內層
+- 巢狀:內層的探測由外層的模擬器回答,vt10x 把 icon 算一格,所以內層會量到 1。第一版只留 `SSHU__ICON_WIDTH` 讓使用者在內層
   手動設;使用者指出通道早就有了(「讓外層透過巢狀的通報通道直接告訴內層, 這通道已經有了，應該不難吧？」),於是補上:
   - 指令通道(§11.45,OSC 7181)多兩個動詞 `icon1`、`icon2`。它們說的是整個 layer,不是游標那一格,所以 hop 0 收到時不需要
     有 session。
   - 外層在 `sshTickMsg` 裡(`tellIconWidth()`)看每一格:有 sshu 在通報(`nestChain()` 有值)而還沒說過,就送一次;通報停了
     (內層結束、離開 alt screen)就清掉,同一格再開 sshu 會再說一次。沒有通報的格子什麼都不送 —— 那些 bytes 會落進 shell。
   - 中間層從上一層學到不同的寬度時,`retellIconWidth()` 讓下一個 tick 對每一格再說一次,所以任何深度都傳得到。
-  - 手動設了 `SSHU_ICON_WIDTH`(`iconFixed`)的那一層不聽外層:使用者親手設的比猜的準。
+  - 手動設了 `SSHU__ICON_WIDTH`(`iconFixed`)的那一層不聽外層:使用者親手設的比猜的準。
+
+---
+
+### 11.69 對照 tdp v0.1.21 —— 環境變數改名、選取模式的 `gg/G`
+
+#### 使用者的要求
+
+> 「對齊 tdp 新規範」
+
+清單三條,修兩條;popup 比畫面大時 `compositeDisp()` panic(D6)等 filu 修好參考實作再照搬,清單留著只剩那一條。
+
+#### 環境變數 `SSHU__<NAME>`(D6)
+
+家族的命名是 `<APP>__<NAME>`,共用名 `__CONFIG` / `__STATE` / `__DATA` / `__CACHE`(目錄)與 `__ICON_WIDTH`;改名不留舊名
+(使用者裁定)。sshu 讀的七個全部改:`SSHU__CONFIG`、`SSHU__ICON_WIDTH`、`SSHU__KEY_FILE`、`SSHU__ASKPASS_HOST`、
+`SSHU__ASKPASS_SOCK`,測試用的 `SSHU__KEEP_ME`、`SSHU__TEST_SFTP_SERVER`。askpass 子程序是同一個 binary,兩邊一起改。
+`LC_SSHU_COLORTERM` 不改:它給遠端讀,而 OpenSSH 預設只轉送 `LC_*`(給別的程式讀的變數是例外)。本檔、README、dev-remarks
+裡的舊名就地改成新名,只有 CHANGELOG 已發版的段落保留當時的名字。這是破壞性改動,CHANGELOG `[Unreleased]` 列了新舊對照。
+
+#### 選取模式的 `gg/G`(D5)
+
+tdp 把選取文字的模式照 vim 移動寫成家族預設,sshu 缺 `gg` / `G`。`copyState` 多一個 `gPending`:`g` 等下一鍵,第二個 `g` 到凍結
+頁面的第一行,其他鍵放掉它照常作用;`G` 到最後一行。欄位不動(跟 `j/k` 一樣);選取中會跟著延伸。`?` 與 footer 的鍵表補上。
 
 ---
 
@@ -7131,7 +7154,7 @@ filu 已經做完,這一輪一起修,清單刪除。
 | 格子(pty) | **`Alt-Enter`** | **layer 鍵**(§11.43)—— 開本層的 Lock/Release 選單(內層沒回報過才轉發,§11.45);有內層時選單多兩列**無熱鍵**的整鏈動作:全部 zoommax + 除最內層外全鎖 / 全部還原(§11.47);locked 的格子所有鍵穿透,這是唯一例外 |
 | 格子(pty) | **`Alt-Esc`** | 一次剝一層:**先離開選取模式**,再**逐階**退出 zoom(滿版 → 網格 zoom → 正常),再收回鍵盤、回 `[1]`(§11.47)—— 最後這一步**先問**,`Esc` 回格子(tdp D5,§11.66) |
 | 格子(pty) | **`Alt-v`** | **選取模式** —— 凍結這一格、border 轉黃、上框右側嵌 `╡Select╞`(滿版時疊在右上角,§11.67、§11.68),再按一次(或 `Alt-Esc`)離開(§11.33) |
-| 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53) |
+| 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` · `gg`/`G` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53)/ 第一行、最後一行(§11.69) |
 | 選取模式 | `v` / `V` · `y` · `Esc` | char / line 選取(再按取消)/ 複製到剪貼簿並結束 / 先丟選取、再離開 |
 | 選取模式 | `?` · `q` / `Ctrl-C` · `Tab` · `Space` | 模式的 key reference / 離開流程 / toast 說先 `Esc`,toast 還在時第一個 `Esc` 先收它(§11.66)/ 不作用(§11.57、§11.63) |
 

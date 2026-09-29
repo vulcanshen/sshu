@@ -94,11 +94,23 @@ Changes since 1.7.1.
   screen.
 - **Fonts that draw icons two cells wide keep every border straight.** sshu
   asks the terminal how wide an icon is when it starts, and tells a sshu
-  nested inside it, which cannot ask; `SSHU_ICON_WIDTH` sets it by hand.
+  nested inside it, which cannot ask; `SSHU__ICON_WIDTH` sets it by hand.
 - **`Ctrl-C` in a cell that is still connecting goes to ssh** and gives the
   connection up, instead of asking whether to quit sshu.
 - **A popup's hint that does not fit drops whole keys from the end**
   instead of being cut in the middle of one.
+- **Environment variables are named `SSHU__<NAME>`**, with two underscores,
+  like the rest of the family. The old names are no longer read:
+
+  | Old | New |
+  |---|---|
+  | `SSHU_CONFIG` | `SSHU__CONFIG` |
+  | `SSHU_KEY_FILE` | `SSHU__KEY_FILE` |
+
+  (`SSHU__ICON_WIDTH` is new in this release; `SSHU__ASKPASS_HOST` and
+  `SSHU__ASKPASS_SOCK` are sshu talking to itself and need nothing from you.)
+- **Selection mode has `gg` and `G`**: the first and last line of the page,
+  scrollback included.
 
 ### Fixed
 

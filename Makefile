@@ -44,7 +44,7 @@ run: ## 本地跑 sshu TUI(讀真正的 config)
 demo: build ## 用 demo hosts 跑(不碰你真正的 hosts.yaml)
 	@mkdir -p $(DIST_DIR)/demo
 	@cp -n demo/hosts.yaml $(DIST_DIR)/demo/hosts.yaml 2>/dev/null || true
-	SSHU_CONFIG=$(DIST_DIR)/demo ./$(BINARY)
+	SSHU__CONFIG=$(DIST_DIR)/demo ./$(BINARY)
 
 ##@ 測試 / 檢查(test)
 
