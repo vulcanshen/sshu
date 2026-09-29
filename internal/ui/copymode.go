@@ -75,12 +75,12 @@ func (c *copyState) stop() { *c = copyState{} }
 // footer carries what fits of the same set — because a mode has no menu to
 // pick them from: they are pressed.
 func copyModeHelp() []helpEntry {
-	return []helpEntry{
-		{"h j k l", "move"}, {"w · e · b", "by word"}, {"0 · $", "line start / end"},
-		{"u · d", "half a page"}, {"v · V", "select characters / lines"},
+	return refs([][2]string{
+		{"h/j/k/l", "move"}, {"w/e/b", "by word"}, {"0/$", "line start / end"},
+		{"u/d", "half a page"}, {"v/V", "select characters / lines"},
 		{"y", "copy, and leave"}, {"Esc", "drop the selection, then leave"},
-		{"Alt+v", "leave"}, {"q · Ctrl+C", "quit"}, {"?", "close this help"},
-	}
+		{"Alt-v", "leave"}, {"q/Ctrl-C", "quit"}, {"?", "close this help"},
+	})
 }
 
 // newest is the last line in view with anything on it. A shell that has just

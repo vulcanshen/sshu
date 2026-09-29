@@ -154,6 +154,8 @@ func TestClearMarksLeavesTheFilesAlone(t *testing.T) {
 // distinguishable in words as well as in keys.
 func TestDeleteAndClearReadDifferently(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
+	m.sftp.focus = panelLeftFiles
+	m = pressA(m, "j", "a")
 	m.sftp.focus = panelLeftMarks
 
 	var del, clear menuItem

@@ -162,7 +162,7 @@ func (m spaceMenu) view() string {
 		pairs = [][2]string{{"Esc", "close"}}
 	}
 	if len(m.items) > vis {
-		pairs = append([][2]string{{itoa(top + 1), "of " + itoa(len(m.items))}}, pairs...)
+		pairs = append([][2]string{{"", itoa(top+1) + " of " + itoa(len(m.items))}}, pairs...)
 	}
 	legend := hintLegend(pairs)
 	// " " + label + "  " + hint + " "

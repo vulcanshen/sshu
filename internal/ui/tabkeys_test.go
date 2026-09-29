@@ -67,7 +67,7 @@ func TestTabKeysBelongToTheRemote(t *testing.T) {
 	})
 
 	// And Alt+Esc still gets the keyboard back, after which it switches tabs.
-	m = pressA(m, "alt+esc", "F")
+	m = pressA(m, "alt+esc", "enter", "F")
 	if m.tab != tabFT {
 		t.Fatalf("F should switch tabs once the keyboard is back, tab=%d", m.tab)
 	}
@@ -101,7 +101,7 @@ func TestFooterDisclosesTheTabKeys(t *testing.T) {
 	if strings.Contains(foot, "M/F/S") {
 		t.Errorf("the pty footer must not offer keys the remote is taking, got %q", foot)
 	}
-	if !strings.Contains(foot, "alt+esc") {
+	if !strings.Contains(foot, "Alt-Esc") {
 		t.Errorf("the pty footer must keep the way out, got %q", foot)
 	}
 }
@@ -192,7 +192,7 @@ func TestTabKeysReturnAfterTheFilter(t *testing.T) {
 // still works from under everything, and it is Ctrl+C.
 func TestTabKeyDoesNotDisturbTheSessionItLeaves(t *testing.T) {
 	m := openOne(t)
-	m = pressA(m, "alt+esc", "F")
+	m = pressA(m, "alt+esc", "enter", "F")
 	if m.tab != tabFT {
 		t.Fatalf("setup: expected the file transfer tab, got %d", m.tab)
 	}

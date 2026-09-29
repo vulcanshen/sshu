@@ -181,8 +181,8 @@ func copyLegendPairs() [][2]string {
 		// the end, and seven pairs are one more than an 80-column row holds.
 		// What goes on that row is u/d — the only pair with another spelling
 		// on the same page (j and k, held down).
-		{"alt+v", "leave"},
-		{"hjkl", "move"},
+		{"Alt-v", "leave"},
+		{"h/j/k/l", "move"},
 		{"w/e/b", "word"},
 		{"0/$", "line start/end"},
 		{"u/d", "half page"},
@@ -244,20 +244,20 @@ func (m AppModel) footer() string {
 		// would take off if it were pressed right now.
 		out := "leave pty"
 		if m.ssh.zoomAt() != zoomOff {
-			out = "leave zoom"
+			out = "unzoom"
 		}
 		// A LOCKED cell keeps only one key, so the row says only that: every
 		// other entry would be a lie — the same honesty rule this row already
 		// follows about the remote's keys (§11.43).
 		if s := m.ssh.currentSession(); s != nil && s.locked {
-			return keyLegend([][2]string{{"alt+enter", "release"}}, m.w)
+			return keyLegend([][2]string{{"Alt-Enter", "release"}}, m.w)
 		}
-		pairs := [][2]string{{"alt+esc", out}}
+		pairs := [][2]string{{"Alt-Esc", out}}
 		// And the scrollback keys, but only where they would do something: they
 		// are the remote's while a full-screen program is up, and there is
 		// nothing to page through until more has been said than fits (§11.19).
 		if m.inPty() && m.ssh.canScroll() {
-			pairs = append(pairs, [2]string{"pgup/pgdn", "history"})
+			pairs = append(pairs, [2]string{"PgUp/PgDn", "history"})
 		}
 		// The way to get text OUT of the cell. Unconditional: inPty already
 		// means a live session that has spoken, which is everything the mode
@@ -266,7 +266,7 @@ func (m AppModel) footer() string {
 		// at all — a bare `?` in here belongs to the remote, so the footer is
 		// the only live disclosure the pty has (§11.33, §11.19).
 		if m.inPty() {
-			pairs = append(pairs, [2]string{"alt+v", "select"})
+			pairs = append(pairs, [2]string{"Alt-v", "select"})
 		}
 		// Both of the next two sit AFTER alt+v, because §11.33 ruled that
 		// select must survive a cramped footer — and it nearly stopped doing
@@ -279,30 +279,36 @@ func (m AppModel) footer() string {
 		// rather than the state. It is offered unconditionally now — there is
 		// always chrome left to take off, so there is no longer a grid on
 		// which the chord does nothing.
-		pairs = append(pairs, [2]string{"alt+z", m.ssh.nextZoomLabel()})
+		pairs = append(pairs, [2]string{"Alt-z", m.ssh.nextZoomLabel()})
 		// Last of the three: the lock chord is a nested-session tool, the
 		// rarest need of the group.
-		pairs = append(pairs, [2]string{"alt+enter", "lock"})
-		pairs = append(pairs, [2]string{"alt+" + arrowGlyphs + arrowUpDown, "cell"})
+		pairs = append(pairs, [2]string{"Alt-Enter", "lock"})
+		pairs = append(pairs, [2]string{"Alt-" + arrowGlyphs + "/" + arrowUpDown, "cell"})
 		return keyLegend(pairs, m.w)
 	}
 	// An Operation page eats every printable key — the digits, space, ?, q and
 	// the tab letters — so the row says only what is still true, the same
 	// honesty the pty row keeps. Esc first, then the tab keys answer again.
 	if m.textPage() {
-		return keyLegend([][2]string{{"tab", "field"}, {"enter", "run"},
-			{"esc", "back"}}, m.w)
+		return keyLegend([][2]string{{"Tab", "field"}, {"Enter", "run"},
+			{"Esc", "back"}}, m.w)
 	}
 	// The digits offered are the ones the current tab actually shows (tdp M5): a
 	// number the screen does not display is a number the keyboard ignores.
-	nav := [2]string{"1-2 M/F/S", "panel tab"}
-	if m.tab == tabFT {
-		nav = [2]string{"1-4 M/F/S", "panel tab"}
+	//
+	// Tab moves between panels too, except on the ssh tab (a deviation from
+	// tdp K2, see dev-remarks), so it is offered where it works.
+	panels := [2]string{"Tab/1–2", "panels"}
+	switch m.tab {
+	case tabFT:
+		panels = [2]string{"Tab/1–4", "panels"}
+	case tabSSH:
+		panels = [2]string{"1–2", "panels"}
 	}
 	// Unread errors are disclosed against the key that reaches them: the log
 	// lives at manage → logs, and a record nobody is told about is a record
 	// nobody opens.
-	pairs := [][2]string{{"space", "menu"}, {"?", "help"}, nav}
+	pairs := [][2]string{{"Space", "menu"}, {"?", "help"}, panels, {"M/F/S", "tabs"}}
 	if n := m.errors.unreadErrors(); n > 0 {
 		pairs = append(pairs, [2]string{"M", plural(n, "unread error")})
 	}

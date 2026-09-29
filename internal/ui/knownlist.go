@@ -150,8 +150,8 @@ func (m knownModel) view(title string, focused bool) string {
 	var body []string
 	if len(m.file.Entries) == 0 {
 		body = emptyBody(innerW, innerH, "Nothing in ~/.ssh/known_hosts",
-			emptyHint("Press [A] to fetch a host's key, or Space to see what you can do here",
-				"[A]", "Space"))
+			emptyHint("Press [A] to fetch a host's key, or [Space] to see what you can do here",
+				"[A]", "[Space]"))
 	} else {
 		body = m.tableBody(innerW, innerH)
 	}

@@ -73,7 +73,7 @@ func TestHelpStaysOnTopOfAConfirm(t *testing.T) {
 // on the question leaves rather than submitting the form under it.
 func TestCtrlCInAFormAsksOnTopOfIt(t *testing.T) {
 	m := openOne(t)
-	m = pressA(m, "alt+esc", "M", "A")
+	m = pressA(m, "alt+esc", "enter", "M", "A")
 	if !m.form.isActive() {
 		t.Fatal("setup: the host form should be open")
 	}
@@ -112,7 +112,7 @@ func TestQIsALetterInAForm(t *testing.T) {
 // tdp K9: q on the leaving flow's own question does not ask a second time.
 func TestQOnTheQuitQuestionDoesNothing(t *testing.T) {
 	m := openOne(t)
-	m = pressA(m, "alt+esc", "q")
+	m = pressA(m, "alt+esc", "enter", "q")
 	if !m.quitAsk.isActive() {
 		t.Fatal("setup: q with a live session should ask")
 	}
@@ -136,10 +136,10 @@ func TestConnectingCellFooterDisclosesTheWayOut(t *testing.T) {
 		t.Fatal("setup: the cell should have the keyboard while still connecting")
 	}
 	f := m.footer()
-	if !strings.Contains(f, "alt+esc") {
+	if !strings.Contains(f, "Alt-Esc") {
 		t.Errorf("the connecting cell's footer should offer the way out, got %q", f)
 	}
-	for _, lie := range []string{"space", "quit", "select"} {
+	for _, lie := range []string{"Space", "quit", "select"} {
 		if strings.Contains(f, lie) {
 			t.Errorf("the footer offers %q, which does nothing here: %q", lie, f)
 		}

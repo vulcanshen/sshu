@@ -36,8 +36,8 @@ sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 過的裸字母**切換:標籤印的就是按的。裸數字整組讓給「當前 tab 的 panel」。
 
 tab 鍵走過三代:v0.2 之前掛在 `1`/`2`/`3`(換掉是為了把數字讓給 panel),
-v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是裸的
-`M`/`F`/`S` —— pty 內改為「先 `Alt+Esc` 出來」,理由見 §11.21。
+v0.2 到 v1.1.0 是 `Alt-p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是裸的
+`M`/`F`/`S` —— pty 內改為「先 `Alt-Esc` 出來」,理由見 §11.21。
 
 ---
 
@@ -52,7 +52,7 @@ v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是
 
 ### §A.0.K core-key 語意(跨 surface 不變)(tdp K 章)
 
-> **v0.2**:tab 切換移到 `Alt+p/f/s` 和絃,`1`-`9` 全數改為「當前 tab 的
+> **v0.2**:tab 切換移到 `Alt-p/f/s` 和絃,`1`-`9` 全數改為「當前 tab 的
 > panel 直達」;ssh tab 的 `Tab` 改為顯示開關(§11.一、§11.六)。下表的
 > 「`1`/`2`/`3` 直達 alias」是 v0.1 的形狀,保留當時推理。
 
@@ -64,11 +64,11 @@ v0.2 到 v1.1.0 是 `Alt+p/f/s` 和絃(為了在 pty 內也能切),v1.2.0 起是
 | `Space` | §A.1 contextual 入口(Space menu) | K5、M2 |
 | `?` | §A.2 non-contextual 入口(help popup) | K6、M4 |
 
-**`q` 與 `Ctrl+C` 是同一件事:離開流程**(tdp K1、K9;§11.54 起)。`q` = 離開 app,
+**`q` 與 `Ctrl-C` 是同一件事:離開流程**(tdp K1、K9;§11.54 起)。`q` = 離開 app,
 不是「取消」;取消語意由 `Esc` 單獨承載。有 live session 或進行中的傳輸時先問,問題
-開著時再按一次 `Ctrl+C` 立刻離開。`q` 在打字中的地方是字元(tdp K8),其餘**每一個**
-surface 都有效,浮層上也是;`Ctrl+C` 連打字中都有效 —— **除了鍵盤在遠端或編輯器手上的
-時候,那裡它是它們的中斷鍵**(§11.20)。(§11.54 以前 `q` 在浮層開著時不生效、`Ctrl+C`
+開著時再按一次 `Ctrl-C` 立刻離開。`q` 在打字中的地方是字元(tdp K8),其餘**每一個**
+surface 都有效,浮層上也是;`Ctrl-C` 連打字中都有效 —— **除了鍵盤在遠端或編輯器手上的
+時候,那裡它是它們的中斷鍵**(§11.20)。(§11.54 以前 `q` 在浮層開著時不生效、`Ctrl-C`
 不問就走。)
 
 **letter hotkey 不是 core-key**:`e` / `d` / `c` / `s`、導覽 `h j k l`
@@ -100,13 +100,13 @@ cursor-first(tdp M2):item region 在前、panel region 在後。
 |---|---|
 | 說明 | `?` |
 | 離開 | `q` |
-| 硬退 | `Ctrl+C` |
+| 硬退 | `Ctrl-C` |
 | 切 tab | `M` / `F` / `S`(§11.21) |
 
 sshu 目前沒有 kbu 那種全域 toggle,§A.2 軌很薄(同 filu)。
 
-**help popup 裡還有一組不全域的鍵**:網格格子的 `Alt+arrows` / `Alt+Enter` /
-`Alt+Esc` / `PgUp`·`PgDn`(§4.6、§11.19、§11.25)。它們只在 panel `[5]` 有效,
+**help popup 裡還有一組不全域的鍵**:網格格子的 `Alt-←/→/↑/↓` / `Alt-Enter` /
+`Alt-Esc` / `PgUp/PgDn`(§4.6、§11.19、§11.25)。它們只在 panel `[5]` 有效,
 照理不該進這張表 —— 但那個 panel 把 `?` 也送給遠端,**在裡面按不出 help**。
 唯一學得到它們的地方,就是從外面打開的這一份。§A.2 的承諾是「沒讀過 README
 的人在這裡找得到整套詞彙」,而一組進去就問不到的鍵,正是最需要先講的。
@@ -248,7 +248,7 @@ panel border title)、其下 1 行整寬分隔線(傳輸進行時兼職進度條
 │                        ││                                                  │
 │                        ││                                                  │
 ╰────────────────────────╯╰──────────────────────────────────────────────────╯
- alt+esc leave pty
+ Alt-Esc:leave pty
 ```
 
 **數字只定址「當前 tab 裡看得見的 panel」**:`1`-`3` 永遠是 tab;`4`-`6` 在
@@ -272,7 +272,7 @@ tab [3] 是 sessions / pty,`4`-`7` 在 tab [2] 是左檔案 / 左 marks /
 **窄寬門檻是推導出來的**,不是另一個會忘記同步的常數:`sshNarrowW = sshLeftW + 28`
 —— 只要 `[5]` 還剩得下 28 欄、split 就值得留著。所以把左欄縮窄也順帶讓 split
 在更窄的終端機上活得下來(從 `w < 60` 降到 `w < 54`)。低於門檻時左欄整個收起、
-`[5]` 佔滿畫面 —— 清單要 `Alt+Esc` 出來才切得到。
+`[5]` 佔滿畫面 —— 清單要 `Alt-Esc` 出來才切得到。
 
 **tab [2] 是四個 panel**,左右各一半、寬度 1:1,每一半上面是檔案清單、下面是
 它自己的 marks:
@@ -588,7 +588,7 @@ sshu 是必要而非可選。
 | 鍵 | 動作 |
 |---|---|
 | `j` / `k` | 上 / 下一列 |
-| **`u` / `d`** | **上 / 下半頁**(`Ctrl+U` / `Ctrl+D` 同義) |
+| **`u` / `d`** | **上 / 下半頁**(`Ctrl-U` / `Ctrl-D` 同義) |
 | `gg` / `G` | 第一列 / 最後一列 |
 | 方向鍵 | 與 `j`/`k` 同義 |
 | **`h` / `l`** | tab [2]:切到左半 / 右半,保持同一列。**tab [3] 沒有 `h`/`l`** |
@@ -633,12 +633,12 @@ menu、host picker、file picker、Transfers)。
 > 在一個 session 上本來就同時「顯示它」和「把 focus 給 `[5]`」(`openSession`),
 > 所以 `l` 是第二個鍵去做一個鍵已經做完的事。而它的代價不是零 —— 每一個會把鍵盤
 > 交給遠端的鍵,都是一個你可能「路過」而不是「決定」進去的入口,而唯一的出路是
-> `Alt+Esc`。**把鍵盤交出去應該是一個決定**,所以入口只留刻意的那兩個:`Enter`,
+> `Alt-Esc`。**把鍵盤交出去應該是一個決定**,所以入口只留刻意的那兩個:`Enter`,
 > 和直達任何 panel 的 `5`。
 
 > **這跟「`Tab` 不進 `[5]`」(§4.4.1)不衝突。** `Tab` 進去會被遠端吞掉 ——
 > 等於把帶你進去的那把鑰匙鎖在門內。`l` 不是任何地方的「出口鍵」,借給 pty 不
-> 花任何成本;出來仍然是 `Alt+Esc`。兩個鍵做不同的事,正是要有兩個鍵的原因。
+> 花任何成本;出來仍然是 `Alt-Esc`。兩個鍵做不同的事,正是要有兩個鍵的原因。
 >
 > 反方向沒有 `h`:`[5]` 把整個鍵盤交給遠端,那裡的 `h` 是遠端的 `h`。
 
@@ -695,19 +695,19 @@ menu 是慢路徑,而有些動作的正確速度就是慢。
 
 **兩個層面、一套規則**:
 
-1. **bracket `[X]label`** —— letter hotkey 專用(Space menu 的列)。core-key
-   動作(如 Connect = `Enter`)不套 bracket,改在 hint 欄顯示鍵名 —— bracket
-   專職 letter hotkey。
+1. **bracket `[X]label`** —— Space menu 的列。core-key 動作寫在 label 前面:
+   `[Enter] Connect`(tdp M5、D4;§11.66 以前 core-key 不套 bracket,鍵名寫在
+   說明欄開頭 `Enter . …`)。
 
    **bracket 顯示的就是要按的那個鍵**,一字不差(`ui/popup.go bracketHotkey`)。
    **標記是契約、綁定跟著標記走**,不是反過來 —— 標記寫 `[A]dd`,使用者照著
-   按 shift+A 卻沒反應,那個標記就是在說謊。
+   按 `Shift-A` 卻沒反應,那個標記就是在說謊。
 
    **配對是完全比對,大小寫算數**(`ui/popup.go hotkeyIndex`)。畫面上那個
    bracket 就是全部的綁定:**它寫的一定按得動,它沒寫的一定按不動。**
 
    > **改過兩次,方向相反。** 最早是「一律大寫顯示、一律不分大小寫」,那是在修
-   > 一個真的 bug —— 表裡宣告 `c`、顯示卻印成 `[C]`,照著標記按 shift+C 什麼都
+   > 一個真的 bug —— 表裡宣告 `c`、顯示卻印成 `[C]`,照著標記按 `Shift-C` 什麼都
    > 沒發生。但那個修法落在錯的地方:**讓 bracket 印出宣告的那個字母**才是治本,
    > 之後那條寬鬆比對就只剩下一個「畫面上沒有任何東西提過」的第二綁定 ——
    > `[C]lose` 會被裸的 `c` 觸發,而在 tab [2] 裡 `c` 會觸發 `[C]lear marks`,
@@ -721,10 +721,18 @@ menu 是慢路徑,而有些動作的正確速度就是慢。
    這條只適用 bracket 標的 letter hotkey;導覽鍵**仍然分大小寫**(`G` 跳底、
    `g` 是 `gg` chord 的前半,兩者不能混)。
 2. **亮鍵暗述** —— 凡是「鍵 + 說明」成對出現的地方(footer legend、popup 下邊
-   框 hint),**鍵用 `focusColor`(藍)、說明用 `dimColor`(暗)**。學一次、走
-   全 app。實作:`ui/chrome.go keyLegend`(footer)與 `ui/popup.go hintLegend`
-   (popup hint)共用同一條規則,只有間距不同 —— 邊框那行沒有 footer 那麼多
-   餘裕,所以 hint 收緊成「pair 內 1 空格、pair 間 2 空格」。
+   框 hint),寫成 **`鍵:說明`**、項目之間一個空格(`j/k:move Enter:run Esc:close`),
+   **鍵用 `focusColor`(Blue)、冒號與說明用 `dimColor`(Overlay0)**(tdp M5、D2,
+   v0.1.15;§11.66)。學一次、走全 app。實作:`ui/chrome.go keyLegend`(footer)與
+   `ui/popup.go hintLegend`(popup hint)共用 `legendPair`;鍵是空字串的一項不是鍵
+   (下框的 `3 of 12`),整項暗色、不加冒號。§11.66 以前是「鍵 空格 說明」,footer
+   pair 間三格、hint 兩格。
+
+   **鍵名**照鍵帽、大駝峰(`Esc`、`PgUp`、`PgDn`),modifier 用 `-`(`Alt-Esc`、
+   `Ctrl-C`),幾個鍵做同一件事用 `/`(`j/k`、`h/j/k/l`、`←/→`),範圍用 `–`
+   (`1–9`)。句子裡(空狀態、toast、錯誤、menu 與 key reference 說明欄)的鍵一律加
+   方括號(`Press [A] or [Space]`)。key reference 兩欄,鍵是 Blue、說明是 Text,
+   不加括號、不加冒號;現在按不了的鍵變暗(tdp M6)。
 
    > **鍵原本是 `handColor`,換成藍。** 理由是 band(§2.1):`handColor` 是
    > **游標** —— 「你在這個清單的哪一列」。用同一個顏色講「這裡有個鍵可以按」,
@@ -767,7 +775,7 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 
 **`Tab` 仍然不進 tab [3] 的 `[5]`** —— 進去就被遠端吞掉,等於把帶你進去的鑰匙
 鎖在門內。要進 pty 有三條路:`[4]` 上按 `Enter`、按 `5`、或按 `l`(§4.2);出來
-一律 `Alt+Esc`。
+一律 `Alt-Esc`。
 
 > **改過一次**:原本是「`Tab` 走的是 surface,不是 tab」—— 走完當前 tab 的
 > panel 就接著跳下一個 tab。聽起來一致,實際上同一個鍵在同一個循環裡會做**兩
@@ -776,31 +784,33 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
 
 **`Tab` 刻意不會走進 `[5]`** —— 那個 panel 把鍵盤交給遠端,`Tab` 進去就被
 吞了,等於把帶你進去的那把鑰匙鎖在門內。進 `[5]` 一律是明確動作(在 `[4]` 上
-按 `Enter`、或按 `5`),出來一律是 `Alt+Esc`。
+按 `Enter`、或按 `5`),出來一律是 `Alt-Esc`。
 
-### 4.6 `Alt+Esc` —— sshu 專屬、只在 panel [5](tdp K10)
+### 4.6 `Alt-Esc` —— sshu 專屬、只在 panel [5](tdp K10)
 
-> **v0.2**:`[5]` 已成**網格**。`Alt+Esc` 的語意不變(把鍵盤收回來),落點
+> **v0.2**:`[5]` 已成**網格**。`Alt-Esc` 的語意不變(把鍵盤收回來),落點
 > 是 `[1]` sessions,side 欄同時回來;格子之間按住 Alt 用方向鍵走,tab 和絃
-> `Alt+p/f/s` 在 pty 內也通。見 §11.六。
+> `Alt-p/f/s` 在 pty 內也通。見 §11.六。
 >
 > **v1.2.0**:tab 鍵改成裸字母,**pty 內不再能切 tab** —— 這條路現在只有
-> `Alt+Esc` 一個入口,它的重要性因此更高(§11.21)。同一輪 `Ctrl+C` 也還給了
-> 遠端(§11.20),所以 pty 內屬於 sshu 的鍵只剩三組:`Alt+Esc`、`Alt+方向鍵`、
-> 以及非 alt-screen 時的 `PgUp`/`PgDn`(§11.19)。
+> `Alt-Esc` 一個入口,它的重要性因此更高(§11.21)。同一輪 `Ctrl-C` 也還給了
+> 遠端(§11.20),所以 pty 內屬於 sshu 的鍵只剩三組:`Alt-Esc`、`Alt-←/→/↑/↓`、
+> 以及非 alt-screen 時的 `PgUp/PgDn`(§11.19)。
 
 **這條不是 core key。** 理由:panel [5] 把
 鍵盤整個交給遠端程式,五個 core key 在那裡全部失效(`Tab` `Enter` `Esc`
 `Space` `?` 都會送出去),所以需要一把「把鍵盤要回來」的鑰匙。它的作用對象是
 「sshu 對鍵盤的所有權」,不是任何 focus 裡的東西,也不是全域動作 —— 兩條 track
-都不歸它管。對齊 filu 把 `Ctrl+C`(逃生硬退)排除在 Y 之外的處理。
+都不歸它管。對齊 filu 把 `Ctrl-C`(逃生硬退)排除在 Y 之外的處理。
 
-| 情境 | `Alt+Esc` |
+| 情境 | `Alt-Esc` |
 |---|---|
-| focus 在 `[5]` 且 session 還活著 | 收回鍵盤、focus 回 `[4]` |
+| focus 在 `[5]` 且 session 還活著 | **先問** `Back to the list?`,`Enter` 收回鍵盤、focus 回 `[1]`;`Esc` 回到格子(tdp D5,§11.66) |
+| zoom 中、選取模式中 | 退一階 / 離開模式 —— 還在 PTY 裡,不問 |
+| 執行中的編輯器 | **先問** `Abandon the edit of <name>?`,說出代價;`Enter` 放棄,`Esc` 回到編輯器(§11.66) |
 | 其他任何地方 | 等同 `Esc`(關最上層浮層)—— 不做成死鍵 |
 
-**揭露(強制)**:focus 進 `[5]` 時 **footer 整條換成 `alt+esc leave pty`**。
+**揭露(強制)**:focus 進 `[5]` 時 **footer 整條換成 `Alt-Esc:leave pty`**(zoom 中 `Alt-Esc:unzoom`;zoom max 沒有 footer,疊在 badge 下一列,§11.66)。
 這時 `space` / `?` / 數字 / `q` 全部會送給遠端,footer 再列它們就是說謊。留下
 唯一還成立的那一條,而它剛好就是出口。
 
@@ -810,7 +820,9 @@ tab [2] 是 `[4]` → `[5]` → `[6]` → `[7]` → 繞回。
   macOS Terminal.app 需開「Use Option as Meta key」、iTerm2 需把 Option 設成
   Esc+;kitty / Alacritty / WezTerm 預設就送。**沒設的人出不了 pty。**
 - bubbletea 靠「ESC 後緊跟另一個 byte」判斷 Alt,所以遠端跑 vim 時**快速連按
-  兩次 Esc 會被讀成 `Alt+Esc`**、意外跳出 pty。按 `Enter` 或 `5` 就回得去。
+  兩次 Esc 會被讀成 `Alt-Esc`**。app 忙的時候更容易黏(tdp 量過:前面有鍵在排隊時,
+  間隔 150ms 也會黏)。所以讓鍵盤離開格子、或結束編輯器之前一律先 confirm
+  (tdp D5,v0.1.16;§11.66),誤觸按 `Esc` 就回去。
 
 ### 4.5 `Space` / `?` 在文字輸入 surface 內的例外(§0 規則擴充)(tdp K8)
 
@@ -837,11 +849,11 @@ mapping、不引入新語意。
 **但這件事在 sshu 有一個別人沒有的代價**(§11.19):開 mouse tracking 之後,
 alt screen 下的滑鼠事件被程式攔走,終端機原生的**選字複製**就沒了 —— 要按住
 Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製走是高頻動作。
-所以 `[3]` 的捲動走 `PgUp`/`PgDown` 而不是滾輪,而整個 mouse 支援在還沒想清楚
+所以 `[3]` 的捲動走 `PgUp/PgDn` 而不是滾輪,而整個 mouse 支援在還沒想清楚
 怎麼跟選字共存之前,不會只為了捲動而開。
 
 **後來想清楚了,答案是不開**(§11.33):grid 破壞掉的選字用**鍵盤**的選取模式
-(`Alt+v`)補回來,而不是用滑鼠買回來。鍵盤模式在自己以外不花任何東西;開 mouse
+(`Alt-v`)補回來,而不是用滑鼠買回來。鍵盤模式在自己以外不花任何東西;開 mouse
 則要拿**整個 app** 的原生選字去換,包括那些原生選字仍然好用的 panel。
 
 ---
@@ -860,7 +872,7 @@ Option 才選得到字。對一個 ssh 工具而言,把畫面上的輸出複製�
 | **input** | rename、add、網格欄數、KnownHosts 的 `[E]`;Add / Edit host、credential、Host block、known_hosts fetch 四個表單(input group);Identity file picker(附候選清單) | 打字、`Enter` 送出、`Tab` 換欄;送出可能失敗,所以都有錯誤列 |
 | **note** | `?`、`[v]iew`、log 全文、Jobs 打開的 job、沒有 offer 的明細 | 唯讀、`j/k/u/d` 捲動 |
 | **toast** | 資訊與錯誤 | 一行、下方、不握鍵盤 |
-| **terminal** | `[e]dit` 跑編輯器的那一段(取檔、寫回時是 note) | 按鍵都給編輯器,`Alt+Esc` 放棄 |
+| **terminal** | `[e]dit` 跑編輯器的那一段(取檔、寫回時是 note) | 按鍵都給編輯器,`Alt-Esc` 放棄(先問,§11.66) |
 
 askpass(sshconfig host 撥號時 ssh 的問題)依問題換類:host key 是 confirm,密碼 / passphrase 是 input。
 全部共用 `drawPopupBox` 與 `popupAnimator`;寬度一律 `popupInnerW`(F7:`min(terminal 寬 − 2, 120)`,
@@ -1084,17 +1096,17 @@ border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surf
 - 路徑寫回時**折回 `~` 形式**(`store.FoldHome`),`hosts.yaml` 才跨機器可讀。
   `store.ExpandTilde` 是它的反向。
 
-**為什麼是 `Tab` 不是 `Ctrl+F` / `Alt+F`**:兩個修飾鍵版本都走過。`Ctrl+F` 在
+**為什麼是 `Tab` 不是 `Ctrl-F` / `Alt-F`**:兩個修飾鍵版本都走過。`Ctrl-F` 在
 terminal 生態裡太滿(tmux prefix、readline forward-char、pager 搜尋),踩到別人
-的鍵會讓使用者以為 app 壞了;`Alt+F` 則要求終端機把 Option 當 Meta 送出,沒設
-的人**根本按不到**(跟 `Alt+Esc` 同一個依賴)。`Tab` 兩個問題都沒有,而且
+的鍵會讓使用者以為 app 壞了;`Alt-F` 則要求終端機把 Option 當 Meta 送出,沒設
+的人**根本按不到**(跟 `Alt-Esc` 同一個依賴)。`Tab` 兩個問題都沒有,而且
 **對著路徑按 Tab** 本來就是 shell 使用者最熟的那個動作。
 
 (v1.2.0 起裸的 `F` 是 file transfer tab 的鍵。它們不衝突:form 是浮層,而 tab
 鍵在浮層開著時整組不作用 —— 一個 form 底下的 tab 換掉,form 就懸在一個它不認識
 的 surface 上了。見 §11.21。)
 
-form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Alt+x` 會把 `x` 打進
+form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Alt-x` 會把 `x` 打進
 欄位(當時由 ~~`TestTabBrowsesOnlyOnThePathField`~~ 一併釘住;該測試已隨 picker 改用 `Enter` 移除)。
 
 **stack**:picker 疊在 form 上(layer +1),form 留在底下 —— `Esc` 取消選檔
@@ -1140,14 +1152,14 @@ form 裡所有 Alt 組合仍然**一律吞掉、不當字元** —— 否則 `Al
       │  ?          this help            │
       │ Global                           │
       │  q          quit                 │
-      │  Ctrl+C     force quit           │
+      │  Ctrl-C     force quit           │
       │ Navigate                         │
-      │  h j k l    move cursor          │
-      │  gg · G     first / last host    │
-      ╰─ Esc close ──────────────────────╯
+      │  h/j/k/l    move cursor          │
+      │  gg/G       first / last host    │
+      ╰─ Esc:close ──────────────────────╯
 ```
 
-清單超過畫面高度時 hint 變成 ` j/k scroll   Esc close `、`j`/`k` 捲動。
+清單超過畫面高度時 hint 變成 ` j/k:scroll Esc:close `、`j`/`k` 捲動。
 
 ### 6.7 開關動畫 / border 色 / 取消鍵(tdp F2、D2、K4)
 
@@ -1220,12 +1232,12 @@ grid 留給沒有東西會 render 它的資料,是白佔記憶體。
 
 **`[5]` 被 focus 時 `[4]` 收起來、`[5]` 佔滿整個 tab。** 遠端拿著鍵盤的
 時候那兩個清單本來就碰不到,留在畫面上等於拿四分之一的寬度換一個你按不到的
-東西。`Alt+Esc` 出來時它們自動回來 —— 兩個方向都會重新 resize 遠端,否則遠端
+東西。`Alt-Esc` 出來時它們自動回來 —— 兩個方向都會重新 resize 遠端,否則遠端
 會照著錯的幾何畫。
 
 **scrollback 是自己攢的,不是 emulator 給的。** vt10x 只有「當前這一屏」,
 離開頂端的列被它 `clear()` 掉。所以每一塊從 PTY 讀進來的 bytes 在寫進 emulator
-的同時也被切成行、存進一個 10000 行的 ring,`PgUp`/`PgDown` 捲的是那個 ring
+的同時也被切成行、存進一個 10000 行的 ring,`PgUp/PgDn` 捲的是那個 ring
 (§11.19)。上限之外、以及 alt screen 期間的畫面,仍然只有遠端自己的 `tmux` /
 `less` 找得回來 —— 這裡不假裝有完整 log。
 
@@ -1453,11 +1465,11 @@ stdin,所以那些 bytes 會留在緩衝區,等連上之後**才送進遠端的 
 所以 `inPty`(鍵盤屬於某個**遠端**)跟 `ptyFocused`(panel 拿著鍵盤)分家了:前者
 多要求一個條件,就是對面已經說過話。中間那段時間按鍵被**吃掉**,而不是被轉送,也不
 是落回 panel 去觸發 `q` 離開 —— panel 確實拿著鍵盤,只是還沒有人可以聽。出口是
-footer 一直在講的那個 `Alt+Esc`。
+footer 一直在講的那個 `Alt-Esc`。
 
 > **代價,講清楚**:判準是「對面有沒有送出過 byte」,所以一台**接通了但完全不說話**
 > 的遠端會被顯示成「連線中」,而且在它說話之前不能對它打字。實務上 ssh 一接上就會有
-> prompt 或 banner,但這個代價是真的;出口一樣是 `Alt+Esc`。
+> prompt 或 banner,但這個代價是真的;出口一樣是 `Alt-Esc`。
 
 #### 連線有預算,而且**讓 ssh 自己去超時**
 
@@ -1752,11 +1764,11 @@ Latin-1 的設定檔過不了它、卻完全可以編輯。硬擋等於拿一個
 #### 它在跑的時候,鍵盤整個是它的
 
 跟 panel `[5]` 一樣:Esc 是 vim 的 Esc、`q` 是一個字母、Space 是一個空白、
-**`Ctrl+C` 是編輯器自己的中斷鍵**。只留下一個鍵 —— `Alt+Esc` 放棄這次編輯
+**`Ctrl-C` 是編輯器自己的中斷鍵**。只留下一個鍵 —— `Alt-Esc` 放棄這次編輯
 (tab [3] 那邊它是「把鍵盤拿回來」,這裡沒有別的 panel 可以拿回去,所以拿回來
 就是離開,box 底下的 hint 就這樣寫)。
 
-`Ctrl+C` 原本也留著、當作 sshu 到處都是的那個緊急出口,理由是「讓它在這一個
+`Ctrl-C` 原本也留著、當作 sshu 到處都是的那個緊急出口,理由是「讓它在這一個
 PTY 裡意思不一樣,緊急出口就不再是緊急出口了」。那個推論的方向反了,已經改掉
 —— 見 §11.20。
 
@@ -1851,7 +1863,7 @@ render 只讀,所以畫一格 frame 不會等在網路上(`ui/transfer.go`)。
 cancel。
 
 **離開時三樣一起放掉**:ssh session、進行中的傳輸、sftp 連線。三條出口
-(`q`、quit 確認、`Ctrl+C`)走同一個 `AppModel.quit()`,所以沒有一條會漏掉其中
+(`q`、quit 確認、`Ctrl-C`)走同一個 `AppModel.quit()`,所以沒有一條會漏掉其中
 一樣。而且**進行中的傳輸也會讓 `q` 先問** —— 半個檔案的損失不比一個閒置的 shell
 小,對後者示警卻對前者沉默,那條線畫得很奇怪。
 
@@ -6869,13 +6881,97 @@ tdp 連結改釘 `v0.1.13`。
 
 ---
 
+### 11.66 對照 tdp v0.1.14–v0.1.17 —— toast 的 `Esc`、`Alt-Esc` 先問、鍵的寫法、`?` 變暗
+
+#### 使用者的要求
+
+> 「對齊新的 tdp 規範」
+
+清單 `docs/sshu-terminu-fix.md` 由 terminu 那邊盤點好(對照 v0.1.16,v0.1.17 出來後補了 M5 三點),九條,修完刪除。
+使用者當天裁定的三件事:鍵名的大小寫與拼法照 v0.1.15 的 M5;`ssh grid` 那一段照亮顯示(v0.1.16 寫進 M6);zoom max
+在 badge 旁疊 `Alt-Esc` 的 hint,寫 `unzoom`。
+
+#### 1. toast 在時,第一個 `Esc` 先收它(F1、K4、K11)
+
+toast 除了 `Esc` 不收鍵 —— sshu 本來就這樣,它不在 `floatsOpen()` 裡。缺的是另一半:`Esc` 在幾個地方沒先問它。
+選取模式整個接管鍵盤,`Tab` 跳出 `[Esc] leaves selection mode first` 之後按 `Esc`,直接丟掉選取;panel 上 `Esc`
+區塊在 `closeTop()`(唯一會問 toast 的地方)之前還有 Hosts 清搜尋、file transfer 回上層目錄兩個分支 —— `R` 的
+`Refreshed` 還在時按 `Esc`,是回上層目錄。兩處都改成先問 `m.toast.anim.owns()`。PTY 裡不動:裸 `Esc` 屬於子程序
+(K10),toast 等時間到。
+
+#### 2、3. `Alt-Esc` 先問(D5,v0.1.16)
+
+終端機把 Alt 和絃送成「`Esc` 加那個鍵」,`Alt-Esc` 跟兩下 `Esc` 一個 byte 都不差,app 忙時兩下 `Esc` 會黏成一個。
+v0.1.14 的 D5 只要求「結束子程序的出口鍵」先問,v0.1.16 改成「讓 focus 離開 PTY 或結束子程序」一律先問。
+
+- **編輯器**:以前 `Alt-Esc` 直接 `abandonEdit()`,本機副本連同 `:w` 存進去的內容一起刪掉。現在疊一個 confirm
+  (`confirmEditAbandon`)在編輯器上,問句寫檔名,明細寫代價;`Enter` 才放棄,`Esc` 回到編輯器、什麼都不刪
+  (`declineEdit()` 對這個 action 不做事)。放在最上層要動兩處路由:最前面吃掉每一個鍵的編輯器分支在 confirm
+  開著時讓路,popup 的 `switch` 裡 `editorUI` 排到 confirm 之後。confirm 的 `?` 與 `q` 打開的東西都疊在 confirm
+  上面,confirm 仍然開著,所以讓路只要問 confirm 一個 —— 先寫成「confirm、quitAsk、help 任一個開著」,後兩個的
+  mutation 活下來,因為觀察不到,刪掉。
+- **誤觸之後接著打的鍵**:使用者以為還在 vim 裡,會接著打 `:wq⏎`。`q` 照 K9 進離開流程,而 `quitCost()` 原本不算
+  進行中的編輯 —— 編輯器吃掉所有鍵時碰不到它 —— 沒有 session 與傳輸時 `q` 就直接離開了。加一行「編輯器會停掉,
+  沒存的會丟」,所以一定再問一次。那一問的 `Enter` 仍然會離開;兩層 confirm 在動畫中時 `Enter` 不作用,打得快多半
+  落空,但不是保證(dev-remarks「已知的牆」)。
+- **格子**:`unzoomOne()` 沒有階可退、要 `setFocus(panelSessions)` 的那一下,改成 confirm(`confirmLeavePty`,
+  `Back to the list?`,明細說 session 留著)。退一階 zoom、離開選取模式還在 PTY 裡,不問;鎖住的格子 `Alt-Esc`
+  穿到內層。confirm 上再按 `Alt-Esc` 走 `closeTop()`,等於取消 —— 雙重誤觸落回原處,寫了測試釘住。連線中的格子
+  (`ptyFocused()` 為真、遠端還沒開口)同一條路。拿 `alt+esc` 回清單的 24 個舊測試都多按一個 `Enter`。
+
+#### 4. 鍵的寫法(M5,v0.1.15–v0.1.17)
+
+- hint 與 footer 從「鍵 空格 說明」改成 `鍵:說明`、項目之間一個空格;冒號跟說明同色(Overlay0)。兩個 renderer
+  共用 `legendPair()`。下框的 `N of M` 以前塞成一個 pair,新格式會畫成藍色的 `3:of 12`;鍵是空字串的一項改成整項
+  暗色、不加冒號。
+- key reference 的鍵從游標色 `handColor` 改成 Blue。鍵名照鍵帽、modifier 用 `-`、同一件事用 `/`、範圍用 `–`:
+  `Alt+Esc` → `Alt-Esc`、`Alt+Z` → `Alt-z`(程式只認小寫)、`PgUp · PgDn` → `PgUp/PgDn`、`j · k` → `j/k`、
+  `1-9` → `1–9`、`←→` → `←/→`。
+- `Enter` 的列把鍵寫進 label(`bracketHotkey()` 認得 `enter`):`[Enter] Connect`,說明欄不再以 `Enter .` 開頭;
+  file transfer 那一列的 label 從 `Enter` 改成動作名 `Open`。
+- 句子裡的鍵加方括號:空狀態的 `[Space]`、`[Esc] leaves selection mode first`、`Press [Esc] to close`、menu 說明列的
+  `[j/k]`、`[Enter]`、`[Alt-Esc]`。
+- footer:`Space:menu ?:help Tab/1–2:panels M/F/S:tabs q:quit`。以前的 `1-2 M/F/S` 把兩組鍵擠在一個 pair,拆成兩個;
+  `Tab` 在 Manage 與 file transfer 換 panel,放進去,SSH tab 上不作用(偏離 K2),不放。zoom 中的 `leave zoom`
+  改成 `unzoom`。
+- 新格式每個 pair 比較短,窄寬時丟掉的順序跟著變;「窄 footer 留住誰」的測試仍在量它們要量的東西(80 欄的選取模式
+  footer 仍然放不下 `u/d`)。
+- 否定的斷言跟著換:`ptyscroll_test.go` 的「沒有歷史時 footer 不列 `pgup`」在字串改成 `PgUp` 的那一刻就成了永遠的綠,
+  改成量新的寫法。
+
+#### 5、6. `?` 與 menu 同一套(M6)
+
+- `helpEntry` 多一個 `dim`;變暗的鍵與說明都用 disabled menu 列的暗色。靜態清單改由 `refs()` 從 `[][2]string` 產生,
+  positional literal 不用每一個都補欄位。
+- `panelKeyReference()` 帶上 menu 列的 `disabled`。Jobs:游標那一筆已經結束時 `c` 變暗、下框 hint 拿掉 `c:cancel`;
+  沒有 job 時只列 `Esc` 與 `?`。layout panel 的 menu 只有說明列,key reference 補上 `j/k` 與 `Enter`(只在 custom 上亮)。
+  SSH tab 不列 `Tab` —— 不是「現在不能」,是沒有這件事。
+- file transfer 有條件的動作以前都是按了才跳 toast 說原因:`a`(還在寫入)、`e`(目錄 / 非一般檔案)、`t` / `T`
+  (另一側沒有 host)。改成 `sftpCannot()` 一個判斷,menu 列 disabled、熱鍵不作用、`?` 變暗;只用畫面上已有的資料,
+  不為了畫 menu 去 `Stat`。symlink 在清單裡不是一般檔案,但 edit 會跟過去,所以不算。`T` / `X` / `C` 沒有 mark 時對象
+  不存在,連列都不出(`needsMarks`)。
+
+#### 7、8. 順帶發現的兩個舊問題
+
+- 空網格的提示還寫 `Tab in [1] toggles a session's cell`(§11.56 起 `Tab` 在 SSH tab 不作用,是 `[H]`),layout 說明列
+  還寫 `rows × columns`(§11.31 起只問欄數)。
+- Errors 上 `Enter` 開那一筆的全文,但 Space menu 沒有這一列(M3),`?` 也就沒有 `Enter`(M4)。item 區加 `[Enter] Open`。
+
+#### 9. zoom max 的出口鍵(K10)
+
+滿版不畫 footer,格子有鍵盤時 `Alt-Esc` 在畫面上哪裡都看不到 —— §11.47 當時刻意不留。現在疊在右上角 badge 的下一列、
+靠右:`Alt-Esc:unzoom`,鎖住時 `Alt-Enter:release`。跟 badge 同一套 overlay,蓋掉幾格輸出、不佔任何一列;位置不跟
+badge 的層數位數走,所以每一層畫在同一格上、最外層蓋住其他的。選取模式時最後一列已經有 legend,不重複。
+
+---
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
 
 ### Tab 與 panel
 
 | 鍵 | 語意 |
 |---|---|
-| `M` / `F` / `S`(大寫;小寫屬於各 panel) | 切 tab —— **pty 內無效**,先 `Alt+Esc`;搜尋 / 打字中無效 |
+| `M` / `F` / `S`(大寫;小寫屬於各 panel) | 切 tab —— **pty 內無效**,先 `Alt-Esc`;搜尋 / 打字中無效 |
 | `1`-`9` | **當前 tab** 的 panel 直達(pty 內數字屬於遠端) |
 | `Tab` | 當前 tab 的下一個 panel(**ssh tab 不作用**,§11.56) |
 
@@ -6897,7 +6993,7 @@ tdp 連結改釘 `v0.1.13`。
 | `[2]` Credentials | **`Enter`** · **`E`** · `D` · `X` · `A` | **Enter = 唯讀明細,腳底下是 `Edit "<name>"?`**(§11.29)/ **Edit**(§11.34:括號要給單一字母;直達表單)/ **Duplicate**(§11.35)/ **Delete**(確認,列出引用數)/ Add |
 | `[2]` Config | **`Enter`** · `E` · `D` · `X` · `A` | `~/.ssh/config` **及它 `Include` 的每一個檔**的 `Host` 區塊(§11.39、§11.42;檔案多於一個時多一欄 `File`)。**Enter = 唯讀明細(每一個選項 + 在檔案的第幾行),腳底下是 `Edit "<pattern>"?`** / Edit(**動態表單**:五個固定欄 + 這塊現有的每個關鍵字各一列 + `+ add option`;清空欄位 = 刪掉那一行)/ Duplicate / Delete(先問,數出會一起消失的選項行數)/ Add(接在檔尾) |
 | `[2]` KnownHosts | **`Enter`** · `E` · `X` · `A` | `~/.ssh/known_hosts` 的每一筆 host key(§11.40)。**Enter = 唯讀明細(完整 SHA256 指紋 + 第幾行),腳底下是改名的 offer** / **Edit = input 一行**(只改「這把金鑰被信任於哪些名字」,金鑰永不可編)/ **Delete**(先問,顯示指紋)/ **Add = 去問那台機器**(顯示指紋,答應了才寫)。**沒有 `[D]uplicate`** —— 逗號清單已經是它 |
-| `[2]` Errors | `j`/`k`/`u`/`d`/`gg`/`G` · **`Enter`** · `C` | 一筆一列(Time/Host/User/Cause,cause 過長 `…`);**有游標**,因為有地方可去(§11.50)。**Enter = 浮層展開遠端印的全文**(wrap,不截尾)/ Clear errors(先問;連 `errors.yaml`,空的時候不存在)。**上畫面即已讀** —— 未讀徽章只屬於這一本 |
+| `[2]` Errors | `j`/`k`/`u`/`d`/`gg`/`G` · **`Enter`** · `C` | 一筆一列(Time/Host/User/Cause,cause 過長 `…`);**有游標**,因為有地方可去(§11.50)。**Enter = 浮層展開遠端印的全文**(wrap,不截尾)/ Clear errors(先問;連 `errors.yaml`,空的時候不存在)。Space menu 的 item 區有 `[Enter] Open`(§11.66)。**上畫面即已讀** —— 未讀徽章只屬於這一本 |
 | `[2]` Connections | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 每一次連線嘗試一列(Time/Host/User/Result,綠 success / 紅 fail)。捲動,**無游標** —— 一列背後沒有東西 / Clear connections(先問;連 `connections.yaml`) |
 | `[2]` Changes | `j`/`k`/`u`/`d`/`gg`/`G` · `C` | 你改過什麼,一筆一列(Time/Action)。捲動,無游標 / Clear changes(先問;連 `changes.yaml`) |
 | ~~`[2]` Export / Import~~ | (遮罩中) | Operation 頁已實作但未上架 —— 設計未定案,見 §11.12 追記 |
@@ -6923,9 +7019,12 @@ tdp 連結改釘 `v0.1.13`。
 | 全部 | `H` · `J` · `r` · `x`/`X` · `c`/`C` · `t`/`T` | Host(切這一側)/ Jobs(傳輸清單,可逐條取消)/ Rename / Delete(項/marks)/ Clear(marks 單項/全部)/ 傳輸(項/marks) |
 | 檔案 panel | `R` | **Refresh** —— 立刻重讀這個目錄(傳輸中照樣可用) |
 | 檔案 panel | `D` | **Disconnect** —— 這一側回到未選 host |
-| 全部 | `H` · `D`(**傳輸進行中**) | 兩列在 menu 裡暗掉、按鍵不執行、跳出「先去 `[J]obs` 取消」 |
-| 該側**沒有 host** | `Space` | 直接開 host 清單(不繞只有一列的 menu) |
-| 檔案 panel(**正在被寫入的列**) | `a` | 拒絕並說明;該列的 mark 欄改顯示 spinner,傳完消失並重列 |
+| 全部 | `H` · `D`(**傳輸進行中**) | 兩列在 menu 與 `?` 裡暗掉、按鍵不執行,不另外說原因(tdp M6) |
+| 該側**沒有 host** | `Space` | 開 menu,只有 `[H]ost` 一列加 global(§11.55) |
+| 檔案 panel(**正在被寫入的列**) | `a` | 列暗掉、按鍵不執行(§11.66);該列的 mark 欄改顯示 spinner,傳完消失並重列 |
+| 檔案 panel(目錄、device、socket) | `e` | 列暗掉、按鍵不執行(symlink 交給 edit 判斷,§11.66) |
+| 全部(**另一側沒有 host**) | `t` · `T` | 列暗掉、按鍵不執行(§11.66) |
+| 全部(**這一側沒有 mark**) | `T` · `X` · `C` | 不出現在 menu 與 `?`,按鍵不作用(§11.66) |
 | 檔案 panel | `Enter` · `Esc` · `a` · `/` · `A` · `r` · `v` · `e` | 進目錄(或去到搜尋結果)/ 退搜尋→上層 / append 到 marks(再按取消)/ 搜尋子樹 / Add / Rename / View / Edit |
 
 ### [S]SH
@@ -6939,24 +7038,24 @@ tdp 連結改釘 `v0.1.13`。
 | `[1]` | (**只在 Space menu**,無熱鍵) | **Close all sessions** —— 一次關掉全部(確認,問題帶數量;§11.26) |
 | `[2]` layout | `j`/`k`(`h`/`l` 也通)· `Enter` | 換排列(立刻生效)/ custom 上問**欄數**(一個數字 1-9,列數自己長,§11.31) |
 | 格子(pty) | 所有裸鍵 | 送給遠端 |
-| 格子(pty) | **`PgUp`/`PgDown`**(遠端**不在** alt screen) | 捲這一格的歷史(一次一畫面);title 顯示 `󰋚 N` |
-| 格子(pty) | `PgUp`/`PgDown`(遠端**在** alt screen) | 送給遠端 —— vim / less 自己翻頁 |
+| 格子(pty) | **`PgUp/PgDn`**(遠端**不在** alt screen) | 捲這一格的歷史(一次一畫面);title 顯示 `󰋚 N` |
+| 格子(pty) | `PgUp/PgDn`(遠端**在** alt screen) | 送給遠端 —— vim / less 自己翻頁 |
 | 格子(pty) | 任何會送到遠端的鍵 | 順手把畫面拉回 live |
 | 格子(pty) | 按住 **`Alt`+`←→↑↓`** | 往鄰格移動(邊緣 clamp,pty 內也有效;**zoom 中照走且留在原階**) |
-| 格子(pty) | **`Alt+Z`** | **zoom,三階段循環**:**zoompanel**(佔滿網格區)→ **zoommax**(連 chrome 與邊框都不畫)→ 正常。空轉的階自動跳過(一格時直接到 zoommax);永遠被攔截,要送進內層得先鎖住這一層(§11.47;由 `Alt+Enter` 搬來,§11.43) |
-| 格子(pty) | **`Alt+Enter`** | **layer 鍵**(§11.43)—— 開本層的 Lock/Release 選單(內層沒回報過才轉發,§11.45);有內層時選單多兩列**無熱鍵**的整鏈動作:全部 zoommax + 除最內層外全鎖 / 全部還原(§11.47);locked 的格子所有鍵穿透,這是唯一例外 |
-| 格子(pty) | **`Alt+Esc`** | 一次剝一層:**先離開選取模式**,再**逐階**退出 zoom(滿版 → 網格 zoom → 正常),再收回鍵盤、回 `[1]`(§11.47) |
-| 格子(pty) | **`Alt+v`** | **選取模式** —— 凍結這一格、border 轉黃,再按一次(或 `Alt+Esc`)離開(§11.33) |
+| 格子(pty) | **`Alt-z`** | **zoom,三階段循環**:**zoompanel**(佔滿網格區)→ **zoommax**(連 chrome 與邊框都不畫)→ 正常。空轉的階自動跳過(一格時直接到 zoommax);永遠被攔截,要送進內層得先鎖住這一層(§11.47;由 `Alt-Enter` 搬來,§11.43) |
+| 格子(pty) | **`Alt-Enter`** | **layer 鍵**(§11.43)—— 開本層的 Lock/Release 選單(內層沒回報過才轉發,§11.45);有內層時選單多兩列**無熱鍵**的整鏈動作:全部 zoommax + 除最內層外全鎖 / 全部還原(§11.47);locked 的格子所有鍵穿透,這是唯一例外 |
+| 格子(pty) | **`Alt-Esc`** | 一次剝一層:**先離開選取模式**,再**逐階**退出 zoom(滿版 → 網格 zoom → 正常),再收回鍵盤、回 `[1]`(§11.47)—— 最後這一步**先問**,`Esc` 回格子(tdp D5,§11.66) |
+| 格子(pty) | **`Alt-v`** | **選取模式** —— 凍結這一格、border 轉黃,再按一次(或 `Alt-Esc`)離開(§11.33) |
 | 選取模式 | `h`/`j`/`k`/`l` · `w`/`e`/`b` · `0`/`$` · `u`/`d` | 游標(撞邊界捲頁)/ 依 word 前進、後退,跨列 / 列首、列尾(最後一個字元)/ 上下半頁(§11.53) |
 | 選取模式 | `v` / `V` · `y` · `Esc` | char / line 選取(再按取消)/ 複製到剪貼簿並結束 / 先丟選取、再離開 |
-| 選取模式 | `?` · `q` / `Ctrl+C` · `Tab` · `Space` | 模式的 key reference / 離開流程 / toast 說先 `Esc` / 不作用(§11.57、§11.63) |
+| 選取模式 | `?` · `q` / `Ctrl-C` · `Tab` · `Space` | 模式的 key reference / 離開流程 / toast 說先 `Esc`,toast 還在時第一個 `Esc` 先收它(§11.66)/ 不作用(§11.57、§11.63) |
 
 ### 導覽(所有清單共用)
 
 | 鍵 | 動作 |
 |---|---|
 | `j` / `k` | 上 / 下一列(繞) |
-| `u` / `d`(或 `Ctrl+U` / `Ctrl+D`) | 上 / 下半頁(不繞) |
+| `u` / `d`(或 `Ctrl-U` / `Ctrl-D`) | 上 / 下半頁(不繞) |
 | `gg` / `G` | 第一列 / 最後一列 |
 
 ### 全域
@@ -6966,4 +7065,4 @@ tdp 連結改釘 `v0.1.13`。
 | `?` | key reference(唯讀);浮層上是那個浮層自己的按鍵(§11.56) |
 | Space menu 最後一列 `Global operation` | global operation popup:`[M]anage` / `[F]ile transfer` / `[S]SH` / `[q]uit`(§11.56) |
 | `q` | 離開流程(打字中與 pty 以外處處有效,浮層上也是;有活的 session / 傳輸會先問,§11.54) |
-| `Ctrl+C` | 同 `q` 的離開流程,打字中也有效;問題開著時再按一次立刻離開(子行程一併帶走)—— **pty / 編輯器內除外,那裡它屬於遠端**(§11.20) |
+| `Ctrl-C` | 同 `q` 的離開流程,打字中也有效;問題開著時再按一次立刻離開(子行程一併帶走)—— **pty / 編輯器內除外,那裡它屬於遠端**(§11.20) |

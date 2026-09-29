@@ -336,10 +336,15 @@ func TestKeysAreNotSentToAConnectionThatHasNotAnswered(t *testing.T) {
 	if next.(AppModel).confirm.isActive() {
 		t.Error("q while connecting should not raise the quit confirm")
 	}
-	// Alt+Esc still works, because being stuck needs a way out.
-	next, _ = m.Update(keyMsg("alt+esc"))
-	if next.(AppModel).ssh.focus == panelPty {
-		t.Error("alt+esc must leave a connecting pty")
+	// Alt+Esc still works, because being stuck needs a way out — asking first,
+	// like everywhere it takes the keyboard off a cell (tdp D5).
+	m = pressA(m, "alt+esc")
+	if !m.confirm.anim.owns() || m.confirm.action != confirmLeavePty {
+		t.Fatal("alt+esc on a connecting pty should ask before leaving it")
+	}
+	m = pressA(m, "enter")
+	if m.ssh.focus == panelPty {
+		t.Error("Enter on the question must leave a connecting pty")
 	}
 }
 
@@ -387,6 +392,47 @@ func TestTheTerminalTakesOverOnTheFirstByte(t *testing.T) {
 	}
 }
 
+// Taking the keyboard off a cell asks first (tdp v0.1.16 D5): a busy terminal
+// reads two quick Esc presses — everyday vim — as Alt+Esc. The session runs on
+// under the question and gets none of its keys; Esc goes back into the cell,
+// and so does a second Alt+Esc, so a double misfire lands where it started.
+func TestAltEscAsksBeforeLeavingThePty(t *testing.T) {
+	m := openOne(t)
+	m = pressA(m, "alt+esc")
+	if !m.confirm.anim.owns() || m.confirm.action != confirmLeavePty {
+		t.Fatal("alt+esc should ask before taking the keyboard off the cell")
+	}
+	if m.ssh.focus != panelPty || m.inPty() {
+		t.Errorf("the cell keeps the focus but not the keys while it asks: focus=%d", m.ssh.focus)
+	}
+	if !strings.Contains(stripANSI(m.View()), "Back to the list?") {
+		t.Error("the question should say where Enter goes")
+	}
+
+	m = pressA(m, "esc")
+	if m.confirm.anim.owns() || !m.inPty() {
+		t.Fatal("Esc should cancel the question and give the cell its keys back")
+	}
+	s := m.ssh.currentSession()
+	m = typeText(m, "back")
+	waitFor(t, "the remote to echo", func() bool {
+		return strings.Contains(strings.Join(s.pty.render(80, 24), ""), "back")
+	})
+
+	m = pressA(m, "alt+esc", "alt+esc")
+	if m.confirm.anim.owns() || !m.inPty() {
+		t.Error("a second alt+esc should cancel the question, back in the cell")
+	}
+
+	m = pressA(m, "alt+esc", "enter")
+	if m.ssh.focus != panelSessions {
+		t.Fatalf("Enter on the question should take the keyboard back, focus=%d", m.ssh.focus)
+	}
+	if len(m.ssh.sessions) != 1 || s.pty.exited() {
+		t.Error("leaving the cell must leave the session running")
+	}
+}
+
 // Alt+Esc is the only way out of a focused PTY — every other key is the
 // remote's.
 func TestAltEscLeavesThePty(t *testing.T) {
@@ -405,7 +451,7 @@ func TestAltEscLeavesThePty(t *testing.T) {
 	}
 
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = next.(AppModel)
+	m = pressA(settle(next.(AppModel)), "enter")
 	if m.ssh.focus != panelSessions {
 		t.Fatalf("Alt+Esc should return to [4], got focus=%d", m.ssh.focus)
 	}
@@ -462,7 +508,7 @@ func TestCtrlCInsideAPtyInterruptsTheRemoteNotSshu(t *testing.T) {
 // asking leaves at once.
 func TestCtrlCIsTheLeavingFlowOnceTheKeyboardIsBack(t *testing.T) {
 	m := openOne(t)
-	m = pressA(m, "alt+esc")
+	m = pressA(m, "alt+esc", "enter")
 	if m.inPty() {
 		t.Fatal("alt+esc should have taken the keyboard back")
 	}
@@ -490,17 +536,17 @@ func TestCtrlCIsTheLeavingFlowOnceTheKeyboardIsBack(t *testing.T) {
 func TestFooterInPtyAdvertisesTheWayOut(t *testing.T) {
 	m := openOne(t)
 	foot := m.footer()
-	if !strings.Contains(foot, "alt+esc") {
+	if !strings.Contains(foot, "Alt-Esc") {
 		t.Error("the footer must disclose alt+esc while the PTY has focus")
 	}
-	for _, gone := range []string{"space", "help", "quit"} {
+	for _, gone := range []string{"Space", "help", "quit"} {
 		if strings.Contains(foot, gone) {
 			t.Errorf("%q reaches the remote, so the footer must not offer it", gone)
 		}
 	}
 
 	m.ssh.setFocus(panelSessions)
-	if !strings.Contains(m.footer(), "space") {
+	if !strings.Contains(m.footer(), "Space") {
 		t.Error("the normal footer should return once the PTY is unfocused")
 	}
 }
@@ -586,7 +632,7 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 	aliveSSH(t)
 	m := pressA(sshApp(t, sample()), "enter", "enter") // first session
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 	m = pressA(m, "M", "j", "enter", "enter") // a second session, to a second host
 	t.Cleanup(func() { m.ssh.stopAll() })
 	if len(m.ssh.sessions) != 2 {
@@ -594,7 +640,7 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 	}
 
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 
 	// The row already on the grid: Enter just goes in.
 	m = pressA(m, "enter")
@@ -608,7 +654,7 @@ func TestEnterOnSessionNeverAsks(t *testing.T) {
 
 	// A different row: Enter moves the keyboard, still without asking.
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 	m = pressA(m, "k")
 	m = pressA(m, "enter")
 	if m.confirm.isActive() {
@@ -658,7 +704,7 @@ func TestHideIsOnH(t *testing.T) {
 	for _, key := range []string{"H"} {
 		m := openOne(t)
 		next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-		m = settle(next.(AppModel))
+		m = pressA(settle(next.(AppModel)), "enter")
 		t.Cleanup(func() { m.ssh.stopAll() })
 		if len(m.ssh.shown) != 1 {
 			t.Fatalf("%s: setup — a new session starts on the grid, shown=%v", key, m.ssh.shown)
@@ -773,7 +819,7 @@ func TestSSHMenuInPtySaysWhoHasTheKeyboard(t *testing.T) {
 	for _, it := range items {
 		joined += it.label + " "
 	}
-	if !strings.Contains(joined, "alt+esc") {
+	if !strings.Contains(joined, "Alt-Esc") {
 		t.Errorf("the PTY's menu should point at the way out, got %q", joined)
 	}
 }
@@ -885,7 +931,7 @@ func TestFocusedPtyTakesTheWholeTab(t *testing.T) {
 	full := s.appliedCols
 
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = next.(AppModel)
+	m = pressA(settle(next.(AppModel)), "enter")
 	leftW, _ = m.ssh.panes()
 	if leftW != sshLeftW {
 		t.Fatalf("leaving the PTY should bring the lists back, left=%d", leftW)
@@ -1031,7 +1077,7 @@ func TestQuitFromSessionsAsksAndThenStops(t *testing.T) {
 	}
 
 	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 	m = pressA(m, "q")
 	if !m.quitAsk.isActive() {
 		t.Fatal("q with a live session must ask before closing it")
@@ -1231,7 +1277,7 @@ func TestDuplicateOpensASecondSessionToTheSameHost(t *testing.T) {
 	m := openOne(t)
 	first := m.ssh.sessions[0]
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 
 	// Upper case: lower-case d is half-page-down on the session list.
 	m = pressA(m, "d")
@@ -1278,7 +1324,7 @@ func TestDuplicateOpensASecondSessionToTheSameHost(t *testing.T) {
 func TestADuplicateLandsOnTheListWithItsCellEchoing(t *testing.T) {
 	m := openOne(t)
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 	m = pressA(m, "D", "enter")
 	t.Cleanup(func() { m.ssh.stopAll() })
 
@@ -1299,7 +1345,7 @@ func TestADuplicateLandsOnTheListWithItsCellEchoing(t *testing.T) {
 func TestEnterOnASessionRowStillEntersThePty(t *testing.T) {
 	m := openOne(t)
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 	if m.ssh.focus != panelSessions {
 		t.Fatal("setup: expected the keyboard on [1]")
 	}
@@ -1326,7 +1372,7 @@ func TestDuplicateUsesTheSessionHostNotTheHostsFile(t *testing.T) {
 	m := openOne(t)
 	first := m.ssh.sessions[0]
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 
 	m.hosts.hosts = nil // the entry is gone from [1]
 	m = pressA(m, "D", "enter")
@@ -1346,7 +1392,7 @@ func TestCloseEndsTheSession(t *testing.T) {
 	m := openOne(t)
 	s := m.ssh.sessions[0]
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 
 	m = pressA(m, "C")
 	if !m.confirm.isActive() || m.confirm.action != confirmClose {
@@ -1403,7 +1449,7 @@ func TestSSHMenuRowsRunTheirOwnActions(t *testing.T) {
 			}
 			m := openOne(t)
 			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-			m = settle(next.(AppModel))
+			m = pressA(settle(next.(AppModel)), "enter")
 			if how == "menu" {
 				m = pressA(m, " ")
 				if !m.spaceMenu.isActive() {

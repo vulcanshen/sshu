@@ -170,7 +170,8 @@ var (
 	glyphHistory = string(rune(0xf02da)) // nf-md-history
 	// arrowGlyphs labels the left/right keys in a hint. Plain Unicode arrows, not
 	// Nerd Font: these sit in a border line where a mis-measured glyph shears the
-	// frame, and U+2190/2192 are single-width everywhere.
-	arrowGlyphs = "\u2190\u2192"
-	arrowUpDown = "\u2191\u2193"
+	// frame, and U+2190/2192 are single-width everywhere. Joined with / as any
+	// keys doing one thing are (tdp M5).
+	arrowGlyphs = "\u2190/\u2192"
+	arrowUpDown = "\u2191/\u2193"
 )

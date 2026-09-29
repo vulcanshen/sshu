@@ -174,7 +174,7 @@ func (m editorPopup) view() string {
 	if m.phase == editRunning && m.pty != nil {
 		// No padding rows: two lines of blank border is two lines of editor.
 		return drawPopupBoxPad(popupLayerColor(m.layer), title,
-			hintLegend([][2]string{{"alt+esc", "abandon"}}),
+			hintLegend([][2]string{{"Alt-Esc", "abandon"}}),
 			animRows(m.anim, m.pty.render(innerW, m.rows())), innerW, false)
 	}
 	wait := m.waitingRows(innerW)
@@ -451,9 +451,27 @@ func (m *AppModel) closeEdit(keep bool) tea.Cmd {
 	return m.editorUI.close()
 }
 
-// abandonEdit is Alt+Esc inside a running editor: kill it, keep nothing. In tab
-// [3] that key means "take the keyboard back", and here there is no other panel
-// to take it back to — so it means leaving, and the hint on the box says so.
+// askAbandonEdit is Alt+Esc inside a running editor. In tab [3] that key means
+// "take the keyboard back", and here there is no other panel to take it back
+// to — so it means leaving, and leaving throws the edit away. A busy terminal
+// reads two quick Esc presses as Alt+Esc, so it asks first (tdp D5); the editor
+// keeps running under the question, and Esc goes back to it.
+func (m *AppModel) askAbandonEdit() tea.Cmd {
+	cost := "What the editor has not saved is lost."
+	if !m.pendingEdit.inPlace() {
+		cost = "Nothing is written back, and the local copy is deleted."
+	}
+	return m.confirm.ask(confirmPopup{
+		glyph:  glyphWarn,
+		title:  "Confirm",
+		lines:  []string{"Abandon the edit of " + path.Base(m.pendingEdit.path) + "?", cost},
+		accept: "abandon",
+		warn:   true,
+		action: confirmEditAbandon,
+	}, m.above())
+}
+
+// abandonEdit kills the editor and keeps nothing, once the question is answered.
 func (m AppModel) abandonEdit() (tea.Model, tea.Cmd) {
 	name := path.Base(m.pendingEdit.path)
 	return m, tea.Batch(m.closeEdit(false),

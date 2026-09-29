@@ -151,7 +151,7 @@ func (m viewerPopup) view() string {
 
 	hint := [][2]string{{"j/k", "scroll"}, {"Esc", "close"}}
 	if n := len(m.lines); n > m.rows() {
-		hint = append([][2]string{{itoa(m.top + 1), "of " + itoa(n)}}, hint...)
+		hint = append([][2]string{{"", itoa(m.top+1) + " of " + itoa(n)}}, hint...)
 	}
 	return drawPopupBox(popupLayerColor(m.layer), loadingTitle(" "+glyphEye+" "+m.title+" ", m.loading),
 		hintLegend(hint), animRows(m.anim, capRows(rows, m.screenH)), innerW)

@@ -157,8 +157,8 @@ func (m sshcfgModel) emptyState(innerW, innerH int) []string {
 		fact = "No Host blocks — " + plural(n, "include") + " resolved to nothing"
 	}
 	return emptyBody(innerW, innerH, fact,
-		emptyHint("Press [A] to add one, or Space to see what you can do here",
-			"[A]", "Space"))
+		emptyHint("Press [A] to add one, or [Space] to see what you can do here",
+			"[A]", "[Space]"))
 }
 
 func (m sshcfgModel) tableBody(innerW, innerH int) []string {

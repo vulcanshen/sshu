@@ -185,17 +185,17 @@ func TestQuestionMarkIsTheKeyReference(t *testing.T) {
 		t.Fatal("? on a panel should open the key reference")
 	}
 	view := m.help.view()
-	for _, want := range []string{"this panel", "Hosts", "duplicate", "core keys", "gg · G"} {
+	for _, want := range []string{"this panel", "Hosts", "duplicate", "core keys", "gg/G"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("the key reference should show %q:\n%s", want, view)
 		}
 	}
 	// The grid's chords belong to the ssh tab's reference, not to every one.
-	if strings.Contains(view, "Alt+Esc") {
+	if strings.Contains(view, "Alt-Esc") {
 		t.Errorf("the hosts panel's reference lists the grid's chords:\n%s", view)
 	}
 	ssh := pressA(appWith(sample(), nil), "S", "?")
-	if !strings.Contains(ssh.help.view(), "Alt+Esc") {
+	if !strings.Contains(ssh.help.view(), "Alt-Esc") {
 		t.Error("the ssh tab's reference should list the grid's chords")
 	}
 	if after := pressA(m, "S"); after.tab != tabPref || !after.help.isActive() {
@@ -207,7 +207,7 @@ func TestQuestionMarkIsTheKeyReference(t *testing.T) {
 // back on it.
 func TestQuitFromTheGlobalPopupAsksOverIt(t *testing.T) {
 	m := openOne(t)
-	m = pressA(m, "alt+esc")
+	m = pressA(m, "alt+esc", "enter")
 	m = openGlobal(t, m)
 	m = pressA(m, "q")
 	if !m.quitAsk.isActive() || !m.globalMenu.isActive() {
@@ -232,7 +232,7 @@ func TestAPopupsHelpIsItsOwn(t *testing.T) {
 	if !strings.Contains(joined, "Space close") || !strings.Contains(joined, "Enter") {
 		t.Errorf("the Space menu's help should say how the menu works, has %s", joined)
 	}
-	if strings.Contains(joined, "Alt+Esc") || strings.Contains(joined, "switch tab") {
+	if strings.Contains(joined, "Alt-Esc") || strings.Contains(joined, "switch tab") {
 		t.Errorf("a popup's help lists only that popup's keys, has %s", joined)
 	}
 

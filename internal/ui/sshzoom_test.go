@@ -99,17 +99,50 @@ func TestAnUnlockedCellNeverSeesAltZ(t *testing.T) {
 func TestFullScreenReplacesTheFrame(t *testing.T) {
 	m := twoOnGrid(t)
 	waitFor(t, "the remote to answer", func() bool { return m.inPty() })
-	if !strings.Contains(ansi.Strip(m.View()), "alt+esc") {
+	if !strings.Contains(ansi.Strip(m.View()), "Alt-Esc") {
 		t.Fatal("setup: the footer should be on screen")
 	}
 
 	m = pressA(m, "alt+z", "alt+z")
 	v := ansi.Strip(m.View())
-	if strings.Contains(v, "alt+esc") {
-		t.Errorf("the footer must not be drawn in full screen:\n%s", v)
+	// The way out is still disclosed (see the next test), but the footer's
+	// other pairs and the tab strip are gone.
+	for _, gone := range []string{"leave pty", "Alt-v:select", "anage"} {
+		if strings.Contains(v, gone) {
+			t.Errorf("full screen still draws the frame (%q):\n%s", gone, v)
+		}
 	}
 	if n := len(strings.Split(m.View(), "\n")); n != 30 {
 		t.Errorf("the display is still 30 rows, got %d", n)
+	}
+}
+
+// With no footer, the way out goes under the badge as an overlay (tdp K10): it
+// covers a few cells of output, takes no row, and says what Alt-Esc does here —
+// step the zoom down. Locked, this layer's only key is Alt-Enter, so that is
+// what it says.
+func TestFullScreenStillDisclosesTheWayOut(t *testing.T) {
+	m := twoOnGrid(t)
+	waitFor(t, "the remote to answer", func() bool { return m.inPty() })
+	m = pressA(m, "alt+z", "alt+z")
+	rows := strings.Split(m.View(), "\n")
+	if len(rows) != 30 {
+		t.Fatalf("the hint must not cost a row: %d rows", len(rows))
+	}
+	for i, r := range rows {
+		if w := ansi.StringWidth(r); w != m.w {
+			t.Errorf("row %d is %d wide, not %d", i, w, m.w)
+		}
+	}
+	if got := ansi.Strip(rows[1]); !strings.HasSuffix(strings.TrimRight(got, " "), "Alt-Esc:unzoom") {
+		t.Errorf("the way out should sit flush right under the badge: %q", got)
+	}
+
+	m.ssh.currentSession().locked = true
+	rows = strings.Split(m.View(), "\n")
+	got := ansi.Strip(rows[1])
+	if !strings.Contains(got, "Alt-Enter:release") || strings.Contains(got, "Alt-Esc") {
+		t.Errorf("locked, the only key this layer keeps is Alt-Enter: %q", got)
 	}
 }
 
@@ -197,8 +230,9 @@ func TestAltEscWalksBackOneStageAtATime(t *testing.T) {
 	if m.ssh.zoomAt() != zoomPanel {
 		t.Errorf("the first alt+esc drops to the grid zoom, stage=%d", m.ssh.zoomAt())
 	}
-	if m.ssh.focus != panelPty {
-		t.Errorf("...and the keyboard stays in the cell, focus=%d", m.ssh.focus)
+	if m.ssh.focus != panelPty || m.popupOpen() {
+		t.Errorf("...and the keyboard stays in the cell, unasked: focus=%d, %d floats",
+			m.ssh.focus, m.floatsOpen())
 	}
 	if got := cellFrames(m.ssh.gridView()); got != 1 {
 		t.Errorf("the frame is back, on one cell: got %d", got)
@@ -208,13 +242,22 @@ func TestAltEscWalksBackOneStageAtATime(t *testing.T) {
 	if m.ssh.zoomAt() != zoomOff {
 		t.Errorf("the second leaves the zoom, stage=%d", m.ssh.zoomAt())
 	}
-	if m.ssh.focus != panelPty {
-		t.Errorf("...still in the cell, focus=%d", m.ssh.focus)
+	if m.ssh.focus != panelPty || m.popupOpen() {
+		t.Errorf("...still in the cell, unasked: focus=%d, %d floats", m.ssh.focus, m.floatsOpen())
 	}
 
+	// Stepping down a zoom stays in the pty and needs no question; the third
+	// press takes the keyboard off the cell, and that asks first (tdp D5).
 	m = pressA(m, "alt+esc")
+	if !m.confirm.anim.owns() || m.confirm.action != confirmLeavePty {
+		t.Fatal("the third alt+esc should ask before handing the keyboard back")
+	}
+	if m.ssh.focus != panelPty {
+		t.Errorf("...and nothing has moved while it asks, focus=%d", m.ssh.focus)
+	}
+	m = pressA(m, "enter")
 	if m.ssh.focus != panelSessions {
-		t.Errorf("only the third hands the keyboard back, focus=%d", m.ssh.focus)
+		t.Errorf("Enter on the question hands the keyboard back, focus=%d", m.ssh.focus)
 	}
 }
 
@@ -305,7 +348,7 @@ func TestAGridZoomDoesNotOutliveItsGrid(t *testing.T) {
 	}
 	// One press of the way out, not two — the second would be spent on a
 	// stage that was not on screen.
-	m = pressA(m, "alt+esc")
+	m = pressA(m, "alt+esc", "enter")
 	if m.ssh.focus != panelSessions {
 		t.Errorf("alt+esc should hand the keyboard back, focus=%d", m.ssh.focus)
 	}
@@ -380,12 +423,12 @@ func TestTheBadgeIsLavender(t *testing.T) {
 
 	m := openOne(t)
 	m = pressA(m, "alt+z")
-	v := m.View()
-	if !strings.Contains(v, lavender) {
+	badge := strings.Split(m.View(), "\n")[0]
+	if !strings.Contains(badge, lavender) {
 		t.Error("the badge should be rendered in lavender")
 	}
-	if strings.Contains(v, dim) {
-		t.Error("...and nothing on a full-screen cell should still be drawing in grey")
+	if strings.Contains(badge, dim) {
+		t.Error("...and not in grey, what it was before")
 	}
 }
 
@@ -402,7 +445,7 @@ func TestFullScreenKeepsSelectionModeDisclosed(t *testing.T) {
 		t.Fatal("setup: alt+v should have opened selection mode")
 	}
 	v := ansi.Strip(m.View())
-	for _, want := range []string{"? help", "hjkl", "alt+v"} {
+	for _, want := range []string{"?:help", "h/j/k/l", "Alt-v"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("the selection keys should be disclosed (%q):\n%s", want, v)
 		}
@@ -425,13 +468,13 @@ func TestTheFooterTracksTheZoom(t *testing.T) {
 	if !strings.Contains(foot, "leave pty") {
 		t.Errorf("unzoomed, alt+esc leaves the pty: %q", foot)
 	}
-	if !strings.Contains(foot, "alt+z") || !strings.Contains(foot, "zoom panel") {
+	if !strings.Contains(foot, "Alt-z") || !strings.Contains(foot, "zoom panel") {
 		t.Errorf("with two cells the panel stage is next: %q", foot)
 	}
 
 	m = pressA(m, "alt+z")
 	foot = m.footer()
-	if !strings.Contains(foot, "leave zoom") {
+	if !strings.Contains(foot, "Alt-Esc:unzoom") {
 		t.Errorf("zoomed, alt+esc leaves the zoom: %q", foot)
 	}
 	if !strings.Contains(foot, "zoom max") {

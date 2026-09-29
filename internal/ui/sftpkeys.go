@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io/fs"
 	"path"
 	"strings"
 	"time"
@@ -45,7 +46,10 @@ type sftpAction struct {
 	// here; it is only unavailable this second. So it stays in the menu and
 	// dims, and pressing it says why rather than doing nothing.
 	needsIdle bool
-	run       func(AppModel) (tea.Model, tea.Cmd)
+	// needsMarks: the action is about this side's marks, so with none there
+	// is nothing for it to be about and it is not offered (tdp M6).
+	needsMarks bool
+	run        func(AppModel) (tea.Model, tea.Cmd)
 }
 
 // keySelectHost is the one thing a side with no host can do, so it is named:
@@ -77,7 +81,7 @@ const keySelectHost = "H"
 // goes in the hint rather than in a bracket, tdp M5).
 var sftpActions = []sftpAction{
 	// item — the row under the cursor
-	{key: "enter", label: "Enter", hint: "Enter . open it, or go to a result", onFiles: true, run: AppModel.sftpEnter},
+	{key: "enter", label: "Open", hint: "open it, or go to a result", onFiles: true, run: AppModel.sftpEnter},
 	// Append still toggles — the hint says so honestly. "I marked the wrong
 	// one" stays a second press, not a trip to another panel.
 	{key: "a", label: "Append to marks", hint: "again takes it off", onFiles: true, run: AppModel.sftpToggleMark},
@@ -99,9 +103,9 @@ var sftpActions = []sftpAction{
 	// start. It is NOT needsIdle: reading is the one thing that stays safe
 	// while bytes move, and mid-transfer is when you most want to look again.
 	{key: "R", label: "Refresh", hint: "re-read this directory now", onFiles: true, panelOp: true, run: AppModel.sftpRefresh},
-	{key: "T", label: "Transfer all marks", hint: "to the other side", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpSendMarks},
-	{key: "X", label: "Delete all marks", hint: "erase them, on this host", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpDeleteMarks},
-	{key: "C", label: "Clear marks", hint: "forget them, change nothing", onFiles: true, onMarks: true, panelOp: true, run: AppModel.sftpResetMarks},
+	{key: "T", label: "Transfer all marks", hint: "to the other side", onFiles: true, onMarks: true, panelOp: true, needsMarks: true, run: AppModel.sftpSendMarks},
+	{key: "X", label: "Delete all marks", hint: "erase them, on this host", onFiles: true, onMarks: true, panelOp: true, needsMarks: true, run: AppModel.sftpDeleteMarks},
+	{key: "C", label: "Clear marks", hint: "forget them, change nothing", onFiles: true, onMarks: true, panelOp: true, needsMarks: true, run: AppModel.sftpResetMarks},
 	{key: keySelectHost, label: "Host", hint: "switch this side — a directory, or a saved host", onFiles: true, onMarks: true, panelOp: true, needsIdle: true, run: AppModel.sftpSwitchHost},
 	// Next to [H]ost, because it is the same question answered the other
 	// way. Only on the files panels: it is the panel that shows the host, and a
@@ -122,14 +126,14 @@ var sftpActions = []sftpAction{
 // only thing offered, and the only letter that answers, is picking one. A menu
 // full of rows that do nothing is worse than a short menu: it teaches that the
 // menu does not mean what it says.
-func (a sftpAction) appliesTo(p sftpPanel, hasHost, hasItem bool) bool {
+func (a sftpAction) appliesTo(p sftpPanel, hasHost, hasItem, hasMarks bool) bool {
 	if !hasHost {
 		return a.key == keySelectHost
 	}
 	// An empty listing, or a marks panel with nothing in it, has no row for a
 	// row action to act on. Offering them anyway is the same lie as offering
-	// Transfer with no host.
-	if !hasItem && !a.panelOp {
+	// Transfer with no host. The mark actions with no marks, likewise.
+	if !hasItem && !a.panelOp || a.needsMarks && !hasMarks {
 		return false
 	}
 	if p.isMarks() {
@@ -143,10 +147,11 @@ func (a sftpAction) appliesTo(p sftpPanel, hasHost, hasItem bool) bool {
 func (m AppModel) sftpApplicable() ([]string, []sftpAction) {
 	hasHost := m.sftp.cur().fs != nil
 	_, hasItem := m.sftpCursorPath()
+	hasMarks := len(m.sftp.cur().marks) > 0
 	var keys []string
 	var acts []sftpAction
 	for _, a := range sftpActions {
-		if a.appliesTo(m.sftp.focus, hasHost, hasItem) {
+		if a.appliesTo(m.sftp.focus, hasHost, hasItem, hasMarks) {
 			keys, acts = append(keys, a.key), append(acts, a)
 		}
 	}
@@ -161,13 +166,41 @@ func (m AppModel) sftpKey(k string) (tea.Model, tea.Cmd) {
 		// get past a running transfer while the other cannot (tdp M3). A
 		// refusal does nothing at all — the row is dimmed, and a dimmed row's
 		// Enter and letter do not act (tdp M6).
-		if acts[i].needsIdle && m.transfersMoving() {
+		if m.sftpCannot(acts[i]) {
 			return m, nil
 		}
 		return acts[i].run(m)
 	}
 	m.sftp.handleListKey(k)
 	return m, nil
+}
+
+// sftpCannot reports whether an action that belongs here cannot run right
+// now. Its row stays in the menu, dimmed with its usual words, and neither its
+// letter nor Enter on it does anything (tdp M6). The menu and the hotkey ask
+// this one question, so they cannot disagree (tdp M3).
+//
+// It asks only what is already on screen — the listing, the arrivals, the other
+// side — never the filesystem: drawing a menu is no reason to Stat anything.
+func (m AppModel) sftpCannot(a sftpAction) bool {
+	switch a.key {
+	case "a":
+		// Half a file is not a thing to mark and send onward.
+		p, ok := m.sftpCursorPath()
+		return ok && m.transfers.arrivals().receiving(p)
+	case "e":
+		// A directory, a device, a socket has no text to edit. A symlink is
+		// followed by the edit, so it is left to the edit to judge; a marks
+		// row carries no entry to judge by.
+		if m.sftp.focus.isMarks() {
+			return false
+		}
+		e, ok := m.sftp.cur().cursorEntry()
+		return ok && (e.IsDir || !e.Mode.IsRegular() && e.Mode&fs.ModeSymlink == 0)
+	case "t", "T":
+		return m.sftp.other().fs == nil
+	}
+	return a.needsIdle && m.transfersMoving()
 }
 
 // transfersMoving is why the filesystem cannot be swapped right now. One
@@ -184,12 +217,10 @@ func (m AppModel) transfersMoving() bool { return m.transfers.runningCount() > 0
 func (m AppModel) sftpMenuItems() []menuItem {
 	_, acts := m.sftpApplicable()
 
-	busy := m.transfersMoving()
-
 	var item, panel []menuItem
 	for _, a := range acts {
 		row := menuItem{label: a.label, key: a.key, hint: a.hint,
-			disabled: busy && a.needsIdle}
+			disabled: m.sftpCannot(a)}
 		if a.panelOp {
 			panel = append(panel, row)
 			continue

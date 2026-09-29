@@ -20,7 +20,7 @@ type credAction struct {
 
 var credActions = []credAction{
 	// item — the credential under the cursor
-	{key: "enter", label: "View", hint: "Enter . how this one authenticates", needsCred: true, run: AppModel.openCredDetail},
+	{key: "enter", label: "View", hint: "how this one authenticates", needsCred: true, run: AppModel.openCredDetail},
 	{key: "E", label: "Edit", hint: "change this credential", needsCred: true, run: AppModel.openCredEdit},
 	{key: "D", label: "Duplicate", hint: "a new credential starting from this one", needsCred: true, run: AppModel.openCredDuplicate},
 	{key: "X", label: "Delete", hint: "remove from credentials.yaml", needsCred: true, run: AppModel.askDeleteCred},

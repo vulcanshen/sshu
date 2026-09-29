@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -388,12 +389,17 @@ func (m transfersPopup) view(jobs []*transferJob) string {
 		rows = fillRows(rows, 2*vis, innerW)
 	}
 
+	// c is offered only while the job under the cursor can still be cancelled:
+	// a hint lists what works now (tdp M6), and ? lists the rest, dimmed.
 	pairs := [][2]string{{"j/k", "move"}, {"Enter", "open"}, {"c", "cancel"}, {"Esc", "close"}}
+	if m.cursor < len(jobs) && jobs[m.cursor].status() != xferRunning {
+		pairs = slices.Delete(pairs, 2, 3)
+	}
 	if len(jobs) == 0 {
 		pairs = [][2]string{{"Esc", "close"}}
 	}
 	if len(jobs) > vis {
-		pairs = append([][2]string{{itoa(m.cursor + 1), "of " + itoa(len(jobs))}}, pairs...)
+		pairs = append([][2]string{{"", itoa(m.cursor+1) + " of " + itoa(len(jobs))}}, pairs...)
 	}
 	hint := hintLegend(pairs)
 	return drawPopupBox(popupLayerColor(m.layer), " "+glyphUpload+" Transfers ", hint,

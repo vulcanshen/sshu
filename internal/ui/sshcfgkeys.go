@@ -23,7 +23,7 @@ type sshcfgAction struct {
 
 var sshcfgActions = []sshcfgAction{
 	// item — the Host block under the cursor
-	{key: "enter", label: "View", hint: "Enter . every option this block sets", needsBlock: true, run: AppModel.openSSHCfgDetail},
+	{key: "enter", label: "View", hint: "every option this block sets", needsBlock: true, run: AppModel.openSSHCfgDetail},
 	{key: "E", label: "Edit", hint: "change this block", needsBlock: true, run: AppModel.openSSHCfgEdit},
 	{key: "D", label: "Duplicate", hint: "a new block starting from this one", needsBlock: true, run: AppModel.openSSHCfgDuplicate},
 	{key: "X", label: "Delete", hint: "remove from ~/.ssh/config", needsBlock: true, run: AppModel.askDeleteSSHCfg},

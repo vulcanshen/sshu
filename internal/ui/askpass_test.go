@@ -228,7 +228,7 @@ func TestAHostKeyQuestionTakesYesAndNothingElse(t *testing.T) {
 	next, _ := m.askpassArrived(req)
 	m = settle(next.(AppModel))
 	view := ansi.Strip(m.View())
-	if !strings.Contains(view, "SHA256:abc") || !strings.Contains(view, "Enter yes") {
+	if !strings.Contains(view, "SHA256:abc") || !strings.Contains(view, "Enter:yes") {
 		t.Fatalf("the fingerprint and the verb should be on screen:\n%s", view)
 	}
 	m = pressA(m, "n", "o", "enter")

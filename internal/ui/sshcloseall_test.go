@@ -13,7 +13,7 @@ func twoSessions(t *testing.T) AppModel {
 	t.Helper()
 	m := openOne(t)
 	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEscape, Alt: true})
-	m = settle(next.(AppModel))
+	m = pressA(settle(next.(AppModel)), "enter")
 	m = pressA(m, "D", "enter") // duplicate: stays on the list
 	if len(m.ssh.sessions) != 2 {
 		t.Fatalf("setup: expected two sessions, got %d", len(m.ssh.sessions))

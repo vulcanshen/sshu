@@ -113,15 +113,15 @@ func TestScrolledCellSaysSoInItsTitle(t *testing.T) {
 // is pressed, so the footer waits until there is history to page through.
 func TestFooterOffersHistoryOnlyOnceThereIsSome(t *testing.T) {
 	quiet := openOne(t) // says "$ " and nothing more
-	if strings.Contains(quiet.footer(), "pgup") {
+	if strings.Contains(quiet.footer(), "PgUp") {
 		t.Error("nothing has scrolled off yet — the footer must not offer to page back")
 	}
 
 	m := openChatty(t)
-	if !strings.Contains(m.footer(), "pgup") {
+	if !strings.Contains(m.footer(), "PgUp") {
 		t.Error("with more said than fits, the footer must disclose the scrollback keys")
 	}
-	if !strings.Contains(m.footer(), "alt+esc") {
+	if !strings.Contains(m.footer(), "Alt-Esc") {
 		t.Error("the way out must survive the addition")
 	}
 }

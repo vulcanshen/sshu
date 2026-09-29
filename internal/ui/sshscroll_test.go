@@ -405,7 +405,7 @@ func TestANewSessionScrollsIntoView(t *testing.T) {
 	m = settle(next.(AppModel))
 	m = pressA(m, "enter", "enter") // connect, landing in the pty
 	t.Cleanup(func() { m.ssh.stopAll() })
-	m = pressA(m, "alt+esc")
+	m = pressA(m, "alt+esc", "enter")
 
 	if got := m.ssh.listRows(); got > 2 {
 		t.Fatalf("setup: [1] should be too short for the list, it holds %d", got)

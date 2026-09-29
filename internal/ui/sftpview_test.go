@@ -265,15 +265,46 @@ func TestSFTPHostPickerOffersLocalFirst(t *testing.T) {
 	}
 }
 
-// A transfer needs somewhere to land. Saying so beats a silent no-op.
+// A transfer needs somewhere to land. With no host on the other side the
+// transfer rows are there but cannot run: dimmed, and their letters do nothing
+// (tdp M6) — the other side's own panel is what says it has no host.
 func TestSFTPTransferNeedsTheOtherSide(t *testing.T) {
 	m := sftpFixture(t, 100, 26)
 	m.sftp.sides[sideRight].fs = nil
 	m.sftp.focus = panelLeftFiles
-	m = pressA(m, "t")
-	if !m.toast.isActive() || m.toast.kind != toastError {
-		t.Error("transferring with no destination should say so")
+	m = pressA(m, "j", "a")
+	for _, k := range []string{"t", "T"} {
+		if it, ok := menuRow(m.sftpMenuItems(), k); !ok || !it.disabled {
+			t.Errorf("%q should be listed and dimmed with no destination: %+v", k, it)
+		}
+		if !hasDimmedKey(m.panelKeyReference(), k) {
+			t.Errorf("? should list %q dimmed as well", k)
+		}
+		if got := pressA(m, k); got.toast.isActive() || got.confirm.isActive() ||
+			len(got.transfers.jobs) != 0 {
+			t.Errorf("%q with no destination should do nothing at all", k)
+		}
 	}
+}
+
+// menuRow finds the row a key runs.
+func menuRow(items []menuItem, key string) (menuItem, bool) {
+	for _, it := range items {
+		if it.key == key && !it.header && !it.separator {
+			return it, true
+		}
+	}
+	return menuItem{}, false
+}
+
+// hasDimmedKey reports whether a key reference lists key, dimmed.
+func hasDimmedKey(ref []helpEntry, key string) bool {
+	for _, e := range ref {
+		if e.key == key {
+			return e.dim
+		}
+	}
+	return false
 }
 
 // The breadcrumb never overflows its slot at any width, and shortens rather

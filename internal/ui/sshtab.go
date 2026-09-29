@@ -994,6 +994,16 @@ func (m sshModel) markMaxed(body []string, s *session) {
 		return
 	}
 	overlayRight(body, 0, m.zoomBadge(s))
+	// The way out is disclosed while the cell has the keyboard (tdp K10), and
+	// with no footer here it goes under the badge, flush right: a width that
+	// does not follow the badge's depth digits, so every layer paints it on the
+	// same cells and the outermost covers the rest. Alt+Esc here steps the zoom
+	// down, so it says unzoom; locked, this layer's only key is Alt+Enter.
+	exit := [2]string{"Alt-Esc", "unzoom"}
+	if s.locked {
+		exit = [2]string{"Alt-Enter", "release"}
+	}
+	overlayRight(body, 1, hintLegend([][2]string{exit}))
 }
 
 // zoomBadge is what a full-screen sshu says about itself: that it is one, how
@@ -1154,7 +1164,8 @@ func (m sshModel) connectingBody(s *session, innerW, innerH int) []string {
 
 func (m sshModel) gridEmpty(innerW, innerH int) []string {
 	return emptyBody(innerW, innerH, "Nothing on the grid",
-		emptyHint("Tab in [1] toggles a session's cell — Enter shows one and takes the keyboard", "[1]"))
+		emptyHint("[H] in [1] shows or hides a session's cell — [Enter] shows one and takes the keyboard",
+			"[H]", "[1]", "[Enter]"))
 }
 
 // failedBody is how a connection ends when it ends badly and nothing else is
