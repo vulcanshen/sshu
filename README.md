@@ -54,7 +54,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 ### Requirements
 
-- **A Nerd Font** — not optional: auth methods, file types and marks are drawn with Nerd Font glyphs.
+- **A Nerd Font** — not optional: auth methods, file types and marks are drawn with Nerd Font glyphs. Fonts made for CJK that draw icons two cells wide (e.g. Maple Mono NF CN) work too: sshu asks the terminal how wide an icon is when it starts, and a sshu nested inside it is told the same. If it guesses wrong, set `SSHU_ICON_WIDTH=2` (or `1`).
 - **A truecolor terminal** (24-bit colour) — the theme's softer shades, the popup layers and the dimming behind a popup do not survive 256 colours.
 - **A terminal that sends Alt** — sshu's `Alt-…` keys (`Alt-Esc` to leave a session, `Alt-v`, `Alt-z`, …) need the Option key to act as Meta. Turn on *Use Option as Meta key* in macOS Terminal, or set Option to *Esc+* in iTerm2; kitty, Alacritty and WezTerm send it by default.
 
@@ -169,7 +169,7 @@ A row that cannot run right now is dimmed, in the `Space` menu and in `?`, and i
 | `Alt-Enter` | Lock / release — for a nested sshu: pass every key through to the one inside |
 | `Alt-←/→/↑/↓` | Move to the neighbouring cell |
 | `Alt-Esc` | Back out one step — selection mode, then zoom, then the keyboard (that last step asks first) |
-| `Alt-v` | Selection mode — freeze this cell to copy from it; its frame turns yellow and says `selection mode` |
+| `Alt-v` | Selection mode — freeze this cell to copy from it; its frame turns yellow and says `Select` |
 
 **Selection mode** (`Alt-v`) uses vim's keys:
 

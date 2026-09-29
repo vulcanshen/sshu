@@ -403,13 +403,13 @@ func (c copyState) text() string {
 		return strings.Join(out, "\n")
 	}
 	if r0 == r1 {
-		return plainText(ansi.Cut(c.lines[r0], c0, c1+1))
+		return plainText(dispCut(c.lines[r0], c0, c1+1))
 	}
-	out := []string{plainText(ansi.Cut(c.lines[r0], c0, c.w))}
+	out := []string{plainText(dispCut(c.lines[r0], c0, c.w))}
 	for r := r0 + 1; r < r1; r++ {
 		out = append(out, plainText(c.lines[r]))
 	}
-	return strings.Join(append(out, plainText(ansi.Cut(c.lines[r1], 0, c1+1))), "\n")
+	return strings.Join(append(out, plainText(dispCut(c.lines[r1], 0, c1+1))), "\n")
 }
 
 // plainText strips the styling and the padding a rendered line carries. The
@@ -457,14 +457,16 @@ func (c copyState) rowSpan(r, r0, c0, r1, c1 int) (a, b int) {
 }
 
 // markRow lays the mark over one line between two display columns, keeping the
-// colour on either side of it. ansi.Cut carries the active styling into each
+// colour on either side of it. dispCut carries the active styling into each
 // piece, so the unmarked halves come out exactly as they went in.
 func markRow(line string, a, b, w int) string {
 	a, b = clamp(a, 0, w), clamp(b, 0, w)
 	if b <= a {
 		return line
 	}
-	return ansi.Cut(line, 0, a) +
-		selStyle.Render(ansi.Strip(ansi.Cut(line, a, b))) +
-		ansi.Cut(line, b, w)
+	// Cut by display cells, the same ruler lineChars measures columns with: an
+	// icon the terminal draws two cells wide is two columns here too (tdp D6).
+	return dispCut(line, 0, a) +
+		selStyle.Render(ansi.Strip(dispCut(line, a, b))) +
+		dispCut(line, b, w)
 }

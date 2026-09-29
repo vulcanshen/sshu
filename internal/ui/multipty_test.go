@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // twoOnGrid is two live sessions, both with a cell on the grid, keyboard on
@@ -122,7 +121,7 @@ func TestGridPreservesFrameAcrossLayouts(t *testing.T) {
 				t.Fatalf("layout %d %dx%d: %d lines, want %d", mode, sz[0], sz[1], len(lines), sz[1])
 			}
 			for i, l := range lines {
-				if lw := lipgloss.Width(l); lw != sz[0] {
+				if lw := dispW(l); lw != sz[0] {
 					t.Errorf("layout %d %dx%d line %d: width %d\n%q", mode, sz[0], sz[1], i, lw, l)
 				}
 			}

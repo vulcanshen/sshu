@@ -51,7 +51,7 @@ func (m AppModel) View() string {
 	// and out of its way — low, where it does not cover the surface being used.
 	// It holds no keyboard and is not a layer (tdp F8): nothing is dimmed for it.
 	if m.toast.isActive() {
-		out = overlay.Composite(m.toast.view(), out, overlay.Center, overlay.Bottom, 0, -2)
+		out = compositeDisp(m.toast.view(), out, overlay.Center, overlay.Bottom, 0, -2)
 	}
 	// Every frame carries the announcement. It costs ~40 invisible bytes and
 	// buys idempotence: a parent that missed one report gets the next one,
@@ -134,7 +134,7 @@ func (m AppModel) composeFloats(out string) string {
 		if i != top {
 			v = dimANSI(v)
 		}
-		out = overlay.Composite(v, out, overlay.Center, overlay.Center, 0, 0)
+		out = compositeDisp(v, out, overlay.Center, overlay.Center, 0, 0)
 	}
 	return out
 }

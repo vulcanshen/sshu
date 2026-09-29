@@ -307,12 +307,13 @@ func panelChromeTone(innerW int, body []string, title string, tone borderTone) s
 	return panelChromeMode(innerW, body, title, tone, "")
 }
 
-// frameLines is a border's set of pieces: corners, then the two straights.
-type frameLines struct{ tl, tr, bl, br, h, v string }
+// frameLines is a border's set of pieces: corners, the two straights, and the
+// two junctions a label set into the top border sits between.
+type frameLines struct{ tl, tr, bl, br, h, v, jl, jr string }
 
 var (
-	frameRound  = frameLines{"╭", "╮", "╰", "╯", "─", "│"}
-	frameDouble = frameLines{"╔", "╗", "╚", "╝", "═", "║"}
+	frameRound  = frameLines{"╭", "╮", "╰", "╯", "─", "│", "┤", "├"}
+	frameDouble = frameLines{"╔", "╗", "╚", "╝", "═", "║", "╡", "╞"}
 )
 
 // frameFor is the line style a tone draws in. Focus is not told by colour
@@ -328,7 +329,9 @@ func frameFor(tone borderTone) frameLines {
 }
 
 // panelChromeMode is the frame with a mode's name at the right of its top
-// border, in the frame's colour (tdp K11). The name is not a capsule: two
+// border, set between two junctions like a label in the frame: ╡Select╞ on a
+// double line, ┤Select├ on a rounded one (tdp K11, D3). The junctions are the
+// frame's colour, the name bold in the mode's. It is not a capsule: two
 // capsules would read as two titles. It always shows, so the title gives way to
 // it; only when even the name cannot fit is the name itself cut.
 func panelChromeMode(innerW int, body []string, title string, tone borderTone, mode string) string {
@@ -336,11 +339,13 @@ func panelChromeMode(innerW int, body []string, title string, tone borderTone, m
 	bs := lipgloss.NewStyle().Foreground(bc)
 	f := frameFor(tone)
 
-	// " name " and one straight after it, before the corner.
+	// junction, name, junction, and one straight before the corner.
 	right, rightW := "", 0
 	if mode != "" && innerW >= 4 {
 		name := truncate(mode, innerW-3)
-		right, rightW = bs.Render(" "+name+" "+f.h), dispW(name)+3
+		right = bs.Render(f.jl) + lipgloss.NewStyle().Foreground(bc).Bold(true).Render(name) +
+			bs.Render(f.jr+f.h)
+		rightW = dispW(name) + 3
 	}
 
 	// An empty title means NO capsule. Rendering panelChip("") would still draw
@@ -363,13 +368,4 @@ func panelChromeMode(innerW int, body []string, title string, tone borderTone, m
 	}
 	out = append(out, bs.Render(f.bl+strings.Repeat(f.h, innerW)+f.br))
 	return strings.Join(out, "\n")
-}
-
-// joinVertical / joinHorizontal are display-width aware block joins.
-func joinVertical(blocks ...string) string {
-	return lipgloss.JoinVertical(lipgloss.Left, blocks...)
-}
-
-func joinHorizontal(blocks ...string) string {
-	return lipgloss.JoinHorizontal(lipgloss.Top, blocks...)
 }

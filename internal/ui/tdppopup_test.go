@@ -16,9 +16,9 @@ import (
 func boxWidth(t *testing.T, name, view string) int {
 	t.Helper()
 	lines := strings.Split(view, "\n")
-	w := ansi.StringWidth(lines[0])
+	w := dispW(lines[0])
 	for i, l := range lines {
-		if got := ansi.StringWidth(l); got != w {
+		if got := dispW(l); got != w {
 			t.Errorf("%s: line %d is %d wide, the top border %d", name, i, got, w)
 		}
 	}

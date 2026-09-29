@@ -974,15 +974,19 @@ func (m sshModel) cellView(s *session, i, w, h int) string {
 	// A mode names itself at the top right (tdp K11); the title gives up the
 	// room it takes, and the name stays.
 	if m.copy.on && m.copy.sessID == s.id {
-		titleW := max(0, innerW-dispW(copyModeName)-3)
-		return panelChromeMode(innerW, body, m.cellTitle(s, i, titleW), m.cellTone(s, i), copyModeName)
+		titleW := max(0, innerW-dispW(copyModeLabel)-3)
+		return panelChromeMode(innerW, body, m.cellTitle(s, i, titleW), m.cellTone(s, i), copyModeLabel)
 	}
 	return panelChromeTone(innerW, body, m.cellTitle(s, i, innerW), m.cellTone(s, i))
 }
 
-// copyModeName is what selection mode is called on screen: at the top right of
-// its cell, and as the title of its key reference.
-const copyModeName = "selection mode"
+// copyModeLabel is selection mode's name on its frame: one word, because a
+// narrow cell has no room for two and would lose the whole label (tdp K11).
+// The key reference, a popup with room, keeps the full copyModeName.
+const (
+	copyModeLabel = "Select"
+	copyModeName  = "selection mode"
+)
 
 // markMaxed paints sshu's own disclosures over a full-screen cell.
 //
@@ -1006,7 +1010,7 @@ func (m sshModel) markMaxed(body []string, s *session) {
 		// while the mode is up, so nothing of its own covers it; an outer layer
 		// in a nest may, and the legend on the last row still says it (user
 		// ruling 2026-09-29).
-		overlayRight(body, 0, lipgloss.NewStyle().Foreground(selectColor).Render(" "+copyModeName+" "))
+		overlayRight(body, 0, lipgloss.NewStyle().Foreground(selectColor).Bold(true).Render(" "+copyModeLabel+" "))
 		return
 	}
 	overlayRight(body, 0, m.zoomBadge(s))
@@ -1250,7 +1254,7 @@ func (m sshModel) listItem(s *session, isCursor bool, innerW int) []string {
 		body, gStyle = bar, bar
 	}
 
-	const glyphCell = 2 // the glyph and its trailing space
+	glyphCell := iconCells + 1 // the glyph and its trailing space (tdp D6)
 	// The two lines get DIFFERENT budgets, because the address does not line
 	// up under the name: it starts back at the border and takes the glyph's
 	// two columns with it. Aligning them looked tidier and cost the address —
