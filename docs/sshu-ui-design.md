@@ -2,7 +2,7 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.22/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.23/principle)(tdp),
 不是誰派生自誰。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
@@ -7101,6 +7101,16 @@ tdp 採用了另一條給全家族的路:家族共用一個變數,所有 app 互
   但格子裡的 ProxyCommand、LocalCommand 是這個 PTY 的子程序,設了沒有代價)。
 - 兩條路並存:同一台機器上家族 app 互相嵌著跑,靠變數;隔著 ssh 的 sshu 套 sshu,靠通道。
 - tdp 同版也把「疊 popup 時兩個方向都比畫面大也要切」寫清楚,sshu 在 §11.70 照搬 filu 時已經是這樣。
+
+---
+
+### 11.72 對照 tdp v0.1.23 —— README 寫出兩個 icon 寬度變數
+
+只改 README。D7 要 README 講 icon 寬度的地方寫出 `<APP>__ICON_WIDTH` 與 `TERMINU__ICON_WIDTH`,說明後者全家族共用、設一次每個 app
+都讀到、在家族 app 的 PTY 裡外層會替它設好;不點名「一定佔兩格」的字型 —— 同一個字型在不同終端機上游標前進的格數可能不同
+(filu 實測 Maple Mono NF CN 看起來兩格、游標只前進一格)。sshu 的 README 原本就拿它當兩格的例子,也只把
+`TERMINU__ICON_WIDTH` 寫成「sshu 交給子程序的東西」,沒說使用者可以自己設。改成:Nerd Font 那一條不點名字型,說明 sshu 量的是
+游標前進幾格、會告訴巢狀的 sshu,兩個變數用一張表(誰會讀、優先順序)。兩份 README 對齊。行為不變。
 
 ---
 

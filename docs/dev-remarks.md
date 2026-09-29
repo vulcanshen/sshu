@@ -1,7 +1,7 @@
 # sshu 開發者備忘
 
 開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.22/principle)（tdp）；
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.23/principle)（tdp）；
 使用者要知道的在 README,這裡收的是另一半 —— 行為的細節、背後的理由、以及一路走過來的歷史。完整的設計紀錄(包含被否決的做法)在 [`sshu-ui-design.md`](sshu-ui-design.md)。
 
 靈感來自 [Termius](https://termius.com/) —— 一款 GUI 的 SSH client,而不是哪個終端機工具。sshu 借的是它的精神 —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
@@ -225,11 +225,12 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條(§11.61)、對照 v0.1.9 的 popup 規則(§11.62)、v0.1.10 的 K11(§11.63)與 v0.1.11–v0.1.12 的三條(dim 的算法、loading icon、journal 的 `Enter`,§11.64)也已修完並刪除;2026-09-29 對照 v0.1.14–v0.1.17 的九條(toast 的 `Esc`、`Alt-Esc` 先問、鍵的寫法、`?` 變暗、file transfer 有條件的列、空網格與 layout 的舊鍵、Errors 的 `Enter`、zoom max 的出口鍵,§11.66)也已修完並刪除;對照 v0.1.18–v0.1.19 的四條(模式名、focus 雙線、hint 整組丟、連線中的 `Ctrl-C`,§11.67)也已修完。
   同一份清單的最後一條 icon 的實際寬度(D6),在 filu 定下參考實作之後對照 v0.1.20 修完,連同模式名的接頭(§11.68),清單已刪除。
   對照 v0.1.21 的三條(環境變數改名 `SSHU__<NAME>`、選取模式的 `gg/G`、popup 比畫面大時不 panic,§11.69、§11.70)與 v0.1.22
-  的兩條(讀 `TERMINU__ICON_WIDTH`、開 PTY 時交下去,§11.71)也已修完,清單已刪除。刻意不照做的在下方「偏離 tdp」。
+  的兩條(讀 `TERMINU__ICON_WIDTH`、開 PTY 時交下去,§11.71)也已修完,清單已刪除;v0.1.23 只改 README(兩個 icon 寬度變數寫成表,
+  不點名「一定兩格」的字型,§11.72)。刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
-依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.22)。
+依 tdp P0(規則服務 UX),下面這一條保留 sshu 的做法(使用者 2026-09-27 裁定,對照 tdp v0.1.23)。
 
 sshu 同時管很多個目標,畫面中央又是一格一格的 PTY,原本撞上 tdp 的地方比家族其他成員多。回饋給 tdp 的幾條
 已經採納,不再是偏離:`?` 只讀、global operation popup、K2 拿掉 grid 的例子(v0.1.2;同時採納的「模式按鍵清單
@@ -250,7 +251,7 @@ F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁�
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.71),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.72),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

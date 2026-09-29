@@ -97,7 +97,8 @@ Changes since 1.7.1.
   nested inside it, which cannot ask; `SSHU__ICON_WIDTH` sets it by hand.
   Running inside another app of the family, sshu takes the width that app
   hands down in `TERMINU__ICON_WIDTH`, and hands its own to whatever it runs
-  in a cell or as your editor.
+  in a cell or as your editor. Set `TERMINU__ICON_WIDTH` yourself and every
+  app of the family reads it.
 - **`Ctrl-C` in a cell that is still connecting goes to ssh** and gives the
   connection up, instead of asking whether to quit sshu.
 - **A popup's hint that does not fit drops whole keys from the end**

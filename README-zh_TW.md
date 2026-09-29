@@ -54,7 +54,14 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 ### 需求
 
-- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。把 icon 畫成兩格寬的 CJK 字型(例:Maple Mono NF CN)也可以:sshu 啟動時會問終端機 icon 佔幾格,也會告訴它跑起來的程式:巢狀在裡面的 sshu,或是當作編輯器打開的家族 app(`TERMINU__ICON_WIDTH`)。問錯了就設 `SSHU__ICON_WIDTH=2`(或 `1`)。
+- **Nerd Font** —— 必要,不是選配:auth 方式、檔案型別、marks 都用 Nerd Font glyph 畫。有些 CJK 用的 Nerd Font 會把 icon 畫成兩格,這也可以:sshu 啟動時會問終端機一個 icon 讓游標前進幾格,也會告訴巢狀在它裡面的 sshu。量錯了就自己設:
+
+  | 變數 | 誰會讀 |
+  |---|---|
+  | `SSHU__ICON_WIDTH` | 只有 sshu —— 蓋過一切 |
+  | `TERMINU__ICON_WIDTH` | [terminu family](#terminu-family) 的每一個 app —— 設一次全家族都讀到;在家族 app 的終端機裡跑時,外層的 app 會替你設好 |
+
+  兩個都填 `1` 或 `2`。
 - **truecolor 終端機**(24-bit 色)—— 配色裡的淡色、popup 的層色,以及 popup 底下變暗的畫面,在 256 色下都分不出來。
 - **會送出 Alt 的終端機** —— sshu 的 `Alt-…` 鍵(離開 session 的 `Alt-Esc`、`Alt-v`、`Alt-z` ……)需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」,iTerm2 要把 Option 設成 *Esc+*;kitty、Alacritty、WezTerm 預設就會送。
 
@@ -252,7 +259,7 @@ connect_timeout: 15
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.22/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.23/principle):跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)(Kubernetes)、[filu](https://github.com/vulcanshen/filu)(檔案)、[webu](https://github.com/vulcanshen/webu)(網頁)與 [locku](https://github.com/vulcanshen/locku)(螢幕鎖)。
 
 ## License
 
