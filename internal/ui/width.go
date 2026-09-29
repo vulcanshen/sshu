@@ -197,15 +197,18 @@ func compositeDisp(fg, bg string, xPos, yPos overlay.Position, xOff, yOff int) s
 	fgLines, bgLines := strings.Split(fg, "\n"), strings.Split(bg, "\n")
 	fgW, bgW := blockWidth(fgLines), blockWidth(bgLines)
 	fgH, bgH := len(fgLines), len(bgLines)
-	if fgW >= bgW && fgH >= bgH {
-		return fg
-	}
-	x := clampSpan(placeOffset(xPos, bgW, fgW)+xOff, bgW-fgW)
-	y := clampSpan(placeOffset(yPos, bgH, fgH)+yOff, bgH-fgH)
+	// A box wider or taller than the screen — drawn at the old size in the
+	// frame a resize lands in — starts at 0 and is cut at the screen's edge
+	// (tdp D6): clampSpan alone gives a negative start there, which panics
+	// below. A box the size of the screen simply covers it. (The fix is
+	// filu's b2436f3; the bug came over with the port.)
+	x := max(clampSpan(placeOffset(xPos, bgW, fgW)+xOff, bgW-fgW), 0)
+	y := max(clampSpan(placeOffset(yPos, bgH, fgH)+yOff, bgH-fgH), 0)
 	for i, line := range fgLines {
 		if y+i >= bgH {
 			break
 		}
+		line = clipANSI(line, bgW-x)
 		row := bgLines[y+i]
 		left := clipANSI(row, x)
 		left += strings.Repeat(" ", x-dispW(left)) // a wide icon cut at x, or a short row

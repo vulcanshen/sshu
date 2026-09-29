@@ -301,3 +301,35 @@ func TestTheIconWidthCommandIsTakenUnlessSetByHand(t *testing.T) {
 		}
 	}
 }
+
+// tdp v0.1.21 D6: a box wider or taller than the screen — drawn at the old size
+// in the frame a resize lands in — starts at 0 and is cut at the screen's edge;
+// it never panics. A box the size of the screen covers it exactly. (filu's
+// TestD6CompositeDispOversized, ported with the fix.)
+func TestAnOverlayLargerThanTheScreenIsCutNotAPanic(t *testing.T) {
+	bg := strings.TrimSuffix(strings.Repeat(strings.Repeat(".", 10)+"\n", 5), "\n") // 10 × 5
+	wide := strings.Repeat("W", 14) + "\n" + strings.Repeat("W", 14)
+	tall := strings.TrimSuffix(strings.Repeat("T\n", 8), "\n")
+	both := strings.TrimSuffix(strings.Repeat("ABCDEFGHIJKLMN\n", 8), "\n")
+	for name, fg := range map[string]string{"wider": wide, "taller": tall, "wider and taller": both} {
+		for _, pos := range [][2]overlay.Position{{overlay.Center, overlay.Center}, {overlay.Center, overlay.Bottom}, {overlay.Left, overlay.Top}} {
+			rows := strings.Split(compositeDisp(fg, bg, pos[0], pos[1], 0, -2), "\n")
+			if len(rows) != 5 {
+				t.Errorf("a %s box made %d rows, the screen has 5", name, len(rows))
+			}
+			for r, row := range rows {
+				if dispW(row) != 10 {
+					t.Errorf("a %s box: row %d is %d wide, the screen 10: %q", name, r, dispW(row), row)
+				}
+			}
+		}
+	}
+	rows := strings.Split(compositeDisp(both, bg, overlay.Center, overlay.Center, 0, 0), "\n")
+	if rows[0] != "ABCDEFGHIJ" || rows[4] != "ABCDEFGHIJ" {
+		t.Errorf("a box larger both ways should show its top-left, cut: %q", rows)
+	}
+	same := strings.TrimSuffix(strings.Repeat(strings.Repeat("#", 10)+"\n", 5), "\n")
+	if got := compositeDisp(same, bg, overlay.Left, overlay.Top, 0, 0); got != same {
+		t.Errorf("a box the size of the screen should cover it exactly: %q", got)
+	}
+}
