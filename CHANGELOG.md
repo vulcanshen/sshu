@@ -117,6 +117,9 @@ Changes since 1.7.1.
 - **The empty grid and the layout strip named keys sshu no longer has**:
   the grid now says `[H]` shows or hides a cell, and custom asks only for
   the number of columns.
+- **Shrinking the terminal while a popup is open no longer crashes sshu.**
+  The popup, still at its old size for that one frame, is cut at the edge
+  of the screen.
 
 ## [1.7.1] — 2026-09-17
 
