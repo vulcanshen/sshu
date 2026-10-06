@@ -144,16 +144,16 @@ func (m *hostForm) openCreate(layer int) tea.Cmd {
 
 func (m *hostForm) openEdit(h store.Host, layer int) tea.Cmd {
 	f := blankFields()
-	f[fName].value = h.Name
-	f[fHost].value = h.Host
+	setValue(&f[fName], h.Name)
+	setValue(&f[fHost], h.Host)
 	if h.Port > 0 {
 		f[fPort].value = strconv.Itoa(h.Port) // 0 is "ssh decides" and reads as empty
 	}
-	f[fUser].value = h.User
-	f[fCredential].value = h.Credential
-	f[fIdentity].value = h.IdentityFile
-	f[fPassword].value = h.Password
-	f[fTags].value = store.JoinTags(h.Tags)
+	setValue(&f[fUser], h.User)
+	setValue(&f[fCredential], h.Credential)
+	setValue(&f[fIdentity], h.IdentityFile)
+	setValue(&f[fPassword], h.Password)
+	setValue(&f[fTags], store.JoinTags(h.Tags))
 	switch h.Auth {
 	case store.AuthPrivateKey:
 		f[fAuth].sel = 1
@@ -258,6 +258,11 @@ func (m hostForm) missing() (string, int) {
 	return firstMissing(m.fields, func(i int) bool {
 		return m.enabled(i) && m.fields[i].kind == fieldText && !m.optional(i)
 	})
+}
+
+// breaks is the first enabled text field holding a line break or a tab.
+func (m hostForm) breaks() (string, int) {
+	return firstBreak(m.fields, m.enabled)
 }
 
 // firstMissing is the first required field with nothing in it, as a form error:
@@ -384,13 +389,36 @@ func editField(f *formField, msg tea.KeyMsg) bool {
 	case tea.KeySpace:
 		insertRune(f, ' ')
 	case tea.KeyRunes:
-		for _, r := range msg.Runes {
+		// A paste is one KeyRunes: its line breaks and tabs stay, as a Red \n /
+		// \t, and its other control characters go (singleline.go).
+		for _, r := range singleLine(string(msg.Runes)) {
 			insertRune(f, r)
 		}
 	default:
 		return false
 	}
 	return true
+}
+
+// setValue puts a value that came from somewhere else — a saved record, a file,
+// a picker — into the field, through the same filter as typing, with the caret
+// at its end. A line break or tab in it is drawn and refused like a typed one;
+// any other control character is dropped before it can reach the terminal.
+func setValue(f *formField, v string) {
+	f.value = singleLine(v)
+	f.caret = len([]rune(f.value))
+}
+
+// firstBreak is the first field need names whose value holds a line break or a
+// tab, as a form error. Asked of the value as it stands, before the trim the
+// save does (singleline.go).
+func firstBreak(fields []formField, need func(int) bool) (string, int) {
+	for i := range fields {
+		if need(i) && fields[i].kind == fieldText && hasBreak(fields[i].value) {
+			return breakErr(fields[i].label), i
+		}
+	}
+	return "", -1
 }
 
 func insertRune(f *formField, r rune) {
@@ -620,6 +648,8 @@ func renderTextValue(f formField, focused bool, w int) string {
 	if w <= 0 {
 		return "" // no room for a value at all; the label already took the row
 	}
+	// A masked value is one bullet per rune, a line break or tab included: the
+	// error row says one is there, the bullets do not show it.
 	shown := f.value
 	if f.mask {
 		shown = strings.Repeat("•", len([]rune(f.value)))
@@ -635,23 +665,49 @@ func renderTextValue(f formField, focused bool, w int) string {
 		return cur.Render(" ") + dim.Render(ph) + strings.Repeat(" ", max(0, w-1-dispW(ph)))
 	}
 	if !focused {
-		return txt.Render(padRight(shown, w))
+		v := valueText(shown, w, txt)
+		return v + strings.Repeat(" ", max(0, w-dispW(v)))
 	}
 
-	rs := []rune(shown)
-	caret := min(f.caret, len(rs))
-	// Scroll the window so the caret stays visible in a value longer than the slot.
-	// Guarded: with a one-cell slot the offset would run past the end of the value.
-	if w > 1 && caret >= w-1 {
-		start := min(caret-w+2, len(rs))
-		rs = rs[start:]
-		caret -= start
+	// One unit per rune; a line break or tab is a Red \n / \t, two cells that
+	// are never cut (singleline.go).
+	units := valueUnits(shown)
+	caret := min(f.caret, len(units))
+	// Scroll the window so the caret stays visible in a value longer than the
+	// slot: once what is before the caret reaches the edge, units drop off the
+	// front until it fits with the caret's cell to spare. A \n or \t moves the
+	// window by its two cells; everything else still by one rune. Guarded: with
+	// a one-cell slot there is nothing to scroll into.
+	start, head := 0, 0
+	for _, u := range units[:caret] {
+		head += scrollW(u)
 	}
-	if caret >= len(rs) {
-		rs = append(rs, ' ') // a cell for the caret to sit on past the end
+	if w > 1 && head >= w-1 {
+		for head > w-2 {
+			head -= scrollW(units[start])
+			start++
+		}
 	}
+	at := valueUnit{s: " "} // a cell for the caret to sit on past the end
+	if caret < len(units) {
+		at = units[caret]
+	}
+	shownHead := units[start:caret]
+	// The tail takes what is left of the slot, whole units only.
+	room, n := w-unitsW(shownHead)-dispW(at.s), 0
+	tail := units[min(caret+1, len(units)):]
+	for used := 0; n < len(tail) && used+dispW(tail[n].s) <= room; n++ {
+		used += dispW(tail[n].s)
+	}
+	out := drawUnits(shownHead, edit) + cur.Render(at.s) + drawUnits(tail[:n], edit)
+	return out + strings.Repeat(" ", max(0, w-dispW(out)))
+}
 
-	head, at, tail := string(rs[:caret]), string(rs[caret]), string(rs[caret+1:])
-	return edit.Render(head) + cur.Render(at) + edit.Render(tail) +
-		strings.Repeat(" ", max(0, w-dispW(head+at+tail)))
+// scrollW is how far a unit moves the form's scroll window: a \n or \t the two
+// cells it is drawn in, anything else one rune.
+func scrollW(u valueUnit) int {
+	if u.esc {
+		return 2
+	}
+	return 1
 }

@@ -200,10 +200,14 @@ func (s *askpassServer) close() {
 // arrives on its own schedule — the rename box may be open when ssh asks —
 // and it has to take the keyboard from whatever is up, since ssh is waiting.
 type askpassPopup struct {
-	anim    popupAnimator
-	req     *askpassRequest
-	title   string // the host being dialled
-	value   string
+	anim  popupAnimator
+	req   *askpassRequest
+	title string // the host being dialled
+	value string
+	// err is why Enter did not send the secret. The one refusal is a line
+	// break or tab in it: ssh reads the answer up to the first newline, so a
+	// pasted one would send half of it. Typing clears it.
+	err     string
 	layer   int
 	screenW int
 	screenH int
@@ -217,7 +221,7 @@ func (m *askpassPopup) close() tea.Cmd     { return m.anim.close() }
 func (m *askpassPopup) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 
 func (m *askpassPopup) ask(req *askpassRequest, title string, layer int) tea.Cmd {
-	m.req, m.title, m.value, m.layer = req, title, "", layer
+	m.req, m.title, m.value, m.err, m.layer = req, title, "", "", layer
 	return m.anim.open()
 }
 
@@ -230,18 +234,25 @@ func (m *askpassPopup) update(msg tea.KeyMsg) (done bool) {
 	}
 	switch msg.Type {
 	case tea.KeyEnter:
+		if !m.req.isConfirm() && hasBreak(m.value) {
+			m.err = breakErr("The answer")
+			return false
+		}
 		return true
 	case tea.KeyBackspace:
 		if r := []rune(m.value); len(r) > 0 {
 			m.value = string(r[:len(r)-1])
 		}
+		m.err = ""
 	case tea.KeySpace:
 		if !m.req.isConfirm() {
 			m.value += " "
+			m.err = ""
 		}
 	case tea.KeyRunes:
 		if !m.req.isConfirm() {
-			m.value += string(msg.Runes)
+			m.value += singleLine(string(msg.Runes))
+			m.err = ""
 		}
 	}
 	return false
@@ -263,11 +274,10 @@ func (m askpassPopup) view() string {
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 	txt := lipgloss.NewStyle().Foreground(textColor)
 	edit := lipgloss.NewStyle().Foreground(editColor)
+	red := lipgloss.NewStyle().Foreground(warnColor)
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(editColor)
 
 	lines := strings.Split(strings.TrimRight(m.req.prompt, " \n"), "\n")
-	// No error row on the secret either (tdp F7): sshu passes the answer to
-	// ssh without judging it, so a submit here cannot fail — ssh asks again.
 	innerW := popupInnerW(m.screenW)
 
 	var rows []string
@@ -286,15 +296,20 @@ func (m askpassPopup) view() string {
 			rows = append(rows, style.Render(padRight("  "+l, innerW)))
 		}
 	} else {
-		// A secret: the prompt, a gap, and a line of bullets — one per rune,
-		// as the form draws a password being typed (§6.3).
+		// A secret: the prompt, a gap, and a line of bullets — one per rune, a
+		// line break or tab included, as the form draws a password being typed
+		// (§6.3) — then the error row. The answer is not judged, ssh asks
+		// again; but it can be refused for a line break or tab, so the row is
+		// there from the moment the box opens, blank until then (tdp F7).
 		for _, l := range lines {
 			rows = append(rows, dim.Render(padRight("  "+l, innerW)))
 		}
 		masked := strings.Repeat("•", len([]rune(m.value)))
 		masked = truncate(masked, innerW-3)
 		rows = append(rows, spaces(innerW),
-			" "+edit.Render(masked)+cur.Render(" ")+spaces(max(0, innerW-2-dispW(masked))))
+			" "+edit.Render(masked)+cur.Render(" ")+spaces(max(0, innerW-2-dispW(masked))),
+			spaces(innerW),
+			red.Render(padRight("  "+truncate(m.err, max(0, innerW-2)), innerW)))
 	}
 
 	hint := [][2]string{{"Enter", accept}, {"Esc", "cancel connection"}}

@@ -151,6 +151,7 @@ func (m *AppModel) askKnownHosts(e store.KnownHostEntry, at, layer int) tea.Cmd 
 		action:      inputKnownHosts,
 		at:          at,
 		placeholder: "one name, or several separated by commas",
+		what:        "Names",
 	}, layer)
 }
 
@@ -279,8 +280,10 @@ func (m AppModel) knownAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if res != formSubmit {
 		return m, nil
 	}
-	if msg, at := m.knownAddUI.missing(); at >= 0 {
-		m.knownAddUI.fail(msg, at)
+	why, at := m.knownAddUI.missing()
+	why2, at2 := firstBreak(m.knownAddUI.fields, m.knownAddUI.enabled)
+	if why, at = firstError(why, at, why2, at2); at >= 0 {
+		m.knownAddUI.fail(why, at)
 		return m, nil
 	}
 	host, port := m.knownAddUI.target()

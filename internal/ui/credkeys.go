@@ -203,6 +203,8 @@ func (m *AppModel) syncCredFormError() {
 func (m AppModel) validateCredForm() (string, int) {
 	msg, at := m.credFormUI.missing()
 	msg2, at2 := m.checkCredForm()
+	msg, at = firstError(msg, at, msg2, at2)
+	msg2, at2 = m.credFormUI.breaks()
 	return firstError(msg, at, msg2, at2)
 }
 

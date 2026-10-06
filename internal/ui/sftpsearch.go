@@ -195,7 +195,7 @@ func (s *sftpSideModel) filterKey(msg tea.KeyMsg) bool {
 	}
 	switch msg.Type {
 	case tea.KeyRunes:
-		s.query += string(msg.Runes)
+		s.query += singleLine(string(msg.Runes))
 	case tea.KeySpace:
 		s.query += " "
 	case tea.KeyBackspace:

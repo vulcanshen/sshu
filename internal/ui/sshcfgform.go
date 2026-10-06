@@ -124,13 +124,13 @@ func (m sshcfgForm) shownRows() int {
 // quietly drops a line deletes it the moment you save.
 func (m *sshcfgForm) openEdit(b store.SSHBlock, at, layer int) tea.Cmd {
 	f := blankSSHCfgFields()
-	f[sfHost].value = b.Patterns
+	setValue(&f[sfHost], b.Patterns)
 
 	var fixed [sfFixedCount]store.SSHOption
 	taken := make([]bool, len(b.Options))
 	for _, r := range sfOptionRows {
 		if j := b.IndexOf(r.key); j >= 0 {
-			f[r.field].value = b.Options[j].Value
+			setValue(&f[r.field], b.Options[j].Value)
 			fixed[r.field] = b.Options[j]
 			taken[j] = true
 		}
@@ -142,12 +142,11 @@ func (m *sshcfgForm) openEdit(b store.SSHBlock, at, layer int) tea.Cmd {
 			continue
 		}
 		opts = append(opts, o)
-		f = append(f, formField{label: o.Key, value: o.Value})
+		row := formField{label: o.Key}
+		setValue(&row, o.Value)
+		f = append(f, row)
 	}
 	f = append(f, formField{label: sshcfgAddLabel, placeholder: sshcfgAddHint})
-	for i := range f {
-		f[i].caret = len([]rune(f[i].value))
-	}
 
 	m.fields, m.opts, m.fixed = f, opts, fixed
 	m.focus, m.editing, m.err, m.errIdx = sfHost, at, "", -1
@@ -241,6 +240,12 @@ func (m sshcfgForm) update(msg tea.KeyMsg) (sshcfgForm, formResult) {
 // and does nothing.
 func (m *sshcfgForm) takeAddRow() {
 	at := m.addRow()
+	// Before the trim: a line break pasted at either end would be dropped by it
+	// unseen, and one in the middle would split the option line in the file.
+	if hasBreak(m.fields[at].value) {
+		m.fail(breakErr("An option"), at)
+		return
+	}
 	key, value, _ := strings.Cut(strings.TrimSpace(m.fields[at].value), " ")
 	value = strings.TrimSpace(value)
 
@@ -327,6 +332,13 @@ func (m sshcfgForm) block() store.SSHBlock {
 		b.Options = append(b.Options, store.SSHOption{Key: o.Key, Value: v, At: o.At})
 	}
 	return b
+}
+
+// breaks is the first row the save writes that holds a line break or a tab —
+// one would split its line in the file. The add row is not among them: the save
+// leaves a half-typed option out, and taking it refuses one on its own.
+func (m sshcfgForm) breaks() (string, int) {
+	return firstBreak(m.fields, func(i int) bool { return m.enabled(i) && i != m.addRow() })
 }
 
 func (m *sshcfgForm) fail(msg string, field int) {

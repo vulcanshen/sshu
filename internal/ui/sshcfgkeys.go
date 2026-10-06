@@ -314,7 +314,17 @@ func (m *AppModel) syncSSHCfgFormError() {
 // file's doing: ssh validates its own keywords, and sshu refusing a value it
 // merely does not recognise would make this panel worse than an editor. The two
 // checks left are the ones that would produce a block ssh cannot read at all.
+//
+// A line break or tab is the third, asked of every row the save writes: one
+// would split its option line, and ssh would read the rest as a keyword.
 func (m AppModel) validateSSHCfgForm() (string, int) {
+	msg, at := m.checkSSHCfgForm()
+	msg2, at2 := m.sshcfgFormUI.breaks()
+	return firstError(msg, at, msg2, at2)
+}
+
+// checkSSHCfgForm is the two checks on what the rows say.
+func (m AppModel) checkSSHCfgForm() (string, int) {
 	f := m.sshcfgFormUI
 	if strings.TrimSpace(f.fields[sfHost].value) == "" {
 		return "Host pattern is required", sfHost

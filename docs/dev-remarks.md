@@ -31,9 +31,9 @@
 
 #### 表單的 `Enter`
 
-**`Enter` 在每一欄上都是送出**(tdp K3,§11.59)。沒填完或填錯就不存:focus 跳到**第一個**有問題的欄位,紅色的錯誤列說出缺什麼、錯在哪。這看起來像 `Tab`,但不是 —— `Tab` 一欄一欄走,`Enter` 指出問題;再按一次 `Enter` 還是停在那一欄。(§11.59 以前沒填完的 `Enter` 是「下一欄」、hint 在 `next` / `save` 之間翻面。)「填完」的定義跟著 Auth 走,因為它就是 Auth 留著亮的那幾列:`password` 要 Password、`privatekey` 要 IdentityFile、`credential` 要 Credential 而且不再要 User;`sshconfig` 除了 Host 什麼都不要 —— Port 和 User 還亮著但變成選填,空著就是 ssh 決定;一個還停在預設 `22` 的 Port 會被清空,因為送出去的 `-p 22` 會蓋掉 config 裡的。浮層底部的 hint 固定是 `Enter save`。
+**`Enter` 在每一欄上都是送出**(tdp K3,§11.59)。沒填完或填錯就不存:focus 跳到**第一個**有問題的欄位,紅色的錯誤列說出缺什麼、錯在哪。這看起來像 `Tab`,但不是 —— `Tab` 一欄一欄走,`Enter` 指出問題;再按一次 `Enter` 還是停在那一欄。(§11.59 以前沒填完的 `Enter` 是「下一欄」、hint 在 `next` / `save` 之間翻面。)「填完」的定義跟著 Auth 走,因為它就是 Auth 留著亮的那幾列:`password` 要 Password、`privatekey` 要 IdentityFile、`credential` 要 Credential 而且不再要 User;`sshconfig` 除了 Host 什麼都不要 —— Port 和 User 還亮著但變成選填,空著就是 ssh 決定;一個還停在預設 `22` 的 Port 會被清空,因為送出去的 `-p 22` 會蓋掉 config 裡的。有填的 Port 照樣檢查 1–65535。(2026-10-06 的 input 盤點以前,`missing()` 已經把這兩欄當選填,存檔前的 `checkForm()` 卻還要 User、要 Port 在範圍內 —— 只填 Name 與 Host 送出會得到 `User is required`,§11.73。)浮層底部的 hint 固定是 `Enter save`。
 
-「有沒有填」與「填得對不對」是同一個送出的兩半:`missing()` 找第一個空著的必填欄,各表單的 `check…` 找其他錯誤(Port 範圍、名字重複、credential 不存在),`firstError` 取欄位位置在前的那一個;同一欄兩邊都有話說時,用比較具體的那句(「Choose a credential…」而不是「Credential is required」)。送出一次之後,錯誤列隨著編輯即時更新。
+「有沒有填」與「填得對不對」是同一個送出的兩半:`missing()` 找第一個空著的必填欄,各表單的 `check…` 找其他錯誤(Port 範圍、名字重複、credential 不存在),`firstError` 取欄位位置在前的那一個;同一欄兩邊都有話說時,用比較具體的那句(「Choose a credential…」而不是「Credential is required」)。送出一次之後,錯誤列隨著編輯即時更新。值裡有換行或 Tab 是第三種錯(見下方「設計決定」的「單行的值」),放在最後問,所以同一欄同時「沒填」又「有換行」時(只貼了一個換行),說的是換行。
 
 兩個「選值欄位」保留一個例外:**空著的 IdentityFile 或 Credential 上按 `Enter` 是開選單** —— 對那一欄的送出(K3 允許 submit 單一欄位),因為選單是那一列唯一填得進去的方式。`~/.ssh/config` 表單的 `+ add option` 列打了字時,`Enter` 是加入那一列,不是存整個 block。有值之後它們就是普通的列,`Backspace` 整行清除。
 
@@ -47,6 +47,7 @@
 - **現在按不了的列一律變暗,不跳原因(tdp M6)。** 除了上面兩條:目錄、device、socket 上的 `e`(symlink 交給 edit 自己判斷,它會跟過去),另一側還沒有 host 時的 `t`、`T`。判斷只用畫面上已有的資料(清單的 entry、arrivals、另一側),不為了畫 menu 去 `Stat`。沒有 mark 時 `T`、`X`、`C` 連列都不出現 —— 對象不存在,不是「現在不能」。menu、熱鍵與 `?` 問的是同一個 `sftpCannot()`,三邊不會不一致(M3)。以前這些都是按下去才跳 toast 說原因(§11.66)。
 - **還沒有 host 的那一側,`Space` 照樣開 menu**,只有 `[H]ost` 一列(加上 global 區)。以前直接開 host 清單(「一列的 menu 不是 menu」,§11.16),但那讓 `Space` 在一個 panel 上有兩種意思;tdp K5、M7 定為一律開 menu(§11.55)。
 - **進度**:右上角 `<done>/<files> · <pct>%` 用綠色報告,tab 列下方那條分隔線兼職進度條 —— 綠色從左往右隨百分比推進,在每個 tab 都看得到,傳完瞬間恢復成普通的線。
+- **搜尋只在它的 panel 有 focus 時收字(tdp K8)。** Hosts 的 `/` 與 file transfer 的 `/` 一樣:輸入態屬於拿著 focus 的那個 input。`Tab` 到 nav、或到同一側的 marks,按鍵就照那個 panel 的一般按鍵處理,查詢字與篩選結果留著,那一列整列變灰、不畫游標(tdp 對 finder 的做法);focus 回來就直接接著打。不另存「在不在打字」的狀態:它就是「有查詢」且「focus 在那個 panel」(`hostsSearchTyping`、`sftpSearchTyping`),`typing()`、按鍵路由與 `Esc` 都問它 —— 所以 focus 在 nav 時的 `Esc` 是 nav 的,不會清掉搜尋。以前搜尋開著就一直收字,focus 換到 nav 打 `x` 照樣進查詢字(2026-10-06 的 input 盤點,§11.73)。
 - **遞迴子樹搜尋** —— `/` 走遍當前目錄底下整棵樹,**廣度優先**(SFTP 上每一層目錄都是一次 round trip,所以近的先到),串流、可取消、有上限,而且就地畫出來。`Enter` 把你帶到結果所在的位置、游標已經停在它上面,從那裡 `a` / `t` / `v` / `e` / `x` 全部能用。遠端**內容**搜尋刻意不做:那需要在對面跑指令,而這個 tab 不做這件事。
 - **抓下來之前先讀** —— `v` 的語法上色是 chroma + catppuccin-mocha,跟 filu 同一套;二進位是 xxd 風格的 hex dump。最多讀 64 KiB,因為在遠端那一側每一個 byte 都要過網路。檔案裡的跳脫序列會被剝掉:那些 bytes 是從別人的機器上來的,不處理的話會重畫你的終端機。
 - **用你自己的編輯器編** —— `e` 用 `$VISUAL` / `$EDITOR`(`vi` 只是地板,不是依賴),跑在 embedded terminal 裡所以框還在。本機的檔案就地編,所以它的 inode —— 以及指向它的每一個 hard link —— 都還在。內容沒有真的變就不會寫回去;寫入是原子的,斷線不會留下一份被截斷的設定檔;在你開著它的時候被別人改過的檔案,絕不會不問一聲就蓋掉。
@@ -167,7 +168,8 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
 - **toast 除了 `Esc` 不收鍵(tdp F1、F8)。** 它不算浮層:toast 在畫面上時 `Space`、`?`、字母、數字照常作用,它也不讓任何東西變暗。只有 `Esc` 先收它 —— 在 Hosts 搜尋中、file transfer 的目錄裡、選取模式裡都一樣,第一個 `Esc` 只收 toast,下一個才清搜尋、回上層目錄、丟選取(K4,§11.66)。PTY 裡例外:裸 `Esc` 屬於子程序(K10),toast 等時間到。
 - **Jobs 是 menu:`Enter` 打開那個 job 的全文。** 進度條只放得下失敗原因的開頭,而說明為什麼的常常在結尾;全文開在 viewer 裡、疊在 Jobs 上,`Esc` 回到 Jobs。`c` 取消照舊。tdp v0.1.13 把這個形狀寫進 F1:有 cursor、本身沒有別的動作的清單,`Enter` 可以開那一列的全文,它仍是 menu。
 - **一種寬度,打開時定高(F7)。** 每個 popup 都是 `min(terminal 寬 − 2, 120)` 寬(`popupInnerW`),不再依內容各自算;內容放不下就在框裡截尾或折行。高度在打開那一刻定好:picker 篩掉的列變空白、遠端讀完的 `[v]iew` 不再長高、`~/.ssh/config` 表單加 option 在框裡捲動 —— tdp v0.1.11 起這兩種(loading、使用者自己的動作)**允許**改變高度,sshu 選擇維持定高。內容還在路上的 popup,標題後面轉一個 loading icon(tdp F7、D3,v0.1.12):遠端的 `[v]iew`、`[e]dit` 取檔與寫回、known_hosts `[A]` 等 host key;icon 是 webu 的 circle slice 八格,一格 90ms,由時鐘決定是哪一格(`loadingIcon`),內容一到就消失。比畫面高的 menu 與 Jobs 跟著游標捲動,下框寫 `N of M`。`[e]dit` 是 terminal 類,寬高用滿(terminal 寬 − 2 × 高 − 2),從取檔到寫回都是同一個框。
-- **單行輸入框有錯誤列(F7、K3)。** rename、add、網格欄數、known_hosts 的名字,送出被拒時框不關、原因寫在預留的錯誤列、打字就清掉 —— 以前是關掉整疊再跳 toast,名字要整個重打。askpass 的密碼框沒有錯誤列:sshu 不判斷答案,送出不會失敗,答錯是 ssh 再問一次。
+- **單行輸入框有錯誤列(F7、K3)。** rename、add、網格欄數、known_hosts 的名字,送出被拒時框不關、原因寫在預留的錯誤列、打字就清掉 —— 以前是關掉整疊再跳 toast,名字要整個重打。askpass 的密碼框原本沒有錯誤列:sshu 不判斷答案,答錯是 ssh 再問一次。值裡有換行或 Tab 也會被拒之後(下一條),它也會失敗了,所以照 F7 從打開就預留一列;host key 的 yes/no 不收字,沒有。
+- **單行的值:換行與 Tab 留著、畫出來、送出時擋(2026-10-06 的 input 盤點,家族五個 app 同一段做法)。** 單行的值 —— 表單欄位、input 框、密碼、搜尋與篩選列 —— 裡的換行沒有意義,但它會從貼上進來:一次 bracketed paste 是一整個 `KeyRunes`,換行、`\r`、Tab、ESC 都在裡面。`singleline.go` 的 `singleLine()` 在每一個收字的地方過濾(表單引擎的 `editField`、`inputPopup`、`askpassPopup`、`filePicker`、兩個搜尋的 `filterKey`):換行與 Tab 原樣留在值裡(`\r\n` 存成一個 `\n`,`Backspace` 一次刪掉),其他控制字元(其餘 C0、DEL、C1)丟掉。打開時就帶著的值走同一個過濾 —— `setValue()`(Edit / Duplicate 的 host 與 credential、Host block 從 `~/.ssh/config` 讀來的值、兩個選單填回來的路徑與 credential 名字、Export 的啟動目錄)與 `inputPopup.ask`(Rename 的遠端檔名、Trusted for 從 known_hosts 讀來的名字、Custom grid)—— 遠端檔名什麼字元都可能有,不過濾的話 ESC 會直接送進終端機。畫的時候換行是 `\n`、Tab 是 `\t`,Red、兩格、不切開(`valueText`、`renderTextValue`);跟手打的 `\`、`n` 分得開。遮罩的值照樣一個字元一顆圓點,不露出 `\n`。值會被拿去用的地方,`Enter` 遇到換行或 Tab 不送出,錯誤列說哪一欄(`<欄位> cannot have line breaks or tabs`,四個表單用 `firstBreak()`、input 框用各自的 `what`、Export / Import 照它小寫的句式):**先擋再 trim** —— 表單存檔與 input 框的呼叫端都會 trim,頭尾貼進來的換行會在檢查之前被悄悄吃掉、照樣送出(filu 的 `Icon\r` 就是這樣被改名成 `Icon`)。Host block 的 `+ add option` 在加入那一列時擋,存整個 block 時不看它(存檔本來就不帶半打的 option)。兩個搜尋與選檔器的篩選只畫、不擋:值只拿來找東西;沒在打的搜尋列整列一個灰色上色,`\n` 也跟著灰。表單捲動時 `\n`、`\t` 算兩格,其他字元照舊一個 rune 一格(見「已知的牆」)。
 - **最上層以外全部變暗(F8)。** popup 開著時,底下的畫面(包括還在跑的遠端 session、傳輸進度、警示色)與底下的每一層 popup 都用暗色畫;底下那幾層的框線是自己層色的暗版,還看得出是第幾層。「最上層」是握著鍵盤的那一個(`owns()`),所以上層一開始關,下一層就亮回來。toast 不算一層,不讓任何東西變暗。做法是合成時改寫底下每一個顏色碼(`dimANSI`,照 filu 的參考實作):前景與背景都往畫布色淡化(保留 45%),絕不變亮,一律寫成 24-bit;沒有顏色的字給淡化後的字色;bold、reverse、文字本身不動,所以一格都不位移。§11.62 的第一版是「剝掉顏色、整片用一個灰重畫」,把靠背景畫的東西全拆了 —— tab 列的膠囊、panel 的 `[N]` 膠囊、游標列、選取反白、遠端 vim 的狀態列(§11.64)。遠端程式的 16 色是使用者終端機的調色盤,sshu 讀不到,照 tdp D2 用 xterm 的預設調色盤換成 RGB 再淡化,所以自訂的 16 色淡化後會變成 xterm 的色相。
 
 ### PTY 裡的鍵
@@ -221,12 +223,15 @@ vt10x 不留歷史:模擬器是一塊固定的 grid,離開頂端的列會被它�
   誤觸按 `Esc` 就回去。但誤觸之後使用者多半以為還在 vim 裡,接著打 `:wq⏎`:`:`、`w` 在 confirm 上不作用,`q` 照 K9
   進離開流程 —— 離開流程把進行中的編輯算進代價,所以一定再問一次 —— 而那一問的 `Enter` 就真的離開了。兩層 confirm
   都在動畫中時 `Enter` 不作用,打得快多半會落空,但不是保證。
+- **單行的值還沒對齊的兩處**(2026-10-06 盤點列為「這一輪不修」,等 tdp components 的 input 檔定案):表單的值水平捲動以 rune 計,CJK 對不齊;一行框(input 框、選檔器的篩選)的長值從尾端截,看不到正在打的地方。
 - **未做**:Mouse;`[1]` 的 `[S]ftp` 捷徑(從表格直接把游標那台接到 file transfer 當前 focus 的那一側);fsnotify 重讀 `hosts.yaml`;keychain 存密碼;Export / Import 已實作但遮罩中(設計未定案,§11.12)。
 - **尚未符合 tdp 的地方**:目前沒有。2026-09-26 盤點的清單已於 2026-09-27 修完並刪除(設計文件 §11.54–§11.57);2026-09-28 對照 v0.1.7 的那一條(§11.61)、對照 v0.1.9 的 popup 規則(§11.62)、v0.1.10 的 K11(§11.63)與 v0.1.11–v0.1.12 的三條(dim 的算法、loading icon、journal 的 `Enter`,§11.64)也已修完並刪除;2026-09-29 對照 v0.1.14–v0.1.17 的九條(toast 的 `Esc`、`Alt-Esc` 先問、鍵的寫法、`?` 變暗、file transfer 有條件的列、空網格與 layout 的舊鍵、Errors 的 `Enter`、zoom max 的出口鍵,§11.66)也已修完並刪除;對照 v0.1.18–v0.1.19 的四條(模式名、focus 雙線、hint 整組丟、連線中的 `Ctrl-C`,§11.67)也已修完。
   同一份清單的最後一條 icon 的實際寬度(D6),在 filu 定下參考實作之後對照 v0.1.20 修完,連同模式名的接頭(§11.68),清單已刪除。
   對照 v0.1.21 的三條(環境變數改名 `SSHU__<NAME>`、選取模式的 `gg/G`、popup 比畫面大時不 panic,§11.69、§11.70)與 v0.1.22
   的兩條(讀 `TERMINU__ICON_WIDTH`、開 PTY 時交下去,§11.71)也已修完,清單已刪除;v0.1.23 只改 README(兩個 icon 寬度變數寫成表,
-  不點名「一定兩格」的字型,§11.72)。刻意不照做的在下方「偏離 tdp」。
+  不點名「一定兩格」的字型,§11.72)。2026-10-06 的 input 盤點(不是 tdp 改版)翻出來的五條 —— 單行的值收進換行與控制字元、
+  sshconfig host 存檔仍要 User 與 Port、搜尋在 focus 離開後仍收字、設計文件的舊寫法、註解把「CJK 字型」當成「icon 兩格」——
+  也已修完,清單已刪除(§11.73)。刻意不照做的在下方「偏離 tdp」。
 
 ## 偏離 tdp
 
@@ -251,7 +256,7 @@ F1 的偏離(「viewport 兼 confirm」);v0.1.8 定下六類之後,使用者裁�
 
 | 檔案 | 回答什麼 |
 |---|---|
-| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.72),最後是按鍵全表 |
+| [`sshu-ui-design.md`](sshu-ui-design.md) | 完整的設計紀錄:每一個看得見的行為為什麼是這樣,以及試過而被否決的做法。§A、§B、§1–§7 沿用 VTP 時期的分章(各章標出對應的 tdp 條目),§8 資料層、§9 檔案骨架、§10 開發順序、§11 之後的每一次改動(§11.1–§11.73),最後是按鍵全表 |
 | [`icon.svg`](icon.svg) | 圖示:家族的 mark,藍 U 框住拼出 SSH 的方塊字;`V` splash 照它畫 |
 
 Go、[Bubble Tea](https://github.com/charmbracelet/bubbletea) 與 [Lip Gloss](https://github.com/charmbracelet/lipgloss),embedded terminal 用 [creack/pty](https://github.com/creack/pty) + [hinshun/vt10x](https://github.com/hinshun/vt10x),檔案傳輸用 [pkg/sftp](https://github.com/pkg/sftp) + `golang.org/x/crypto/ssh`,語法上色用 [chroma](https://github.com/alecthomas/chroma)。配色是 catppuccin-mocha。

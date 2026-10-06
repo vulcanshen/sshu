@@ -59,6 +59,7 @@ func (m AppModel) sshKey(k string) (tea.Model, tea.Cmd) {
 				value:  itoa(clamp(m.ssh.gridC, 1, 9)),
 				accept: "apply",
 				action: inputGridDims,
+				what:   "Columns",
 			}, m.layer())
 		}
 		return m, nil

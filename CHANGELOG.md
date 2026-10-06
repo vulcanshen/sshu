@@ -124,6 +124,22 @@ Changes since 1.7.1.
 - **Shrinking the terminal while a popup is open no longer crashes sshu.**
   The popup, still at its old size for that one frame, is cut at the edge
   of the screen.
+- **A pasted line break or tab no longer breaks a one-line field.** In
+  every form, the rename and add box, the grid size, a known_hosts name,
+  ssh's password question, Export and Import, and both searches, a line
+  break or tab you paste stays in the value and shows as a red `\n` or
+  `\t`; any other control character is dropped. Where the value is going to
+  be used, `Enter` refuses it and says which field — before, it was saved
+  with the line break in it, or trimmed off the ends without a word. The
+  password question has an error row for this now. A search is never
+  refused.
+- **An sshconfig host saves without a User or a Port**, as the form's
+  `ssh decides` says. Saving used to ask for both.
+- **A search stops taking keys when its panel loses the focus.** `Tab` from
+  the hosts search to the sections, or from a file search to the marks
+  beside it, kept typing into the query. Now the keys are that panel's; the
+  query and its results stay, greyed, and typing picks up again when you
+  come back.
 
 ## [1.7.1] — 2026-09-17
 
