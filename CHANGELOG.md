@@ -1,9 +1,27 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] — 2026-10-06
+
+**Rename your environment variables before you start 2.0.** They are now
+`SSHU__<NAME>`, with two underscores, like the rest of the family, and the
+old names are no longer read:
+
+| Old | New |
+|---|---|
+| `SSHU_CONFIG` | `SSHU__CONFIG` |
+| `SSHU_KEY_FILE` | `SSHU__KEY_FILE` |
+
+sshu does not warn about an old name. With `SSHU_CONFIG` still set, it
+opens the default directory, where your hosts are not; with
+`SSHU_KEY_FILE` still set, it makes a new key in the config directory,
+which cannot open the passwords you stored. The old directory and the old
+key are left as they were, so setting the new names brings everything
+back. (`SSHU__ICON_WIDTH` is new in this release; `SSHU__ASKPASS_HOST` and
+`SSHU__ASKPASS_SOCK` are sshu talking to itself and need nothing from
+you.)
 
 sshu joins the terminu family and follows its design principle,
-[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.17/principle): the
+[tdp](https://github.com/vulcanshen/terminu/tree/v0.1.23/principle): the
 same core keys and the same menus as kbu, filu, webu and locku. Most of
 what changes is how the keys you already know behave in more places.
 
@@ -103,16 +121,6 @@ Changes since 1.7.1.
   connection up, instead of asking whether to quit sshu.
 - **A popup's hint that does not fit drops whole keys from the end**
   instead of being cut in the middle of one.
-- **Environment variables are named `SSHU__<NAME>`**, with two underscores,
-  like the rest of the family. The old names are no longer read:
-
-  | Old | New |
-  |---|---|
-  | `SSHU_CONFIG` | `SSHU__CONFIG` |
-  | `SSHU_KEY_FILE` | `SSHU__KEY_FILE` |
-
-  (`SSHU__ICON_WIDTH` is new in this release; `SSHU__ASKPASS_HOST` and
-  `SSHU__ASKPASS_SOCK` are sshu talking to itself and need nothing from you.)
 - **Selection mode has `gg` and `G`**: the first and last line of the page,
   scrollback included.
 
