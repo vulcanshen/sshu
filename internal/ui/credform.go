@@ -65,15 +65,12 @@ func (m *credForm) openCreate(layer int) tea.Cmd {
 
 func (m *credForm) openEdit(c store.Credential, layer int) tea.Cmd {
 	f := blankCredFields()
-	f[cName].value = c.Name
-	f[cUser].value = c.User
-	f[cIdentity].value = c.IdentityFile
-	f[cPassword].value = c.Password
+	setValue(&f[cName], c.Name)
+	setValue(&f[cUser], c.User)
+	setValue(&f[cIdentity], c.IdentityFile)
+	setValue(&f[cPassword], c.Password)
 	if c.Auth == store.AuthPrivateKey {
 		f[cAuth].sel = 1
-	}
-	for i := range f {
-		f[i].caret = len([]rune(f[i].value))
 	}
 	m.fields, m.focus, m.editing, m.err, m.errIdx = f, cName, c.Name, "", -1
 	m.submitted = false
@@ -120,6 +117,12 @@ func (m credForm) missing() (string, int) {
 	return firstMissing(m.fields, func(i int) bool {
 		return m.enabled(i) && m.fields[i].kind == fieldText
 	})
+}
+
+// breaks is the host form's, on the sibling: the first enabled text field
+// holding a line break or a tab.
+func (m credForm) breaks() (string, int) {
+	return firstBreak(m.fields, m.enabled)
 }
 
 func (m *credForm) syncFocus() {

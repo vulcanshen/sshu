@@ -516,6 +516,7 @@ func (m AppModel) sftpRename() (tea.Model, tea.Cmd) {
 		accept:  "rename",
 		action:  inputRename,
 		subject: p,
+		what:    "A name",
 	}, m.layer())
 }
 
@@ -599,6 +600,7 @@ func (m AppModel) sftpAdd() (tea.Model, tea.Cmd) {
 		placeholder: "name, or name/ for a directory",
 		accept:      "create",
 		action:      inputAdd,
+		what:        "A name",
 	}, m.layer())
 }
 

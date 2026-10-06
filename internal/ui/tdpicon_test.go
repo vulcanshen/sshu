@@ -25,7 +25,8 @@ func withWideIcons(t *testing.T) {
 	t.Cleanup(func() { iconCells = old })
 }
 
-// wideIcon is an ordinary Nerd Font icon: one cell, or two on a CJK icon font.
+// wideIcon is an ordinary Nerd Font icon: one cell, or two on a font that draws
+// icons two cells wide.
 const wideIcon = ""
 
 // Every screen test that measures the frame, again with two-cell icons: the

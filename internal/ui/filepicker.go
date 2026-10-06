@@ -212,7 +212,7 @@ func (m *filePicker) update(msg tea.KeyMsg) (picked string, done bool) {
 		m.query += " "
 		m.refilter()
 	case tea.KeyRunes:
-		m.query += string(msg.Runes)
+		m.query += singleLine(string(msg.Runes))
 		m.refilter()
 	}
 	m.scroll()
@@ -253,11 +253,12 @@ func (m filePicker) view() string {
 	red := lipgloss.NewStyle().Foreground(warnColor)
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
 
-	// Query row, with the caret parked at the end.
-	q := m.query + " "
+	// Query row, with the caret parked at the end. A line break or tab in the
+	// query is a Red \n / \t; it only filters, so it is never refused.
+	pre := hand.Render(" " + glyphSearch + " ")
+	q := valueText(m.query, max(0, innerW-dispW(pre)-1), txt)
 	rows := []string{
-		hand.Render(" "+glyphSearch+" ") + txt.Render(m.query) +
-			cur.Render(" ") + strings.Repeat(" ", max(0, innerW-4-dispW(q))),
+		pre + q + cur.Render(" ") + strings.Repeat(" ", max(0, innerW-dispW(pre)-dispW(q)-1)),
 		dim.Render(strings.Repeat("─", innerW)),
 	}
 

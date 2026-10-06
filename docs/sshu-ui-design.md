@@ -557,7 +557,9 @@ auth)與內容訊號(哪一種 auth)。這是 §3.3「型別 + 內容」在單�
 **表格的其他欄沒有 glyph**:column header 已經說了那欄是什麼,卡片時代的
 per-field glyph 是在補一個表格天生就有的東西,留著只是雜訊。
 
-### 3.3 CJK icon 寬度
+### 3.3 icon 寬度
+
+(標題原本是「CJK icon 寬度」。icon 佔幾格看字型與終端機,不是看字型是不是給 CJK 用的,§11.73。)
 
 沿用 filu 的 **CPR 偵測**(`\x1b[6n`,在 `tea.NewProgram` 之前實測 icon
 實際格寬)。表格欄寬與 pty 版位都是固定格數,icon 寬度誤判會**直接破框**,所以這一層在
@@ -1002,30 +1004,38 @@ entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
 > Backspace 整行清除**,`Tab` 回歸「下一欄」。見 §11.三、§11.五。
 
 ```
-      ╭─ ◆ New host ──────────────────────────────────╮
-      │                                               │
-      │  Name                                         │
-      │  Host                                         │
-      │  Port          22                             │
-      │  User                                         │
-      │  Auth          ( ) password  (•) privatekey   │
-      │  IdentityFile   tab to browse ~/.ssh          │
-      │  Password      —                              │
-      │                                               │
-      │                                               │
-      │                                               │
-      ╰─ Tab browse  ↑↓ next  Enter save  Esc cancel ─╯
+      ╭─ ◆ New host ─────────────────────────────────────────╮
+      │                                                      │
+      │  Name                                                │
+      │  Host                                                │
+      │  Port          22                                    │
+      │  Auth          ◆ privatekey                          │
+      │  Credential    —                                     │
+      │  User                                                │
+      │  IdentityFile  ▌enter to browse ~/.ssh               │
+      │  Password      —                                     │
+      │  Tags          space separated — prod tokyo needs-…  │
+      │                                                      │
+      │                                                      │
+      │                                                      │
+      ╰─ Enter:browse Tab:next Esc:cancel ───────────────────╯
 ```
+
+(focus 在空的 IdentityFile 上;`▌` 是游標格。寬度放得下時 Auth 四個選項都畫,放不下只畫選中的那個。)
 
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | Name | text | 必填、**全域唯一**(即 hosts.yaml 的 key) |
 | Host | text | 必填、IP 或 domain |
 | Port | text(只吃數字) | 預設 `22`,非數字直接不進欄位。**Auth = sshconfig 時選填**:切過去時仍是預設值就清空、placeholder 寫 `ssh decides`(§11.52) |
-| User | text | 必填;**Auth = sshconfig 時選填**,同上 |
 | Auth | **segmented toggle** | `password` / `privatekey` / `credential` / `sshconfig`,`←` `→` 切換 |
-| **IdentityFile** | text + **`Tab` 開檔案選擇器** | Auth = privatekey 時啟用;空的時候顯示 dim placeholder `tab to browse ~/.ssh` |
-| Password | text(**遮罩 `••••`**) | Auth = password 時啟用;= privatekey 時 **dim + 跳過** |
+| Credential | text + **空欄上的 `Enter` 開 credential 選單** | Auth = credential 時啟用 |
+| User | text | 必填;Auth = credential 時暗掉(credential 供應 user);**Auth = sshconfig 時選填**,同 Port |
+| **IdentityFile** | text + **空欄上的 `Enter` 開檔案選擇器** | Auth = privatekey 時啟用;空的時候顯示 dim placeholder `enter to browse ~/.ssh`;有值時 `Backspace` 整行清除 |
+| Password | text(**遮罩 `••••`**) | Auth = password 時啟用;其他時候 **dim + 跳過** |
+| Tags | text | 選填,空白分隔 |
+
+每一欄都是單行:貼進來的換行或 Tab 留在值裡、畫成 Red 的 `\n` / `\t`,存檔時擋下來(§11.73)。
 
 **欄位叫 `IdentityFile` 不叫 `Identity`** —— 它存的是**檔案路徑**,不是身分;
 名字跟 `hosts.yaml` 的 `identity_file` 對齊,使用者手改 yaml 時不用再猜對應。
@@ -1034,20 +1044,20 @@ entry —— 它們是同一個宣告。`TestSpaceMenuListsEveryAction` /
 (不因切 auth 而跳動),而且使用者一眼看到「另一種 auth 也存在」。停用列以
 `dimColor` 繪、內容顯示 `—`。`TestFormHeightIsStableAcrossAuth` 釘住高度。
 
-**hint 隨 focus 換**:Auth 欄多一條 `←→ switch`;IdentityFile 欄的 hint 變成
-`Tab browse  ↑↓ next`;其餘欄是 `Tab next`。`TestFormHintIsPerField` 釘住
-「不能在做不到 browse 的欄位上宣傳 browse」,而且**只看 hint 那一行** ——
-placeholder 上也有 browse 這個字,整份搜會因為錯的理由通過。
+**hint 隨 focus 換**:一般欄是 `Tab:next Enter:save Esc:cancel`;Auth 欄多一條
+`←/→:switch`;空的 IdentityFile 欄是 `Enter:browse Tab:next Esc:cancel`(空的
+Credential 欄是 `Enter:choose`),填了值之後是 `Enter:save Backspace:clear Esc:cancel`。
+`TestFormHintIsPerField` 釘住「不能在做不到 browse 的欄位上宣傳 browse」,而且
+**只看 hint 那一行** —— placeholder 上也有 browse 這個字,整份搜會因為錯的理由通過。
 
-**`Tab` 在 IdentityFile 欄的意義不一樣**:它開檔案選擇器,就像 shell 裡對著
-路徑按 `Tab` 會補全。這是全 form 唯一一個 `Tab` 不等於「下一欄」的地方,而
-border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surface 可以擁有自己
-一把鍵的全部理由(§4.5)。
+> **歷史(v0.2 以前)**:`Tab` 在 IdentityFile 欄開檔案選擇器,就像 shell 裡對著
+> 路徑按 `Tab` 會補全 —— 全 form 唯一一個 `Tab` 不等於「下一欄」的地方,代價是那一欄
+> 沒辦法用 `Tab` 離開(`TestPathFieldCanStillBeLeft` 當時釘住方向鍵與 `Shift+Tab`
+> 這條退路)。v0.2 把選擇器搬到空欄上的 `Enter`:空著的那一欄 `Enter` 沒有別的事可做,
+> `Tab` 回到每一欄都是「下一欄」(§11.5)。
 
-> **代價明講**:那一欄**沒辦法用 `Tab` 離開**。方向鍵與 `Shift+Tab` 仍然可以,
-> hint 也列了。`TestPathFieldCanStillBeLeft` 釘住這條退路。
-
-**驗證與錯誤**:`Enter` 送出時驗必填 / name 唯一 / port 為 1-65535。不通過
+**驗證與錯誤**:`Enter` 送出時驗必填 / name 唯一 / port 為 1-65535 / 值裡沒有換行或
+Tab(Auth = sshconfig 時 User 與 Port 不必填,有填的 Port 照樣驗)。不通過
 就**留在 form**、把該欄位標紅(Red override,§2.4),錯誤字顯示在最後一列
 —— 那一列**永遠存在**(沒錯時是空白),所以驗證失敗不會讓 popup 抽動。
 不另開 popup 疊上去(§6.7)。
@@ -1060,7 +1070,7 @@ border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surf
 選項被切一半會讀成另一個值。label 欄在極窄時也會讓位,寧可截斷 label 也要
 留住 value 欄 —— 截斷的 label 還讀得懂,消失的 value 不行。
 
-### 6.3.1 Identity file picker(input 附候選清單)—— `Tab`
+### 6.3.1 Identity file picker(input 附候選清單)—— 空欄上的 `Enter`
 
 > **v0.2**:開啟鍵由 `Tab` 改為**空欄位上的 `Enter`**(§11.五)。picker 本身
 > 的行為不變。
@@ -1069,19 +1079,23 @@ border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surf
 太遠。
 
 ```
-      ╭─ ◆ Identity file  ~/.ssh ───────────────────────────╮
-      │  ed                                                 │
-      │─────────────────────────────────────────────────────│
-      │ id_ed25519                          0600     411 B  │
-      │ id_ed25519.pub                      0644      98 B  │
-      │ id_rsa                              0600    2.6 kB  │
-      ╰─ ↑↓ select  Enter pick  Esc cancel ─────────────────╯
+      ╭─ ◆ Identity file  ~/.ssh ────────────────────────────╮
+      │ ◆ ed▌                                                │
+      │──────────────────────────────────────────────────────│
+      │ id_ed25519                            0600     411 B │
+      │ id_ed25519.pub                        0644      98 B │
+      │                                                      │
+      ╰─ ↑/↓:select Enter:pick Esc:cancel ───────────────────╯
 ```
+
+(高度在打開時定好,篩掉的列留成空白,tdp F7。)
 
 - **不分模式**:打字永遠是過濾、方向鍵永遠是移動。沒有「輸入態 / 清單態」要
   學 —— 跟 form 同一條規則(§4.5:文字輸入 surface 裡字母打字、方向鍵導覽)。
   這是刻意跟 filu finder 的 modal 設計分道:filu 要掃整個 `$HOME`、需要
   「Enter 交清單」當節流點;sshu 只掃 `~/.ssh`,沒有那個需求。
+- **篩選列只畫、不擋**:貼進來的換行或 Tab 畫成 Red 的 `\n` / `\t`,其他控制字元丟掉;值只拿來找,
+  所以不會被拒(§11.73)。
 - **fuzzy 比對**:子序列比對,**連續命中**與**落在分隔符後**加權,所以打
   `ided` 會把 `id_ed25519` 排到偶然含這幾個字母的檔案前面。
 - **列出權限與大小**:`0600` / `411 B`。**權限被 group / other 讀得到的 key
@@ -1097,11 +1111,14 @@ border hint **正好只在那一欄**這樣寫 —— 那就是文字輸入 surf
 - 路徑寫回時**折回 `~` 形式**(`store.FoldHome`),`hosts.yaml` 才跨機器可讀。
   `store.ExpandTilde` 是它的反向。
 
-**為什麼是 `Tab` 不是 `Ctrl-F` / `Alt-F`**:兩個修飾鍵版本都走過。`Ctrl-F` 在
+**為什麼不是 `Ctrl-F` / `Alt-F`**:兩個修飾鍵版本都走過。`Ctrl-F` 在
 terminal 生態裡太滿(tmux prefix、readline forward-char、pager 搜尋),踩到別人
 的鍵會讓使用者以為 app 壞了;`Alt-F` 則要求終端機把 Option 當 Meta 送出,沒設
-的人**根本按不到**(跟 `Alt-Esc` 同一個依賴)。`Tab` 兩個問題都沒有,而且
-**對著路徑按 Tab** 本來就是 shell 使用者最熟的那個動作。
+的人**根本按不到**(跟 `Alt-Esc` 同一個依賴)。
+
+(**歷史**:接著用的是 `Tab` —— 兩個問題都沒有,而且**對著路徑按 Tab** 本來就是
+shell 使用者最熟的那個動作;代價是那一欄的 `Tab` 不是「下一欄」。v0.2 起改成空欄
+上的 `Enter`,`Tab` 在每一欄都回到「下一欄」,§11.5。)
 
 (v1.2.0 起裸的 `F` 是 file transfer tab 的鍵。它們不衝突:form 是浮層,而 tab
 鍵在浮層開著時整組不作用 —— 一個 form 底下的 tab 換掉,form 就懸在一個它不認識
@@ -4478,7 +4495,8 @@ splice 那一行的第一個欄位,其餘 byte 不動。
 **表單留在畫面上等。** 十五秒的等待藏在一個已經關掉的浮層後面,跟什麼都沒發生分不
 出來。所以 `scanning` 期間欄位停止收鍵(回來的答案是關於送出去的那個位址,底下被
 改掉會讓確認框指著另一台機器),錯誤列換成 spinner 那一行 —— **換掉而不是新增一行**,
-盒子才不會在開始工作的瞬間改變高度。
+盒子才不會在開始工作的瞬間改變高度。(**歷史**:§11.64 起等待交給標題後的 loading icon,錯誤列只放錯誤;
+問的是哪台、哪個 port,就是框裡上面兩列。)
 
 **`[E]` 只問一個問題,所以它是 input 不是 form(§6.1)。** 金鑰永遠不可編輯:重打
 68 個字元不叫「編輯」,那叫一把新金鑰,而那正是 `[A]` 在做的事 —— 帶著指紋確認。
@@ -7111,6 +7129,90 @@ tdp 採用了另一條給全家族的路:家族共用一個變數,所有 app 互
 (filu 實測 Maple Mono NF CN 看起來兩格、游標只前進一格)。sshu 的 README 原本就拿它當兩格的例子,也只把
 `TERMINU__ICON_WIDTH` 寫成「sshu 交給子程序的東西」,沒說使用者可以自己設。改成:Nerd Font 那一條不點名字型,說明 sshu 量的是
 游標前進幾格、會告訴巢狀的 sshu,兩個變數用一張表(誰會讀、優先順序)。兩份 README 對齊。行為不變。
+
+### 11.73 input 盤點(2026-10-06)—— 單行的值、sshconfig 的 User 與 Port、搜尋跟著 focus
+
+這一輪不是 tdp 改版。terminu 對家族五個 app 做了一次 input 盤點(terminu `.local/input-survey/sshu.md`),翻出幾個跟
+之後 tdp components 的 input 檔怎麼定無關的 bug,列成 `docs/sshu-terminu-fix.md`;五個 app 修完就發版。tdp 仍對照
+v0.1.23,連結不動。清單修完已刪除。
+
+#### 單行的值收進換行、Tab 與控制字元
+
+**現況**:收字的六個地方 —— 表單引擎的 `editField` / `insertRune`、`inputPopup`、`askpassPopup`、`filePicker`、Hosts 與
+file transfer 兩個搜尋的 `filterKey` —— 都把 `KeyRunes` 原樣接上去。一次 bracketed paste 就是一整個 `KeyRunes`,裡面的
+換行、`\r`、Tab、ESC 全部照收:User 欄貼上 `1\n2`,那一列在框內斷成兩列;Rename 的預填是遠端檔名,檔名裡的 ESC
+直接送進終端機。
+
+**做法**(五個 app 同一段文字,user 2026-10-06 定案,之後寫進 tdp components 的 input 檔;畫出來的樣子與行為一樣,程式
+各 app 自己寫):
+
+- 範圍是單行的值:表單欄位、input 框、密碼、搜尋與篩選列。只收數字的欄位(Port)照舊只收 `0`–`9`。按下去的 `Tab`、
+  `Enter` 是另外的 `msg.Type`,照舊做它們的事(K2、K3);只過濾以文字進來的字元。
+- 換行與 Tab **原樣留在值裡**,`\r\n` 存成一個 `\n`(之後一個 rune 就是一個單位,`Backspace`、遮罩、量寬都不用另外處理);
+  其他控制字元(其餘 C0、DEL、C1)丟掉。打開時就帶著的值走同一個過濾 —— 同一個值有兩條路進來,兩條要一樣(locku 的經驗)。
+- 畫成 `\n`、`\t`,Red,兩格,量寬、截斷、捲動都當成不能切開的一個單位;整列灰的搜尋列裡也跟著灰,整列一次上色。
+  遮罩的值照樣一個字元一顆圓點,不露出 `\n`。
+- 值會被拿去用的 input,`Enter` 遇到換行或 Tab 不送出,錯誤列說哪一欄;搜尋與篩選列只畫、不擋。
+- **先擋再 trim**:擋拿原值、在 trim 之前。表單存檔(Password 以外)與 input 框的呼叫端都會 trim,頭尾貼進來的換行會在
+  檢查之前被吃掉、照樣送出 —— filu 的 `Icon\r` 原樣按 `Enter` 就被改名成 `Icon`。
+
+否決的兩個:原樣畫(把框畫壞)、偷偷換成空白或刪掉(改了使用者的值而看不出來 —— user:「應該轉成 `\n` 或 `\t` 這種
+明確顯示」)。只在畫面上轉、值裡留原字元,跟手打的 `\`、`n` 才分得開,也不會把沒有意義的字元送出去。
+
+sshu 的實作(`singleline.go`):
+
+- `singleLine()` 是過濾,六個收字的地方都過它。預填走 `setValue()` —— Edit / Duplicate 的 host 與 credential、Host block
+  從 `~/.ssh/config` 讀來的值、兩個選單填回來的 identity 路徑與 credential 名字、Export 頁的啟動目錄 —— 與
+  `inputPopup.ask`(Rename 的遠端檔名、Trusted for 從 known_hosts 讀來的名字、Custom grid)。選單與 Export 的目錄清單沒列,
+  一樣是「從別處讀來的值」,一起過。
+- 畫:`valueText()`(截尾、Red 的 `\n` / `\t`)、`valuePlain()`(整列一個顏色的列用)、`renderTextValue()`(表單,含 focus 時的
+  水平捲動)。捲動時 `\n`、`\t` 移動兩格,其他字元照舊一個 rune 一格 —— 「以 rune 計、CJK 對不齊」是清單列為「這一輪不修」
+  的那條,這裡不順手改。游標後面的字以整個單位截在欄位寬內;以前它超出欄位、靠框的 `clipANSI` 切,會把 `\n` 切成一半。
+- 擋:四個表單(Export / Import 頁共用同一個引擎,一起)用 `firstBreak()`,問的是會被存下來的列 —— Auth 關掉的列不問,
+  Host block 的 `+ add option` 不問(存檔本來就不帶半打的 option;它自己被加入時另外擋,`An option cannot have line breaks
+  or tabs`)。錯誤跟 `missing()`、`check…()` 一起比位置,同一欄時換行勝:只貼了一個換行的 Name 不是「沒填」,是「有換行」。
+  input 框在 `update` 的 `Enter` 擋,每個呼叫端給一個 `what`(`A name`、`Columns`、`Names`),四個框不必各寫一次。
+  Export / Import 照它們小寫的句式(`filename cannot have line breaks or tabs`)。句子用 sshu 既有的 `cannot`。
+- askpass 的密碼框原本沒有錯誤列 —— sshu 不判斷答案,送出不會失敗。現在會失敗了(ssh 讀到第一個換行為止,貼進來的換行
+  會送出半個密碼),照 F7 從打開就預留一列:`The answer cannot have line breaks or tabs`。ssh 問的可能是密碼、passphrase
+  或驗證碼,所以不說「password」。host key 的 yes/no 不收字,不用。
+- 不擋:選檔器的篩選、Hosts 搜尋、file transfer 子樹搜尋。
+
+#### Auth = sshconfig 時,送出仍要求 User 與 Port
+
+`missing()` 早就把這兩欄當選填(§11.52,兩欄的 placeholder 也寫 `ssh decides`),但存檔前的 `checkForm()` 還要 User
+非空、Port 在 1–65535:只填 Name、Host 送出得到 `User is required`,補上 User 得到 `Port must be 1-65535`。改成
+sshconfig 時 `checkForm` 不要 User;Port 空著通過(存成 0,就是 ssh 決定),有填才檢查範圍。`store` 那一層本來就收
+(`portOK` 允許 sshconfig 的 0)。
+
+#### 搜尋中 focus 離開那個 panel,打的字仍進 query
+
+Hosts 搜尋中按 `Tab`,focus 到 nav `[1]`,打 `x` 照樣進查詢字;file transfer 的搜尋 `Tab` 到同一側的 marks 也一樣。輸入態
+只屬於拿著 focus 的那個 input(K8)。
+
+改成:「在打字」就是「有查詢」且「那個 panel 有 focus」(`hostsSearchTyping()`、`sftpSearchTyping()`),`typing()`、按鍵
+路由、`Esc` 都問它。focus 一離開,按鍵照新 panel 的一般按鍵處理 —— nav 上的 `Esc` 是 nav 的,不清搜尋 —— 查詢字與篩選結果
+留著,那一列整列用 Overlay0 畫、不畫游標(tdp 對 finder 的「`Tab` 到清單後篩選列整列變灰」,`queryRow()` 兩個搜尋共用)。
+**focus 回到那個 panel 就直接回到打字**(清單交給 sshu 定,兩個搜尋要一樣):不另存「在不在打字」,查詢列一直在畫面上,
+回來就是接著打,不用再按一次 `/`。README 兩份寫了。
+
+#### 文件與註解
+
+- §6.3、§6.3.1 改成現在的樣子:圖、欄位表(補上 Credential、Tags 兩列)、hint 用 `鍵:說明`、空欄上的 `Enter` 開選檔器;
+  `Tab` 開選檔器的那幾段留著、標成歷史。
+- §11.40「錯誤列換成 spinner 那一行」標成歷史(§11.64 起是標題後的 loading icon,錯誤列只放錯誤)。
+- 「CJK icon 字型」當成「icon 佔兩格」的代稱:照 filu 整類 grep,改了 `width.go` 的 `isWideIcon` 與 `tdpicon_test.go` 的
+  `wideIcon` 兩處註解;§3.3 的標題「CJK icon 寬度」改成「icon 寬度」。不說死的寫法(「有些 CJK 用的 Nerd Font」:`width.go`
+  開頭、`tdpicon_test.go` 開頭、README 兩份、dev-remarks、§11.68)留著;講的是 CJK 字元本身的(遠端的寬字元、CJK 檔名)
+  不是這一類。CHANGELOG `[Unreleased]` 沒有這個問題。
+
+#### 測試
+
+`singleline_test.go` 32 條:每一個收字入口各自過濾(拿掉任一處的過濾要紅)、`12\r\n34` 分得出「`\r\n` 算一個」、每一個預填
+入口、`\n` 不被切開(截尾、尾巴剛好卡在它上面、捲動)、每個表單與 input 框的擋與它的句子、只貼一個換行時說的是換行、
+Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshconfig 只填 Name 與 Host 可以存、兩個搜尋 focus 離開後不收字、
+不清、列變灰、回來接著打。69 處 mutation 全部抓到;只因編譯失敗的三處改寫成編得過的版本重跑,存活的兩處補了測試
+(Credential 與 Host block 表單打開時游標在尾端 —— Host 表單後面另有一圈設游標,在那裡觀察不到;Credential 表單 Auth 關掉的列)。
 
 ---
 

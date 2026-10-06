@@ -85,7 +85,7 @@ func (m sftpModel) filesPanel(sd side, w, h int, a arrivals) string {
 		// one pushing the other down and shifting every row below.
 		var head string
 		if s.filtering {
-			head = searchRow(s, innerW)
+			head = searchRow(s, innerW, focused)
 		} else {
 			head = renderCrumb(foldHomePath(s.cwd, s.home), innerW-1)
 			head = " " + head + strings.Repeat(" ", max(0, innerW-1-dispW(head)))
@@ -133,20 +133,10 @@ func (m sftpModel) fileRows(s sftpSideModel, innerW, innerH int, a arrivals) []s
 // pushing the other down and shifting every row below it.
 //
 // The query is what must survive a narrow panel; the count is dropped first.
-func searchRow(s sftpSideModel, w int) string {
-	hand := lipgloss.NewStyle().Foreground(handColor)
-	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
-	dim := lipgloss.NewStyle().Foreground(dimColor)
-
-	q := truncate(s.filterLabel(), max(0, w-2))
-	used := 2 + dispW(q) // the leading space and the block cursor
-	note := s.scanNote()
-	if dispW(note)+2 > w-used {
-		note = ""
-	}
-	row := " " + hand.Render(q) + cur.Render(" ") +
-		strings.Repeat(" ", max(0, w-used-dispW(note))) + dim.Render(note)
-	return clipANSI(row, w)
+// It is typed into only while this files panel holds the focus — Tab to the
+// marks beside it and the row goes grey, as the hosts search does (queryRow).
+func searchRow(s sftpSideModel, w int, typing bool) string {
+	return queryRow(s.filterLabel(), s.scanNote(), w, typing)
 }
 
 // marksPanel is [5] / [7]. It lists what has been marked on its own side, as

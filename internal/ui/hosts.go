@@ -175,7 +175,7 @@ func (m *hostsModel) filterKey(msg tea.KeyMsg) bool {
 	}
 	switch msg.Type {
 	case tea.KeyRunes:
-		m.query += string(msg.Runes)
+		m.query += singleLine(string(msg.Runes))
 	case tea.KeySpace:
 		m.query += " "
 	case tea.KeyBackspace:
@@ -232,7 +232,7 @@ func (m hostsModel) status() string {
 
 func (m hostsModel) view(title string, focused bool) string {
 	innerW, innerH := m.w-2, m.h-2
-	body := m.tableBody(innerW, innerH)
+	body := m.tableBody(innerW, innerH, focused)
 	switch {
 	case len(m.hosts) == 0:
 		body = m.emptyState(innerW, innerH)
@@ -240,13 +240,15 @@ func (m hostsModel) view(title string, focused bool) string {
 		// Not the first-run state: there ARE hosts, none of them match. Saying
 		// "no hosts yet" here would be a different and wrong thing to say — and
 		// the query row stays, because it is what you would edit next.
-		body = append([]string{m.filterRow(innerW)},
+		body = append([]string{m.filterRow(innerW, focused)},
 			emptyBody(innerW, innerH-1, "No match", nil)...)
 	}
 	return panelChrome(innerW, fitLines(body, innerW, innerH), title, focused)
 }
 
-func (m hostsModel) tableBody(innerW, innerH int) []string {
+// focused is whether the panel holds the focus, which is whether its query is
+// being typed into (filterRow).
+func (m hostsModel) tableBody(innerW, innerH int, focused bool) []string {
 	c := computeCols(innerW)
 	out := make([]string, 0, max(0, innerH))
 
@@ -254,7 +256,7 @@ func (m hostsModel) tableBody(innerW, innerH int) []string {
 	// table down: the two answer the same question ("what am I looking at"), and
 	// sharing one slot keeps the row count fixed (tdp L3).
 	if m.filtering {
-		out = append(out, m.filterRow(innerW))
+		out = append(out, m.filterRow(innerW, focused))
 	} else {
 		out = append(out, tableHeader(c, innerW))
 	}
@@ -275,19 +277,36 @@ func (m hostsModel) tableBody(innerW, innerH int) []string {
 // many of the hosts it leaves. The glyph rather than a literal "/" for the same
 // reason tab [2] uses one — echoing the key that opened the search makes a query
 // containing that character unreadable.
-func (m hostsModel) filterRow(w int) string {
+//
+// The query is typed into only while the panel holds the focus (tdp K8). With
+// the focus elsewhere the row stays, query and count, but grey whole and with
+// no caret — the finder's look for a query nobody is typing into — and the
+// typing picks up again when the focus comes back.
+func (m hostsModel) filterRow(w int, typing bool) string {
+	return queryRow(glyphSearch+" "+m.query,
+		fmt.Sprintf("%d of %d", len(m.matches), len(m.hosts)), w, typing)
+}
+
+// queryRow is a search's query line, shared by both searches: the query on the
+// left with a block caret after it, a count on the right, dropped first when
+// the row is narrow. A line break or tab in the query is a Red \n / \t while
+// it is typed into; with typing false the row is grey, one colour, \n and \t
+// included, and has no caret.
+func queryRow(label, note string, w int, typing bool) string {
 	hand := lipgloss.NewStyle().Foreground(handColor)
 	cur := lipgloss.NewStyle().Foreground(lipgloss.Color(baseHex)).Background(handColor)
 	dim := lipgloss.NewStyle().Foreground(dimColor)
 
-	q := truncate(glyphSearch+" "+m.query, max(0, w-2))
-	used := 2 + dispW(q)
-	note := fmt.Sprintf("%d of %d", len(m.matches), len(m.hosts))
+	q := valuePlain(label, max(0, w-2))
+	used := 2 + dispW(q) // the leading space and the caret's cell
 	if dispW(note)+2 > w-used {
 		note = ""
 	}
-	row := " " + hand.Render(q) + cur.Render(" ") +
-		strings.Repeat(" ", max(0, w-used-dispW(note))) + dim.Render(note)
+	gap := strings.Repeat(" ", max(0, w-used-dispW(note)))
+	if !typing {
+		return clipANSI(dim.Render(" "+q+" "+gap+note), w)
+	}
+	row := " " + valueText(label, max(0, w-2), hand) + cur.Render(" ") + gap + dim.Render(note)
 	return clipANSI(row, w)
 }
 

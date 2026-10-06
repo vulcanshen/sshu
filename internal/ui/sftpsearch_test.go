@@ -322,7 +322,7 @@ func TestNarrowSearchRowDropsTheCountRatherThanCutIt(t *testing.T) {
 	s.found = make([]remote.Entry, 840)
 	s.matches = make([]int, 12)
 
-	row := searchRow(s, 24)
+	row := searchRow(s, 24, true)
 	if got := dispW(row); got != 24 {
 		t.Fatalf("row is %d cells, want 24: %q", got, row)
 	}
@@ -330,7 +330,7 @@ func TestNarrowSearchRowDropsTheCountRatherThanCutIt(t *testing.T) {
 		t.Errorf("the count did not fit and was sliced instead of dropped: %q", plain)
 	}
 
-	if plain := ansi.Strip(searchRow(s, 60)); !strings.Contains(plain, "12 of 840") {
+	if plain := ansi.Strip(searchRow(s, 60, true)); !strings.Contains(plain, "12 of 840") {
 		t.Errorf("with room to spare the count should be there, got %q", plain)
 	}
 }

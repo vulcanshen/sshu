@@ -648,8 +648,9 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, m.toast.close()
 		}
 		// A search is the innermost thing Esc can drop, on either tab that has
-		// one.
-		if !m.popupOpen() && m.tab == tabPref && m.pref.item == prefHosts && m.hosts.filtering {
+		// one — while it is being typed into. With the focus on another panel
+		// Esc is that panel's.
+		if !m.popupOpen() && m.hostsSearchTyping() {
 			m.hosts.clearFilter()
 			return m, nil
 		}
@@ -665,8 +666,8 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// directory. Only the sftp browser has an "up" to go to.
 		if !m.popupOpen() && m.tab == tabFT && !m.sftp.focus.isMarks() {
 			// A filter is the innermost thing Esc can drop, before the directory.
-			if s := m.sftp.cur(); s.filtering {
-				s.clearFilter()
+			if m.sftpSearchTyping() {
+				m.sftp.cur().clearFilter()
 				return m, nil
 			}
 			m.sftp.cur().up()
@@ -792,10 +793,10 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// A filtering file list claims printable keys before the action table can:
 	// while a query is being typed, "a" is a letter, not Append. Arrows, Enter and
 	// Esc fall through — the same split the picker and the form make (tdp K8).
-	if m.tab == tabFT && !m.popupOpen() && m.sftp.cur().filterKey(msg) {
+	if !m.popupOpen() && m.sftpSearchTyping() && m.sftp.cur().filterKey(msg) {
 		return m, nil
 	}
-	if m.tab == tabPref && m.pref.item == prefHosts && !m.popupOpen() && m.hosts.filterKey(msg) {
+	if !m.popupOpen() && m.hostsSearchTyping() && m.hosts.filterKey(msg) {
 		return m, nil
 	}
 	// An Operation page (Export / Import) is a text surface IN a panel: while
@@ -1078,10 +1079,22 @@ func (m AppModel) typing() bool {
 	if m.popupOpen() {
 		return false // a float has the keyboard; the panel behind it is not being typed into
 	}
-	if m.tab == tabFT && m.sftp.cur().filtering {
-		return true
-	}
-	return m.tab == tabPref && m.pref.item == prefHosts && m.hosts.filtering
+	return m.sftpSearchTyping() || m.hostsSearchTyping()
+}
+
+// hostsSearchTyping and sftpSearchTyping say whether a search is being typed
+// into: it is running AND its panel holds the focus. The input state belongs to
+// the input that has the focus (tdp K8) — Tab to the nav, or to the marks
+// beside the files, and the keys are that panel's again, while the query and
+// what it found stay on screen. Nothing is stored for it: the focus coming back
+// is the typing coming back, the same on both searches.
+func (m AppModel) hostsSearchTyping() bool {
+	return m.tab == tabPref && m.pref.item == prefHosts &&
+		m.pref.focus == panelPrefContent && m.hosts.filtering
+}
+
+func (m AppModel) sftpSearchTyping() bool {
+	return m.tab == tabFT && !m.sftp.focus.isMarks() && m.sftp.cur().filtering
 }
 
 // switchTab is the one place the tab changes. The sftp watcher only runs
@@ -2241,9 +2254,7 @@ func (m AppModel) credPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key == "" {
 		return m, nil
 	}
-	name := strings.TrimPrefix(key, "@")
-	m.form.fields[fCredential].value = name
-	m.form.fields[fCredential].caret = len([]rune(name))
+	setValue(&m.form.fields[fCredential], strings.TrimPrefix(key, "@"))
 	m.form.focus = fCredential
 	m.syncFormError()
 	return m, m.credPicker.close()
@@ -2269,21 +2280,18 @@ func (m AppModel) pickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.credFormUI.isActive() {
-		m.credFormUI.fields[cIdentity].value = path
-		m.credFormUI.fields[cIdentity].caret = len([]rune(path))
+		setValue(&m.credFormUI.fields[cIdentity], path)
 		m.credFormUI.focus = cIdentity
 		m.syncCredFormError()
 		return m, m.picker.close()
 	}
 	if m.sshcfgFormUI.isActive() {
-		m.sshcfgFormUI.fields[sfIdentity].value = path
-		m.sshcfgFormUI.fields[sfIdentity].caret = len([]rune(path))
+		setValue(&m.sshcfgFormUI.fields[sfIdentity], path)
 		m.sshcfgFormUI.focus = sfIdentity
 		m.syncSSHCfgFormError()
 		return m, m.picker.close()
 	}
-	m.form.fields[fIdentity].value = path
-	m.form.fields[fIdentity].caret = len([]rune(path))
+	setValue(&m.form.fields[fIdentity], path)
 	m.form.focus = fIdentity
 	m.syncFormError() // a pick is an edit; the error must react to it too
 	return m, m.picker.close()
@@ -2332,22 +2340,32 @@ func (m AppModel) commitForm() (tea.Model, tea.Cmd) {
 // store.Validate cannot do — it validates the document, not a form. store stays
 // the authority: SaveTo re-validates before it writes, so a rule added there is
 // still enforced even if this layer misses it.
+//
+// A line break or tab is asked last so that it wins a tie: a Name that is only
+// a pasted line break is not missing, it is a Name with a line break in it.
 func (m AppModel) validateForm() (string, int) {
 	msg, at := m.form.missing()
 	msg2, at2 := m.checkForm()
+	msg, at = firstError(msg, at, msg2, at2)
+	msg2, at2 = m.form.breaks()
 	return firstError(msg, at, msg2, at2)
 }
 
 // checkForm is everything about the host form beyond "is it filled in".
+//
+// An sshconfig host asks for neither User nor Port: ssh takes both from the
+// file, and an empty row is "ssh decides" (§11.52). A Port typed there is still
+// checked — it goes out as -p.
 func (m AppModel) checkForm() (string, int) {
 	name := strings.TrimSpace(m.form.fields[fName].value)
 	credential := m.form.auth() == store.AuthCredential
+	sshconfig := m.form.auth() == store.AuthSSHConfig
 	switch {
 	case name == "":
 		return "Name is required", fName
 	case strings.TrimSpace(m.form.fields[fHost].value) == "":
 		return "Host is required", fHost
-	case !credential && strings.TrimSpace(m.form.fields[fUser].value) == "":
+	case !credential && !sshconfig && strings.TrimSpace(m.form.fields[fUser].value) == "":
 		return "User is required", fUser
 	}
 	if credential {
@@ -2366,9 +2384,11 @@ func (m AppModel) checkForm() (string, int) {
 			return fmt.Sprintf("No credential named %q — see manage → credentials", cn), fCredential
 		}
 	}
-	port, err := strconv.Atoi(strings.TrimSpace(m.form.fields[fPort].value))
-	if err != nil || port < 1 || port > 65535 {
-		return "Port must be 1-65535", fPort
+	if p := strings.TrimSpace(m.form.fields[fPort].value); p != "" || !sshconfig {
+		port, err := strconv.Atoi(p)
+		if err != nil || port < 1 || port > 65535 {
+			return "Port must be 1-65535", fPort
+		}
 	}
 	for _, h := range m.hosts.hosts {
 		if h.Name == name && name != m.form.editing {

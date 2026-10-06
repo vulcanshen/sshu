@@ -148,7 +148,7 @@ func TestSearchPromptIsAGlyphNotASlash(t *testing.T) {
 	m = pressA(m, "/")
 	m = typeText(m, "/tmp")
 
-	row := ansi.Strip(searchRow(m.sftp.sides[sideLeft], 40))
+	row := ansi.Strip(searchRow(m.sftp.sides[sideLeft], 40, true))
 	if !strings.Contains(row, glyphSearch) {
 		t.Errorf("no search glyph in the prompt: %q", row)
 	}

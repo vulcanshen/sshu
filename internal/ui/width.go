@@ -53,8 +53,9 @@ func withIconWidth(env []string) []string {
 // IconCells reports the detected icon width.
 func IconCells() int { return iconCells }
 
-// isWideIcon reports whether r is a Nerd Font icon that a CJK icon font draws
-// two cells wide. The powerline caps (U+E0A0–E0D7, the capsule ends) live in
+// isWideIcon reports whether r is a Nerd Font icon: what a font that draws icons
+// two cells wide draws in two (how many is the font and the terminal, measured
+// at startup). The powerline caps (U+E0A0–E0D7, the capsule ends) live in
 // the Private Use Area too but stay one cell, so they are left out.
 func isWideIcon(r rune) bool {
 	if r >= 0xe0a0 && r <= 0xe0d7 {

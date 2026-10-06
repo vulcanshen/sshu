@@ -139,6 +139,10 @@ The left nav (`1`) picks a section and the content follows the cursor; `Enter` o
 
 In the host form: `Tab/Shift-Tab/↑/↓` move between fields, `←/→` switch Auth between **password**, **privatekey**, **credential** and **sshconfig**. `Enter` saves; if something required is missing or wrong, it takes you to the first such field and says what is wrong. **Tags** are optional and separated by spaces.
 
+Every field is one line. A line break or tab you paste into one shows as a red `\n` or `\t`, and `Enter` won't save until it is gone; the searches take it as it is.
+
+A search (`/`, here and in file transfer) takes your typing while its panel has the focus. `Tab` to another panel and the keys are that panel's again — the query and what it found stay on screen, greyed — and typing goes on when you come back.
+
 ### `[F]ile transfer` — lower case acts on the row, upper case on the panel
 
 | Key | Action |

@@ -139,6 +139,10 @@ sshu
 
 host 表單裡:`Tab/Shift-Tab/↑/↓` 換欄位,`←/→` 在 **password**、**privatekey**、**credential**、**sshconfig** 之間切 Auth。`Enter` 就是存檔;有必填沒填或填錯的,它會帶你到第一個有問題的欄位,並說出哪裡不對。**Tags** 選填,用空白分隔。
 
+每一欄都是單行。貼進去的換行或 Tab 會顯示成紅色的 `\n`、`\t`,拿掉之前 `Enter` 不會存;搜尋則照樣拿去找。
+
+搜尋(`/`,這裡與 file transfer 都有)只在它的 panel 有 focus 時收你打的字。`Tab` 到別的 panel,按鍵就回到那個 panel 的意思 —— 查詢字與找到的結果留在畫面上、變灰 —— 回到原本的 panel 就接著打。
+
 ### `[F]ile transfer` —— 小寫作用在游標那一列,大寫作用在整個 panel
 
 | 鍵 | 動作 |

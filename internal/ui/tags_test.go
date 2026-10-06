@@ -174,7 +174,7 @@ func TestAHostEntryIsDrawnWholeOrNotAtAll(t *testing.T) {
 
 	// 6 inner lines: 1 header + room for 2 whole entries, with one line spare
 	// that the third entry cannot fit into.
-	body := m.tableBody(78, 6)
+	body := m.tableBody(78, 6, true)
 	if len(body) != 1+2*hostRowLines {
 		t.Fatalf("want header + 2 whole entries = %d lines, got %d:\n%s",
 			1+2*hostRowLines, len(body), strings.Join(body, "\n"))

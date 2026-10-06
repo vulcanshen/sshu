@@ -40,13 +40,9 @@ type bundlePage struct {
 // exactly what the field shows.
 func newExportPage() bundlePage {
 	dir, _ := os.Getwd()
-	f := []formField{
-		{label: "Directory", value: store.FoldHome(dir)},
-		{label: "Filename", value: "sshu-export" + store.BundleExt},
-	}
-	for i := range f {
-		f[i].caret = len([]rune(f[i].value))
-	}
+	f := []formField{{label: "Directory"}, {label: "Filename"}}
+	setValue(&f[0], store.FoldHome(dir))
+	setValue(&f[1], "sshu-export"+store.BundleExt)
 	return bundlePage{fields: f, errIdx: -1}
 }
 
@@ -165,9 +161,17 @@ func (m AppModel) doExport() (tea.Model, tea.Cmd) {
 	p := &m.exportPage
 	dir := strings.TrimSpace(p.fields[0].value)
 	name := strings.TrimSpace(p.fields[1].value)
+	// Each row is asked about a line break or tab before its trim, which would
+	// drop one at either end unseen.
 	switch {
+	case hasBreak(p.fields[0].value):
+		p.fail(breakErr("directory"), 0)
+		return m, nil
 	case dir == "":
 		p.fail("directory is required", 0)
+		return m, nil
+	case hasBreak(p.fields[1].value):
+		p.fail(breakErr("filename"), 1)
 		return m, nil
 	case name == "":
 		p.fail("filename is required", 1)
@@ -199,7 +203,11 @@ func (m AppModel) doExport() (tea.Model, tea.Cmd) {
 func (m AppModel) doImport() (tea.Model, tea.Cmd) {
 	p := &m.importPage
 	path := strings.TrimSpace(p.fields[0].value)
-	if path == "" {
+	switch {
+	case hasBreak(p.fields[0].value):
+		p.fail(breakErr("the bundle path"), 0)
+		return m, nil
+	case path == "":
 		p.fail("the bundle path is required", 0)
 		return m, nil
 	}

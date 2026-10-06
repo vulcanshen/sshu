@@ -55,6 +55,9 @@ type inputPopup struct {
 	// err is why the last submit was refused; typing clears it, the way the
 	// form's error row gives way once the field is being fixed.
 	err string
+	// what names the answer in a refusal — "A name", "Columns" — for the one
+	// refusal every box makes itself: a line break or tab in it.
+	what string
 
 	layer   int
 	screenW int
@@ -71,7 +74,12 @@ func (m *inputPopup) setSize(w, h int)   { m.screenW, m.screenH = w, h }
 // ask opens the box with value already filled in and the cursor at its end.
 // Pre-filling matters for a rename: most renames change part of a name, and
 // starting from empty makes the common case retype the whole thing.
+//
+// The value it is filled with went through the filter typing goes through: a
+// remote file name can hold anything, and an ESC in it must not reach the
+// terminal (singleline.go).
 func (m *inputPopup) ask(p inputPopup, layer int) tea.Cmd {
+	p.value = singleLine(p.value)
 	p.anim, p.layer = m.anim, layer
 	p.screenW, p.screenH = m.screenW, m.screenH
 	*m = p
@@ -106,6 +114,12 @@ func (m *inputPopup) update(msg tea.KeyMsg) (committed string, done bool) {
 	}
 	switch msg.Type {
 	case tea.KeyEnter:
+		// Refused here, for every box, and before the caller trims: a trim would
+		// drop a line break at either end unseen and use the rest.
+		if hasBreak(m.value) {
+			m.err = breakErr(m.what)
+			return "", false
+		}
 		return m.value, true
 	case tea.KeyBackspace:
 		if r := []rune(m.value); len(r) > 0 {
@@ -116,7 +130,7 @@ func (m *inputPopup) update(msg tea.KeyMsg) (committed string, done bool) {
 		m.value += " "
 		m.err = ""
 	case tea.KeyRunes:
-		m.value += string(msg.Runes)
+		m.value += singleLine(string(msg.Runes))
 		m.err = ""
 	}
 	return "", false
@@ -131,8 +145,9 @@ func (m inputPopup) view() string {
 
 	// Lavender, because this is the field being edited — the same meaning the
 	// host form gives it, and the same meaning the cwd crumb gives it (tdp P4).
-	value := truncate(m.value, innerW-3)
-	line := " " + edit.Render(value) + cur.Render(" ") +
+	// A line break or tab in it is a Red \n / \t.
+	value := valueText(m.value, innerW-3, edit)
+	line := " " + value + cur.Render(" ") +
 		spaces(max(0, innerW-2-dispW(value)))
 	if m.value == "" && m.placeholder != "" {
 		ph := truncate(m.placeholder, innerW-3)
