@@ -20,7 +20,7 @@ import (
 // The File transfer screen: two sides, each local or a saved host, each a
 // file list over its own marks. [1] left files, [2] left marks, [3] right
 // files, [4] right marks. h|l cross to the same panel on the other side
-// (Rules K12: a left-right structure). Upload, download and remote to remote
+// (tdp K12: a left-right structure). Upload, download and remote to remote
 // are one operation: send to the other side's directory.
 
 type transfer struct {
@@ -48,7 +48,8 @@ type side struct {
 	entries   []remote.Entry
 	err       string
 
-	marks []string // absolute paths on this side, in the order marked
+	marks   []string        // absolute paths on this side, in the order marked
+	markDir map[string]bool // which marks are directories
 
 	files, marked   *terminu.List
 	filesP, markedP *terminu.Panel
@@ -93,7 +94,7 @@ func newSide(t *transfer, i int) *side {
 		Marks: true, EmptyFact: "No host", EmptyHint: "Press [H] to pick a host, or local"}
 	sd.marked = &terminu.List{Columns: []terminu.Column{{Title: "Marked", Flex: true, Path: true}},
 		EmptyFact: "Nothing marked", EmptyHint: "Press [a] on a file to mark it"}
-	sd.filesP = &terminu.Panel{Label: "No host", Body: &sideBody{sd: sd, list: sd.files, cwd: true}, OnEsc: sd.upCmd}
+	sd.filesP = &terminu.Panel{Label: "No host", Body: &sideBody{sd: sd, list: sd.files, cwd: true}}
 	sd.markedP = &terminu.Panel{Label: "Marks", Body: &sideBody{sd: sd, list: sd.marked}}
 	sd.filesP.Actions = sd.fileActions()
 	sd.markedP.Actions = sd.markActions()
@@ -163,60 +164,76 @@ func (sd *side) hasHost() bool { return sd.fs != nil }
 func (sd *side) noHost() bool  { return sd.fs == nil }
 func (sd *side) noMarks() bool { return sd.fs == nil || len(sd.marks) == 0 }
 
-// fileActions are a files panel's: with no host, only picking one.
+// fileActions are a files panel's: with no host, only picking one. What
+// acts on the marks lives on the marks panel (Principle P3: an action about
+// another panel is that panel's), the jobs are a global operation. An action
+// that opens a popup keeps the Space menu under it (Stay, tdp F4).
 func (sd *side) fileActions() []terminu.Action {
 	t := sd.t
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "go into it, or read it", Scope: terminu.ItemScope, Hint: "open", Hidden: sd.noHost, Do: sd.open},
-		{Key: "a", Label: "Append to marks", Desc: "again takes it off", Scope: terminu.ItemScope, Hint: "mark", Hidden: sd.noHost,
+		{Key: "Enter", Label: "Open", Desc: "go into it, or read it", Scope: terminu.ItemScope, Hint: "open", Hidden: sd.noHost, Stay: true, Do: sd.open},
+		{Key: "a", Label: "append to marks", Desc: "again takes it off", Scope: terminu.ItemScope, Hint: "mark", Hidden: sd.noHost,
 			Disabled: func() bool { p, ok := sd.cursorPath(); return ok && t.receiving(p) }, Do: sd.toggleMark},
-		{Key: "r", Label: "Rename", Desc: "this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Do: func() tea.Cmd { return sd.rename(sd.cursorPath()) }},
-		{Key: "v", Label: "View", Desc: "read this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Do: func() tea.Cmd { return sd.view(sd.cursorPath()) }},
-		{Key: "e", Label: "Edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Hidden: sd.noHost,
+		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
+			Do: func() tea.Cmd { return sd.rename(sd.cursorPath()) }},
+		{Key: "v", Label: "view", Desc: "read this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
+			Do: func() tea.Cmd { return sd.view(sd.cursorPath()) }},
+		{Key: "e", Label: "edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Hidden: sd.noHost,
 			Disabled: func() bool {
 				e, ok := sd.cursorEntry()
 				return ok && (e.IsDir || !e.Mode.IsRegular() && e.Mode&fs.ModeSymlink == 0)
 			},
 			Do: func() tea.Cmd { return sd.edit(sd.cursorPath()) }},
-		{Key: "t", Label: "Transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer", Hidden: sd.noHost,
-			Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.cursorPath(); return sd.send(ok, p) }},
-		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Hidden: sd.noHost, Do: func() tea.Cmd { return sd.deleteOne(sd.cursorPath()) }},
-		{Key: "/", Label: "Search", Desc: "everything under here", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.search},
-		{Key: "A", Label: "Add", Desc: "a file, or name/ for a directory", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.add},
+		{Key: "t", Label: "transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer", Hidden: sd.noHost,
+			Stay: true, Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.cursorPath(); return sd.send(ok, p) }},
+		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
+			Do: func() tea.Cmd { return sd.deleteOne(sd.cursorPath()) }},
+		{Key: "/", Label: "Search", Desc: "everything under here", Scope: terminu.PanelScope, Hidden: sd.noHost, Stay: true, Do: sd.search},
+		{Key: "A", Label: "Add", Desc: "a file, or name/ for a directory", Scope: terminu.PanelScope, Hidden: sd.noHost, Stay: true, Do: sd.add},
 		{Key: "R", Label: "Refresh", Desc: "re-read this directory now", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.refresh},
-		{Key: "T", Label: "Transfer all marks", Desc: "to the other side", Scope: terminu.PanelScope, Hidden: sd.noMarks,
-			Disabled: func() bool { return t.other(sd).noHost() }, Do: sd.sendMarks},
-		{Key: "X", Label: "Delete all marks", Desc: "erase them, on this host", Scope: terminu.PanelScope, Hidden: sd.noMarks, Do: sd.deleteMarks},
-		{Key: "C", Label: "Clear marks", Desc: "forget them, change nothing", Scope: terminu.PanelScope, Hidden: sd.noMarks, Do: sd.clearMarks},
-		{Key: "H", Label: "Host", Desc: "switch this side: this machine, or a saved host", Scope: terminu.PanelScope, Hint: "host",
+		{Key: "H", Label: "Host", Desc: "switch this side: this machine, or a saved host", Scope: terminu.PanelScope, Hint: "host", Stay: true,
 			Disabled: func() bool { return t.running() > 0 }, Do: sd.pickHost},
 		{Key: "D", Label: "Disconnect", Desc: "close it, back to no host", Scope: terminu.PanelScope,
 			Hidden:   func() bool { return sd.noHost() && sd.dialing == "" },
 			Disabled: func() bool { return t.running() > 0 }, Do: sd.disconnectCmd},
-		{Key: "J", Label: "Jobs", Desc: "transfers in flight, and cancel", Scope: terminu.PanelScope, Do: t.jobsMenu},
 	}
 }
 
 // markActions are a marks panel's: the same verbs on the mark under the
-// cursor, and the side's.
+// cursor, and what acts on all of this side's marks.
 func (sd *side) markActions() []terminu.Action {
 	t := sd.t
 	return []terminu.Action{
-		{Key: "c", Label: "Clear mark", Desc: "forget it, change nothing", Scope: terminu.ItemScope, Hint: "clear", Do: sd.unmarkCursor},
-		{Key: "r", Label: "Rename", Desc: "this item, here", Scope: terminu.ItemScope, Do: func() tea.Cmd { return sd.rename(sd.markPath()) }},
-		{Key: "v", Label: "View", Desc: "read this item, here", Scope: terminu.ItemScope, Do: func() tea.Cmd { return sd.view(sd.markPath()) }},
-		{Key: "e", Label: "Edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Do: func() tea.Cmd { return sd.edit(sd.markPath()) }},
-		{Key: "t", Label: "Transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer",
+		{Key: "Enter", Label: "Open", Desc: "go to the directory, or read the file", Scope: terminu.ItemScope, Hint: "open", Stay: true, Do: sd.openMark},
+		{Key: "c", Label: "clear mark", Desc: "forget it, change nothing", Scope: terminu.ItemScope, Hint: "clear", Do: sd.unmarkCursor},
+		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.rename(sd.markPath()) }},
+		{Key: "v", Label: "view", Desc: "read this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.view(sd.markPath()) }},
+		{Key: "e", Label: "edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope,
+			Disabled: func() bool { p, ok := sd.markPath(); return ok && sd.markDir[p] },
+			Do:       func() tea.Cmd { return sd.edit(sd.markPath()) }},
+		{Key: "t", Label: "transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer", Stay: true,
 			Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.markPath(); return sd.send(ok, p) }},
-		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Do: func() tea.Cmd { return sd.deleteOne(sd.markPath()) }},
-		{Key: "T", Label: "Transfer all marks", Desc: "to the other side", Scope: terminu.PanelScope, Hidden: sd.noMarks,
+		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Stay: true,
+			Do: func() tea.Cmd { return sd.deleteOne(sd.markPath()) }},
+		{Key: "T", Label: "Transfer all marks", Desc: "to the other side", Scope: terminu.PanelScope, Hidden: sd.noMarks, Stay: true,
 			Disabled: func() bool { return t.other(sd).noHost() }, Do: sd.sendMarks},
-		{Key: "X", Label: "Delete all marks", Desc: "erase them, on this host", Scope: terminu.PanelScope, Hidden: sd.noMarks, Do: sd.deleteMarks},
+		{Key: "X", Label: "Delete all marks", Desc: "erase them, on this host", Scope: terminu.PanelScope, Hidden: sd.noMarks, Stay: true,
+			Do: sd.deleteMarks},
 		{Key: "C", Label: "Clear marks", Desc: "forget them, change nothing", Scope: terminu.PanelScope, Hidden: sd.noMarks, Do: sd.clearMarks},
-		{Key: "H", Label: "Host", Desc: "switch this side: this machine, or a saved host", Scope: terminu.PanelScope,
-			Disabled: func() bool { return t.running() > 0 }, Do: sd.pickHost},
-		{Key: "J", Label: "Jobs", Desc: "transfers in flight, and cancel", Scope: terminu.PanelScope, Do: t.jobsMenu},
 	}
+}
+
+// openMark is Enter on a mark: a directory opens in the files panel, a file
+// is read — what Enter does to them there (tdp K3).
+func (sd *side) openMark() tea.Cmd {
+	p, ok := sd.markPath()
+	if !ok {
+		return nil
+	}
+	if sd.markDir[p] {
+		return sd.goTo(p, "")
+	}
+	return sd.view(p, true)
 }
 
 // --- what a side shows ----------------------------------------------------------------
@@ -247,6 +264,10 @@ func (sd *side) markPath() (string, bool) {
 // redraw puts the side's state into its two lists and its panel labels.
 func (sd *side) redraw() {
 	sd.filesP.Label = cmpOr(sd.host, "No host")
+	sd.filesP.OnEsc = nil
+	if sd.fs != nil && remote.Parent(sd.cwd) != sd.cwd {
+		sd.filesP.OnEsc = sd.upCmd
+	}
 	sd.filesP.Loading = sd.dialing != ""
 	sd.filesP.LoadingText = "connecting to " + sd.dialing
 	sd.filesP.Fail = nil
@@ -322,6 +343,7 @@ func (sd *side) list(dir string) error {
 func (sd *side) goTo(dir, sel string) tea.Cmd {
 	if err := sd.list(dir); err != nil {
 		sd.redraw()
+		sd.t.s.logError(store.LevelError, sd.host, "", "can't read "+dir, err.Error())
 		return sd.t.s.a.Toast(terminu.Error, err.Error())
 	}
 	sd.redraw()
@@ -346,7 +368,7 @@ func (sd *side) open() tea.Cmd {
 	return sd.view(p, true)
 }
 
-// upCmd is Esc on a files panel: one directory up (Rules K4, the app's "one
+// upCmd is Esc on a files panel: one directory up (tdp K4, the app's "one
 // level up"); nothing at the root.
 func (sd *side) upCmd() tea.Cmd {
 	if sd.fs == nil {
@@ -362,6 +384,7 @@ func (sd *side) upCmd() tea.Cmd {
 func (sd *side) refresh() tea.Cmd {
 	if err := sd.list(sd.cwd); err != nil {
 		sd.redraw()
+		sd.t.s.logError(store.LevelError, sd.host, "", "can't read "+sd.cwd, err.Error())
 		return sd.t.s.a.Toast(terminu.Error, err.Error())
 	}
 	sd.redraw()
@@ -394,6 +417,11 @@ func (sd *side) toggleMark() tea.Cmd {
 		sd.unmark(p)
 	} else {
 		sd.marks = append(sd.marks, p)
+		e, _ := sd.cursorEntry()
+		if sd.markDir == nil {
+			sd.markDir = map[string]bool{}
+		}
+		sd.markDir[p] = e.IsDir
 	}
 	sd.redraw()
 	sd.refreshActions()
@@ -495,7 +523,7 @@ func (sd *side) dial(h store.Host) tea.Cmd {
 	rh, err := store.Resolve(h, t.s.d.Creds)
 	if err != nil {
 		t.s.logError(store.LevelError, h.Name, "", err.Error(), err.Error())
-		return t.s.a.Error("Host", err.Error())
+		return t.s.a.Error("Connect failed", err.Error())
 	}
 	sd.endDial()
 	sd.dialGen++
@@ -606,8 +634,8 @@ func (t *transfer) askpassArrived(r *askpassRequest) tea.Cmd {
 	next := sd.askpass.next()
 	lines := strings.Split(strings.TrimRight(r.prompt, " \n"), "\n")
 	if r.isConfirm() {
-		return tea.Batch(next, t.s.a.Confirm(terminu.Ask{Title: "Host key", Subject: sd.dialing,
-			Details: lines[:len(lines)-1], Question: lines[len(lines)-1], Verb: "yes"},
+		return tea.Batch(next, t.s.a.Confirm(terminu.Ask{Title: "Trust", Subject: sd.dialing,
+			Details: lines, Question: "Trust this key and connect to " + sd.dialing + "?", Verb: "trust and connect"},
 			func() tea.Cmd { r.answer("yes"); return nil }))
 	}
 	return tea.Batch(next, t.s.a.Password(terminu.PasswordInput{Title: "Connect", Subject: sd.dialing, Glyph: glyphLock,

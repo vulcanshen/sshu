@@ -37,14 +37,14 @@ func whoCell(user, host string) string { return terminu.Truncate(who(user, host)
 
 // clearAction is a journal's [C]lear: it asks, then empties the file.
 func clearAction(s *sshu, label, file string, clear func() error, after func()) terminu.Action {
-	return terminu.Action{Key: "C", Label: "Clear " + label, Desc: "erase " + file, Scope: terminu.PanelScope,
+	return terminu.Action{Key: "C", Label: "Clear " + label, Desc: "erase " + file, Scope: terminu.PanelScope, Stay: true,
 		Do: func() tea.Cmd {
 			return s.a.Confirm(terminu.Ask{Title: "Clear", Subject: label, Details: []string{"This empties " + file + "."},
 				Question: "Clear " + label + "?", Verb: "clear"},
 				func() tea.Cmd {
 					if clear != nil {
 						if err := clear(); err != nil {
-							return s.a.Error("Clear", "Can't write "+file+": "+err.Error())
+							return s.a.Error("Clear failed", "Can't write "+file+": "+err.Error())
 						}
 					}
 					after()
@@ -68,7 +68,7 @@ func newErrorsSection(s *sshu) *errorsSection {
 	e.list = &terminu.List{
 		Columns:   []terminu.Column{{Title: "Time"}, {Title: "Host"}, {Title: "Cause", Flex: true}},
 		EmptyFact: "Nothing has gone wrong",
-		EmptyHint: "Failed connections and files sshu could not read show up here",
+		EmptyHint: "Failed connections and unreadable files land here; press [Space] to see what you can do",
 	}
 	e.reload()
 	e.shown = e.count()
@@ -82,7 +82,7 @@ func (e *errorsSection) section() *section {
 
 func (e *errorsSection) actions() []terminu.Action {
 	acts := []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "everything the far end said", Scope: terminu.ItemScope, Hint: "open", Do: e.open},
+		{Key: "Enter", Label: "Open", Desc: "everything the far end said", Scope: terminu.ItemScope, Hint: "open", Stay: true, Do: e.open},
 	}
 	if len(e.s.d.Errors) > 0 {
 		acts = append(acts, clearAction(e.s, "errors", "errors.yaml", e.s.d.ClearErrors, func() {
@@ -164,7 +164,7 @@ func newConnsSection(s *sshu) *connsSection {
 	c.list = &terminu.List{
 		Columns:   []terminu.Column{{Title: "Time"}, {Title: "Host", Flex: true}, {Title: "Result"}},
 		EmptyFact: "No connections yet",
-		EmptyHint: "Every ssh and sftp connection shows up here",
+		EmptyHint: "Every ssh and sftp connection lands here; press [M] then a host to make one",
 	}
 	c.reload()
 	return c
@@ -180,7 +180,7 @@ func (c *connsSection) actions() []terminu.Action {
 		return nil
 	}
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Do: c.open},
+		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Stay: true, Do: c.open},
 		clearAction(c.s, "connections", "connections.yaml", c.s.d.ClearConns, func() { c.s.d.Conns = nil }),
 	}
 }
@@ -212,7 +212,7 @@ func (c *connsSection) open() tea.Cmd {
 		x := c.s.d.Conns[i]
 		lines = append(lines, jDate(x.At)+"  "+who(x.User, x.Host)+"  "+x.Result)
 	}
-	return c.s.a.Viewer(&terminu.Viewer{Title: "Connections", Glyph: glyphLog, Lines: lines})
+	return c.s.a.Viewer(newViewer("Connections", "", glyphLog, lines))
 }
 
 // --- Changes ------------------------------------------------------------------
@@ -228,7 +228,7 @@ func newChangesSection(s *sshu) *changesSection {
 	c.list = &terminu.List{
 		Columns:   []terminu.Column{{Title: "Time"}, {Title: "Change", Flex: true}},
 		EmptyFact: "Nothing changed yet",
-		EmptyHint: "What you change through sshu shows up here",
+		EmptyHint: "What you change through sshu lands here; press [Space] to see what you can do",
 	}
 	c.reload()
 	return c
@@ -244,7 +244,7 @@ func (c *changesSection) actions() []terminu.Action {
 		return nil
 	}
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Do: c.open},
+		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Stay: true, Do: c.open},
 		clearAction(c.s, "changes", "changes.yaml", c.s.d.ClearChgs, func() { c.s.d.Changes = nil }),
 	}
 }
@@ -267,5 +267,5 @@ func (c *changesSection) open() tea.Cmd {
 	for i := len(c.s.d.Changes) - 1; i >= 0; i-- {
 		lines = append(lines, jDate(c.s.d.Changes[i].At)+"  "+c.s.d.Changes[i].Action)
 	}
-	return c.s.a.Viewer(&terminu.Viewer{Title: "Changes", Glyph: glyphLog, Lines: lines})
+	return c.s.a.Viewer(newViewer("Changes", "", glyphLog, lines))
 }

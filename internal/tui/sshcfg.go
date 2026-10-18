@@ -39,11 +39,11 @@ func (c *sshcfgSection) section() *section {
 
 func (c *sshcfgSection) actions() []terminu.Action {
 	return []terminu.Action{
-		{Key: "Enter", Label: "View", Desc: "every option this block sets", Scope: terminu.ItemScope, Hint: "view", Do: c.view},
-		{Key: "E", Label: "Edit", Desc: "change this block", Scope: terminu.ItemScope, Hint: "edit", Do: c.edit},
-		{Key: "D", Label: "Duplicate", Desc: "a new block starting from this one", Scope: terminu.ItemScope, Do: c.duplicate},
-		{Key: "X", Label: "Delete", Desc: "remove from ~/.ssh/config", Scope: terminu.ItemScope, Do: c.delete},
-		{Key: "A", Label: "Add", Desc: "a new Host block", Scope: terminu.PanelScope, Hint: "add", Do: c.add},
+		{Key: "Enter", Label: "View", Desc: "every option this block sets", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: c.view},
+		{Key: "E", Label: "Edit", Desc: "change this block", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: c.edit},
+		{Key: "D", Label: "Duplicate", Desc: "a new block starting from this one", Scope: terminu.ItemScope, Stay: true, Do: c.duplicate},
+		{Key: "X", Label: "Delete", Desc: "remove from ~/.ssh/config", Scope: terminu.ItemScope, Stay: true, Do: c.delete},
+		{Key: "A", Label: "Add", Desc: "a new Host block", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: c.add},
 	}
 }
 
@@ -107,7 +107,7 @@ func (c *sshcfgSection) view() tea.Cmd {
 		return nil
 	}
 	lines, _ := detailLines(blockDetail(b, store.FoldHome(c.s.d.SSHConfig.Path(b.File()))))
-	return c.s.a.Viewer(&terminu.Viewer{Title: "Host", Subject: b.Patterns, Glyph: glyphCog, Lines: lines})
+	return c.s.a.Viewer(newViewer("Host", b.Patterns, glyphCog, lines))
 }
 
 // hostsThroughBlock counts the sshu hosts this block has a word in, and how
@@ -164,7 +164,7 @@ func (c *sshcfgSection) delete() tea.Cmd {
 	return c.s.a.Confirm(ask, func() tea.Cmd {
 		next, err := c.s.d.SSHConfig.Delete(at)
 		if err != nil {
-			return c.s.a.Error("Delete", err.Error())
+			return c.s.a.Error("Delete failed", err.Error())
 		}
 		return c.persist(next, -1, fmt.Sprintf("~/.ssh/config: Host %q deleted", b.Patterns), "Deleted "+b.Patterns)
 	})
@@ -179,7 +179,7 @@ func (c *sshcfgSection) persist(next store.SSHConfigFile, sel int, logLine, toas
 	c.s.mg.refresh()
 	if err != nil {
 		c.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
-		return c.s.a.Error("Save", err.Error())
+		return c.s.a.Error("Save failed", err.Error())
 	}
 	c.s.logChange(logLine)
 	return c.s.a.Toast(terminu.Info, toast)
@@ -235,23 +235,19 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		}
 	}
 	other := strings.Join(lines, "\n")
-	text := func(label string, v *string, prompt string) *terminu.FormField {
+	text := func(label string, v *string, prompt string, check func(string) error) *terminu.FormField {
 		return &terminu.FormField{Label: label, Value: func() string { return *v }, Empty: "not set",
 			Edit: func() terminu.Input {
 				return terminu.TextInput{Title: label, Glyph: glyphPencil, Prompt: prompt, Verb: "set", Old: *v,
-					Done: func(s string) tea.Cmd { *v = strings.TrimSpace(s); return nil }}
+					Check: check, Done: func(s string) tea.Cmd { *v = strings.TrimSpace(s); return nil }}
 			}}
 	}
-	hostF := text("Host", &patterns, "Patterns: prod, prod-*, or *")
-	hostF.Check = func() string {
-		if patterns == "" {
-			return "Host can't be empty"
-		}
-		return ""
-	}
+	hostRule := required("Host")
+	hostF := text("Host", &patterns, "Patterns: prod, prod-*, or *", inputRule(hostRule))
+	hostF.Check = func() string { return hostRule(patterns) }
 	fields := []*terminu.FormField{hostF,
-		text("HostName", &values[0], "The real address ssh connects to"),
-		text("User", &values[1], "Who to log in as"),
+		text("HostName", &values[0], "The real address ssh connects to", nil),
+		text("User", &values[1], "Who to log in as", nil),
 		{Label: "Port", Value: func() string { return values[2] }, Empty: "not set",
 			Edit: func() terminu.Input {
 				return optionalPort("1–65535, or empty to leave the line out", values[2], func(s string) { values[2] = s })

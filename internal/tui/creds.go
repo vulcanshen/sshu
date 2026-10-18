@@ -39,11 +39,11 @@ func (c *credsSection) section() *section {
 
 func (c *credsSection) actions() []terminu.Action {
 	return []terminu.Action{
-		{Key: "Enter", Label: "View", Desc: "how this one authenticates", Scope: terminu.ItemScope, Hint: "view", Do: c.view},
-		{Key: "E", Label: "Edit", Desc: "change this credential", Scope: terminu.ItemScope, Hint: "edit", Do: c.edit},
-		{Key: "D", Label: "Duplicate", Desc: "a new credential starting from this one", Scope: terminu.ItemScope, Do: c.duplicate},
-		{Key: "X", Label: "Delete", Desc: "remove from credentials.yaml", Scope: terminu.ItemScope, Do: c.delete},
-		{Key: "A", Label: "Add", Desc: "a new credential", Scope: terminu.PanelScope, Hint: "add", Do: c.add},
+		{Key: "Enter", Label: "View", Desc: "how this one authenticates", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: c.view},
+		{Key: "E", Label: "Edit", Desc: "change this credential", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: c.edit},
+		{Key: "D", Label: "Duplicate", Desc: "a new credential starting from this one", Scope: terminu.ItemScope, Stay: true, Do: c.duplicate},
+		{Key: "X", Label: "Delete", Desc: "remove from credentials.yaml", Scope: terminu.ItemScope, Stay: true, Do: c.delete},
+		{Key: "A", Label: "Add", Desc: "a new credential", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: c.add},
 	}
 }
 
@@ -90,7 +90,7 @@ func (c *credsSection) view() tea.Cmd {
 		return nil
 	}
 	lines, _ := detailLines(credDetail(x))
-	return c.s.a.Viewer(&terminu.Viewer{Title: "Credential", Subject: x.Name, Glyph: glyphCred, Lines: lines})
+	return c.s.a.Viewer(newViewer("Credential", x.Name, glyphCred, lines))
 }
 
 func (c *credsSection) delete() tea.Cmd {
@@ -111,7 +111,7 @@ func (c *credsSection) delete() tea.Cmd {
 	return c.s.a.Confirm(ask, func() tea.Cmd {
 		creds := slices.DeleteFunc(slices.Clone(c.s.d.Creds), func(y store.Credential) bool { return y.Name == x.Name })
 		if err := c.s.d.SaveCreds(creds); err != nil {
-			return c.s.a.Error("Delete", "Can't write credentials.yaml: "+err.Error())
+			return c.s.a.Error("Delete failed", "Can't write credentials.yaml: "+err.Error())
 		}
 		c.s.d.Creds = creds
 		c.changed("")
@@ -154,32 +154,30 @@ func (c *credsSection) form(title, subject string, start store.Credential, repla
 	auth := &terminu.FormField{Label: "Auth", Options: []string{"password", "privatekey"},
 		Selected: max(slices.Index(credMethods, start.Auth), 0)}
 	method := func() store.AuthMethod { return credMethods[auth.Selected] }
+	nameRule := func(v string) string {
+		v = strings.TrimSpace(v)
+		switch {
+		case v == "":
+			return "Name can't be empty"
+		case slices.ContainsFunc(c.s.d.Creds, func(y store.Credential) bool { return y.Name == v }) &&
+			(replace < 0 || c.s.d.Creds[replace].Name != v):
+			return "Name " + v + " is taken"
+		}
+		return ""
+	}
+	userRule := required("User")
 	nameF := &terminu.FormField{Label: "Name", Value: func() string { return name }, Empty: "not set",
 		Edit: func() terminu.Input {
 			return terminu.TextInput{Title: "Name", Glyph: glyphPencil, Prompt: "What hosts call this credential", Verb: "set",
-				Old: name, Done: func(v string) tea.Cmd { name = strings.TrimSpace(v); return nil }}
+				Old: name, Check: inputRule(nameRule), Done: func(v string) tea.Cmd { name = strings.TrimSpace(v); return nil }}
 		},
-		Check: func() string {
-			switch {
-			case name == "":
-				return "Name can't be empty"
-			case slices.ContainsFunc(c.s.d.Creds, func(y store.Credential) bool { return y.Name == name }) &&
-				(replace < 0 || c.s.d.Creds[replace].Name != name):
-				return "Name " + name + " is taken"
-			}
-			return ""
-		}}
+		Check: func() string { return nameRule(name) }}
 	userF := &terminu.FormField{Label: "User", Value: func() string { return user }, Empty: "not set",
 		Edit: func() terminu.Input {
 			return terminu.TextInput{Title: "User", Glyph: glyphPencil, Prompt: "Who to log in as", Verb: "set",
-				Old: user, Done: func(v string) tea.Cmd { user = strings.TrimSpace(v); return nil }}
+				Old: user, Check: inputRule(userRule), Done: func(v string) tea.Cmd { user = strings.TrimSpace(v); return nil }}
 		},
-		Check: func() string {
-			if user == "" {
-				return "User can't be empty"
-			}
-			return ""
-		}}
+		Check: func() string { return userRule(user) }}
 	identityF := &terminu.FormField{Label: "Identity file", Value: func() string { return identity }, Empty: "not set", Path: true,
 		Disabled: func() bool { return method() != store.AuthPrivateKey },
 		Edit: func() terminu.Input {

@@ -8,7 +8,7 @@ import (
 // The Manage screen: [1] SECTIONS, a grouped list of what sshu keeps, and [2],
 // the section under [1]'s cursor (components/layout/panel, details). Moving
 // the cursor swaps [2] at once; Enter on a section sends the focus there
-// (Rules K3).
+// (tdp K3).
 
 // section is one row of [1] and what [2] shows for it.
 type section struct {

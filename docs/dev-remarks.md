@@ -125,6 +125,10 @@
 - **components/layout/panel：File transfer 的檔案清單上面有一列目前目錄**（`internal/tui/transfer.go` 的 `sideBody`）。panel 的方案
   （一般清單、分組、一列一個值、明細）沒有這一列。理由：兩側可能是同一台機器的不同目錄，也可能是兩台機器的同一個路徑，不寫出
   「我在哪」就分不出來；它是內容，所以在框裡、用 Lavender（使用者足跡），不擠進框線。已回報成 tdp 的缺漏（SS20）。
+- **K3：SESSIONS 的 `Enter` 把 focus 送進那一格**（`internal/tui/ssh.go` 的 `open`）。K3 說 `Enter` 不移動 focus、換 panel 只用在
+  明細；格子不是清單那一列的明細，是那個 session 本身。理由：這張清單存在就是為了「進去那個 session」，按 `Enter` 停在清單上什麼都
+  沒發生，正是 K3 要避免的「按了沒反應」；從 Hosts 連線也一樣，連上就把鍵盤交給新的格子（T1：長時間的 session 清掉 source）。
+  已回報成 tdp 的盲點（SS30）。
 - **components/input/textarea：`~/.ssh/config` 區塊的其他選項用 textarea**（`internal/tui/sshcfg.go`）。規範說設定檔這種一行就是一行的
   內容交給 `$EDITOR`。理由：這裡只是一個 `Host` 區塊裡 sshu 沒有專門欄位的那幾行，跟 HostName、User 等欄位在同一張表單上一起存；
   開 `$EDITOR` 要離開表單、也沒辦法把結果寫回表單的一欄（lib 的表單欄位只能開 input）。要編整個檔，File transfer 的 `[e]dit` 對

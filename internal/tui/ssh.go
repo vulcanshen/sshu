@@ -19,7 +19,7 @@ import (
 // is arranged; and the grid, one panel per session from [3] on, each a real
 // ssh in a PTY (components/dialog/terminal: a PTY in a panel). Enter on a
 // session puts the keyboard in its cell; Alt-Esc takes it back, asking first
-// (Rules K10).
+// (tdp K10).
 
 type sshScreen struct {
 	s       *sshu
@@ -56,17 +56,23 @@ const sshLeftW = 30 // a row says <glyph> user@host:port #N whole for the common
 
 func newSSHScreen(s *sshu) *sshScreen {
 	h := &sshScreen{s: s, columns: 2}
+	// The arrangement is kept between runs: a value takes effect, and is
+	// kept, when it is set (components/layout/panel, one value per row).
+	h.arrange = max(slices.Index(arrangements, s.d.State.GridArrange), 0)
+	if n := s.d.State.GridColumns; n >= 1 && n <= 9 {
+		h.columns = n
+	}
 	h.list = &terminu.List{Columns: []terminu.Column{{Title: "Session", Flex: true}},
 		EmptyFact: "No live sessions", EmptyHint: "Press [M] and connect to a host"}
 	h.listP = &terminu.Panel{Label: "Sessions", Body: h.list, Actions: h.listActions()}
-	arrange := &terminu.Field{Label: "Arrange", Options: arrangements, Selected: 0}
-	arrange.OnChange = func() tea.Cmd { h.arrange = arrange.Selected; h.resize(); return nil }
+	arrange := &terminu.Field{Label: "Arrange", Options: arrangements, Selected: h.arrange}
+	arrange.OnChange = func() tea.Cmd { h.arrange = arrange.Selected; return h.keep() }
 	cols := &terminu.Field{Label: "Columns", Value: func() string { return strconv.Itoa(h.columns) },
 		Disabled: func() bool { return h.arrange != 2 },
 		Edit: func() tea.Cmd {
 			return h.s.a.Number(terminu.NumberInput{Title: "Columns", Glyph: glyphGrid, Prompt: "How many cells across, 1–9",
 				Verb: "set", Old: strconv.Itoa(h.columns), Min: 1, Max: 9,
-				Done: func(v string) tea.Cmd { h.columns, _ = strconv.Atoi(v); h.resize(); return nil }})
+				Done: func(v string) tea.Cmd { h.columns, _ = strconv.Atoi(v); return h.keep() }})
 		}}
 	h.layout = &terminu.Values{Fields: []*terminu.Field{arrange, cols}}
 	h.layoutP = &terminu.Panel{Label: "Layout", Body: h.layout}
@@ -95,13 +101,26 @@ func (h *sshScreen) liveCount() int {
 
 func (h *sshScreen) listActions() []terminu.Action {
 	none := func() bool { return h.liveCount() == 0 }
+	// Another session is a long one: Enter on its confirm closes the menu
+	// and the confirm together (tdp T1), so the confirm is the action's Ask.
+	var dup store.Host
+	ask, hidden := liveAsk(func(a *terminu.Ask) bool {
+		x := h.current()
+		if x == nil {
+			return false
+		}
+		dup = x.host
+		*a = terminu.Ask{Title: "Duplicate", Subject: x.host.Name, Question: "Open another session to " + x.host.Name + "?", Verb: "open"}
+		return true
+	})
 	return []terminu.Action{
 		{Key: "Enter", Label: "Open", Desc: "show it and take the keyboard", Scope: terminu.ItemScope, Hint: "open", Do: h.open},
 		{Key: "H", Label: "Hide", Desc: "hide or show this session's cell", Scope: terminu.ItemScope, Hint: "hide", Do: h.toggleHidden},
-		{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.ItemScope, Do: h.askClose},
-		{Key: "D", Label: "Duplicate", Desc: "another session to this host", Scope: terminu.ItemScope, Do: h.askDuplicate},
+		{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.ItemScope, Stay: true, Do: h.askClose},
+		{Key: "D", Label: "Duplicate", Desc: "another session to this host", Scope: terminu.ItemScope, Ask: ask, Hidden: hidden,
+			Do: func() tea.Cmd { return h.connect(dup) }},
 		// No hotkey: a sweep of every session has no fast path.
-		{Label: "Close all sessions", Desc: "end every one of them", Scope: terminu.PanelScope, Hidden: none, Do: h.askCloseAll},
+		{Label: "Close all sessions", Desc: "end every one of them", Scope: terminu.PanelScope, Hidden: none, Stay: true, Do: h.askCloseAll},
 	}
 }
 
@@ -185,8 +204,9 @@ func (h *sshScreen) place(w, hh int) []terminu.Rect {
 
 // anyShown reports a cell on the grid.
 func (h *sshScreen) anyShown() bool {
+	f := h.screen.Focused()
 	for _, x := range h.sessions {
-		if !x.ended && !x.hidden {
+		if !x.ended && !x.hidden || x.panel == f {
 			return true
 		}
 	}
@@ -222,7 +242,7 @@ func (h *sshScreen) byID(id string) *session {
 	return nil
 }
 
-// prune takes the cells of ended sessions off the screen. Only the panels
+// prune takes the cells of ended and hidden sessions off the screen. Only the panels
 // after the focused one can go: the lib keeps the focus by its place in the
 // list, so taking one off at or before it would move the focus.
 // TODO(lib SS3): terminu-go has no call to add or remove a panel, or to
@@ -232,7 +252,7 @@ func (h *sshScreen) prune() {
 	f := slices.Index(ps, h.screen.Focused())
 	kept := ps[:0:0]
 	for i, p := range ps {
-		if x := h.byPanel(p); i > f && i >= 2 && (x == nil || x.ended) {
+		if x := h.byPanel(p); i > f && i >= 2 && (x == nil || x.ended || x.hidden) {
 			continue
 		}
 		kept = append(kept, p)
@@ -245,9 +265,18 @@ func (h *sshScreen) prune() {
 	})
 }
 
-// resize is a change of layout: the next frame lays the cells out again,
+// keep writes the arrangement down; the next frame lays the cells out again,
 // and the lib sizes each PTY to its cell when it draws it.
-func (h *sshScreen) resize() {}
+func (h *sshScreen) keep() tea.Cmd {
+	h.s.d.State.GridArrange, h.s.d.State.GridColumns = arrangements[h.arrange], h.columns
+	if h.s.d.SaveState == nil {
+		return nil
+	}
+	if err := h.s.d.SaveState(h.s.d.State); err != nil {
+		return h.s.a.Toast(terminu.Warning, "The layout is not kept: "+err.Error())
+	}
+	return nil
+}
 
 // --- sessions --------------------------------------------------------------------
 
@@ -290,7 +319,7 @@ func (h *sshScreen) connect(host store.Host) tea.Cmd {
 	x, err := h.start1(host)
 	if err != nil {
 		h.s.logError(store.LevelError, host.Name, host.User, err.Error(), err.Error())
-		return h.s.a.Error("Connect", err.Error())
+		return h.s.a.Error("Connect failed", err.Error())
 	}
 	cmds := []tea.Cmd{x.term.Start()}
 	if h.s.a.Screen() != h.screen {
@@ -338,9 +367,10 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	}
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }
 	x.panel = &terminu.Panel{Label: h.label(x), Body: x.term, Stream: true, Actions: []terminu.Action{
-		{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; Alt-Esc takes it back", Scope: terminu.PanelScope,
-			Hint: "type", Do: func() tea.Cmd { x.term.Enter(); return nil }},
-		{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope, Do: func() tea.Cmd { return h.askCloseOne(x) }},
+		{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,
+			Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { x.term.Enter(); return nil }},
+		{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope, Stay: true,
+			Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { return h.askCloseOne(x) }},
 	}}
 	h.sessions = append(h.sessions, x)
 	h.screen.Panels = append(h.screen.Panels, x.panel)
@@ -354,6 +384,7 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 // the keys.
 func (h *sshScreen) focus(x *session) tea.Cmd {
 	x.hidden = false
+	h.place1(x)
 	h.redrawList()
 	x.term.Enter()
 	i := slices.Index(h.screen.Panels, x.panel)
@@ -402,8 +433,19 @@ func (h *sshScreen) toggleHidden() tea.Cmd {
 		return nil
 	}
 	x.hidden = !x.hidden
+	if !x.hidden {
+		h.place1(x)
+	}
 	h.redrawList()
 	return nil
+}
+
+// place1 puts a shown session's cell back on the screen, after the others:
+// adding at the end moves no panel's number.
+func (h *sshScreen) place1(x *session) {
+	if !x.ended && !slices.Contains(h.screen.Panels, x.panel) {
+		h.screen.Panels = append(h.screen.Panels, x.panel)
+	}
 }
 
 // move goes from x's cell to the shown cell dx, dy away in the grid.
@@ -458,16 +500,6 @@ func (h *sshScreen) askCloseAll() tea.Cmd {
 		})
 }
 
-func (h *sshScreen) askDuplicate() tea.Cmd {
-	x := h.current()
-	if x == nil {
-		return nil
-	}
-	return h.s.a.Confirm(terminu.Ask{Title: "Duplicate", Subject: x.host.Name,
-		Question: "Open another session to " + x.host.Name + "?", Verb: "open"},
-		func() tea.Cmd { return h.connect(x.host) })
-}
-
 // ended settles a session that is over: why it ended goes to the journals
 // and a toast; its cell leaves the grid.
 func (h *sshScreen) ended(x *session, err error) tea.Cmd {
@@ -490,6 +522,8 @@ func (h *sshScreen) ended(x *session, err error) tea.Cmd {
 		ok, reason = false, err.Error()
 	}
 	x.reason = reason
+	x.panel.Body = &terminu.Pager{EmptyFact: "Session to " + x.host.Name + " ended: " + reason,
+		EmptyHint: "Press [1] for the sessions"}
 	result := store.ResultSuccess
 	if !ok {
 		result = store.ResultFail

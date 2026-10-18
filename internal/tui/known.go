@@ -41,10 +41,10 @@ func (k *knownSection) section() *section {
 
 func (k *knownSection) actions() []terminu.Action {
 	return []terminu.Action{
-		{Key: "Enter", Label: "View", Desc: "the whole key, and where it sits", Scope: terminu.ItemScope, Hint: "view", Do: k.view},
-		{Key: "E", Label: "Edit", Desc: "which names this key is trusted for", Scope: terminu.ItemScope, Hint: "edit", Do: k.edit},
-		{Key: "X", Label: "Delete", Desc: "stop trusting this key", Scope: terminu.ItemScope, Do: k.delete},
-		{Key: "A", Label: "Add", Desc: "ask a host for its key, then decide", Scope: terminu.PanelScope, Hint: "add", Do: k.add},
+		{Key: "Enter", Label: "View", Desc: "the whole key, and where it sits", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: k.view},
+		{Key: "E", Label: "Edit", Desc: "which names this key is trusted for", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: k.edit},
+		{Key: "X", Label: "Delete", Desc: "stop trusting this key", Scope: terminu.ItemScope, Stay: true, Do: k.delete},
+		{Key: "A", Label: "Add", Desc: "ask a host for its key, then decide", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: k.add},
 	}
 }
 
@@ -111,7 +111,7 @@ func (k *knownSection) view() tea.Cmd {
 		return nil
 	}
 	lines, _ := detailLines(knownDetail(e))
-	return k.s.a.Viewer(&terminu.Viewer{Title: "Host key", Subject: knownLabel(e), Glyph: glyphShield, Lines: lines})
+	return k.s.a.Viewer(newViewer("Host key", knownLabel(e), glyphShield, lines))
 }
 
 func (k *knownSection) edit() tea.Cmd {
@@ -130,7 +130,7 @@ func (k *knownSection) edit() tea.Cmd {
 		Done: func(v string) tea.Cmd {
 			next, err := k.s.d.Known.SetHosts(at, v)
 			if err != nil {
-				return k.s.a.Error("Save", err.Error())
+				return k.s.a.Error("Save failed", err.Error())
 			}
 			return k.persist(next, at, fmt.Sprintf("~/.ssh/known_hosts: %q is now trusted for %q", e.Hosts, strings.TrimSpace(v)), "Saved")
 		}})
@@ -147,7 +147,7 @@ func (k *knownSection) delete() tea.Cmd {
 		func() tea.Cmd {
 			next, err := k.s.d.Known.Delete(at)
 			if err != nil {
-				return k.s.a.Error("Delete", err.Error())
+				return k.s.a.Error("Delete failed", err.Error())
 			}
 			return k.persist(next, -1, fmt.Sprintf("~/.ssh/known_hosts: key for %q removed (%s)", e.Hosts, e.Fingerprint()),
 				"Forgot "+knownLabel(e))
@@ -161,7 +161,7 @@ func (k *knownSection) persist(next store.KnownHostsFile, sel int, logLine, toas
 	k.s.mg.refresh()
 	if err != nil {
 		k.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
-		return k.s.a.Error("Save", err.Error())
+		return k.s.a.Error("Save failed", err.Error())
 	}
 	k.s.logChange(logLine)
 	return k.s.a.Toast(terminu.Info, toast)
@@ -182,14 +182,9 @@ func (k *knownSection) add() tea.Cmd {
 	hostF := &terminu.FormField{Label: "Host", Value: func() string { return host }, Empty: "not set",
 		Edit: func() terminu.Input {
 			return terminu.TextInput{Title: "Host", Glyph: glyphPencil, Prompt: "The name or address to ask", Verb: "set",
-				Old: host, Done: func(v string) tea.Cmd { host = strings.TrimSpace(v); return nil }}
+				Old: host, Check: inputRule(required("Host")), Done: func(v string) tea.Cmd { host = strings.TrimSpace(v); return nil }}
 		},
-		Check: func() string {
-			if host == "" {
-				return "Host can't be empty"
-			}
-			return ""
-		}}
+		Check: func() string { return required("Host")(host) }}
 	portF := &terminu.FormField{Label: "Port", Value: func() string { return port },
 		Edit: func() terminu.Input {
 			return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: "1–65535", Verb: "set",
@@ -205,9 +200,24 @@ func (k *knownSection) add() tea.Cmd {
 		Fields: []*terminu.FormField{hostF, portF},
 		SubmitLong: func(ctx context.Context) (tea.Cmd, error) {
 			p, _ := strconv.Atoi(port)
-			key, err := remote.ScanHostKey(host, p, k.s.d.Config.Timeout())
-			if err != nil {
-				return nil, err
+			type scanned struct {
+				key remote.HostKey
+				err error
+			}
+			got := make(chan scanned, 1)
+			go func() {
+				key, err := remote.ScanHostKey(host, p, k.s.d.Config.Timeout())
+				got <- scanned{key, err}
+			}()
+			var key remote.HostKey
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err() // the form is gone: nobody reads this
+			case r := <-got:
+				if r.err != nil {
+					return nil, r.err
+				}
+				key = r.key
 			}
 			names := knownName(host, p)
 			return k.trust(names, key), nil
@@ -223,7 +233,7 @@ func (k *knownSection) trust(names string, key remote.HostKey) tea.Cmd {
 		func() tea.Cmd {
 			next, err := k.s.d.Known.Add(store.KnownHostEntry{Hosts: names, Type: key.Type, Key: key.Key})
 			if err != nil {
-				return k.s.a.Error("Trust", err.Error())
+				return k.s.a.Error("Trust failed", err.Error())
 			}
 			fp := store.KnownHostEntry{Type: key.Type, Key: key.Key}.Fingerprint()
 			return k.persist(next, len(next.Entries)-1, fmt.Sprintf("~/.ssh/known_hosts: trusted %s for %q", fp, names),

@@ -114,6 +114,7 @@ func load() (*tui.Data, error) {
 		AppendChg: store.AppendChange, ClearChgs: store.ClearChanges,
 	}
 	d.Hosts = hosts.Hosts
+	d.State, d.SaveState = store.LoadState(), store.SaveState
 	note := func(level, cause string) {
 		d.Notes = append(d.Notes, tui.Note{Level: level, Cause: cause, Detail: cause})
 	}

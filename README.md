@@ -22,7 +22,7 @@ Inspired by [Termius](https://termius.com/) — hosts, sessions and transfers un
 ## Features
 
 - **Nothing to memorize** — `Space` on any panel lists everything you can do there; every letter hotkey is a row of that menu, and `?` lists the keys.
-- **A grid of live ssh sessions** — each cell is a real `ssh` in its own terminal, as many as you like, arranged across, down or in columns. `PgUp`/`PgDn` scroll a session's history, `Alt-z` gives one cell the whole screen.
+- **A grid of live ssh sessions** — each cell is a real `ssh` in its own terminal, as many as you like, arranged across, down or in columns. `PgUp|PgDn` scroll a session's history, `Alt-z` gives one cell the whole screen.
 - **Transfers between any two machines** — local ↔ remote ↔ remote on one screen. Search a whole subtree, read a file without fetching it, or open it in your own `$EDITOR` and have it written back.
 - **Your `~/.ssh` files, in place** — browse and edit `~/.ssh/config` and `~/.ssh/known_hosts` without losing a comment. An `auth: sshconfig` host stores nothing and lets `~/.ssh/config` decide everything — ProxyJump, the agent, keys.
 - **Reusable credentials** — define a user and how it authenticates once, use it from any number of hosts.
@@ -98,7 +98,7 @@ The keys that work everywhere:
 | `Tab`, `1`–`9` | The next panel, or panel `[N]` of this screen |
 | `Enter` | The obvious thing: connect, open, go in |
 | `Esc` | Back one step — close the top popup, clear a filter, up a directory |
-| `j`/`k`, `u`/`d`, `gg`/`G` | Down/up, half a page, to the top/bottom (arrows too) |
+| `j\|k`, `u\|d`, `gg\|G` | Down and up, half a page, to the top and the bottom (arrows too) |
 | `q`, `Ctrl-C` | Quit; with sessions or transfers running it asks first, and a second `Ctrl-C` leaves at once |
 
 Every letter hotkey below is also a row of its panel's `Space` menu. **The case printed in brackets is the key**: `[A]dd` is `Shift-A`, `[t]ransfer` is a plain `t`.
@@ -117,11 +117,11 @@ Every letter hotkey below is also a row of its panel's `Space` menu. **The case 
 | `/` | Filter the hosts: name, user, host, port and tags at once |
 | `C` | Errors, Connections, Changes: clear that journal (asks first) |
 
-In a form, `j`/`k` move between fields, `Enter` changes the one under the cursor, and `Tab` goes to the Save button.
+In a form, `j|k` move between fields, `Enter` changes the one under the cursor, and `Tab` goes to the Save button.
 
 ### File transfer
 
-Two sides, each this machine or a saved host: files on top, what you marked below — `[1]` `[2]` on the left, `[3]` `[4]` on the right. `h`/`l` cross to the other side. `local` opens in the directory you started sshu in, so `cd ~/release && sshu` starts right there.
+Two sides, each this machine or a saved host: files on top, what you marked below — `[1]` `[2]` on the left, `[3]` `[4]` on the right. `h|l` cross to the other side. `local` opens in the directory you started sshu in, so `cd ~/release && sshu` starts right there.
 
 | Key | What it does |
 |---|---|
@@ -129,18 +129,17 @@ Two sides, each this machine or a saved host: files on top, what you marked belo
 | `Esc` | Up one directory |
 | `a` | Mark / unmark |
 | `t` | Send it to the other side's directory |
-| `T` | Send every mark on this side |
 | `r` | Rename |
 | `v` | Read it — text coloured, binary as hex, a directory as its listing |
 | `e` | Edit in `$EDITOR`; a remote file is fetched and written back. `Alt-Esc` in the editor abandons the edit (asks first) |
-| `x` / `X` | Delete this one / every mark (asks first) |
-| `c` / `C` | Forget one mark / all marks (nothing on disk changes) |
+| `x` | Delete it (asks first) |
 | `/` | Search the whole tree under this directory; `Enter` on a result goes there |
 | `A` | Add: `name` makes a file, `name/` a directory |
 | `R` | Read this directory again |
 | `H` | Pick this side's host (`local` first) |
 | `D` | Disconnect this side, or call off a connection on its way |
-| `J` | Jobs: the transfers of this run; `Enter` cancels a running one or shows the whole of one that ended |
+
+On a marks panel, `Enter` opens the mark (a directory in the files panel, a file to read), `r`, `v`, `e`, `t` and `x` work on the mark under the cursor, `c` forgets it (nothing on disk changes), and three keys work on every mark of that side: `T` sends them all, `X` deletes them all (asks first), `C` forgets them all. `J`, anywhere, lists the transfers of this run: `Enter` cancels a running one or shows the whole of one that ended.
 
 What cannot run right now is dimmed in the menu and its key does nothing: `H` and `D` while a transfer runs, `a` on a file still arriving, `e` on a directory, `t` and `T` while the other side has no host.
 
@@ -151,9 +150,9 @@ What cannot run right now is dimmed in the menu and its key does nothing: `H` an
 | Key | What it does |
 |---|---|
 | `Alt-Esc` | Take the keyboard back out (asks first: two quick `Esc` in vim can read as `Alt-Esc`; `Esc` goes back in) |
-| `Alt-←`/`→`/`↑`/`↓` | The cell that way |
+| `Alt-←\|→\|↑\|↓` | The cell that way |
 | `Alt-z` | This cell over the whole screen, and back |
-| `PgUp`/`PgDn` | Scroll this session's history (typing goes back to live) |
+| `PgUp\|PgDn` | Scroll this session's history (typing goes back to live) |
 
 On `[1]`: `H` hides a session's cell from the grid or shows it again, `C` closes it (asks first), `D` opens another session to the same host; *Close all sessions* is in the `Space` menu. On `[2]`, choose horizontal, vertical or custom, and the number of columns for custom.
 

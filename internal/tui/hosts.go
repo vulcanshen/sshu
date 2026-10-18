@@ -16,7 +16,7 @@ import (
 )
 
 // Manage → Hosts: hosts.yaml as a table. Enter connects, after showing what
-// it connects to (Rules F1: a confirm may carry the details to read first).
+// it connects to (tdp F1: a confirm may carry the details to read first).
 
 type hostsSection struct {
 	s    *sshu
@@ -47,12 +47,27 @@ func (h *hostsSection) section() *section {
 }
 
 func (h *hostsSection) actions() []terminu.Action {
+	// Connecting opens a session, a long one: on Enter the menu and the
+	// confirm all close (tdp T1), so the confirm is the action's own Ask.
+	var target store.Host
+	ask, hidden := liveAsk(func(a *terminu.Ask) bool {
+		x, _, ok := h.current()
+		if !ok {
+			return false
+		}
+		target = x
+		lines, warn := detailLines(hostDetail(x, h.s.d.Creds, h.s.d.SSHConfig, h.s.d.Config.Seconds()))
+		*a = terminu.Ask{Title: "Connect", Subject: x.Name, Details: lines, Warn: warn,
+			Question: "Connect to " + x.Name + "?", Verb: "connect"}
+		return true
+	})
 	return []terminu.Action{
-		{Key: "Enter", Label: "Connect", Desc: "what it is, then in", Scope: terminu.ItemScope, Hint: "connect", Do: h.connect},
-		{Key: "E", Label: "Edit", Desc: "change this host", Scope: terminu.ItemScope, Hint: "edit", Do: h.edit},
-		{Key: "D", Label: "Duplicate", Desc: "a new host starting from this one", Scope: terminu.ItemScope, Do: h.duplicate},
-		{Key: "X", Label: "Delete", Desc: "remove from hosts.yaml", Scope: terminu.ItemScope, Do: h.delete},
-		{Key: "A", Label: "Add", Desc: "a new host", Scope: terminu.PanelScope, Hint: "add", Do: h.add},
+		{Key: "Enter", Label: "Connect", Desc: "what it is, then in", Scope: terminu.ItemScope, Hint: "connect",
+			Ask: ask, Hidden: hidden, Do: func() tea.Cmd { return h.s.sh.connect(target) }},
+		{Key: "E", Label: "Edit", Desc: "change this host", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: h.edit},
+		{Key: "D", Label: "Duplicate", Desc: "a new host starting from this one", Scope: terminu.ItemScope, Stay: true, Do: h.duplicate},
+		{Key: "X", Label: "Delete", Desc: "remove from hosts.yaml", Scope: terminu.ItemScope, Stay: true, Do: h.delete},
+		{Key: "A", Label: "Add", Desc: "a new host", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: h.add},
 	}
 }
 
@@ -93,17 +108,6 @@ func (h *hostsSection) current() (store.Host, int, bool) {
 	return h.s.d.Hosts[i], i, true
 }
 
-func (h *hostsSection) connect() tea.Cmd {
-	x, _, ok := h.current()
-	if !ok {
-		return nil
-	}
-	lines, warn := detailLines(hostDetail(x, h.s.d.Creds, h.s.d.SSHConfig, h.s.d.Config.Seconds()))
-	return h.s.a.Confirm(terminu.Ask{Title: "Connect", Subject: x.Name, Details: lines, Warn: warn,
-		Question: "Connect to " + x.Name + "?", Verb: "connect"},
-		func() tea.Cmd { return h.s.sh.connect(x) })
-}
-
 func (h *hostsSection) delete() tea.Cmd {
 	x, _, ok := h.current()
 	if !ok {
@@ -115,7 +119,7 @@ func (h *hostsSection) delete() tea.Cmd {
 		func() tea.Cmd {
 			hosts := slices.DeleteFunc(slices.Clone(h.s.d.Hosts), func(y store.Host) bool { return y.Name == x.Name })
 			if err := h.s.d.SaveHosts(hosts); err != nil {
-				return h.s.a.Error("Delete", "Can't write hosts.yaml: "+err.Error())
+				return h.s.a.Error("Delete failed", "Can't write hosts.yaml: "+err.Error())
 			}
 			h.s.d.Hosts = hosts
 			h.reload("")
@@ -169,24 +173,22 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 					Check: check, Done: func(s string) tea.Cmd { *v = strings.TrimSpace(s); return nil }}
 			}}
 	}
-	nameF := text("Name", &name, "What the host is called in sshu", nil)
-	nameF.Check = func() string {
+	nameRule := func(v string) string {
+		v = strings.TrimSpace(v)
 		switch {
-		case strings.TrimSpace(name) == "":
+		case v == "":
 			return "Name can't be empty"
-		case slices.ContainsFunc(h.s.d.Hosts, func(y store.Host) bool { return y.Name == name }) &&
-			(replace < 0 || h.s.d.Hosts[replace].Name != name):
-			return "Name " + name + " is taken"
+		case slices.ContainsFunc(h.s.d.Hosts, func(y store.Host) bool { return y.Name == v }) &&
+			(replace < 0 || h.s.d.Hosts[replace].Name != v):
+			return "Name " + v + " is taken"
 		}
 		return ""
 	}
-	hostF := text("Host", &host, "The address, or a Host of ~/.ssh/config", nil)
-	hostF.Check = func() string {
-		if strings.TrimSpace(host) == "" {
-			return "Host can't be empty"
-		}
-		return ""
-	}
+	nameF := text("Name", &name, "What the host is called in sshu", inputRule(nameRule))
+	nameF.Check = func() string { return nameRule(name) }
+	hostRule := required("Host")
+	hostF := text("Host", &host, "The address, or a Host of ~/.ssh/config", inputRule(hostRule))
+	hostF.Check = func() string { return hostRule(host) }
 	portF := &terminu.FormField{Label: "Port", Value: func() string { return port }, Empty: "ssh decides",
 		Edit: func() terminu.Input {
 			if method() == store.AuthSSHConfig {
@@ -294,6 +296,26 @@ func identityPicker(title, cur string, set func(string)) terminu.Input {
 	}
 	return terminu.FilePicker{Title: title, Glyph: glyphKey, Root: root, Value: store.ExpandTilde(cur),
 		Done: func(p string) tea.Cmd { set(store.FoldHome(p)); return nil }}
+}
+
+// required is the rule of a field that can't be left empty.
+func required(name string) func(string) string {
+	return func(v string) string {
+		if strings.TrimSpace(v) == "" {
+			return name + " can't be empty"
+		}
+		return ""
+	}
+}
+
+// inputRule is a field's rule as its input popup checks it.
+func inputRule(rule func(string) string) func(string) error {
+	return func(v string) error {
+		if msg := rule(v); msg != "" {
+			return errors.New(msg)
+		}
+		return nil
+	}
 }
 
 // optionalPort is a port that may be left empty. The lib's number input

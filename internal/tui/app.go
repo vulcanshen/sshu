@@ -32,6 +32,10 @@ type Data struct {
 
 	Config store.Config
 
+	// State is what the UI keeps between runs (the SSH grid's arrangement).
+	State     store.State
+	SaveState func(store.State) error
+
 	Errors      []store.ErrorEntry
 	AppendError func(store.ErrorEntry) error
 	ClearErrors func() error
@@ -100,6 +104,9 @@ func New(d *Data) *sshu {
 	a.AddScreen(s.mg.screen)
 	a.AddScreen(s.ft.screen)
 	a.AddScreen(s.sh.screen)
+	// The transfers are the whole app's, whichever side started them.
+	a.Global = []terminu.Action{{Key: "J", Label: "Jobs", Desc: "the transfers of this run, and cancelling one",
+		Scope: terminu.GlobalScope, Stay: true, Hidden: func() bool { return len(s.ft.jobs) == 0 }, Do: s.ft.jobsMenu}}
 	a.Start = s.start
 	s.refreshQuit()
 	return s
@@ -129,7 +136,7 @@ func (s *sshu) start() tea.Cmd {
 	return tea.Batch(append(cmds, s.a.Toast(kind, text))...)
 }
 
-// refreshQuit decides whether quitting asks first (Rules K9: the quit flow
+// refreshQuit decides whether quitting asks first (tdp K9: the quit flow
 // is the app's): live sessions and transfers in flight would be lost, so
 // with either it asks and says which.
 func (s *sshu) refreshQuit() {
@@ -150,7 +157,7 @@ func (s *sshu) refreshQuit() {
 
 // status is the statusbar at the right of the screen chips (layout/screen):
 // live sessions in Green, a transfer in flight in Green, unread errors in
-// Red. Each part keeps its width (Rules L2).
+// Red. Each part keeps its width (tdp L2).
 func (s *sshu) status(w int) string {
 	grey := terminu.Fg(terminu.Overlay0)
 	var parts []string
@@ -180,6 +187,9 @@ func (s *sshu) progress() (float64, bool) { return s.ft.progress() }
 
 // onMsg routes the messages the lib leaves to the screen that sent them.
 func (s *sshu) onMsg(msg tea.Msg) tea.Cmd {
+	if m, ok := msg.(copied); ok {
+		return s.onCopied(m)
+	}
 	if cmd, ok := s.ft.onMsg(msg); ok {
 		return cmd
 	}
@@ -222,6 +232,19 @@ func (s *sshu) logConn(e store.ConnectionEntry) {
 		_ = s.d.AppendConn(e)
 	}
 	s.mg.journalsChanged()
+}
+
+// liveAsk is an action's confirm, filled in for the item under the cursor.
+// The lib reads Action.Ask when the action runs and asks Hidden just
+// before, so Hidden fills it; with Ask set, Esc on the confirm goes back to
+// the Space menu it was run from, and Enter closes them all (tdp F4, T1).
+// TODO(lib SS29): an Ask that is made when the action runs.
+func liveAsk(fill func(*terminu.Ask) bool) (*terminu.Ask, func() bool) {
+	ask := &terminu.Ask{}
+	return ask, func() bool {
+		*ask = terminu.Ask{}
+		return !fill(ask)
+	}
 }
 
 // plural is "1 host", "2 hosts".

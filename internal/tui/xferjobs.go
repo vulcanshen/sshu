@@ -102,7 +102,7 @@ func (t *transfer) progress() (float64, bool) {
 }
 
 // statusText is the statusbar's word on transfers: files and percent, the
-// same width whatever the numbers (Rules L2).
+// same width whatever the numbers (tdp L2).
 func (t *transfer) statusText() string {
 	frac, ok := t.progress()
 	if !ok {
@@ -132,7 +132,7 @@ func (t *transfer) receiving(p string) bool {
 }
 
 // arrivalFrame is the loading glyph a file still arriving wears in its row
-// (Rules F7: how an item that is still coming in is shown is the app's), or
+// (tdp F7: how an item that is still coming in is shown is the app's), or
 // "" with nothing arriving. The clock picks the frame, as the lib's does.
 func (t *transfer) arrivalFrame() string {
 	if t.running() == 0 {
@@ -210,7 +210,7 @@ func (sd *side) queue(paths []string) tea.Cmd {
 	}
 	items, total, err := remote.Plan(sd.fs, paths, dst.cwd)
 	if err != nil {
-		return a.Error("Transfer", err.Error())
+		return a.Error("Transfer failed", err.Error())
 	}
 	files := 0
 	for _, it := range items {
@@ -285,7 +285,7 @@ func (t *transfer) jobsMenu() tea.Cmd {
 		} else {
 			act.Detail = true
 			act.Do = func() tea.Cmd {
-				return t.s.a.Viewer(&terminu.Viewer{Title: "Transfer", Subject: j.label, Glyph: glyphJobs, Lines: jobLines(j)})
+				return t.s.a.Viewer(newViewer("Transfer", j.label, glyphJobs, jobLines(j)))
 			}
 		}
 		acts = append(acts, act)

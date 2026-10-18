@@ -64,12 +64,14 @@ func (sd *side) rename(p string, ok bool) tea.Cmd {
 			v = strings.TrimSpace(v)
 			dst := remote.Join(path.Dir(p), v)
 			if err := sd.fs.Rename(p, dst); err != nil {
-				return a.Error("Rename", err.Error())
+				return a.Error("Rename failed", err.Error())
 			}
 			// A mark is a path: it moves with the file.
 			if sd.isMarked(p) {
+				dir := sd.markDir[p]
 				sd.unmark(p)
 				sd.marks = append(sd.marks, dst)
+				sd.markDir[dst] = dir
 			}
 			sd.reload()
 			sd.files.Select(dst)
@@ -113,7 +115,7 @@ func (sd *side) add() tea.Cmd {
 				}
 			}
 			if err != nil {
-				return a.Error("Add", err.Error())
+				return a.Error("Add failed", err.Error())
 			}
 			sd.reload()
 			sd.files.Select(p)
@@ -134,7 +136,7 @@ func (sd *side) deleteOne(p string, ok bool) tea.Cmd {
 		Question: "Delete permanently?", Verb: "delete"},
 		func() tea.Cmd {
 			if err := remote.RemoveAll(sd.fs, p); err != nil {
-				return a.Error("Delete", err.Error())
+				return a.Error("Delete failed", err.Error())
 			}
 			sd.unmark(p)
 			sd.reload()
@@ -162,7 +164,7 @@ func (sd *side) deleteMarks() tea.Cmd {
 			}
 			sd.reload()
 			if failed != "" {
-				return a.Error("Delete", failed)
+				return a.Error("Delete failed", failed)
 			}
 			return a.Toast(terminu.Info, "Deleted "+plural(done, "item"))
 		})
@@ -299,10 +301,14 @@ type viewLoaded struct {
 	v     *terminu.Viewer
 	lines []string
 	lang  string
+	title string // "Directory" when it turned out to be one
 }
 
 func (m viewLoaded) apply() {
 	m.v.Lines, m.v.Lang, m.v.Loading = m.lines, m.lang, false
+	if m.title != "" {
+		m.v.Title = m.title
+	}
 }
 
 // view opens p for reading: text coloured by its name, binary as hex, a
@@ -313,7 +319,8 @@ func (sd *side) view(p string, ok bool) tea.Cmd {
 		return nil
 	}
 	fsys := sd.fs
-	v := &terminu.Viewer{Title: "View", Subject: path.Base(p), Glyph: glyphEye, Loading: true}
+	v := newViewer("File", path.Base(p), glyphEye, nil)
+	v.Loading = true
 	load := func() tea.Msg {
 		e, err := fsys.Lstat(p)
 		if err == nil && e.Mode&fs.ModeSymlink != 0 {
@@ -323,7 +330,7 @@ func (sd *side) view(p string, ok bool) tea.Cmd {
 			return viewLoaded{v: v, lines: []string{"unreadable: " + err.Error()}}
 		}
 		if e.IsDir {
-			return viewLoaded{v: v, lines: dirLines(fsys, p)}
+			return viewLoaded{v: v, lines: dirLines(fsys, p), title: "Directory"}
 		}
 		data, err := remote.Peek(fsys, p, remote.PeekCap)
 		switch {
@@ -443,7 +450,7 @@ func (sd *side) edit(p string, ok bool) tea.Cmd {
 	e, err := sd.fs.Stat(p)
 	switch {
 	case err != nil:
-		return a.Error("Edit", "Can't read "+path.Base(p)+": "+err.Error())
+		return a.Error("Edit failed", "Can't read "+path.Base(p)+": "+err.Error())
 	case e.IsDir:
 		return a.Toast(terminu.Warning, "Can't edit a directory")
 	case !e.Mode.IsRegular():
@@ -493,13 +500,13 @@ func (t *transfer) onEditFetched(m editFetched) tea.Cmd {
 	a := t.s.a
 	if m.err != nil {
 		t.editing = false
-		return a.Error("Edit", "Can't open the file: "+m.err.Error())
+		return a.Error("Edit failed", "Can't open the file: "+m.err.Error())
 	}
 	if !m.text {
 		// TODO(lib SS8): Esc on the question cannot be heard; the fetched copy
 		// is left in the temporary directory.
 		t.editing = false
-		return a.Confirm(terminu.Ask{Title: "Not text", Subject: path.Base(m.job.path),
+		return a.Confirm(terminu.Ask{Title: "Edit", Subject: path.Base(m.job.path),
 			Details:  []string{path.Base(m.job.path) + " does not look like text.", "Saving it from an editor can corrupt it."},
 			Warn:     []int{1},
 			Question: "Edit it anyway?", Verb: "edit anyway"},
@@ -516,7 +523,7 @@ func (t *transfer) runEditor(job editJob) tea.Cmd {
 	argv, err := editorArgv(job.local)
 	if err != nil {
 		t.endEdit(job, false)
-		return a.Error("Edit", err.Error())
+		return a.Error("Edit failed", err.Error())
 	}
 	term := &terminu.Terminal{Title: "Edit", Subject: path.Base(job.path), Command: argv, Ends: true, Env: editorEnv()}
 	term.OnExit = func(err error) tea.Cmd {
@@ -597,15 +604,15 @@ func (t *transfer) onEditSaved(m editSaved) tea.Cmd {
 	case m.conflict:
 		// Esc keeps the copy where it is (TODO(lib SS8): it cannot be heard).
 		t.editing = false
-		return a.Confirm(terminu.Ask{Title: "Changed on " + where, Subject: name,
-			Details: []string{name + " changed since you opened it.", "Saving replaces what is there now.",
-				"Esc keeps your edit at " + m.job.local + "."}, Warn: []int{1},
+		return a.Confirm(terminu.Ask{Title: "Overwrite", Subject: name,
+			Details: []string{name + " changed on " + where + " since you opened it.", "Saving replaces what is there now.",
+				"[Esc] keeps your edit at " + m.job.local + "."}, Warn: []int{1},
 			Question: "Overwrite it?", Verb: "overwrite"},
 			func() tea.Cmd { return saveEdit(m.job, true) })
 	case m.err != nil:
 		t.endEdit(m.job, true)
 		t.s.logError("error", "", "", "edit: "+name+" · "+m.err.Error(), "your copy is at "+m.job.local)
-		return a.Error("Edit", "Not saved: "+m.err.Error()+"\nYour copy is at "+m.job.local)
+		return a.Error("Edit failed", "Not saved: "+m.err.Error()+"\nYour copy is at "+m.job.local)
 	case !m.changed:
 		t.endEdit(m.job, false)
 		return a.Toast(terminu.Info, "No changes to "+name)
