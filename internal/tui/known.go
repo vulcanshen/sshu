@@ -120,7 +120,7 @@ func (k *knownSection) edit() tea.Cmd {
 		return nil
 	}
 	return k.s.a.Text(terminu.TextInput{Title: "Trusted for", Subject: knownLabel(e), Glyph: glyphPencil,
-		Prompt: "Which names this key belongs to, separated by commas", Verb: "save", Name: "Names", Old: e.Hosts,
+		Prompt: "Which names the key of " + knownLabel(e) + " belongs to, separated by commas", Verb: "save", Name: "Names", Old: e.Hosts,
 		Check: func(v string) error {
 			if strings.TrimSpace(v) == "" {
 				return errors.New("Names can't be empty")

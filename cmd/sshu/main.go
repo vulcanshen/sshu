@@ -33,8 +33,9 @@ Environment:
 
 func main() {
 	// Before anything is drawn: a sshu started by another one over ssh has
-	// no COLORTERM, and the depth waits in the variable that crossed.
-	tui.AdoptForwardedColor()
+	// no COLORTERM, and the depth and the widths wait in the variables that
+	// crossed (tdp E5).
+	tui.AdoptForwarded()
 
 	if len(os.Args) > 1 && !helperRun() {
 		switch os.Args[1] {

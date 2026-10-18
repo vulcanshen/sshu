@@ -254,12 +254,13 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		text("User", &values[1], "Who to log in as"),
 		{Label: "Port", Value: func() string { return values[2] }, Empty: "not set",
 			Edit: func() terminu.Input {
-				return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: "1–65535, or empty", Verb: "set",
-					Old: values[2], Min: 1, Max: 65535, Done: func(s string) tea.Cmd { values[2] = s; return nil }}
+				return optionalPort("1–65535, or empty to leave the line out", values[2], func(s string) { values[2] = s })
 			}},
 		{Label: "IdentityFile", Value: func() string { return values[3] }, Empty: "not set", Path: true,
-			Edit: func() terminu.Input { return identityPicker(values[3], func(p string) { values[3] = p }) }},
-		{Label: "Other options", Stacked: true, Value: func() string { return strings.ReplaceAll(other, "\n", " · ") },
+			Edit: func() terminu.Input {
+				return identityPicker("IdentityFile", values[3], func(p string) { values[3] = p })
+			}},
+		{Label: "Other options", Stacked: true, Value: func() string { return firstLine(other) },
 			Empty: "none",
 			Edit: func() terminu.Input {
 				return terminu.Textarea{Title: "Other options", Glyph: glyphCog, Name: "Other options", Old: other,
@@ -339,4 +340,14 @@ func errText(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+// firstLine is a multi-line value on a form: its first line, and "…" when
+// more follow (components/input/README, how a value is shown).
+func firstLine(v string) string {
+	first, rest, more := strings.Cut(strings.TrimSpace(v), "\n")
+	if more && strings.TrimSpace(rest) != "" {
+		return first + " …"
+	}
+	return first
 }

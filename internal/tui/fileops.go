@@ -24,6 +24,10 @@ import (
 // What a side can do to the files themselves: rename, add, delete, search,
 // view, edit.
 
+// errNoName names the value, as an error row must (components/input/README).
+// TODO(lib SS15): terminu.ErrEmpty says "can't be empty" with no name.
+var errNoName = errors.New("A name can't be empty")
+
 // nameCheck refuses what a name box cannot mean: a path.
 func nameCheck(v string) error {
 	if strings.ContainsRune(strings.TrimSuffix(strings.TrimSpace(v), "/"), '/') {
@@ -49,7 +53,7 @@ func (sd *side) rename(p string, ok bool) tea.Cmd {
 				return err
 			}
 			if v == "" {
-				return terminu.ErrEmpty
+				return errNoName
 			}
 			if v != base && remote.Exists(sd.fs, remote.Join(path.Dir(p), v)) {
 				return errors.New(v + " already exists")
@@ -86,7 +90,7 @@ func (sd *side) add() tea.Cmd {
 			}
 			name := strings.TrimSuffix(v, "/")
 			if name == "" {
-				return terminu.ErrEmpty
+				return errNoName
 			}
 			// Create truncates: an existing name is refused, not emptied.
 			if remote.Exists(sd.fs, remote.Join(sd.cwd, name)) {
@@ -182,22 +186,24 @@ type scan struct {
 	finder *terminu.Finder
 	sd     *side
 	root   string
+	local  bool
 }
 
 func (sd *side) search() tea.Cmd {
 	t := sd.t
 	t.stopScans()
 	ctx, cancel := context.WithCancel(context.Background())
-	sc := &scan{cancel: cancel, sd: sd, root: sd.cwd}
+	sc := &scan{cancel: cancel, sd: sd, root: sd.cwd, local: isLocal(sd.fs)}
 	sc.finder = &terminu.Finder{Title: "Search", Subject: foldHomePath(sd.cwd, sd.home), Glyph: glyphEye, Verb: "go there",
-		Loading: true, Files: sd.fs == remote.Local(),
+		Loading: true, Files: isLocal(sd.fs),
 		Done: func(it terminu.FinderItem) tea.Cmd {
 			sc.cancel()
-			return sd.goToFound(sc.root, it.ID)
+			return sd.goToFound(sc.root, strings.TrimPrefix(it.ID, sc.root+"/"))
 		}}
 	if !sc.finder.Files {
 		sc.finder.Preview = func(it terminu.FinderItem) (string, []string) {
-			return it.Text, []string{"in " + foldHomePath(path.Dir(remote.Join(sc.root, it.ID)), sd.home)}
+			// TODO(lib SS18): the lib previews only files on this machine.
+			return it.Text, []string{"in " + foldHomePath(path.Dir(it.ID), sd.home)}
 		}
 	}
 	var sub []string
@@ -208,7 +214,7 @@ func (sd *side) search() tea.Cmd {
 	}
 	// The directory itself first, then everything below it.
 	for _, e := range sd.entries {
-		sc.finder.Items = append(sc.finder.Items, foundItem(sc.root, e))
+		sc.finder.Items = append(sc.finder.Items, foundItem(sc.root, e, isLocal(sd.fs)))
 	}
 	t.scans = append(t.scans, sc)
 	fsys, root := sd.fs, sd.cwd
@@ -230,16 +236,20 @@ func (sd *side) search() tea.Cmd {
 	return cmd
 }
 
-// foundItem is one result: its path under the root, and for a local side the
-// absolute path the finder previews.
-func foundItem(root string, e remote.Entry) terminu.FinderItem {
-	icon, color := glyphFile, terminu.Overlay0
+// foundItem is one result: its absolute path, shown under the root. The
+// glyphs are the ones the lib's preview tree draws, so the list and the
+// preview beside it agree (components/input/file-picker).
+func foundItem(root string, e remote.Entry, local bool) terminu.FinderItem {
+	icon := glyphTreeFile
 	name := e.Name
 	if e.IsDir {
-		icon, color, name = glyphDir, terminu.Blue, e.Name+"/"
+		icon, name = glyphTreeDir, e.Name+"/"
 	}
-	return terminu.FinderItem{ID: e.Name, Text: name, Icon: icon, IconColor: color}
+	return terminu.FinderItem{ID: remote.Join(root, e.Name), Text: name, Icon: icon, IconColor: terminu.Text}
 }
+
+// isLocal reports this machine's filesystem: the one the lib can preview.
+func isLocal(fsys remote.FS) bool { _, ok := remote.LocalPath(fsys, "/"); return ok }
 
 func (t *transfer) onScanTick() tea.Cmd {
 	running := false
@@ -250,7 +260,7 @@ func (t *transfer) onScanTick() tea.Cmd {
 		sc.buf = nil
 		sc.mu.Unlock()
 		for _, e := range batch {
-			sc.finder.Items = append(sc.finder.Items, foundItem(sc.root, e))
+			sc.finder.Items = append(sc.finder.Items, foundItem(sc.root, e, sc.local))
 		}
 		if done {
 			sc.finder.Loading = false

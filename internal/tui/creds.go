@@ -182,11 +182,13 @@ func (c *credsSection) form(title, subject string, start store.Credential, repla
 		}}
 	identityF := &terminu.FormField{Label: "Identity file", Value: func() string { return identity }, Empty: "not set", Path: true,
 		Disabled: func() bool { return method() != store.AuthPrivateKey },
-		Edit:     func() terminu.Input { return identityPicker(identity, func(p string) { identity = p }) }}
+		Edit: func() terminu.Input {
+			return identityPicker("Identity file", identity, func(p string) { identity = p })
+		}}
 	passwordF := &terminu.FormField{Label: "Password", Empty: "not set", Value: func() string { return maskIf(password) },
 		Disabled: func() bool { return method() != store.AuthPassword },
 		Edit: func() terminu.Input {
-			return terminu.PasswordInput{Title: "Password", Glyph: glyphLock, Prompt: "Stored encrypted; ssh is handed it by sshu",
+			return terminu.PasswordInput{Title: "Password", Glyph: glyphLock, Prompt: "The password to log in with; it is stored encrypted",
 				Verb: "set", Set: password != "", Done: func(v string, clear bool) tea.Cmd { password = v; return nil }}
 		}}
 	f := &terminu.Form{Title: title, Subject: subject, Glyph: glyphPlus, Name: cmpOr(subject, title), Button: "Save",

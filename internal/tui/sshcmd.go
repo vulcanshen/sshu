@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	terminu "github.com/vulcanshen/terminu-go"
+
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
@@ -27,6 +29,7 @@ func sshArgs(h store.Host, timeoutSecs int, logFile string) []string {
 	if os.Getenv("COLORTERM") != "" {
 		args = append(args, "-o", "SendEnv="+colorEnv)
 	}
+	args = append(args, "-o", "SendEnv="+iconEnv, "-o", "SendEnv="+powerlineEnv)
 	if logFile != "" {
 		args = append(args, "-E", logFile)
 	}
@@ -68,6 +71,7 @@ func sshEnv(h store.Host, self string) []string {
 	if v := os.Getenv("COLORTERM"); v != "" {
 		env = append(env, colorEnv+"="+v)
 	}
+	env = append(env, iconEnv+"="+strconv.Itoa(terminu.IconWidth()), powerlineEnv+"="+strconv.Itoa(terminu.PowerlineWidth()))
 	if h.Auth == store.AuthPassword && h.Password != "" && self != "" {
 		env = append(env, "SSH_ASKPASS="+self, "SSH_ASKPASS_REQUIRE=force", askpassHostEnv+"="+h.Name)
 	}
@@ -95,17 +99,28 @@ func sftpCmd(ctx context.Context, h store.Host, self, sock string, timeoutSecs i
 }
 
 // colorEnv carries the colour depth across ssh: sshd takes LC_* by default,
-// and ssh forwards nothing else of the kind.
-const colorEnv = "LC_SSHU_COLORTERM"
+// and ssh forwards nothing else of the kind. iconEnv and powerlineEnv carry
+// how many cells an icon and a powerline symbol take here (tdp E5): a sshu
+// on the far side runs in this sshu's terminal emulator, whose answer to its
+// probe counts both as one, so it has to be told — and TERMINU__ variables do
+// not cross ssh.
+const (
+	colorEnv     = "LC_SSHU_COLORTERM"
+	iconEnv      = "LC_SSHU_ICON_WIDTH"
+	powerlineEnv = "LC_SSHU_POWERLINE_WIDTH"
+)
 
-// AdoptForwardedColor is called before anything is drawn: a sshu started by
-// another one over ssh finds its colour depth there. A real COLORTERM wins.
-func AdoptForwardedColor() {
-	if os.Getenv("COLORTERM") != "" {
-		return
-	}
-	if v := os.Getenv(colorEnv); v != "" {
+// AdoptForwarded is called before anything is drawn: a sshu started by
+// another one over ssh finds its colour depth and the widths there. A real
+// COLORTERM wins, and so does a width the user set for sshu itself.
+func AdoptForwarded() {
+	if v := os.Getenv(colorEnv); v != "" && os.Getenv("COLORTERM") == "" {
 		_ = os.Setenv("COLORTERM", v)
+	}
+	for _, w := range [][2]string{{iconEnv, "SSHU__ICON_WIDTH"}, {powerlineEnv, "SSHU__POWERLINE_WIDTH"}} {
+		if v := os.Getenv(w[0]); (v == "1" || v == "2") && os.Getenv(w[1]) == "" {
+			_ = os.Setenv(w[1], v)
+		}
 	}
 }
 

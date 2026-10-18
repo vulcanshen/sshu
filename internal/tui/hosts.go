@@ -189,7 +189,10 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 	}
 	portF := &terminu.FormField{Label: "Port", Value: func() string { return port }, Empty: "ssh decides",
 		Edit: func() terminu.Input {
-			return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: "1–65535; empty on an sshconfig host lets ssh decide",
+			if method() == store.AuthSSHConfig {
+				return optionalPort("1–65535, or empty to let ~/.ssh/config decide", port, func(s string) { port = s })
+			}
+			return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: "1–65535",
 				Verb: "set", Old: port, Min: 1, Max: 65535, Done: func(s string) tea.Cmd { port = s; return nil }}
 		},
 		Check: func() string {
@@ -228,12 +231,14 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 		}}
 	identityF := &terminu.FormField{Label: "Identity file", Value: func() string { return identity }, Empty: "not set", Path: true,
 		Disabled: func() bool { return method() != store.AuthPrivateKey },
-		Edit:     func() terminu.Input { return identityPicker(identity, func(p string) { identity = p }) }}
+		Edit: func() terminu.Input {
+			return identityPicker("Identity file", identity, func(p string) { identity = p })
+		}}
 	passwordF := &terminu.FormField{Label: "Password", Empty: "not set",
 		Value:    func() string { return maskIf(password) },
 		Disabled: func() bool { return method() != store.AuthPassword },
 		Edit: func() terminu.Input {
-			return terminu.PasswordInput{Title: "Password", Glyph: glyphLock, Prompt: "Stored encrypted; ssh is handed it by sshu",
+			return terminu.PasswordInput{Title: "Password", Glyph: glyphLock, Prompt: "The password to log in with; it is stored encrypted",
 				Verb: "set", Set: password != "", Done: func(v string, clear bool) tea.Cmd { password = v; return nil }}
 		}}
 	tagsF := text("Tags", &tags, "Words to find it by, separated by spaces", nil)
@@ -279,7 +284,7 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 }
 
 // identityPicker picks a private key, starting in ~/.ssh.
-func identityPicker(cur string, set func(string)) terminu.Input {
+func identityPicker(title, cur string, set func(string)) terminu.Input {
 	root := store.ExpandTilde("~/.ssh")
 	if cur != "" {
 		root = filepath.Dir(store.ExpandTilde(cur))
@@ -287,8 +292,26 @@ func identityPicker(cur string, set func(string)) terminu.Input {
 	if st, err := os.Stat(root); err != nil || !st.IsDir() {
 		root = store.ExpandTilde("~")
 	}
-	return terminu.FilePicker{Title: "Identity file", Glyph: glyphKey, Root: root, Value: store.ExpandTilde(cur),
+	return terminu.FilePicker{Title: title, Glyph: glyphKey, Root: root, Value: store.ExpandTilde(cur),
 		Done: func(p string) tea.Cmd { set(store.FoldHome(p)); return nil }}
+}
+
+// optionalPort is a port that may be left empty. The lib's number input
+// refuses an empty value, so it is a text input with the number's rule.
+// TODO(lib SS16): a number input that may be empty.
+func optionalPort(prompt, old string, set func(string)) terminu.Input {
+	return terminu.TextInput{Title: "Port", Glyph: glyphPencil, Prompt: prompt, Verb: "set", Old: old, MaxLen: 5,
+		Check: func(v string) error {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				return nil
+			}
+			if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 65535 {
+				return errors.New("Port must be 1-65535")
+			}
+			return nil
+		},
+		Done: func(v string) tea.Cmd { set(strings.TrimSpace(v)); return nil }}
 }
 
 // maskIf shows a stored password as the fixed mask, nothing as nothing.

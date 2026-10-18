@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	terminu "github.com/vulcanshen/terminu-go"
+
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
@@ -107,7 +109,7 @@ func TestTheColourDepthIsHandedToTheFarSide(t *testing.T) {
 	}
 	t.Setenv("COLORTERM", "")
 	if strings.Contains(strings.Join(sshEnv(h, ""), " "), colorEnv) ||
-		strings.Contains(strings.Join(sshArgs(h, 5, ""), " "), "SendEnv") {
+		strings.Contains(strings.Join(sshArgs(h, 5, ""), " "), "SendEnv="+colorEnv) {
 		t.Error("with no depth of its own, nothing should be carried")
 	}
 }
@@ -116,12 +118,12 @@ func TestTheColourDepthIsHandedToTheFarSide(t *testing.T) {
 func TestTheFarSideAdoptsTheDepthOnlyIntoAGap(t *testing.T) {
 	t.Setenv("COLORTERM", "")
 	t.Setenv(colorEnv, "truecolor")
-	AdoptForwardedColor()
+	AdoptForwarded()
 	if got := os.Getenv("COLORTERM"); got != "truecolor" {
 		t.Errorf("COLORTERM = %q, want the forwarded depth", got)
 	}
 	t.Setenv("COLORTERM", "24bit")
-	AdoptForwardedColor()
+	AdoptForwarded()
 	if got := os.Getenv("COLORTERM"); got != "24bit" {
 		t.Errorf("COLORTERM = %q, want the local terminal's own", got)
 	}
@@ -140,5 +142,32 @@ func TestAnSSHConfigHostLeavesTheRestToTheFile(t *testing.T) {
 	}
 	if args[len(args)-1] != "jump" {
 		t.Errorf("destination %q", args[len(args)-1])
+	}
+}
+
+// The widths cross ssh too (tdp E5): the outer sshu sends its own, and the
+// far side takes them unless the user set sshu's own variable there.
+func TestTheIconWidthsAreHandedToTheFarSide(t *testing.T) {
+	terminu.SetIconWidth(2, 1)
+	defer terminu.SetIconWidth(1, 1)
+	h := store.Host{Name: "h", Host: "example", Port: 22, User: "u"}
+	env := strings.Join(sshEnv(h, ""), " ")
+	if !strings.Contains(env, iconEnv+"=2") || !strings.Contains(env, powerlineEnv+"=1") {
+		t.Errorf("the environment does not carry the widths: %s", env)
+	}
+	args := strings.Join(sshArgs(h, 5, ""), " ")
+	if !strings.Contains(args, "SendEnv="+iconEnv) || !strings.Contains(args, "SendEnv="+powerlineEnv) {
+		t.Errorf("ssh was not asked to send them: %s", args)
+	}
+	t.Setenv(iconEnv, "2")
+	t.Setenv("SSHU__ICON_WIDTH", "")
+	t.Setenv(powerlineEnv, "2")
+	t.Setenv("SSHU__POWERLINE_WIDTH", "1")
+	AdoptForwarded()
+	if os.Getenv("SSHU__ICON_WIDTH") != "2" {
+		t.Error("the forwarded icon width was not taken")
+	}
+	if os.Getenv("SSHU__POWERLINE_WIDTH") != "1" {
+		t.Error("the user's own SSHU__POWERLINE_WIDTH must win")
 	}
 }

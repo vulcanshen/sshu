@@ -190,6 +190,7 @@ Optional; sshu reads it and never writes it, so your comments and layout stay. L
 connect_timeout: 15
 # Shared by the terminu family: in the identity file picker's preview, show
 # only the first line of a private key and nothing of a file only you may read.
+# Default false.
 hide_secrets_in_preview: false
 # Shared by the terminu family: how many spaces Tab puts in while writing in a
 # multi-line field. Default 4.
@@ -229,7 +230,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.7.4/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web) and [locku](https://github.com/vulcanshen/locku) (a screen lock).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.7.4/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
 
 ## License
 

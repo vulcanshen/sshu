@@ -169,7 +169,7 @@ func (s *sshu) status(w int) string {
 	text := ""
 	for i, p := range parts {
 		if i > 0 {
-			text += grey.Render("  ·  ")
+			text += "  "
 		}
 		text += p
 	}
