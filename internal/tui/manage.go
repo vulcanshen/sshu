@@ -89,10 +89,7 @@ func (m *manage) show(sec *section) {
 	m.cur = sec
 	m.content.Label = sec.label
 	m.content.Body = sec.body
-	m.content.Actions = sec.actions()
-	if l, ok := sec.body.(*terminu.List); ok {
-		m.content.Actions = append(m.content.Actions, l.Actions()...)
-	}
+	m.content.Actions = sec.actions() // the lib adds the list's own (the filter)
 	if sec.shown != nil {
 		sec.shown()
 	}

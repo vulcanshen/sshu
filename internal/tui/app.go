@@ -153,7 +153,11 @@ func (s *sshu) status(w int) string {
 	grey := terminu.Fg(terminu.Overlay0)
 	var parts []string
 	if n := s.mg.unreadErrors(); n > 0 {
-		parts = append(parts, terminu.Fg(terminu.Red).Render(fmt.Sprintf("%3d", n))+grey.Render(" errors"))
+		noun := " errors"
+		if n == 1 {
+			noun = " error "
+		}
+		parts = append(parts, terminu.Fg(terminu.Red).Render(fmt.Sprintf("%3d", n))+grey.Render(noun))
 	}
 	if t := s.ft.statusText(); t != "" {
 		parts = append(parts, terminu.Fg(terminu.Green).Render(t))

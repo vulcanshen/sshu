@@ -32,6 +32,9 @@ func who(user, host string) string {
 	return user + "@" + host
 }
 
+// whoCell is who in a table, cut so the cause beside it keeps its room.
+func whoCell(user, host string) string { return terminu.Truncate(who(user, host), 28) }
+
 // clearAction is a journal's [C]lear: it asks, then empties the file.
 func clearAction(s *sshu, label, file string, clear func() error, after func()) terminu.Action {
 	return terminu.Action{Key: "C", Label: "Clear " + label, Desc: "erase " + file, Scope: terminu.PanelScope,
@@ -118,7 +121,7 @@ func (e *errorsSection) reload() {
 			color = terminu.Peach
 		}
 		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{
-			jTime(x.At), who(x.User, x.Host), terminu.Fg(color).Render(cause(x)),
+			jTime(x.At), whoCell(x.User, x.Host), terminu.Fg(color).Render(cause(x)),
 		}})
 	}
 	e.list.SetRows(rows)
@@ -198,7 +201,7 @@ func (c *connsSection) reload() {
 	rows := make([]terminu.Row, 0, len(es))
 	for i := len(es) - 1; i >= 0; i-- {
 		x := es[i]
-		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{jTime(x.At), who(x.User, x.Host), resultText(x.Result)}})
+		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{jTime(x.At), whoCell(x.User, x.Host), resultText(x.Result)}})
 	}
 	c.list.SetRows(rows)
 }

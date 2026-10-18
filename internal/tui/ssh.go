@@ -123,10 +123,13 @@ func (h *sshScreen) place(w, hh int) []terminu.Rect {
 		}
 	}
 	left := sshLeftW
-	if inside {
+	switch {
+	case inside:
 		left = 0
+	case !h.anyShown():
+		left = w // no cell to give the room to
 	}
-	layoutH := min(6, hh/3)
+	layoutH := min(7, hh/3)
 	if left > 0 {
 		rects[0] = terminu.Rect{X: 0, Y: 0, W: left, H: hh - layoutH}
 		rects[1] = terminu.Rect{X: 0, Y: hh - layoutH, W: left, H: layoutH}
@@ -178,6 +181,16 @@ func (h *sshScreen) place(w, hh int) []terminu.Rect {
 		rects[i] = terminu.Rect{X: x, Y: y, W: cw, H: hs[r]}
 	}
 	return rects
+}
+
+// anyShown reports a cell on the grid.
+func (h *sshScreen) anyShown() bool {
+	for _, x := range h.sessions {
+		if !x.ended && !x.hidden {
+			return true
+		}
+	}
+	return false
 }
 
 func splitEven(total, parts int) []int {
@@ -303,6 +316,19 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	}
 	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name, History: true,
 		Command: sshArgs(addr, h.s.d.Config.Seconds(), x.log), Env: sshEnv(addr, selfPath())}
+	// What sshu's own PTY did and terminu-go's Terminal cannot yet:
+	// TODO(lib SS4): Alt-v, the selection mode that copies out of a cell,
+	// needs the screen's text.
+	// TODO(lib SS5): the nest channel — telling a sshu inside a cell how wide
+	// an icon is (tdp E5), seeing the chain, driving its lock and zoom —
+	// needs to write into the PTY and read what the program sends.
+	// TODO(lib SS6): Alt-Enter, the lock that hands every key, Alt-Esc too, to
+	// a nested sshu.
+	// TODO(lib SS7): Alt-z's last stage, a cell over the whole terminal with
+	// no frame, so a nested sshu loses no row.
+	// TODO(lib SS11): NotReady and the "connecting" look need to know when
+	// the program first prints.
+	// TODO(lib SS12): one key row for Alt-←|→|↑|↓; four for now.
 	x.term.Keys = []terminu.TerminalKey{
 		{Key: "Alt-z", Desc: "zoom", Do: func() tea.Cmd { h.zoomed = !h.zoomed; return nil }},
 		{Key: "Alt-←", Desc: "cell", Do: func() tea.Cmd { return h.move(x, -1, 0) }},

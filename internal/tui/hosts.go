@@ -28,7 +28,9 @@ func newHostsSection(s *sshu) *hostsSection {
 	h := &hostsSection{s: s}
 	h.list = &terminu.List{
 		Columns: []terminu.Column{
-			{Title: "Name"}, {Title: "User"}, {Title: "Host", Flex: true},
+			// Tags give up room first: name and address are what the table is
+			// scanned by.
+			{Title: "Name"}, {Title: "User"}, {Title: "Host"},
 			{Title: "Port", Number: true}, {Title: "Auth"}, {Title: "Tags", Flex: true},
 		},
 		Filterable: true,
