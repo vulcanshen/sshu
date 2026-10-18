@@ -1,5 +1,16 @@
 # Changelog
 
+Each release names the version of terminu design (tdp) it follows.
+
+## Unreleased
+
+- The repository takes the terminu family's shape (tdp project, v0.7.4):
+  `family.mk` with the family's make targets (`make check` now runs the
+  tests with the race detector), and the family's `release.yml`,
+  `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`.
+  `uninstall.sh` now also finds the settings directory named by
+  `SSHU__CONFIG`.
+
 ## [2.0.0] — 2026-10-06
 
 **Rename your environment variables before you start 2.0.** They are now

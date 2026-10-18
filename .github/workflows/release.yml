@@ -1,5 +1,10 @@
 name: Release
 
+# terminu family template (tdp project/release.yml), copied to an app's
+# .github/workflows/release.yml. The same file in every app: an app with a
+# Windows build adds windows-latest to the test matrix, and nothing else
+# changes.
+
 on:
   push:
     tags:
@@ -20,6 +25,10 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -race ./...
+        if: runner.os != 'Windows'
+      # -race needs cgo, which a Windows runner has no compiler for
+      - run: go test ./...
+        if: runner.os == 'Windows'
 
   release:
     needs: test
@@ -33,11 +42,12 @@ jobs:
           go-version-file: go.mod
       - name: Extract release notes from CHANGELOG
         run: |
-          VERSION=${GITHUB_REF_NAME#v}   # tag v0.1.0 -> match "## [0.1.0]" in CHANGELOG
-          awk -v ver="$VERSION" '
-            /^## \[/ {
+          # tag v0.1.0 -> the section under "## v0.1.0 — tdp …", up to the next "## "
+          awk -v tag="$GITHUB_REF_NAME" '
+            /^## / {
               if (found) exit
-              if (index($0, ver)) found=1; next
+              if ($2 == tag) found=1
+              next
             }
             found { print }
           ' CHANGELOG.md > RELEASE_NOTES.md
@@ -47,14 +57,26 @@ jobs:
           version: "~> v2"
           args: release --clean --skip=validate --release-notes RELEASE_NOTES.md
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTION_TOKEN: ${{ secrets.ACTION_TOKEN }}
+          # goreleaser reads GITHUB_TOKEN for the release and for the tap
+          # (and the bucket). The built-in token cannot write to those
+          # repositories, so a PAT in the ACTION_TOKEN secret is used when it
+          # is set, and the built-in token otherwise.
+          GITHUB_TOKEN: ${{ secrets.ACTION_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Force release body from CHANGELOG (goreleaser's --release-notes is unreliable)
+        # Runs even when goreleaser failed a later step (a tap push that
+        # 401'd, in kbu): the release and its assets are made before that, so
+        # it usually exists and only needs its body. When goreleaser failed
+        # before making it, this skips instead of failing a second time.
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -s RELEASE_NOTES.md ]; then
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "RELEASE_NOTES.md is empty — skipping body override"
+            exit 0
+          fi
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release edit "${GITHUB_REF_NAME}" --notes-file RELEASE_NOTES.md
           else
-            echo "RELEASE_NOTES.md is empty — skipping body override"
+            echo "release ${GITHUB_REF_NAME} does not exist yet — skipping body override"
           fi

@@ -1,3 +1,7 @@
+# terminu family template (tdp project/goreleaser.yaml), copied to an app's
+# .goreleaser.yaml. Replace sshu with the app's name and fill the lines
+# marked "app:". An app with a Windows build uncomments the lines marked
+# "Windows"; nothing else changes.
 version: 2
 
 project_name: sshu
@@ -7,12 +11,17 @@ builds:
     binary: sshu
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     ldflags:
+      # internal/version.Version takes the tag without its v; the app prints
+      # it with the v (internal/version.Display).
       - -s -w -X github.com/vulcanshen/sshu/internal/version.Version={{.Version}}
     goos:
-      # unix-first — no windows target (sshu drives a Unix PTY by design)
+      # unix-first: no Windows build unless the app needs one.
       - linux
       - darwin
+      # - windows   # Windows
     goarch:
       - amd64
       - arm64
@@ -20,26 +29,53 @@ builds:
 archives:
   - formats:
       - tar.gz
+    # format_overrides:   # Windows
+    #   - goos: windows
+    #     formats:
+    #       - zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
 
+# The release notes come from CHANGELOG.md (.github/workflows/release.yml).
 changelog:
   disable: true
 
-# A formula, not a cask: sshu is a CLI/TUI, so it belongs in a formula like the
-# rest of the u-family (kbu, filu). Homebrew stamps com.apple.quarantine on cask
-# artifacts by default, which trips macOS Gatekeeper on an unsigned binary;
-# formula binaries are never quarantined, so `brew install` runs clean.
-#
-# No dependencies: the ssh tab shells out to the system's OpenSSH client, which
-# every macOS/Linux box already carries, and the sftp side speaks the protocol
-# itself.
+# A formula, not a cask: a formula binary is never stamped
+# com.apple.quarantine, so an unsigned binary runs clean.
 brews:
   - repository:
       owner: vulcanshen
       name: homebrew-tap
-      token: "{{ .Env.ACTION_TOKEN }}"
+      # One token for everything, GITHUB_TOKEN (user, 2026-09-25): a release
+      # run by hand takes the shell's; the workflow hands it the PAT in
+      # ACTION_TOKEN when one is set, since the built-in token cannot write
+      # to the tap repository.
+      token: "{{ .Env.GITHUB_TOKEN }}"
     homepage: "https://github.com/vulcanshen/sshu"
-    description: "ssh/sftp terminal front end (u-family) — host book, reusable credentials, two-sided transfers, a grid of live terminals"
+    # app: one line, what the app is, ending in (u-family).
+    description: "sshu: an ssh and sftp front end for the terminal (u-family)"
+    # app: what to run first, where the settings and data live, the Nerd
+    # Font requirement, the platforms.
+    caveats: |
+      Run `sshu` to start.
+
+      Hosts, credentials and logs live in ~/.config/sshu ($XDG_CONFIG_HOME/sshu
+      when that is set, or $SSHU__CONFIG). The SSH screen runs the system's
+      OpenSSH client.
+
+      A Nerd Font terminal profile and a truecolor terminal are required.
+      macOS and Linux (WSL too).
+    # app: dependencies, when the app calls other programs.
+    test: |
+      system "#{bin}/sshu", "version"
+
+# scoops:   # Windows
+#   - repository:
+#       owner: vulcanshen
+#       name: scoop-bucket
+#       token: "{{ .Env.GITHUB_TOKEN }}"
+#     homepage: "https://github.com/vulcanshen/sshu"
+#     # app: the same line as the brews description above.
+#     description: "sshu: what it is (u-family)"

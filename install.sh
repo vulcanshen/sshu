@@ -1,17 +1,31 @@
 #!/bin/sh
-# sshu installer for macOS / Linux (unix-only — on Windows use WSL).
+# sshu installer for macOS / Linux.
 # Usage: curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | sh
+#
+# terminu family template (tdp project/install.sh). Replace sshu; set
+# WINDOWS; the blocks marked "app's own" are the app's, the rest stays as it is.
 
 set -e
 
-REPO="vulcanshen/sshu"
+APP="sshu"
+REPO="vulcanshen/$APP"
+# yes when the app ships a Windows build and an install.ps1.
+WINDOWS="no"
 
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$OS" in
   linux*)  OS="linux" ;;
   darwin*) OS="darwin" ;;
-  *) echo "Error: sshu is unix-only (no Windows build — use WSL). Unsupported OS: $OS"; exit 1 ;;
+  *)
+    echo "Error: unsupported OS: $OS."
+    if [ "$WINDOWS" = "yes" ]; then
+      echo "On Windows, run in PowerShell:"
+      echo "  irm https://raw.githubusercontent.com/$REPO/main/install.ps1 | iex"
+    else
+      echo "$APP is unix-only (no Windows build — use WSL)."
+    fi
+    exit 1 ;;
 esac
 
 # Detect architecture
@@ -21,6 +35,9 @@ case "$ARCH" in
   aarch64|arm64) ARCH="arm64" ;;
   *) echo "Error: unsupported architecture: $ARCH"; exit 1 ;;
 esac
+
+# --- app's own: checks before the download (none by default) ---
+# --- end of the app's own ---
 
 # Get latest version
 echo "Fetching latest release..."
@@ -34,7 +51,7 @@ else
   INSTALL_DIR="$HOME/.local/bin"
 fi
 
-FILENAME="sshu_${VERSION}_${OS}_${ARCH}.tar.gz"
+FILENAME="${APP}_${VERSION}_${OS}_${ARCH}.tar.gz"
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/v${VERSION}/$FILENAME"
 
 # Download
@@ -48,12 +65,12 @@ tar xzf "$TMPDIR/$FILENAME" -C "$TMPDIR"
 
 # Install
 mkdir -p "$INSTALL_DIR"
-cp "$TMPDIR/sshu" "$INSTALL_DIR/sshu"
-chmod +x "$INSTALL_DIR/sshu"
+cp "$TMPDIR/$APP" "$INSTALL_DIR/$APP"
+chmod +x "$INSTALL_DIR/$APP"
 rm -rf "$TMPDIR"
 
 echo ""
-echo "sshu $VERSION installed to $INSTALL_DIR"
+echo "$APP $VERSION installed to $INSTALL_DIR"
 
 # Check if install dir is in PATH
 case ":$PATH:" in
@@ -66,16 +83,16 @@ case ":$PATH:" in
     ;;
 esac
 
-# The ssh tab shells out to the system's OpenSSH client; every macOS/Linux box
-# has one, but say so if this one somehow does not.
+# --- app's own: what to know, and what to run first ---
+# The SSH screen runs the system's OpenSSH client; every macOS/Linux box has
+# one, but say so if this one somehow does not.
 if ! command -v ssh >/dev/null 2>&1; then
   echo ""
-  echo "NOTE: no 'ssh' client on PATH — the ssh tab needs OpenSSH (the sftp side does not)."
+  echo "NOTE: no 'ssh' client on PATH — the SSH screen needs OpenSSH (file transfer does not)."
 fi
-
 echo ""
-echo "NOTE: sshu draws auth methods, file types and marks with Nerd Font glyphs."
-echo "      Use a Nerd Font terminal profile (https://www.nerdfonts.com) or those"
-echo "      cells will render as boxes."
+echo "NOTE: $APP draws with Nerd Font glyphs. Use a Nerd Font terminal"
+echo "      profile (https://www.nerdfonts.com) or they render as boxes."
 echo ""
-echo "Run 'sshu' to launch."
+echo "Run '$APP' to start."
+# --- end of the app's own ---

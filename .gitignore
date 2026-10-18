@@ -1,8 +1,17 @@
+# terminu family template (tdp project/gitignore), copied to an app's
+# .gitignore; replace sshu. The app's own lines go below the last one.
 /sshu
 /dist/
-.DS_Store
 .local/
 .idea/
+.vscode/
+.DS_Store
+*.test
+*.out
+go.work
+go.work.sum
+.claude/settings.local.json
+.claude/worktrees/
 
 # export bundles carry plaintext passwords — never commit one
 *.sshu
