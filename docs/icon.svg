@@ -117,6 +117,70 @@
     <rect x="220" y="210" width="10" height="10" fill="#205090"/>
     <rect x="230" y="210" width="10" height="10" fill="#205090"/>
 
+    <!-- S -->
+    <rect x="90" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="30" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="40" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="50" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="60" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="70" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="80" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="80" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="80" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="80" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="80" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="80" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="80" width="10" height="10" fill="#f2b753"/>
+
+    <!-- S -->
+    <rect x="90" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="130" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="140" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="150" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="160" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="170" width="10" height="10" fill="#f2b753"/>
+    <rect x="90" y="180" width="10" height="10" fill="#f2b753"/>
+    <rect x="100" y="180" width="10" height="10" fill="#f2b753"/>
+    <rect x="110" y="180" width="10" height="10" fill="#f2b753"/>
+    <rect x="120" y="180" width="10" height="10" fill="#f2b753"/>
+    <rect x="130" y="180" width="10" height="10" fill="#f2b753"/>
+    <rect x="140" y="180" width="10" height="10" fill="#f2b753"/>
+    <rect x="150" y="180" width="10" height="10" fill="#f2b753"/>
+
     <!-- H -->
     <rect x="60" y="30" width="10" height="10" fill="#f2b753"/>
     <rect x="70" y="30" width="10" height="10" fill="#f2b753"/>
@@ -200,68 +264,4 @@
     <rect x="170" y="170" width="10" height="10" fill="#f2b753"/>
     <rect x="180" y="180" width="10" height="10" fill="#f2b753"/>
     <rect x="170" y="180" width="10" height="10" fill="#f2b753"/>
-
-    <!-- S(top) -->
-    <rect x="90" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="30" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="40" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="50" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="60" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="70" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="80" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="80" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="80" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="80" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="80" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="80" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="80" width="10" height="10" fill="#f2b753"/>
-
-    <!-- S(down) -->
-    <rect x="90" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="130" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="140" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="150" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="160" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="170" width="10" height="10" fill="#f2b753"/>
-    <rect x="90" y="180" width="10" height="10" fill="#f2b753"/>
-    <rect x="100" y="180" width="10" height="10" fill="#f2b753"/>
-    <rect x="110" y="180" width="10" height="10" fill="#f2b753"/>
-    <rect x="120" y="180" width="10" height="10" fill="#f2b753"/>
-    <rect x="130" y="180" width="10" height="10" fill="#f2b753"/>
-    <rect x="140" y="180" width="10" height="10" fill="#f2b753"/>
-    <rect x="150" y="180" width="10" height="10" fill="#f2b753"/>
 </svg>
