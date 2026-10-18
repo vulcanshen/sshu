@@ -111,6 +111,10 @@
   - SS12：PTY 的保留鍵一個只收一個鍵，`Alt-←|→|↑|↓` 在 footer 是四組。
   - SS13（盲點）：panel 膠囊把名稱轉大寫（`[3] DEPLOY@10.0.3.14 #1`）。
   - SS14：單欄的清單一定有表頭（`SECTION`、`SESSION`、`MARKED`）。
+  - SS15–SS18、SS22、SS32、SS33：`ErrEmpty` 不點名值、number input 不能空（Port 暫時用 text input）、預覽的樹縮排、預覽只讀本機
+    （遠端搜尋沒有預覽）、metadata 的單數、串流 panel 的 hint 不淡化、input 的 Done 不能回報失敗。逐條在 `sshu-terminu-fix.md`。
+  - SS29：`Action.Ask` 是固定的字；連線與 Duplicate 用 `liveAsk` 在動作執行前把它換成 cursor 那一項的。
+  - SS31：lib 比對熱鍵與 label 第一個字母時分大小寫，所以小寫熱鍵的列用小寫開頭（`[r]ename`）。
 - **File transfer 的 host key**：password、privatekey、credential 的 host 遇到未知的 host key 一律拒絕；先從 SSH 畫面連一次，或在 KnownHosts 按 `[A]`。
 - **加密私鑰**：privatekey host 的 SFTP 用不了有 passphrase 的私鑰；改用 sshconfig host（走 ssh 與 agent）。
 - **`SSH_ASKPASS_PROMPT=none` 的通知**：FIDO 觸碰確認會讓 helper 掛著，sshconfig host 用 FIDO key 在 File transfer 會卡住。

@@ -26,7 +26,15 @@ three screens and what you can do on them are the same.
   reach it like any panel; `Enter` on it puts the keyboard in.
 - File transfer's `/` searches in a finder over the screen; its results keep
   arriving while the walk goes on, and `Enter` goes to the one you pick.
-- `Enter` on a file reads it, as `v` does.
+- `Enter` on a file reads it, as `v` does; on a mark it opens the directory or
+  reads the file.
+- What acts on every mark of a side — `T`, `X`, `C` — is on that side's marks
+  panel only, the host picker `H` on its files panel only, and `J` (Jobs)
+  works from any panel while there are transfers.
+- The SSH grid's arrangement is kept between runs (`state.yaml`).
+- A sshu nested in a cell is told how many cells an icon and a powerline
+  symbol take (`LC_SSHU_ICON_WIDTH`, `LC_SSHU_POWERLINE_WIDTH`, sent the way
+  the colour depth is).
 - Jobs is a menu: `Enter` on a running transfer offers to cancel it, on one
   that ended shows the whole of it.
 - The host, credential and `~/.ssh/config` forms are the family's: `j`/`k`
