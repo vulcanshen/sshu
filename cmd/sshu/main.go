@@ -1,8 +1,7 @@
-// Command sshu is a TUI for managing ssh connections and sftp transfers.
+// Command sshu is an ssh and sftp front end for the terminal.
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,242 +9,182 @@ import (
 	"strings"
 	"syscall"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vulcanshen/sshu/internal/store"
-	"github.com/vulcanshen/sshu/internal/ui"
+	"github.com/vulcanshen/sshu/internal/tui"
 	"github.com/vulcanshen/sshu/internal/version"
 )
 
-func main() {
-	// Before anything renders: a sshu started by another one over ssh has no
-	// COLORTERM, and would quantise its whole UI to 256 colours (§11.46).
-	ui.AdoptForwardedColor()
+const usage = `sshu — an ssh and sftp front end for the terminal
 
-	// `sshu version` prints the build version and exits — checked before
-	// anything else, so it answers even with a broken config.
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Println("sshu " + version.Display())
-		return
+Usage:
+  sshu            open it: Space shows what you can do, ? the keys
+  sshu version    print the version (also --version, -v)
+  sshu help       print this (also --help, -h)
+
+Environment:
+  SSHU__CONFIG               the settings directory (default ~/.config/sshu)
+  SSHU__STATE                where the three journals go (default: the settings directory)
+  SSHU__KEY_FILE             the key that seals stored passwords (default: .sshukey in the settings directory)
+  SSHU__ICON_WIDTH           1 or 2: how many cells a Nerd Font icon takes, instead of asking the terminal
+  SSHU__POWERLINE_WIDTH      1 or 2: the same for a powerline symbol
+  TERMINU__ICON_WIDTH        the same as SSHU__ICON_WIDTH, for every terminu app
+  TERMINU__POWERLINE_WIDTH   the same as SSHU__POWERLINE_WIDTH, for every terminu app
+`
+
+func main() {
+	// Before anything is drawn: a sshu started by another one over ssh has
+	// no COLORTERM, and the depth waits in the variable that crossed.
+	tui.AdoptForwardedColor()
+
+	if len(os.Args) > 1 && !helperRun() {
+		switch os.Args[1] {
+		case "version", "--version", "-v":
+			fmt.Println("sshu " + version.Display())
+			return
+		case "help", "--help", "-h":
+			fmt.Print(usage)
+			return
+		default:
+			fmt.Fprintf(os.Stderr, "sshu: unknown command %q\n\n%s", os.Args[1], usage)
+			os.Exit(2)
+		}
 	}
 
-	// ssh re-executes this binary as its SSH_ASKPASS helper. That mode prints one
-	// password and exits — it must never start the TUI, and must never write
-	// anything else to stdout, because ssh reads the first line as the password.
-	if name := ui.AskpassHost(); name != "" {
+	// ssh runs this binary as its SSH_ASKPASS helper. That run prints one
+	// password and exits: it never starts the UI, and never prints anything
+	// else, because ssh reads the first line as the password.
+	if name := tui.AskpassHost(); name != "" {
 		os.Exit(runAskpass(name))
 	}
-	// The same helper, for a question sshu does not know the answer to: an
-	// sshconfig host's sftp dial runs ssh with no terminal, and whatever ssh
-	// asks — a password, a passphrase, an unknown host key — is relayed over
-	// a socket to the sshu that is drawing, which asks the user (§11.52).
-	// argv[1] is the prompt, exactly as ssh phrased it.
-	if sock := ui.AskpassSock(); sock != "" {
+	// The same helper for a question sshu does not know the answer to: an
+	// sshconfig host's file transfer runs ssh with no terminal, and what ssh
+	// asks is relayed to the sshu that is drawing. argv[1] is ssh's prompt.
+	if sock := tui.AskpassSock(); sock != "" {
 		prompt := ""
 		if len(os.Args) > 1 {
 			prompt = os.Args[1]
 		}
-		os.Exit(ui.RunAskpassRelay(sock, prompt))
+		os.Exit(tui.RunAskpassRelay(sock, prompt))
 	}
 
-	hosts, dupHosts, err := store.Load()
+	d, err := load()
 	if err != nil {
-		// A malformed hosts.yaml is worth refusing to start over: silently
-		// showing an empty list would look like data loss and the next save
-		// would overwrite whatever the user was mid-way through hand-editing.
+		// A malformed hosts.yaml is worth refusing to start over: an empty list
+		// would look like data loss, and the next save would overwrite it.
 		fmt.Fprintln(os.Stderr, "sshu:", err)
 		os.Exit(1)
 	}
 
-	// A settings file that cannot be parsed is not fatal — sshu runs on the
-	// defaults — but it must not be silent either: somebody wrote something and
-	// it is not being honoured. stderr is invisible behind the alt screen, so
-	// the complaint goes where complaints go now, which is the app log.
-	cfg, cfgErr := store.LoadConfig()
-
-	// A journal's own file failing to load is itself news — but never fatal,
-	// and never a reason to stop recording new events. Three files, three
-	// independent failures: errors.yaml being unreadable says nothing about
-	// whether connections.yaml is.
-	errTail, errErr := store.LoadErrors()
-	connTail, connErr := store.LoadConnections()
-	changeTail, changeErr := store.LoadChanges()
-
-	// Credentials are data like hosts, but a broken credentials.yaml only
-	// breaks the hosts that reference it — sshu still starts, and says so.
-	credsFile, dupCreds, credsErr := store.LoadCreds()
-
-	// ~/.ssh/config is not sshu's file, and it is already deciding what tab [3]
-	// does — sshu launches the real ssh, which reads it. Missing is the ordinary
-	// empty state; unreadable is worth saying, and never a reason not to start.
-	sshCfg, sshCfgErr := store.LoadSSHConfig()
-
-	// known_hosts is the other file sshu did not write and already reads:
-	// remote/sftp.go verifies against it, and refuses outright when a key has
-	// changed. Missing is the ordinary empty state.
-	knownHosts, knownErr := store.LoadKnownHosts()
-
-	// The key that seals the passwords exists from the FIRST RUN, not from the
-	// first save. A key that appears the moment a password is first written is
-	// a key the user has no reason to know about until they have already lost
-	// it — and losing it loses every password it sealed.
-	//
-	// Not fatal if it cannot be made: sshu still runs, and every host that
-	// authenticates by key is unaffected. The complaint goes where startup
-	// complaints go.
-	keyErr := ""
-	if _, err := store.EnsureKey(); err != nil {
-		keyErr = "key file: " + err.Error()
-	}
-
-	// sshu's own files are brought up to today's format here, once, at a moment
-	// the user is present for — rather than on whatever their next edit happens
-	// to be, which would put a format change inside an unrelated action.
-	//
-	// This is the ONLY place it happens. The askpass helper returned above,
-	// before store.Load: it runs inside ssh's authentication, and a program
-	// invoked to print one password has no business rewriting configuration.
-	// The early exit is what makes that structural instead of a convention.
-	versionNotes := reconcileFiles(hosts, credsFile, credsErr)
-
-	save := func(list []store.Host) error {
-		return store.Save(store.File{Hosts: list})
-	}
-	saveCreds := func(list []store.Credential) error {
-		return store.SaveCreds(store.CredsFile{Credentials: list})
-	}
-	app := ui.New(hosts.Hosts, save, cfg).
-		WithJournals(
-			errTail, store.AppendError, store.ClearErrors,
-			connTail, store.AppendConnection, store.ClearConnections,
-			changeTail, store.AppendChange, store.ClearChanges).
-		WithCredentials(credsFile.Credentials, saveCreds).
-		WithSSHConfig(sshCfg, store.SaveSSHConfig).
-		WithKnownHosts(knownHosts, store.SaveKnownHosts)
-	if cfgErr != nil {
-		app = app.WithStartupError("config.yaml: " + cfgErr.Error())
-	}
-	for _, j := range []struct {
-		file string
-		err  error
-	}{{"errors.yaml", errErr}, {"connections.yaml", connErr}, {"changes.yaml", changeErr}} {
-		if j.err != nil {
-			app = app.WithStartupError(j.file + ": " + j.err.Error())
-		}
-	}
-	if credsErr != nil {
-		app = app.WithStartupError("credentials.yaml: " + credsErr.Error())
-	}
-	if sshCfgErr != nil {
-		app = app.WithStartupError("~/.ssh/config: " + sshCfgErr.Error())
-	}
-	if knownErr != nil {
-		app = app.WithStartupError("~/.ssh/known_hosts: " + knownErr.Error())
-	}
-	// A dropped duplicate is not an error — sshu is running on a list that is
-	// now internally consistent — but it is a difference between the file and
-	// what is on screen, and the user is the only one who can close it.
-	if len(dupHosts) > 0 {
-		app = app.WithStartupWarning(dupeWarning("hosts.yaml", dupHosts))
-	}
-	if len(dupCreds) > 0 {
-		app = app.WithStartupWarning(dupeWarning("credentials.yaml", dupCreds))
-	}
-	for _, n := range versionNotes {
-		app = app.WithStartupWarning(n)
-	}
-	if keyErr != "" {
-		app = app.WithStartupError(keyErr)
-	}
-	// A password whose ciphertext would not open. The entry keeps its sealed
-	// value — putting the right key back recovers it — so this is news rather
-	// than a loss, and it has to be said out loud or the next failed connection
-	// is a mystery.
-	for _, j := range []struct {
-		file  string
-		names []string
-	}{{"hosts.yaml", hosts.UnreadableSecrets}, {"credentials.yaml", credsFile.UnreadableSecrets}} {
-		for _, name := range j.names {
-			app = app.WithStartupWarningFor(name,
-				j.file+": this password could not be decrypted",
-				"It has been left exactly as it is, so nothing is lost. Restoring the key "+
-					"file it was sealed with will open it again.",
-				"The key file is "+keyPathForMessage()+".")
-		}
-	}
-	// stdin goes through sshu first: a parent sshu addresses a layer with an
-	// escape sequence, and Bubble Tea would decode it into keystrokes of its
-	// own (design §11.45). Everything that is not a command passes through.
-	//
-	// Before that, and before Bubble Tea takes the screen, ask the terminal how
-	// wide it draws an icon (tdp D6): the probe reads its answer from stdin.
-	ui.DetectIconWidth()
-	in, pump := ui.NestInput(os.Stdin)
-	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithInput(in))
-	go pump(func(m any) { p.Send(m) })
-
-	// SIGHUP is the terminal window closing. Bubble Tea does not catch it, and
-	// the default action would end sshu with every child ssh still running —
-	// each leads its own session on its PTY, so no signal reaches them on its
-	// own.
+	// SIGHUP is the terminal window closing: the sessions go with sshu.
 	hup := make(chan os.Signal, 1)
 	signal.Notify(hup, syscall.SIGHUP)
 	go func() {
 		<-hup
-		ui.KillChildren()
-		p.Quit()
+		tui.KillChildren()
+		os.Exit(129)
 	}()
 
-	_, runErr := p.Run()
-	// Whatever door the program left through — q, Ctrl+C inside the app, an
-	// outside SIGINT or SIGTERM (both end the loop WITHOUT the model's own
-	// quit path), or the loop failing — the children go too.
-	ui.KillChildren()
-	switch {
-	case errors.Is(runErr, tea.ErrInterrupted):
-		os.Exit(130) // the conventional 128+SIGINT
-	case runErr != nil:
+	runErr := tui.New(d).Run()
+	tui.KillChildren()
+	if runErr != nil {
 		fmt.Fprintln(os.Stderr, "sshu:", runErr)
 		os.Exit(1)
 	}
 }
 
-// dupeWarning is the one line the app log gets about entries a load had to drop.
-//
-// It NAMES them. "2 duplicates were ignored" would leave the user hunting
-// through a file for which ones, and the whole reason to say anything is that
-// they go and fix it. A name appearing twice in the list is not a bug in the
-// message: it means that name was in the file three times.
-// keyPathForMessage is the key's path for a message to the user. A failure to
-// work it out is not worth a second error inside the first one — the sentence
-// simply gets vaguer.
+// helperRun reports a run as ssh's askpass helper, whose argv[1] is ssh's
+// prompt, not a command.
+func helperRun() bool { return tui.AskpassHost() != "" || tui.AskpassSock() != "" }
+
+// load reads everything sshu keeps. Only hosts.yaml failing stops it; the
+// rest becomes a note, and sshu runs on what it could read.
+func load() (*tui.Data, error) {
+	hosts, dupHosts, err := store.Load()
+	if err != nil {
+		return nil, err
+	}
+	d := &tui.Data{
+		SaveHosts:     func(list []store.Host) error { return store.Save(store.File{Hosts: list}) },
+		SaveCreds:     func(list []store.Credential) error { return store.SaveCreds(store.CredsFile{Credentials: list}) },
+		SaveSSHConfig: store.SaveSSHConfig,
+		SaveKnown:     store.SaveKnownHosts,
+		AppendError:   store.AppendError, ClearErrors: store.ClearErrors,
+		AppendConn: store.AppendConnection, ClearConns: store.ClearConnections,
+		AppendChg: store.AppendChange, ClearChgs: store.ClearChanges,
+	}
+	d.Hosts = hosts.Hosts
+	note := func(level, cause string) {
+		d.Notes = append(d.Notes, tui.Note{Level: level, Cause: cause, Detail: cause})
+	}
+	var cfgErr error
+	if d.Config, cfgErr = store.LoadConfig(); cfgErr != nil {
+		note(store.LevelError, "config.yaml: "+cfgErr.Error())
+	}
+	// A journal that does not load is news, never a reason to stop recording.
+	var jerr error
+	if d.Errors, jerr = store.LoadErrors(); jerr != nil {
+		note(store.LevelError, "errors.yaml: "+jerr.Error())
+	}
+	if d.Conns, jerr = store.LoadConnections(); jerr != nil {
+		note(store.LevelError, "connections.yaml: "+jerr.Error())
+	}
+	if d.Changes, jerr = store.LoadChanges(); jerr != nil {
+		note(store.LevelError, "changes.yaml: "+jerr.Error())
+	}
+	creds, dupCreds, credsErr := store.LoadCreds()
+	d.Creds = creds.Credentials
+	if credsErr != nil {
+		note(store.LevelError, "credentials.yaml: "+credsErr.Error())
+	}
+	var e error
+	if d.SSHConfig, e = store.LoadSSHConfig(); e != nil {
+		note(store.LevelError, "~/.ssh/config: "+e.Error())
+	}
+	if d.Known, e = store.LoadKnownHosts(); e != nil {
+		note(store.LevelError, "~/.ssh/known_hosts: "+e.Error())
+	}
+	// The key that seals passwords exists from the first run, not the first
+	// save: a key that appears with the first password is one the user has
+	// no reason to know about until it is lost.
+	if _, err := store.EnsureKey(); err != nil {
+		note(store.LevelError, "key file: "+err.Error())
+	}
+	for _, n := range reconcileFiles(hosts, creds, credsErr) {
+		note(store.LevelWarn, n)
+	}
+	if len(dupHosts) > 0 {
+		note(store.LevelWarn, dupeWarning("hosts.yaml", dupHosts))
+	}
+	if len(dupCreds) > 0 {
+		note(store.LevelWarn, dupeWarning("credentials.yaml", dupCreds))
+	}
+	for _, j := range []struct {
+		file  string
+		names []string
+	}{{"hosts.yaml", hosts.UnreadableSecrets}, {"credentials.yaml", creds.UnreadableSecrets}} {
+		for _, name := range j.names {
+			cause := j.file + ": this password could not be decrypted"
+			d.Notes = append(d.Notes, tui.Note{Level: store.LevelWarn, Host: name, Cause: cause,
+				Detail: cause + "\nIt has been left exactly as it is, so nothing is lost. Restoring the key file it " +
+					"was sealed with will open it again.\nThe key file is " + keyPathForMessage() + "."})
+		}
+	}
+	return d, nil
+}
+
+// keyPathForMessage is the key's path for a message, vaguer when it cannot
+// be worked out.
 func keyPathForMessage() string {
 	p, err := store.KeyPath()
 	if err != nil {
-		return "in sshu's config directory"
+		return "in sshu's settings directory"
 	}
 	return store.FoldHome(p)
 }
 
-// reconcileFiles rewrites sshu's own files in place where they need it, and
-// reports anything it could not settle. It never stops startup: these are
-// problems about the FILE, and refusing to run would take away the tool the
-// user needs to look at it.
-//
-// TWO reasons to rewrite, and they are different questions:
-//
-//	NeedsUpgrade         the file is in an older FORMAT
-//	HadPlaintextSecret   the file held a password in the clear
-//
-// The second used to be folded into the first — encryption moved the version
-// number, and the version moving is what triggered the rewrite. That was
-// indirect and it was wrong: asking the data means a password typed into the
-// file by hand gets sealed on the next start too, and it leaves the version
-// number meaning only "an older build would damage this".
-//
-// credsErr matters. A credentials.yaml that failed to parse comes back as an
-// empty document, and writing that back would turn "sshu could not read your
-// file" into "sshu deleted your credentials". Nothing is written for a file
-// that did not load.
+// reconcileFiles brings sshu's own files up to today's format, once, at
+// startup, and reports what it could not settle. Nothing is written for a
+// file that did not load: writing back an empty document would delete it.
 func reconcileFiles(hosts store.File, creds store.CredsFile, credsErr error) []string {
 	var out []string
 	if hosts.FromNewerSshu() {
@@ -270,6 +209,8 @@ func reconcileFiles(hosts store.File, creds store.CredsFile, credsErr error) []s
 	return out
 }
 
+// dupeWarning names the entries a load dropped, so the user can go and fix
+// them.
 func dupeWarning(file string, names []string) string {
 	quoted := make([]string, len(names))
 	for i, n := range names {
@@ -283,10 +224,8 @@ func dupeWarning(file string, names []string) string {
 		file, len(names), noun, strings.Join(quoted, ", "))
 }
 
-// runAskpass prints the stored password for name. A non-zero exit tells ssh the
-// helper had nothing, and ssh falls back to prompting inside the PTY — which is
-// the right outcome for a key host, a host that has since been renamed, or a
-// hosts.yaml that cannot be read.
+// runAskpass prints the stored password for name. Exiting non-zero tells ssh
+// there is none, and it asks in the terminal instead.
 func runAskpass(name string) int {
 	f, _, err := store.Load()
 	if err != nil {
@@ -297,7 +236,6 @@ func runAskpass(name string) int {
 		return 1
 	}
 	h := f.Hosts[i]
-	// A credential host stores its password in credentials.yaml, one hop away.
 	if h.Auth == store.AuthCredential {
 		cf, _, err := store.LoadCreds()
 		if err != nil {

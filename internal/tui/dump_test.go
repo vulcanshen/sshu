@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestDump prints screens to read by eye, without a terminal:
@@ -22,11 +23,14 @@ func TestDump(t *testing.T) {
 	ws, hs, _ := strings.Cut(size, "x")
 	w, _ := strconv.Atoi(ws)
 	h, _ := strconv.Atoi(hs)
+	fakeSSH(t, "echo welcome to $0; exec cat")
 	x := newHarness(t, w, h, testData(sampleHosts(), sampleCreds()))
 	if keys != "" {
 		for _, k := range strings.Split(keys, ",") {
 			x.keys(k)
 		}
 	}
+	x.settle(func() bool { return false }, 300*time.Millisecond)
 	fmt.Println(x.text())
+	x.s.sh.closeAll()
 }

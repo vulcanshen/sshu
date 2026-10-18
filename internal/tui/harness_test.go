@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,9 +16,10 @@ import (
 
 // harness runs sshu without a terminal: keys in, the frame out as text.
 type harness struct {
-	t    *testing.T
-	s    *sshu
-	quit bool
+	t       *testing.T
+	s       *sshu
+	quit    bool
+	pending []chan tea.Msg // commands still running when the harness moved on
 }
 
 // testData is a Data whose savers keep what they are given, in memory.
@@ -52,7 +55,7 @@ const longTimer = 200 * time.Millisecond
 func (hs *harness) run(cmd tea.Cmd) {
 	deadline := time.Now().Add(3 * time.Second)
 	queue := []tea.Cmd{cmd}
-	for len(queue) > 0 && time.Now().Before(deadline) {
+	for len(queue) > 0 && time.Now().Before(deadline) && !hs.quit {
 		c := queue[0]
 		queue = queue[1:]
 		if c == nil {
@@ -60,28 +63,67 @@ func (hs *harness) run(cmd tea.Cmd) {
 		}
 		done := make(chan tea.Msg, 1)
 		go func() { done <- c() }()
-		var msg tea.Msg
 		select {
-		case msg = <-done:
+		case msg := <-done:
+			queue = append(queue, hs.handle(msg)...)
 		case <-time.After(longTimer):
-			continue
+			// Kept: a PTY's next output, a program ending. settle takes it.
+			hs.pending = append(hs.pending, done)
 		}
-		switch msg := msg.(type) {
-		case nil:
-		case tea.BatchMsg:
-			queue = append(queue, msg...)
-		case tea.QuitMsg:
-			hs.quit = true
-			return
-		default:
-			if seq, ok := sequenceCmds(msg); ok {
-				for _, c := range seq {
-					hs.run(c)
-				}
-				continue
+	}
+}
+
+// handle gives one message to the program and returns what it sets off.
+func (hs *harness) handle(msg tea.Msg) []tea.Cmd {
+	switch msg := msg.(type) {
+	case nil:
+	case tea.BatchMsg:
+		return msg
+	case tea.QuitMsg:
+		hs.quit = true
+	default:
+		if seq, ok := sequenceCmds(msg); ok {
+			for _, c := range seq {
+				hs.run(c)
 			}
-			_, next := hs.s.a.Update(msg)
-			queue = append(queue, next)
+			return nil
+		}
+		_, next := hs.s.a.Update(msg)
+		return []tea.Cmd{next}
+	}
+	return nil
+}
+
+// settle delivers the messages that arrived late — a PTY's output, the end
+// of a program — until cond holds or d has passed, and reports whether it
+// held.
+func (hs *harness) settle(cond func() bool, d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	for {
+		if cond() {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		kept := hs.pending[:0]
+		var ready []tea.Msg
+		for _, ch := range hs.pending {
+			select {
+			case msg := <-ch:
+				ready = append(ready, msg)
+			default:
+				kept = append(kept, ch)
+			}
+		}
+		hs.pending = kept
+		for _, msg := range ready {
+			for _, c := range hs.handle(msg) {
+				hs.run(c)
+			}
+		}
+		if len(ready) == 0 {
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
@@ -175,3 +217,19 @@ func sequenceCmds(msg tea.Msg) ([]tea.Cmd, bool) {
 	}
 	return out, true
 }
+
+// fakeSSH points sshu at a stand-in for ssh: script runs with ssh's
+// arguments, $LOG set to the -E file.
+func fakeSSH(t *testing.T, script string) {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "ssh")
+	body := "#!/bin/sh\nLOG=\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = -E ]; then LOG=$2; fi\n  shift\ndone\n" + script + "\n"
+	if err := os.WriteFile(p, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := sshBinary
+	sshBinary = p
+	t.Cleanup(func() { sshBinary = old })
+}
+
+func (hs *harness) shows(s string) bool { return strings.Contains(hs.text(), s) }
