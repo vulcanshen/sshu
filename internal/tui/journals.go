@@ -148,7 +148,7 @@ func (e *errorsSection) open() tea.Cmd {
 	x := e.s.d.Errors[i]
 	lines := []string{jDate(x.At) + "  " + who(x.User, x.Host) + "  " + x.Level, ""}
 	lines = append(lines, strings.Split(x.Error, "\n")...)
-	return e.s.a.Viewer(&terminu.Viewer{Title: "Error", Subject: who(x.User, x.Host), Glyph: glyphLog, Lines: lines})
+	return e.s.a.Viewer(newViewer("Error", who(x.User, x.Host), glyphLog, lines))
 }
 
 // --- Connections --------------------------------------------------------------

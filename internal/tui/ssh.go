@@ -141,6 +141,9 @@ func (h *sshScreen) place(w, hh int) []terminu.Rect {
 			inside = true
 		}
 	}
+	if !inside {
+		h.zoomed = false
+	}
 	left := sshLeftW
 	switch {
 	case inside:

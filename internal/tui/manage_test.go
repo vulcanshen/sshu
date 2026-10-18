@@ -40,7 +40,7 @@ func TestTheSectionUnderTheCursorIsShownBesideIt(t *testing.T) {
 }
 
 // Connecting first shows what the host is and how it authenticates, with the
-// question last (Rules F1, a confirm with details).
+// question last (tdp F1, a confirm with details).
 func TestConnectShowsTheHostBeforeAsking(t *testing.T) {
 	hs := newHarness(t, 100, 40, testData(sampleHosts(), sampleCreds()))
 	hs.keys("2", "j", "Enter")

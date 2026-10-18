@@ -99,7 +99,7 @@ The keys that work everywhere:
 | `Enter` | The obvious thing: connect, open, go in |
 | `Esc` | Back one step — close the top popup, clear a filter, up a directory |
 | `j\|k`, `u\|d`, `gg\|G` | Down and up, half a page, to the top and the bottom (arrows too) |
-| `q`, `Ctrl-C` | Quit; with sessions or transfers running it asks first, and a second `Ctrl-C` leaves at once |
+| `q\|Ctrl-C` | Quit; with sessions or transfers running it asks first, and a second `Ctrl-C` leaves at once |
 
 Every letter hotkey below is also a row of its panel's `Space` menu. **The case printed in brackets is the key**: `[A]dd` is `Shift-A`, `[t]ransfer` is a plain `t`.
 
@@ -175,6 +175,7 @@ On macOS sshu used to keep it in `~/Library/Application Support/sshu`; while `~/
 | `hosts.yaml` | your hosts |
 | `credentials.yaml` | reusable identities — a name, a user and how it authenticates; a host uses one with `auth: credential` and `credential: <name>` |
 | `config.yaml` | settings (optional, below) |
+| `state.yaml` | how the SSH grid is arranged (sshu writes it; with the journals when `$SSHU__STATE` moves them) |
 | `errors.yaml` · `connections.yaml` · `changes.yaml` | the three journals (`$SSHU__STATE` moves them elsewhere) |
 | `.sshukey` | the key that encrypts stored passwords |
 

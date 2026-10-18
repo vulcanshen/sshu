@@ -292,7 +292,19 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		if err != nil {
 			return nil, err
 		}
-		return c.persist(next, sel, fmt.Sprintf("~/.ssh/config: Host %q %s", patterns, verb), "Saved "+patterns), nil
+		saved, err := c.s.d.SaveSSHConfig(next)
+		if err != nil {
+			// What is on disk now is shown; the form stays, the values in it.
+			c.s.d.SSHConfig = saved
+			c.reload(-1)
+			c.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
+			return nil, err
+		}
+		c.s.d.SSHConfig = saved
+		c.reload(sel)
+		c.s.mg.refresh()
+		c.s.logChange(fmt.Sprintf("~/.ssh/config: Host %q %s", patterns, verb))
+		return c.s.a.Toast(terminu.Info, "Saved "+patterns), nil
 	}
 	return c.s.a.Form(f)
 }

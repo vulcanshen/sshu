@@ -171,7 +171,7 @@ func (sd *side) noMarks() bool { return sd.fs == nil || len(sd.marks) == 0 }
 func (sd *side) fileActions() []terminu.Action {
 	t := sd.t
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "go into it, or read it", Scope: terminu.ItemScope, Hint: "open", Hidden: sd.noHost, Stay: true, Do: sd.open},
+		{Key: "Enter", Label: "Open", Desc: "go into it, or read it", Scope: terminu.ItemScope, Hint: "open", Hidden: sd.noHost, Do: sd.open},
 		{Key: "a", Label: "append to marks", Desc: "again takes it off", Scope: terminu.ItemScope, Hint: "mark", Hidden: sd.noHost,
 			Disabled: func() bool { p, ok := sd.cursorPath(); return ok && t.receiving(p) }, Do: sd.toggleMark},
 		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
@@ -188,7 +188,7 @@ func (sd *side) fileActions() []terminu.Action {
 			Stay: true, Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.cursorPath(); return sd.send(ok, p) }},
 		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
 			Do: func() tea.Cmd { return sd.deleteOne(sd.cursorPath()) }},
-		{Key: "/", Label: "Search", Desc: "everything under here", Scope: terminu.PanelScope, Hidden: sd.noHost, Stay: true, Do: sd.search},
+		{Key: "/", Label: "Search", Desc: "everything under here", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.search},
 		{Key: "A", Label: "Add", Desc: "a file, or name/ for a directory", Scope: terminu.PanelScope, Hidden: sd.noHost, Stay: true, Do: sd.add},
 		{Key: "R", Label: "Refresh", Desc: "re-read this directory now", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.refresh},
 		{Key: "H", Label: "Host", Desc: "switch this side: this machine, or a saved host", Scope: terminu.PanelScope, Hint: "host", Stay: true,
@@ -204,7 +204,7 @@ func (sd *side) fileActions() []terminu.Action {
 func (sd *side) markActions() []terminu.Action {
 	t := sd.t
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "go to the directory, or read the file", Scope: terminu.ItemScope, Hint: "open", Stay: true, Do: sd.openMark},
+		{Key: "Enter", Label: "Open", Desc: "go to the directory, or read the file", Scope: terminu.ItemScope, Hint: "open", Do: sd.openMark},
 		{Key: "c", Label: "clear mark", Desc: "forget it, change nothing", Scope: terminu.ItemScope, Hint: "clear", Do: sd.unmarkCursor},
 		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.rename(sd.markPath()) }},
 		{Key: "v", Label: "view", Desc: "read this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.view(sd.markPath()) }},

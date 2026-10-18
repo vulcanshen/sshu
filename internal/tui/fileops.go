@@ -367,24 +367,10 @@ func dirLines(fsys remote.FS, p string) []string {
 
 func isText(data []byte) bool { return bytes.IndexByte(data, 0) < 0 && utf8.Valid(data) }
 
-// textLines splits text into lines, the control characters that would move
-// the terminal's cursor taken out; tabs stay for the viewer to draw.
+// textLines splits text into lines as they are: the viewer draws a control
+// character by its name and copies the text unchanged (components/dialog/note).
 func textLines(data []byte) []string {
-	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
-	for i, l := range lines {
-		lines[i] = strings.Map(func(r rune) rune {
-			switch {
-			case r == '\t':
-				return r
-			case r == '\r':
-				return -1
-			case r < 0x20 || r == 0x7f:
-				return ' '
-			}
-			return r
-		}, l)
-	}
-	return lines
+	return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
 }
 
 func hexDump(data []byte) []string {

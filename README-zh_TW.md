@@ -99,7 +99,7 @@ sshu
 | `Enter` | 理所當然的那件事：連線、打開、進去 |
 | `Esc` | 退一步 —— 關掉最上面的 popup、清掉篩選、回上層目錄 |
 | `j\|k`、`u\|d`、`gg\|G` | 往下與往上、半頁、到頭與到尾（方向鍵也行） |
-| `q`、`Ctrl-C` | 離開；有 session 或傳輸在跑時會先問，再按一次 `Ctrl-C` 立刻離開 |
+| `q\|Ctrl-C` | 離開；有 session 或傳輸在跑時會先問，再按一次 `Ctrl-C` 立刻離開 |
 
 下面每一個字母快捷鍵，同時都是那個 panel 的 `Space` menu 裡的一列。**方括號印的大小寫就是你要按的鍵**：`[A]dd` 是 `Shift-A`、`[t]ransfer` 是裸的 `t`。
 
@@ -175,6 +175,7 @@ macOS 上的 sshu 以前把它放在 `~/Library/Application Support/sshu`；只�
 | `hosts.yaml` | 你的 host |
 | `credentials.yaml` | 可重用的身分 —— 一個名字、一個 user、以及它怎麼驗證；host 用 `auth: credential` 加 `credential: <名字>` 引用 |
 | `config.yaml` | 設定（選用，見下方） |
+| `state.yaml` | SSH 網格怎麼排（sshu 自己寫；`$SSHU__STATE` 搬走紀錄時跟著搬） |
 | `errors.yaml` · `connections.yaml` · `changes.yaml` | 三本紀錄（`$SSHU__STATE` 可以把它們搬到別處） |
 | `.sshukey` | 加密密碼用的鑰匙 |
 

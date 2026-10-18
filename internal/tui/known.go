@@ -122,8 +122,12 @@ func (k *knownSection) edit() tea.Cmd {
 	return k.s.a.Text(terminu.TextInput{Title: "Trusted for", Subject: knownLabel(e), Glyph: glyphPencil,
 		Prompt: "Which names the key of " + knownLabel(e) + " belongs to, separated by commas", Verb: "save", Name: "Names", Old: e.Hosts,
 		Check: func(v string) error {
-			if strings.TrimSpace(v) == "" {
+			v = strings.TrimSpace(v)
+			switch {
+			case v == "":
 				return errors.New("Names can't be empty")
+			case strings.ContainsAny(v, " \t"):
+				return errors.New("Names can't have spaces: separate them with commas")
 			}
 			return nil
 		},

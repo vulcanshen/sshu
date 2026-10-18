@@ -20,8 +20,8 @@ import (
 )
 
 // Connecting from the hosts table lands on the SSH screen with the keyboard
-// in the new cell (Rules T1: a long session clears its source); Alt-Esc
-// asks before it takes the keyboard back (Rules K10).
+// in the new cell (tdp T1: a long session clears its source); Alt-Esc
+// asks before it takes the keyboard back (tdp K10).
 func TestConnectPutsTheKeyboardInTheNewCell(t *testing.T) {
 	fakeSSH(t, "echo welcome; exec cat")
 	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))
@@ -88,7 +88,7 @@ func TestAFailedSessionSaysWhatSSHSaid(t *testing.T) {
 	hs.contains("Connection refused")
 }
 
-// Every SSH screen row is as wide as the terminal, cells and all (Rules L4).
+// Every SSH screen row is as wide as the terminal, cells and all (tdp L4).
 func TestEverySSHRowIsAsWideAsTheScreen(t *testing.T) {
 	fakeSSH(t, "printf '日本語 \\U0000F120 wide\\n'; exec cat")
 	defer terminu.SetIconWidth(1, 1)

@@ -53,7 +53,7 @@ func TestAFileIsSentToTheOtherSidesDirectory(t *testing.T) {
 	hs.waitFor(func() bool { return hs.s.ft.running() == 0 && len(hs.s.d.Changes) == 1 }, "the transfer's ending")
 }
 
-// h|l cross to the same panel on the other side (Rules K12).
+// h|l cross to the same panel on the other side (tdp K12).
 func TestHAndLCrossSides(t *testing.T) {
 	twoDirs(t)
 	hs := newHarness(t, 120, 36, testData(nil, nil))

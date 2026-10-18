@@ -180,7 +180,7 @@ func (hs *harness) lacks(s string) {
 	}
 }
 
-// fullWidth fails unless every row of the frame is exactly w cells (Rules L4).
+// fullWidth fails unless every row of the frame is exactly w cells (tdp L4).
 func (hs *harness) fullWidth(w int, what string) {
 	hs.t.Helper()
 	for i, l := range hs.s.a.Frame() {

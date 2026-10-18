@@ -59,7 +59,7 @@
 
 ### 資料與檔案
 
-- **位置（tdp E3）**：設定目錄是 `$SSHU__CONFIG`，否則 `$XDG_CONFIG_HOME/sshu`，否則 `~/.config/sshu`，每個平台同一套。`hosts.yaml`、`credentials.yaml`、`config.yaml`、`.sshukey` 都在裡面；三本紀錄是狀態，預設也在裡面，`SSHU__STATE` 可以搬走。
+- **位置（tdp E3）**：設定目錄是 `$SSHU__CONFIG`，否則 `$XDG_CONFIG_HOME/sshu`，否則 `~/.config/sshu`，每個平台同一套。`hosts.yaml`、`credentials.yaml`、`config.yaml`、`.sshukey` 都在裡面；三本紀錄與 `state.yaml`（SSH 網格怎麼排，一列一個值的 panel 改了就存）是狀態，預設也在裡面，`SSHU__STATE` 可以搬走。
 - **macOS 的舊位置**：以前照 `os.UserConfigDir`，macOS 上是 `~/Library/Application Support/sshu`。`~/.config/sshu` 不存在、舊目錄在時，暫時照舊讀舊目錄（TODO(tdp SS1)，等 user 定怎麼搬）；`uninstall.sh` 在 macOS 上另外問要不要刪舊目錄。
 - 每次寫入都是原子的（暫存檔 + rename），固定 `0600`，檔案開頭帶一段警告。
 - 舊格式的 `hosts.yaml`、`credentials.yaml` 在啟動時改寫成當前格式；更新版 sshu 寫的檔絕不覆蓋。明文密碼也在啟動時就地加密。
@@ -67,9 +67,9 @@
 
 ### icon 與 powerline 符號的寬度
 
-探測與量寬度交給 lib（tdp E5、E8）：啟動時探測 icon 與 powerline 符號各佔幾格，`SSHU__ICON_WIDTH`／`TERMINU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`／`TERMINU__POWERLINE_WIDTH` 可以覆寫；lib 開的每一個 PTY 都設好兩個 `TERMINU__` 變數。
+探測與量寬度交給 lib（tdp E5、tdp E8）：啟動時探測 icon 與 powerline 符號各佔幾格，`SSHU__ICON_WIDTH`／`TERMINU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`／`TERMINU__POWERLINE_WIDTH` 可以覆寫；lib 開的每一個 PTY 都設好兩個 `TERMINU__` 變數。
 
-隔著 ssh 的巢狀是 sshu 自己的事（E5：環境變數過不了 ssh，要靠 app 自己的通道）。格子裡的 ssh 帶上 `LC_SSHU_ICON_WIDTH`、`LC_SSHU_POWERLINE_WIDTH`（這一層自己的格數），跟顏色深度一樣加 `-o SendEnv`；遠端的 sshu 啟動時（`AdoptForwarded`）把它們收進 `SSHU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`，lib 的探測就照用 —— 遠端的探測由這一層的模擬器回答、量不到真的寬度。使用者在遠端自己設了 `SSHU__` 的那一個照用自己的。以前的指令通道（OSC 7181）做的其他事 —— 看到整條巢狀鏈、鏈上的鎖定與放大 —— lib 做不到（TODO(lib SS5)）。
+隔著 ssh 的巢狀是 sshu 自己的事（tdp E5：環境變數過不了 ssh，要靠 app 自己的通道）。格子裡的 ssh 帶上 `LC_SSHU_ICON_WIDTH`、`LC_SSHU_POWERLINE_WIDTH`（這一層自己的格數），跟顏色深度一樣加 `-o SendEnv`；遠端的 sshu 啟動時（`AdoptForwarded`）把它們收進 `SSHU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`，lib 的探測就照用 —— 遠端的探測由這一層的模擬器回答、量不到真的寬度。使用者在遠端自己設了 `SSHU__` 的那一個照用自己的。以前的指令通道（OSC 7181）做的其他事 —— 看到整條巢狀鏈、鏈上的鎖定與放大 —— lib 做不到（TODO(lib SS5)）。
 
 ## 設計決定
 
@@ -78,7 +78,7 @@
 - **tag 只顯示、只被搜，sshu 從不解讀它。** 空白分開，其餘都是字面。理由：一個會被程式解讀的欄位，使用者就得學它的規則；tag 是使用者拿來分群的字，能被篩選找到就是它全部的用途。
 - **密碼加密是把祕密拆成兩份。** `hosts.yaml` 或 `credentials.yaml` 單獨流出去不會漏密碼；整個設定目錄被複製就擋不住，因為鑰匙在裡面。`SSHU__KEY_FILE` 不做成預設：鑰匙離開設定目錄，備份就得自己記得。
 - **`D` 一律是複製、`x`/`X` 一律是刪除。** 刪除原本在 `D`；同一個字母在不同 panel 一個複製、一個刪除，按錯的代價是資料，所以統一成整個 sshu 一個字母一個意思。File transfer 的刪除不放在 `d`：`d` 是半頁（tdp K12）。
-- **檔案上的 `Enter`**：目錄是進去，檔案是用 viewer 讀（以前檔案上的 `Enter` 什麼都不做）。理由：K3 要 `Enter` 做最直觀的那件事；在一個檔案上按 `Enter` 什麼都不發生，看起來像鍵壞了，而「讀它」不會改到任何東西。
+- **檔案上的 `Enter`**：目錄是進去，檔案是用 viewer 讀（以前檔案上的 `Enter` 什麼都不做）。理由：tdp K3 要 `Enter` 做最直觀的那件事；在一個檔案上按 `Enter` 什麼都不發生，看起來像鍵壞了，而「讀它」不會改到任何東西。
 - **Jobs 是 menu**：進行中的那一列 `Enter` 問要不要取消，結束的那一列 `Enter` 看全文（tdp F1：工作清單）。以前的 `c` 取消游標那一筆，menu 沒有「作用在游標那一列」的熱鍵，所以改成這樣。
 - **暫定（SS2，等 user 確認）**：tdp E3 分設定、狀態、資料、快取四種位置。sshu 把 `hosts.yaml`、`credentials.yaml`、`.sshukey` 當設定（跟 `~/.ssh/config` 一樣，「要連哪裡」是設定），三本紀錄當狀態，都在設定目錄；沒有資料目錄 `~/.sshu`、沒有快取。
 
@@ -123,22 +123,22 @@
 
 ## 偏離 tdp
 
-- **E3：macOS 的舊設定目錄（暫時）。** `~/.config/sshu` 不存在、`~/Library/Application Support/sshu` 在的時候，讀的是舊目錄
+- **tdp E3：macOS 的舊設定目錄（暫時）。** `~/.config/sshu` 不存在、`~/Library/Application Support/sshu` 在的時候，讀的是舊目錄
   （`internal/store/store.go` 的 `Dir`）。理由：舊目錄裡有使用者的 host 與解開密碼的鑰匙，直接換位置等於讓人一打開就是空的、密碼也解不開。
   怎麼搬等 user 定（SS1）。
 - **components/layout/panel：File transfer 的檔案清單上面有一列目前目錄**（`internal/tui/transfer.go` 的 `sideBody`）。panel 的方案
   （一般清單、分組、一列一個值、明細）沒有這一列。理由：兩側可能是同一台機器的不同目錄，也可能是兩台機器的同一個路徑，不寫出
   「我在哪」就分不出來；它是內容，所以在框裡、用 Lavender（使用者足跡），不擠進框線。已回報成 tdp 的缺漏（SS20）。
-- **K3：SESSIONS 的 `Enter` 把 focus 送進那一格**（`internal/tui/ssh.go` 的 `open`）。K3 說 `Enter` 不移動 focus、換 panel 只用在
+- **tdp K3：SESSIONS 的 `Enter` 把 focus 送進那一格**（`internal/tui/ssh.go` 的 `open`）。tdp K3 說 `Enter` 不移動 focus、換 panel 只用在
   明細；格子不是清單那一列的明細，是那個 session 本身。理由：這張清單存在就是為了「進去那個 session」，按 `Enter` 停在清單上什麼都
-  沒發生，正是 K3 要避免的「按了沒反應」；從 Hosts 連線也一樣，連上就把鍵盤交給新的格子（T1：長時間的 session 清掉 source）。
+  沒發生，正是 tdp K3 要避免的「按了沒反應」；從 Hosts 連線也一樣，連上就把鍵盤交給新的格子（tdp T1：長時間的 session 清掉 source）。
   已回報成 tdp 的盲點（SS30）。
 - **components/input/textarea：`~/.ssh/config` 區塊的其他選項用 textarea**（`internal/tui/sshcfg.go`）。規範說設定檔這種一行就是一行的
   內容交給 `$EDITOR`。理由：這裡只是一個 `Host` 區塊裡 sshu 沒有專門欄位的那幾行，跟 HostName、User 等欄位在同一張表單上一起存；
   開 `$EDITOR` 要離開表單、也沒辦法把結果寫回表單的一欄（lib 的表單欄位只能開 input）。要編整個檔，File transfer 的 `[e]dit` 對
   `~/.ssh/config` 就是 `$EDITOR`。已回報成 tdp 的缺漏（SS19）。
 
-以前唯一的一條 —— SSH tab 的 `Tab` 不作用（K2）—— 隨著改用 lib 不再存在：SSH 畫面的 `Tab` 照 K2 在 panel 之間輪替，格子也是 panel；鍵盤在格子裡時 `Tab` 屬於遠端（K10）。
+以前唯一的一條 —— SSH tab 的 `Tab` 不作用（tdp K2）—— 隨著改用 lib 不再存在：SSH 畫面的 `Tab` 照 tdp K2 在 panel 之間輪替，格子也是 panel；鍵盤在格子裡時 `Tab` 屬於遠端（tdp K10）。
 
 ## 設計文件導讀
 
@@ -157,7 +157,7 @@ Go、[terminu-go](https://github.com/vulcanshen/terminu-go)（建在 Bubble Tea 
 - **lib 的版本**：`go.mod` 寫 terminu-go 發布的 tag。本機開發用 git 不收的 `go.work`（`go work init . ../terminu-go`）接上 lib 的工作目錄；`make check` 有 `go.work` 時另外跑 `check-lib`（關掉 `go.work`、照 `go.mod` 編譯與測試），過不了就是用到了 lib 還沒發版的東西。
 - **`make check`**：`fmt-check`、`vet`、`test-race`、`check-lib`，commit 前跑。
 - **看畫面**：`SSHU__DUMP="100x30:2,Enter" go test ./internal/tui -run TestDump -v` 印出按了那串鍵之後的畫面（假資料、假的 ssh）。在真的終端機裡看：`.local/shot.sh -s 100x30 -- Escape 2 Space`（git 不收；在 tmux 裡用 demo 資料跑真的 binary，HOME 是丟棄式的，`-i 2`、`-p 2` 讓 icon、powerline 符號佔兩格）。
-- **畫面測試**：每一個畫面在 icon 與 powerline 符號各種寬度、好幾種終端機尺寸下，每一列都剛好是終端機寬（tdp L4、E5、E6）。popup 的開關動畫每次約 0.6 秒，所以 popup 只在其中兩種寬度打開。
+- **畫面測試**：每一個畫面在 icon 與 powerline 符號各種寬度、好幾種終端機尺寸下，每一列都剛好是終端機寬（tdp L4、tdp E5、tdp E6）。popup 的開關動畫每次約 0.6 秒，所以 popup 只在其中兩種寬度打開。
 - **跑 PTY 的測試**（`internal/tui/ssh_pty_test.go`）用一支假的 ssh 腳本（`fakeSSH`），加了 `//go:build !race`（見 SS10）。
 - **頂層的其他目錄**：`demo/`（`make demo` 的 hosts）、`.local/demos/`（VHS 的 tape 與 demo 用的 sshd 容器，git 不收）、`CLAUDE.md`（指向這次重構的交代）、`.claude/`（Claude Code 的專案設定：`agents/`、`commands/` 裡的 social-preview 用來從 `docs/icon.svg` 產生 `docs/social-preview.png`；`.claude/.gitignore` 擋掉個人的檔）。
 
