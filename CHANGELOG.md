@@ -10,6 +10,12 @@ Each release names the version of terminu design (tdp) it follows.
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`.
   `uninstall.sh` now also finds the settings directory named by
   `SSHU__CONFIG`.
+- **On macOS the settings move to `~/.config/sshu`** (tdp E3), the same place
+  as on Linux, unless `XDG_CONFIG_HOME` or `SSHU__CONFIG` says otherwise. If
+  your hosts are still in `~/Library/Application Support/sshu` and there is
+  no `~/.config/sshu`, sshu keeps using the old directory, so nothing is lost.
+- `SSHU__STATE` moves the three journals (errors, connections, changes) out
+  of the settings directory.
 
 ## [2.0.0] — 2026-10-06
 

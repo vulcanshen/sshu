@@ -5,18 +5,20 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
-// Dir resolves the directory holding hosts.yaml (and later config.yaml /
-// state.yaml).
+// Dir resolves the settings directory, which holds every file sshu keeps:
+// hosts.yaml, credentials.yaml, config.yaml, the key, and the journals unless
+// SSHU__STATE moves them (StateDir).
 //
-// SSHU__CONFIG overrides everything — it names the directory outright, for demo
-// recordings and isolated tests. Otherwise XDG_CONFIG_HOME wins on every
-// platform when set, so a macOS user can opt into ~/.config/sshu instead of
-// being stuck with ~/Library/Application Support; without it os.UserConfigDir
-// decides. Go already honours XDG_CONFIG_HOME on Linux, so this only changes
-// macOS behaviour.
+// tdp E3 puts it in $XDG_CONFIG_HOME/sshu, else ~/.config/sshu, on every
+// platform; SSHU__CONFIG names it outright. Before following E3, sshu let
+// os.UserConfigDir decide, which on macOS is ~/Library/Application Support.
+// TODO(tdp SS1): until the user decides what happens to that directory, a
+// macOS user who has one and no ~/.config/sshu keeps it: their hosts and the
+// key that opens their passwords are there.
 func Dir() (string, error) {
 	if p := os.Getenv("SSHU__CONFIG"); p != "" {
 		return p, nil
@@ -24,11 +26,38 @@ func Dir() (string, error) {
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
 		return filepath.Join(x, "sshu"), nil
 	}
-	dir, err := os.UserConfigDir()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "sshu"), nil
+	dir := filepath.Join(home, ".config", "sshu")
+	if old := oldDir(home); old != "" && !exists(dir) && exists(old) {
+		return old, nil
+	}
+	return dir, nil
+}
+
+// oldDir is where sshu kept its settings before tdp E3, when that differs
+// from E3's: os.UserConfigDir on macOS.
+func oldDir(home string) string {
+	if runtime.GOOS != "darwin" {
+		return ""
+	}
+	return filepath.Join(home, "Library", "Application Support", "sshu")
+}
+
+func exists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
+
+// StateDir holds the three journals: SSHU__STATE when set, the settings
+// directory otherwise (tdp E3).
+func StateDir() (string, error) {
+	if p := os.Getenv("SSHU__STATE"); p != "" {
+		return p, nil
+	}
+	return Dir()
 }
 
 // HostsPath is the full path to hosts.yaml.
