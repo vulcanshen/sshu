@@ -9,6 +9,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +43,31 @@ func TestConnectPutsTheKeyboardInTheNewCell(t *testing.T) {
 	hs.contains("Alt-Esc:leave") // Esc goes back into the PTY
 	hs.keys("Alt-Esc", "Enter")
 	hs.contains("Space:menu")
+	hs.s.sh.closeAll()
+}
+
+// A cell hidden and shown again goes back to its place: [3] stays the first
+// session, and Alt-→ from it reaches the second (the order on screen).
+func TestAShownCellKeepsItsPlace(t *testing.T) {
+	fakeSSH(t, "exec cat")
+	hs := newHarness(t, 140, 30, testData(sampleHosts(), sampleCreds()))
+	hs.keys("2", "Enter", "Enter")
+	hs.settle(func() bool { return hs.s.sh.liveCount() == 1 }, 2*time.Second)
+	hs.keys("Alt-Esc", "Enter", "M", "Enter", "Enter")
+	hs.settle(func() bool { return hs.s.sh.liveCount() == 2 }, 2*time.Second)
+	hs.keys("Alt-Esc", "Enter", "1", "gg", "H")
+	first := hs.s.sh.sessions[0]
+	if slices.Contains(hs.s.sh.screen.Panels, first.panel) {
+		t.Fatal("the hidden cell is still a panel: Tab and the digits could land on it")
+	}
+	hs.keys("H")
+	if ps := hs.s.sh.screen.Panels; len(ps) != 4 || ps[2] != first.panel {
+		t.Fatalf("shown again, the first session's cell is not [3] (%d panels)", len(ps))
+	}
+	hs.keys("Enter", "Alt-→")
+	if hs.s.a.Screen().Focused() != hs.s.sh.sessions[1].panel {
+		t.Fatal("Alt-→ from [3] did not reach [4]")
+	}
 	hs.s.sh.closeAll()
 }
 

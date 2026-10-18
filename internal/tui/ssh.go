@@ -433,26 +433,42 @@ func (h *sshScreen) toggleHidden() tea.Cmd {
 		return nil
 	}
 	x.hidden = !x.hidden
-	if !x.hidden {
+	if x.hidden {
+		h.prune()
+	} else {
 		h.place1(x)
 	}
 	h.redrawList()
 	return nil
 }
 
-// place1 puts a shown session's cell back on the screen, after the others:
-// adding at the end moves no panel's number.
+// place1 puts a shown session's cell back on the screen, in its sessions'
+// order. Only a place after the focused panel is safe (prune); otherwise it
+// goes at the end, which moves no number.
 func (h *sshScreen) place1(x *session) {
-	if !x.ended && !slices.Contains(h.screen.Panels, x.panel) {
-		h.screen.Panels = append(h.screen.Panels, x.panel)
+	ps := h.screen.Panels
+	if x.ended || slices.Contains(ps, x.panel) {
+		return
 	}
+	at := len(ps)
+	for _, y := range h.sessions[slices.Index(h.sessions, x)+1:] {
+		if i := slices.Index(ps, y.panel); i >= 0 {
+			at = i
+			break
+		}
+	}
+	if at <= slices.Index(ps, h.screen.Focused()) {
+		at = len(ps)
+	}
+	h.screen.Panels = slices.Insert(ps, at, x.panel)
 }
 
-// move goes from x's cell to the shown cell dx, dy away in the grid.
+// move goes from x's cell to the shown cell dx, dy away in the grid, in the
+// order the cells are laid out: the panels'.
 func (h *sshScreen) move(x *session, dx, dy int) tea.Cmd {
 	var shown []*session
-	for _, y := range h.sessions {
-		if !y.ended && (!y.hidden || y == x) && slices.Contains(h.screen.Panels, y.panel) {
+	for _, p := range h.screen.Panels {
+		if y := h.byPanel(p); y != nil && !y.ended && (!y.hidden || y == x) {
 			shown = append(shown, y)
 		}
 	}
