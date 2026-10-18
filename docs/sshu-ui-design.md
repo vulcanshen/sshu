@@ -7216,7 +7216,40 @@ Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshco
 
 ---
 
-## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板)
+## §12. 改用 terminu-go(2026-10-18)
+
+到 §11.73 為止,這份文件記的是 sshu 自己畫每一個框、menu、popup、自己分派每一個鍵的那一套(到 v2.0.0,對照 tdp v0.1.23)。
+2026-10-18 起,家族的五個 app 一起改建在共用的 lib terminu-go 上、對齊 tdp v0.7.4(交代在 terminu 的
+`.local/family-fix/REFACTOR-2026-10-18.md`)。sshu 的 `internal/ui` 刪掉,換成 `internal/tui`:sshu 只登記畫面、panel 與動作,
+畫面與 core key 是 lib 的。之前的章節留著,是當時為什麼那樣做的紀錄;跟現在的畫面對不上的地方,以本章與 `dev-remarks.md` 為準。
+
+### 12.1 搬過去的,與長相換成 lib 的
+
+- **三個畫面、每一個動作都在**,熱鍵不變。Space menu、`?`、hint、footer、confirm、表單、toast、viewer 的長相全部是 lib 的。
+- **SSH 的格子變成 panel**(components/dialog/terminal:PTY 放在 panel 裡):每個 session 一個,`[3]` 起編號,`Tab` 與數字鍵
+  照常走到它;以前的 §4.4.1「SSH tab 的 `Tab` 不作用」這條偏離因此消失。
+- **Manage 的 `[2]` 是明細**(components/layout/panel):cursor 一動就換,`Enter` 送 focus 過去(K3)。
+- **連線前的明細與問句合成一個 confirm**(F1:帶內容的 confirm),跟 §11.29 的「併進明細的腳」同一個意思,現在是 lib 的 confirm。
+- **File transfer 的搜尋從畫在清單裡改成 finder**(input/finder):§7.3 的「`Enter` 是搜尋結果唯一到得了 panel 的鍵,所以它就是
+  『去那裡』」正好就是 finder 的語意(到某一項,選了就關);結果一面走一面進來。
+- **Jobs 改成 menu**(F1 的工作清單):menu 沒有作用在游標那一列的熱鍵,以前的 `c` 改成在進行中那一列上 `Enter` 問要不要取消。
+- **檔案上的 `Enter`** 從什麼都不做改成讀它(K3:最直觀的動作)。
+- **`~/.ssh/config` 的其他選項**從一列一個可以加減的欄位,改成一個 textarea(一行一個 `Keyword value`);每個選項記住自己原本的那一行,
+  沒改的照舊一個字不動(§11.39 的保證不變)。
+
+### 12.2 lib 還做不到、先拿掉的
+
+每一條都回報給 terminu(SS3–SS14),程式裡標 `TODO(lib SS<n>)`:`Alt-v` 選取模式(§11.33,要 PTY 的畫面文字)、`Alt-Enter`
+鎖定與巢狀指令通道(§11.43–§11.47,要寫進 PTY、讀出 OSC)、`Alt-z` 的不畫框全螢幕(§11.47)、「連線中」的樣子與連線中不轉送
+打字(§7.1.5,要知道程式第一次輸出)。ssh 的原話(§7.1.5)改用 `ssh -E` 寫到暫存檔來讀,行為不變。
+
+### 12.3 為什麼結束的格子有時不馬上消失
+
+lib 沒有增減 panel、移動 focus 的呼叫,而它記 focus 的方式是 panel 在清單裡的位置:拿掉 focus 前面的 panel,focus 就跑到別的
+panel 上。所以結束的 session 只在它的 panel 排在 focus 後面時拿掉;排在前面的先留著,等 focus 回到前面(例:按 `1`)才拿掉
+(SS3)。focus 移到別的 panel 也是 sshu 自己「按」數字或 `Tab`。
+
+## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel
 

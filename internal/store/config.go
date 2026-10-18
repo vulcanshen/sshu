@@ -37,11 +37,28 @@ type Config struct {
 	// tabs: tab [3] passes it to ssh as -o ConnectTimeout, and tab [2] uses it
 	// as the SSH client's dial timeout.
 	ConnectTimeout int `yaml:"connect_timeout"`
+	// HideSecretsInPreview and InputTabWidth are the family's shared keys
+	// (tdp E3): the identity file picker's preview leaves private keys and
+	// files only their owner may read out; Tab in a textarea puts in this
+	// many spaces.
+	HideSecretsInPreview bool `yaml:"hide_secrets_in_preview"`
+	InputTabWidth        int  `yaml:"input_tab_width"`
 }
+
+// DefaultInputTabWidth is input_tab_width when the file leaves it out (tdp E3).
+const DefaultInputTabWidth = 4
 
 // DefaultConfig is what sshu runs as when there is no file.
 func DefaultConfig() Config {
-	return Config{ConnectTimeout: DefaultConnectTimeout}
+	return Config{ConnectTimeout: DefaultConnectTimeout, InputTabWidth: DefaultInputTabWidth}
+}
+
+// TabWidth is input_tab_width, the default for a value that cannot be one.
+func (c Config) TabWidth() int {
+	if c.InputTabWidth < 1 || c.InputTabWidth > 16 {
+		return DefaultInputTabWidth
+	}
+	return c.InputTabWidth
 }
 
 // Timeout is ConnectTimeout as a duration, with anything out of range replaced

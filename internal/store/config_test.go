@@ -41,6 +41,24 @@ func TestConfigIsRead(t *testing.T) {
 	}
 }
 
+// The family's shared keys are read under their shared names, with their
+// shared defaults (tdp E3).
+func TestTheFamilysSharedKeysAreRead(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SSHU__CONFIG", dir)
+	c, _ := LoadConfig()
+	if c.HideSecretsInPreview || c.TabWidth() != 4 {
+		t.Fatalf("defaults: hide %v, tab width %d; want false and 4", c.HideSecretsInPreview, c.TabWidth())
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"),
+		[]byte("hide_secrets_in_preview: true\ninput_tab_width: 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ = LoadConfig(); !c.HideSecretsInPreview || c.TabWidth() != 2 {
+		t.Fatalf("read: hide %v, tab width %d; want true and 2", c.HideSecretsInPreview, c.TabWidth())
+	}
+}
+
 // A number outside the sane range is a slipped decimal, not an intention. It is
 // replaced rather than obeyed, because obeying "connect_timeout: 0" would mean
 // a tab that never connects and never says why.

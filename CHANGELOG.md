@@ -4,6 +4,39 @@ Each release names the version of terminu design (tdp) it follows.
 
 ## Unreleased
 
+sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
+terminu family's shared library, and follows tdp v0.7.4. Every screen, menu,
+popup and key is drawn and handled the way the rest of the family does it; the
+three screens and what you can do on them are the same.
+
+**Not there for now** — each waits on the library and comes back with it:
+
+- `Alt-v`, the selection mode that copied text out of a session cell.
+- `Alt-Enter`, the lock that handed every key to a sshu nested in a cell, and
+  the nest channel behind it: a nested sshu is no longer told how wide an icon
+  is (set `TERMINU__ICON_WIDTH` on the remote), and the chain of layers is not
+  shown.
+- `Alt-z`'s last stage, a cell over the whole terminal with no frame at all:
+  `Alt-z` now gives the cell the whole panel area and back.
+- A session still connecting no longer says so, and typing reaches it at once.
+
+**Changed**
+
+- A session cell is a panel of its own, `[3]` on, so `Tab` and the digits
+  reach it like any panel; `Enter` on it puts the keyboard in.
+- File transfer's `/` searches in a finder over the screen; its results keep
+  arriving while the walk goes on, and `Enter` goes to the one you pick.
+- `Enter` on a file reads it, as `v` does.
+- Jobs is a menu: `Enter` on a running transfer offers to cancel it, on one
+  that ended shows the whole of it.
+- The host, credential and `~/.ssh/config` forms are the family's: `j`/`k`
+  move, `Enter` changes the field under the cursor, `Tab` goes to Save. A
+  block's other options are edited as one text, a `Keyword value` per line.
+- `config.yaml` reads the family's shared keys `hide_secrets_in_preview` and
+  `input_tab_width`.
+- `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
+- `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
+  powerline symbol takes, as the icon width variables do for icons.
 - The repository takes the terminu family's shape (tdp project, v0.7.4):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,

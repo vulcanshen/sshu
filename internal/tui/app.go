@@ -88,6 +88,8 @@ func New(d *Data) *sshu {
 		panic(err) // the embedded icon is broken: a mistake in the program
 	}
 	a.Splash = splash
+	a.HideSecretsInPreview = d.Config.HideSecretsInPreview
+	a.InputTabWidth = d.Config.TabWidth()
 	a.Status = s.status
 	a.Progress = s.progress
 	a.OnMsg = s.onMsg
