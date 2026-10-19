@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"bytes"
+	"errors"
 	"io"
 	"io/fs"
 	"path"
@@ -83,7 +83,9 @@ func (p *previewFS) ReadDir(name string) ([]fs.FileInfo, error) {
 	return r.fis, r.err
 }
 
-// Open gives the file's first 64 KB, all the preview reads of it.
+// Open gives the file: its first 64 KB, all the preview reads of most files,
+// from what was read before; the rest — the end of a zip, a whole tar, a
+// PDF's pages — from the host when it is asked for.
 func (p *previewFS) Open(name string) (terminu.PreviewFile, error) {
 	r := cachedRaw(p, p.head, name, func() textOrErr {
 		f, err := p.fs.Open(name)
@@ -97,8 +99,63 @@ func (p *previewFS) Open(name string) (terminu.PreviewFile, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	return nopCloser{bytes.NewReader([]byte(r.s))}, nil
+	return &previewFile{fs: p.fs, name: name, head: []byte(r.s)}, nil
 }
+
+// previewFile is an open file of a previewFS. Past its cached head it opens
+// the file on the host, once, and reads there.
+type previewFile struct {
+	fs   remote.FS
+	name string
+	head []byte
+	off  int64
+	rest io.ReadCloser // opened past the head
+}
+
+func (f *previewFile) ReadAt(b []byte, off int64) (int, error) {
+	end := off + int64(len(b))
+	whole := len(f.head) < previewHead // the head is all there is
+	switch {
+	case off >= int64(len(f.head)) && whole:
+		return 0, io.EOF
+	case end <= int64(len(f.head)) || whole:
+		n := copy(b, f.head[off:])
+		if n < len(b) {
+			return n, io.EOF
+		}
+		return n, nil
+	}
+	if f.rest == nil {
+		rc, err := f.fs.Open(f.name)
+		if err != nil {
+			return 0, err
+		}
+		f.rest = rc
+	}
+	ra, ok := f.rest.(io.ReaderAt)
+	if !ok {
+		return 0, errNoReadAt
+	}
+	return ra.ReadAt(b, off)
+}
+
+func (f *previewFile) Read(b []byte) (int, error) {
+	n, err := f.ReadAt(b, f.off)
+	f.off += int64(n)
+	if err == io.EOF && n > 0 {
+		err = nil
+	}
+	return n, err
+}
+
+func (f *previewFile) Close() error {
+	if f.rest != nil {
+		return f.rest.Close()
+	}
+	return nil
+}
+
+var errNoReadAt = errors.New("this file system cannot read from an offset")
 
 // cachedRaw is what read gave for name the first time it was asked.
 func cachedRaw[T any](p *previewFS, m map[string]T, name string, read func() T) T {
@@ -114,10 +171,6 @@ func cachedRaw[T any](p *previewFS, m map[string]T, name string, read func() T) 
 	p.mu.Unlock()
 	return r
 }
-
-type nopCloser struct{ *bytes.Reader }
-
-func (nopCloser) Close() error { return nil }
 
 // entryInfo is a listing's entry as a fs.FileInfo.
 func entryInfo(e remote.Entry) fs.FileInfo { return entryFileInfo{e} }

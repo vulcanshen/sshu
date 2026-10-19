@@ -185,33 +185,27 @@ func (t *transfer) onXferTick() tea.Cmd {
 	return tea.Batch(append(cmds, t.tick())...)
 }
 
-// send plans the transfer of p to the other side's directory.
-func (sd *side) send(ok bool, p string) tea.Cmd {
-	if !ok {
-		return nil
-	}
-	return sd.queue([]string{p})
-}
-
-func (sd *side) sendMarks() tea.Cmd { return sd.queue(append([]string(nil), sd.marks...)) }
-
-// queue plans in full first — how many files, which already exist at the far
-// end — so an overwrite is asked once for the batch, never halfway through.
-func (sd *side) queue(paths []string) tea.Cmd {
+// queue plans the transfer of paths to the other side's directory in full
+// first — how many files, which already exist at the far end — so an
+// overwrite is asked once for the batch, never halfway through. It gives the
+// question to ask, nil when nothing would be overwritten, and what to do
+// then: an action's AskFor and Do (see asked).
+func (sd *side) queue(paths []string) (*terminu.Ask, func() tea.Cmd) {
 	t := sd.t
 	dst := t.other(sd)
 	a := t.s.a
+	say := func(cmd func() tea.Cmd) (*terminu.Ask, func() tea.Cmd) { return nil, cmd }
 	if dst.fs == nil {
-		return a.Toast(terminu.Error, "The other side has no host yet")
+		return say(func() tea.Cmd { return a.Toast(terminu.Error, "The other side has no host yet") })
 	}
 	for _, p := range paths {
 		if remote.SameTree(sd.fs, p, dst.fs, dst.cwd) {
-			return a.Toast(terminu.Error, "That would copy a directory into itself")
+			return say(func() tea.Cmd { return a.Toast(terminu.Error, "That would copy a directory into itself") })
 		}
 	}
 	items, total, err := remote.Plan(sd.fs, paths, dst.cwd)
 	if err != nil {
-		return a.Error("Transfer failed", err.Error())
+		return say(func() tea.Cmd { return a.Error("Transfer failed", err.Error()) })
 	}
 	files := 0
 	for _, it := range items {
@@ -220,16 +214,16 @@ func (sd *side) queue(paths []string) tea.Cmd {
 		}
 	}
 	if files == 0 {
-		return a.Toast(terminu.Info, "Nothing to transfer")
+		return say(func() tea.Cmd { return a.Toast(terminu.Info, "Nothing to transfer") })
 	}
 	label := fmt.Sprintf("%s → %s:%s", plural(files, "file"), dst.host, foldHomePath(dst.cwd, dst.home))
 	start := func() tea.Cmd { return t.startJob(sd, dst, items, total, files, label) }
 	if n := len(remote.Conflicts(dst.fs, items)); n > 0 {
-		return a.Confirm(terminu.Ask{Title: "Overwrite", Subject: dst.host,
+		return &terminu.Ask{Title: "Overwrite", Subject: dst.host,
 			Details: []string{fmt.Sprintf("%s, %d will overwrite.", plural(files, "file"), n)}, Warn: []int{0},
-			Question: "Transfer to " + dst.host + ":" + dst.cwd + "?", Verb: "transfer"}, start)
+			Question: "Transfer to " + dst.host + ":" + dst.cwd + "?", Verb: "transfer"}, start
 	}
-	return start()
+	return nil, start
 }
 
 func (t *transfer) startJob(src, dst *side, items []remote.Item, total int64, files int, label string) tea.Cmd {

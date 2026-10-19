@@ -278,15 +278,25 @@ func (s *sshu) logConn(e store.ConnectionEntry) {
 // (Action.AskFor). The confirm is only a door (tdp T1): Esc on it goes back
 // to the Space menu, and what follows opens nothing, so the menu closes.
 func gated(act terminu.Action, ask func() (terminu.Ask, func() tea.Cmd, bool)) terminu.Action {
-	var run func() tea.Cmd
-	act.AskFor = func() *terminu.Ask {
+	return asked(act, func() (*terminu.Ask, func() tea.Cmd) {
 		x, do, ok := ask()
 		if !ok {
-			run = nil
-			return nil
+			return nil, nil
 		}
+		return &x, do
+	})
+}
+
+// asked is act whose question, if it has one, is worked out when it runs:
+// ask gives the question, nil to ask nothing, and what the action then does
+// (Action.AskFor). Asking or not, the action ends the same way (tdp T1: a
+// confirm is only a door).
+func asked(act terminu.Action, ask func() (*terminu.Ask, func() tea.Cmd)) terminu.Action {
+	var run func() tea.Cmd
+	act.AskFor = func() *terminu.Ask {
+		q, do := ask()
 		run = do
-		return &x
+		return q
 	}
 	act.Do = func() tea.Cmd {
 		if run == nil {

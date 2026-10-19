@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"archive/zip"
 	"io"
 	"net"
 	"os"
@@ -105,4 +106,74 @@ func TestANarrowHostsTableTakesWholeColumnsAway(t *testing.T) {
 	hs.keys("2")
 	hs.lacks("TAGS")
 	hs.contains("NAME")
+}
+
+// A transfer from the Space menu ends the same way whether it asked about
+// overwriting first or not: the confirm is only a door, and the menu closes
+// once the transfer starts (tdp T1).
+func TestATransferThatAsksEndsAsOneThatDoesNot(t *testing.T) {
+	root := twoDirs(t)
+	if err := os.WriteFile(filepath.Join(root, "b", "x.txt"), []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hs := newHarness(t, 120, 36, testData(nil, nil))
+	menu := "everything under here"     // a row only the Space menu has
+	hs.keys("F", "H", "Enter", "Enter") // [1] local, into a/
+	hs.keys("3", "H", "Enter", "j", "Enter")
+	hs.keys("1", "Space")
+	hs.contains(menu)
+	hs.keys("t")
+	hs.contains("1 will overwrite")
+	hs.keys("Esc")
+	hs.contains(menu) // Esc on the door goes back to the menu
+	hs.keys("t", "Enter")
+	hs.lacks(menu)
+	hs.waitFor(func() bool {
+		b, _ := os.ReadFile(filepath.Join(root, "b", "x.txt"))
+		return string(b) == "hello\n" && hs.s.ft.running() == 0
+	}, "the overwrite")
+}
+
+// A remote preview reads past the 64 KB it keeps when the preview asks:
+// the end of a zip lists what is in it (components/input/file-picker).
+func TestARemotePreviewReadsAZipPastItsHead(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.ToSlash(filepath.Join(dir, "big.zip"))
+	f, err := os.Create(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	big := make([]byte, 200<<10)
+	for i := range big {
+		big[i] = byte(i*7919 + i/13) // little to squeeze: the zip ends far past 64 KB
+	}
+	for _, name := range []string{"one.bin", "two.bin"} {
+		w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write(big)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := f.Stat()
+	f.Close()
+	pf, err := newPreviewFS(remote.Local()).Open(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pf.Close()
+	zr, err := zip.NewReader(pf, st.Size())
+	if err != nil {
+		t.Fatalf("the zip's end could not be read: %v", err)
+	}
+	if len(zr.File) != 2 {
+		t.Errorf("%d files listed, want 2", len(zr.File))
+	}
+	all, err := io.ReadAll(pf)
+	if err != nil || int64(len(all)) != st.Size() {
+		t.Errorf("read %d of %d bytes (%v)", len(all), st.Size(), err)
+	}
 }

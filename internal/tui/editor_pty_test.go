@@ -148,3 +148,23 @@ func TestEditFileAsksToSaveTheFormFirst(t *testing.T) {
 		t.Errorf("the file is\n%s\nwant the saved HostName and the editor's line", got)
 	}
 }
+
+// Editing a file from the Space menu keeps the menu: the editor opens once
+// the file is ready, and when it ends the menu is still there (tdp T1: an
+// editor on the item keeps its source).
+func TestEditingFromTheSpaceMenuKeepsIt(t *testing.T) {
+	twoDirs(t)
+	editor := filepath.Join(t.TempDir(), "editor")
+	if err := os.WriteFile(editor, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", editor)
+	hs := newHarness(t, 120, 36, testData(nil, nil))
+	menu := "everything under here" // a row only the Space menu has
+	hs.keys("F", "H", "Enter", "Enter", "Space", "e")
+	if !hs.settle(func() bool { return hs.shows("No changes to x.txt") }, 3*time.Second) {
+		t.Fatalf("the edit never ended:\n%s", hs.text())
+	}
+	hs.contains(menu)
+}

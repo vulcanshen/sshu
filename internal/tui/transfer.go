@@ -174,14 +174,21 @@ func (sd *side) fileActions() []terminu.Action {
 			Do: func() tea.Cmd { return sd.rename(sd.cursorPath()) }},
 		{Key: "v", Label: "View", Desc: "read this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost,
 			Do: func() tea.Cmd { return sd.view(sd.cursorPath()) }},
-		{Key: "e", Label: "Edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Hidden: sd.noHost,
+		// The editor opens once the file is fetched: Stay keeps the menu under
+		// it meanwhile (tdp T1: an editor on the item keeps its source).
+		{Key: "e", Label: "Edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
 			Disabled: func() bool {
 				e, ok := sd.cursorEntry()
 				return ok && (e.IsDir || !e.Mode.IsRegular() && e.Mode&fs.ModeSymlink == 0)
 			},
 			Do: func() tea.Cmd { return sd.edit(sd.cursorPath()) }},
-		{Key: "t", Label: "Transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer", Hidden: sd.noHost,
-			Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.cursorPath(); return sd.send(ok, p) }},
+		asked(terminu.Action{Key: "t", Label: "Transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer",
+			Hidden: sd.noHost, Disabled: func() bool { return t.other(sd).noHost() }}, func() (*terminu.Ask, func() tea.Cmd) {
+			if p, ok := sd.cursorPath(); ok {
+				return sd.queue([]string{p})
+			}
+			return nil, nil
+		}),
 		gated(terminu.Action{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Hidden: sd.noHost},
 			func() (terminu.Ask, func() tea.Cmd, bool) { return sd.deleteAsk(sd.cursorPath()) }),
 		{Key: "/", Label: "Search", Desc: "everything under here", Scope: terminu.PanelScope, Hidden: sd.noHost, Clear: true, Do: sd.search},
@@ -208,15 +215,22 @@ func (sd *side) markActions() []terminu.Action {
 		{Key: "c", Label: "Clear mark", Desc: "forget it, change nothing", Scope: terminu.ItemScope, Hint: "clear", Do: sd.unmarkCursor},
 		{Key: "r", Label: "Rename", Desc: "this item, here", Scope: terminu.ItemScope, Do: func() tea.Cmd { return sd.rename(sd.markPath()) }},
 		{Key: "v", Label: "View", Desc: "read this item, here", Scope: terminu.ItemScope, Do: func() tea.Cmd { return sd.view(sd.markPath()) }},
-		{Key: "e", Label: "Edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope,
+		{Key: "e", Label: "Edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Stay: true,
 			Disabled: func() bool { p, ok := sd.markPath(); return ok && sd.markDir[p] },
 			Do:       func() tea.Cmd { return sd.edit(sd.markPath()) }},
-		{Key: "t", Label: "Transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer",
-			Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.markPath(); return sd.send(ok, p) }},
+		asked(terminu.Action{Key: "t", Label: "Transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer",
+			Disabled: func() bool { return t.other(sd).noHost() }}, func() (*terminu.Ask, func() tea.Cmd) {
+			if p, ok := sd.markPath(); ok {
+				return sd.queue([]string{p})
+			}
+			return nil, nil
+		}),
 		gated(terminu.Action{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope},
 			func() (terminu.Ask, func() tea.Cmd, bool) { return sd.deleteAsk(sd.markPath()) }),
-		{Key: "T", Label: "Transfer all marks", Desc: "to the other side", Scope: terminu.PanelScope, Hidden: sd.noMarks,
-			Disabled: func() bool { return t.other(sd).noHost() }, Do: sd.sendMarks},
+		asked(terminu.Action{Key: "T", Label: "Transfer all marks", Desc: "to the other side", Scope: terminu.PanelScope, Hidden: sd.noMarks,
+			Disabled: func() bool { return t.other(sd).noHost() }}, func() (*terminu.Ask, func() tea.Cmd) {
+			return sd.queue(append([]string(nil), sd.marks...))
+		}),
 		gated(terminu.Action{Key: "X", Label: "Delete all marks", Desc: "erase them, on this host", Scope: terminu.PanelScope, Hidden: sd.noMarks},
 			sd.deleteMarksAsk),
 		{Key: "C", Label: "Clear marks", Desc: "forget them, change nothing", Scope: terminu.PanelScope, Hidden: sd.noMarks, Do: sd.clearMarks},
