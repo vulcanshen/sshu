@@ -1,10 +1,4 @@
-// These tests run a program in a PTY, and terminu-go v0.1.13 resizes a PTY
-// on the drawing goroutine while its reader closes it when the program ends,
-// with nothing ordering the two: the race detector reports it on every
-// session that is drawn and then ends. They run in `go test` (and make
-// check-lib); TODO(lib SS10): back under -race once the lib orders them.
-
-//go:build !race
+// These tests run a program in a PTY: a stand-in for ssh (fakeSSH).
 
 package tui
 
@@ -26,7 +20,8 @@ func TestConnectPutsTheKeyboardInTheNewCell(t *testing.T) {
 	fakeSSH(t, "echo welcome; exec cat")
 	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))
 	hs.keys("2", "Enter", "Enter")
-	if !hs.settle(func() bool { return hs.shows("welcome") }, 3*time.Second) {
+	// Typing waits until sshu hears ssh has printed (the cell is through).
+	if !hs.settle(func() bool { return hs.shows("welcome") && hs.s.sh.sessions[0].spoke }, 3*time.Second) {
 		t.Fatalf("the session's output never showed:\n%s", hs.text())
 	}
 	if hs.s.a.Screen() != hs.s.sh.screen {
@@ -93,7 +88,7 @@ func TestEverySSHRowIsAsWideAsTheScreen(t *testing.T) {
 	fakeSSH(t, "printf '日本語 \\U0000F120 wide\\n'; exec cat")
 	defer terminu.SetIconWidth(1, 1)
 	for _, iw := range [][2]int{{1, 1}, {2, 1}, {2, 2}} {
-		for _, size := range [][2]int{{80, 40}, {57, 24}, {160, 50}, {40, 12}} {
+		for _, size := range [][2]int{{80, 40}, {61, 24}, {160, 50}, {60, 20}} {
 			w, h := size[0], size[1]
 			hs := newHarness(t, w, h, testData(sampleHosts(), sampleCreds()))
 			terminu.SetIconWidth(iw[0], iw[1])
@@ -108,4 +103,58 @@ func TestEverySSHRowIsAsWideAsTheScreen(t *testing.T) {
 			hs.s.sh.closeAll()
 		}
 	}
+}
+
+// Until ssh first prints, the cell is connecting: its frame turns the
+// loading icon and what is typed waits (tdp K10, F7); then it is a session.
+func TestACellIsConnectingUntilSSHFirstPrints(t *testing.T) {
+	fakeSSH(t, "sleep 1; echo ready; exec cat")
+	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))
+	hs.keys("2", "Enter", "Enter")
+	x := hs.s.sh.sessions[0]
+	if !x.panel.Loading || !x.term.NotReady() {
+		t.Fatal("a cell still connecting should load and hold the keys back")
+	}
+	// The screen can show the words before the news of them reaches sshu.
+	if !hs.settle(func() bool { return hs.shows("ready") && !x.panel.Loading }, 3*time.Second) {
+		t.Fatalf("ssh printed, and the cell still loads:\n%s", hs.text())
+	}
+	if x.term.NotReady() {
+		t.Error("ssh has printed: the keys should reach it")
+	}
+	hs.s.sh.closeAll()
+}
+
+// Alt-Enter locks a cell: every key goes to the program, Alt-Esc too, for a
+// sshu nested in it; Alt-Enter is then the way out, and leaving unlocks it
+// (tdp K10). Alt-v is the cell's selection mode.
+func TestAltEnterLocksACell(t *testing.T) {
+	fakeSSH(t, "echo welcome; exec cat")
+	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))
+	hs.keys("2", "Enter", "Enter")
+	x := hs.s.sh.sessions[0]
+	hs.settle(func() bool { return hs.shows("welcome") && x.spoke }, 3*time.Second)
+	hs.keys("Alt-v")
+	if x.term.Mode() == "" {
+		t.Error("Alt-v did not put the cell in its selection mode")
+	}
+	hs.keys("Esc", "Alt-Enter")
+	if !x.locked || x.term.ExitKey != "Alt-Enter" {
+		t.Fatal("Alt-Enter did not lock the cell")
+	}
+	hs.contains("Alt-Enter:leave")
+	hs.keys("Alt-Esc")
+	hs.lacks("Leave")
+	if !x.term.Inside() {
+		t.Fatal("Alt-Esc in a locked cell should go to the program")
+	}
+	hs.keys("Alt-Enter")
+	if x.term.Inside() {
+		t.Fatal("Alt-Enter did not take the keyboard out of the locked cell")
+	}
+	hs.frame() // the next frame's layout sees the keyboard gone
+	if x.locked || x.term.ExitKey != "" {
+		t.Error("leaving the cell did not unlock it")
+	}
+	hs.s.sh.closeAll()
 }

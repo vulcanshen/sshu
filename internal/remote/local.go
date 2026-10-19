@@ -73,6 +73,8 @@ func (localFS) Lstat(p string) (Entry, error) {
 	}, nil
 }
 
+func (localFS) ReadLink(p string) (string, error) { return os.Readlink(filepath.FromSlash(p)) }
+
 func (localFS) Rename(from, to string) error {
 	return os.Rename(filepath.FromSlash(from), filepath.FromSlash(to))
 }

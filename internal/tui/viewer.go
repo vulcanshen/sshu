@@ -46,5 +46,5 @@ func (s *sshu) onCopied(m copied) tea.Cmd {
 	if m.err != nil {
 		return s.a.Toast(terminu.Error, "Not copied: "+m.err.Error())
 	}
-	return s.a.Toast(terminu.Info, "Copied "+plural(m.n, "character"))
+	return s.a.Toast(terminu.Success, "Copied "+plural(m.n, "character"))
 }

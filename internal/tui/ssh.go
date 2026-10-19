@@ -46,6 +46,8 @@ type session struct {
 	panel  *terminu.Panel
 	hidden bool
 	ended  bool
+	locked bool // every key, Alt-Esc too, goes to the program (Alt-Enter)
+	spoke  bool // ssh has printed something: it is through
 	reason string
 	log    string // ssh's own messages (-E), read when it ends
 }
@@ -62,7 +64,7 @@ func newSSHScreen(s *sshu) *sshScreen {
 	if n := s.d.State.GridColumns; n >= 1 && n <= 9 {
 		h.columns = n
 	}
-	h.list = &terminu.List{Columns: []terminu.Column{{Title: "Session", Flex: true}},
+	h.list = &terminu.List{Columns: []terminu.Column{{}},
 		EmptyFact: "No live sessions", EmptyHint: "Press [M] and connect to a host"}
 	h.listP = &terminu.Panel{Label: "Sessions", Body: h.list, Actions: h.listActions()}
 	arrange := &terminu.Field{Label: "Arrange", Options: arrangements, Selected: h.arrange}
@@ -81,8 +83,10 @@ func newSSHScreen(s *sshu) *sshScreen {
 	h.listP.OtherKeys = []terminu.KeySection{{Title: "ssh grid", Rows: []terminu.KeyRow{
 		{Key: "Alt-Esc", Desc: "the keyboard back out of a cell, asked first"},
 		{Key: "Alt-←|→|↑|↓", Desc: "the cell that way"},
-		{Key: "Alt-z", Desc: "the cell over the whole screen, and back"},
-		{Key: "PgUp|PgDn", Desc: "the cell's history"},
+		{Key: "Alt-z", Desc: "the cell over the whole grid, and back"},
+		{Key: "Alt-v", Desc: "select in the cell and copy"},
+		{Key: "Alt-Enter", Desc: "lock: every key to the cell; Alt-Enter leaves"},
+		{Key: "PgUp", Desc: "the cell's history"},
 	}}}
 	return h
 }
@@ -101,24 +105,23 @@ func (h *sshScreen) liveCount() int {
 
 func (h *sshScreen) listActions() []terminu.Action {
 	none := func() bool { return h.liveCount() == 0 }
-	// Another session is a long one: Enter on its confirm closes the menu
-	// and the confirm together (tdp T1), so the confirm is the action's Ask.
+	// Another session is a shell: the confirm is a door, and on Enter the
+	// menu goes with it (tdp T1).
 	var dup store.Host
-	ask, hidden := liveAsk(func(a *terminu.Ask) bool {
+	ask := func() *terminu.Ask {
 		x := h.current()
 		if x == nil {
-			return false
+			return nil
 		}
 		dup = x.host
-		*a = terminu.Ask{Title: "Duplicate", Subject: x.host.Name, Question: "Open another session to " + x.host.Name + "?", Verb: "open"}
-		return true
-	})
+		return &terminu.Ask{Title: "Duplicate", Subject: x.host.Name, Question: "Open another session to " + x.host.Name + "?", Verb: "open"}
+	}
 	return []terminu.Action{
 		{Key: "Enter", Label: "Open", Desc: "show it and take the keyboard", Scope: terminu.ItemScope, Hint: "open", Do: h.open},
 		{Key: "H", Label: "Hide", Desc: "hide or show this session's cell", Scope: terminu.ItemScope, Hint: "hide", Do: h.toggleHidden},
 		gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.ItemScope},
 			func() (terminu.Ask, func() tea.Cmd, bool) { return h.closeAsk(h.current()) }),
-		{Key: "D", Label: "Duplicate", Desc: "another session to this host", Scope: terminu.ItemScope, Ask: ask, Hidden: hidden,
+		{Key: "D", Label: "Duplicate", Desc: "another session to this host", Scope: terminu.ItemScope, AskFor: ask, Clear: true,
 			Do: func() tea.Cmd { return h.connect(dup) }},
 		// No hotkey: a sweep of every session has no fast path.
 		gated(terminu.Action{Label: "Close all sessions", Desc: "end every one of them", Scope: terminu.PanelScope, Hidden: none},
@@ -141,6 +144,9 @@ func (h *sshScreen) place(w, hh int) []terminu.Rect {
 	for _, x := range h.sessions {
 		if x.panel == focused && x.term.Inside() {
 			inside = true
+		}
+		if x.locked && !x.term.Inside() {
+			h.unlock(x) // the keyboard left it: Alt-Enter, the lock's exit key
 		}
 	}
 	if !inside {
@@ -247,17 +253,17 @@ func (h *sshScreen) byID(id string) *session {
 	return nil
 }
 
-// prune takes the cells of ended and hidden sessions off the screen. Only the panels
-// after the focused one can go: the lib keeps the focus by its place in the
-// list, so taking one off at or before it would move the focus.
-// TODO(lib SS3): terminu-go has no call to add or remove a panel, or to
-// move the focus; an ended cell at or before the focus waits there.
+// prune takes the cells of ended and hidden sessions off the screen; the
+// lib keeps the focus on its panel. A cell with the focus stays, saying how
+// its session ended, until the focus leaves it: a session ending is
+// something that happened in the background, which must not move the focus
+// (tdp K3).
 func (h *sshScreen) prune() {
 	ps := h.screen.Panels
-	f := slices.Index(ps, h.screen.Focused())
+	f := h.screen.Focused()
 	kept := ps[:0:0]
 	for i, p := range ps {
-		if x := h.byPanel(p); i > f && i >= 2 && (x == nil || x.ended || x.hidden) {
+		if x := h.byPanel(p); i >= 2 && p != f && (x == nil || x.ended || x.hidden) {
 			continue
 		}
 		kept = append(kept, p)
@@ -326,11 +332,7 @@ func (h *sshScreen) connect(host store.Host) tea.Cmd {
 		h.s.logError(store.LevelError, host.Name, host.User, err.Error(), err.Error())
 		return h.s.a.Error("Connect failed", err.Error())
 	}
-	cmds := []tea.Cmd{x.term.Start()}
-	if h.s.a.Screen() != h.screen {
-		cmds = append(cmds, pressKey("S"))
-	}
-	return tea.Sequence(append(cmds, h.focus(x))...)
+	return tea.Batch(x.term.Start(), h.focus(x))
 }
 
 // start1 makes the session and its cell; it starts when the cell is drawn.
@@ -348,27 +350,18 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 		x.log = f.Name()
 		f.Close()
 	}
-	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name, History: true,
+	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name,
 		Command: sshArgs(addr, h.s.d.Config.Seconds(), x.log), Env: sshEnv(addr, selfPath())}
-	// What sshu's own PTY did and terminu-go's Terminal cannot yet:
-	// TODO(lib SS4): Alt-v comes back as the Terminal's own selection mode,
-	// the viewer's (tdp dialog/terminal, from the next terminu-go).
-	// TODO(lib SS6): Alt-Enter, the lock that hands every key, Alt-Esc too, to
-	// a nested sshu, is sshu's to build once the exit key can be set and the
-	// reserved keys changed while the program runs.
-	// TODO(lib SS11): NotReady and the "connecting" look need to know when
-	// the program first prints.
-	// TODO(lib SS12): one key row for Alt-←|→|↑|↓; four for now.
-	x.term.Keys = []terminu.TerminalKey{
-		{Key: "Alt-z", Desc: "zoom", Do: func() tea.Cmd { h.zoomed = !h.zoomed; return nil }},
-		{Key: "Alt-←", Desc: "cell", Do: func() tea.Cmd { return h.move(x, -1, 0) }},
-		{Key: "Alt-→", Desc: "cell", Do: func() tea.Cmd { return h.move(x, 1, 0) }},
-		{Key: "Alt-↑", Desc: "cell", Do: func() tea.Cmd { return h.move(x, 0, -1) }},
-		{Key: "Alt-↓", Desc: "cell", Do: func() tea.Cmd { return h.move(x, 0, 1) }},
-	}
+	h.unlock(x) // the keys of a cell that is not locked
+	// Until ssh first prints, it is connecting: typing would land minutes
+	// later on the far side, so it waits (tdp K10), and the cell's frame
+	// turns the loading icon (tdp F7).
+	// TODO(lib SS39): "connecting to <host>…" in the middle of the cell, as
+	// LoadingText says it in a list; a Terminal has no empty state.
+	x.term.NotReady = func() bool { return !x.spoke }
+	x.term.OnFirstOutput = func() tea.Cmd { x.spoke, x.panel.Loading = true, false; return nil }
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }
-	// TODO(lib SS13): user@host kept as it is, with the Panel's name field.
-	x.panel = &terminu.Panel{Label: h.label(x), Body: x.term, Stream: true, Actions: []terminu.Action{
+	x.panel = &terminu.Panel{Name: h.label(x), Body: x.term, Stream: true, Loading: true, Actions: []terminu.Action{
 		{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,
 			Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { x.term.Enter(); return nil }},
 		gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope,
@@ -382,43 +375,43 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	return x, nil
 }
 
-// focus puts the keyboard in x's cell: the cell gets the focus and its PTY
-// the keys.
+// focus puts the keyboard in x's cell: the cell gets the focus, on the SSH
+// screen, and its PTY the keys. Only on what the user pressed: connect, Enter
+// on a session, a cell that way (tdp K3).
 func (h *sshScreen) focus(x *session) tea.Cmd {
 	x.hidden = false
 	h.place1(x)
 	h.redrawList()
 	x.term.Enter()
-	i := slices.Index(h.screen.Panels, x.panel)
-	if i < 0 {
-		return nil
-	}
-	return focusIndex(h.screen, i)
+	return h.s.a.Focus(x.panel)
 }
 
-// focusIndex moves the focus to panel i of screen as the keys would: its
-// digit, or Tab enough times past [9]. TODO(lib SS3).
-func focusIndex(screen *terminu.Screen, i int) tea.Cmd {
-	if i < 9 {
-		return focusPanel(i + 1)
+// cellSteps are the Alt-arrows' steps through the grid, across and down.
+var cellSteps = map[string][2]int{"Alt-←": {-1, 0}, "Alt-→": {1, 0}, "Alt-↑": {0, -1}, "Alt-↓": {0, 1}}
+
+// unlock gives x's cell sshu's own keys: Alt-Esc takes the keyboard back
+// (tdp K10), Alt-z zooms, Alt-arrows go to the cell that way, Alt-v selects
+// and copies, Alt-Enter locks, PgUp goes back through its history.
+func (h *sshScreen) unlock(x *session) {
+	t := x.term
+	x.locked = false
+	t.ExitKey, t.SelectKey, t.Copy, t.History = "", "Alt-v", copyText, true
+	t.Keys = []terminu.TerminalKey{
+		{Key: "Alt-z", Desc: "zoom", Do: func() tea.Cmd { h.zoomed = !h.zoomed; return nil }},
+		{Key: "Alt-←|→|↑|↓", Keys: []string{"Alt-←", "Alt-→", "Alt-↑", "Alt-↓"}, Desc: "cell",
+			DoKey: func(k string) tea.Cmd { d := cellSteps[k]; return h.move(x, d[0], d[1]) }},
+		{Key: "Alt-Enter", Desc: "lock", Do: func() tea.Cmd { h.lock(x); return nil }},
 	}
-	f := slices.Index(screen.Panels, screen.Focused())
-	n := (i - f + len(screen.Panels)) % len(screen.Panels)
-	cmds := make([]tea.Cmd, n)
-	for k := range cmds {
-		cmds[k] = pressKey("Tab")
-	}
-	return tea.Sequence(cmds...)
 }
 
-// pressKey is a key pressed by sshu itself: what terminu-go has no call for.
-func pressKey(k string) tea.Cmd {
-	return func() tea.Msg {
-		if k == "Tab" {
-			return tea.KeyMsg{Type: tea.KeyTab}
-		}
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)}
-	}
+// lock hands every key to the program in x's cell — Alt-Esc, Alt-z, the
+// Alt-arrows, Alt-v, PgUp — so a sshu nested in it gets them all. Alt-Enter
+// is then the exit key (tdp K10: one is always the app's); leaving the cell
+// unlocks it.
+func (h *sshScreen) lock(x *session) {
+	t := x.term
+	x.locked = true
+	t.ExitKey, t.SelectKey, t.History, t.Keys = "Alt-Enter", "", false, nil
 }
 
 func (h *sshScreen) open() tea.Cmd {

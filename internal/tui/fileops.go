@@ -24,10 +24,6 @@ import (
 // What a side can do to the files themselves: rename, add, delete, search,
 // view, edit.
 
-// errNoName names the value, as an error row must (components/input/README).
-// TODO(lib SS15): terminu.ErrEmpty says "can't be empty" with no name.
-var errNoName = errors.New("A name can't be empty")
-
 // nameCheck refuses what a name box cannot mean: a path.
 func nameCheck(v string) error {
 	if strings.ContainsRune(strings.TrimSuffix(strings.TrimSpace(v), "/"), '/') {
@@ -53,18 +49,19 @@ func (sd *side) rename(p string, ok bool) tea.Cmd {
 				return err
 			}
 			if v == "" {
-				return errNoName
+				return terminu.ErrEmpty
 			}
 			if v != base && remote.Exists(sd.fs, remote.Join(path.Dir(p), v)) {
 				return errors.New(v + " already exists")
 			}
 			return nil
 		},
-		Done: func(v string) tea.Cmd {
-			v = strings.TrimSpace(v)
-			dst := remote.Join(path.Dir(p), v)
+		// A rename that fails keeps the box open with the name in it, under
+		// the error (tdp F4).
+		Commit: func(v string) error {
+			dst := remote.Join(path.Dir(p), strings.TrimSpace(v))
 			if err := sd.fs.Rename(p, dst); err != nil {
-				return a.Error("Rename failed", err.Error())
+				return err
 			}
 			// A mark is a path: it moves with the file.
 			if sd.isMarked(p) {
@@ -73,9 +70,13 @@ func (sd *side) rename(p string, ok bool) tea.Cmd {
 				sd.marks = append(sd.marks, dst)
 				sd.markDir[dst] = dir
 			}
+			return nil
+		},
+		Done: func(v string) tea.Cmd {
+			v = strings.TrimSpace(v)
 			sd.reload()
-			sd.files.Select(dst)
-			return a.Toast(terminu.Info, "Renamed to "+v)
+			sd.files.Select(remote.Join(path.Dir(p), v))
+			return a.Toast(terminu.Success, "Renamed to "+v)
 		}})
 }
 
@@ -92,7 +93,7 @@ func (sd *side) add() tea.Cmd {
 			}
 			name := strings.TrimSuffix(v, "/")
 			if name == "" {
-				return errNoName
+				return terminu.ErrEmpty
 			}
 			// Create truncates: an existing name is refused, not emptied.
 			if remote.Exists(sd.fs, remote.Join(sd.cwd, name)) {
@@ -100,30 +101,30 @@ func (sd *side) add() tea.Cmd {
 			}
 			return nil
 		},
+		// One that cannot be made keeps the box open with the name in it,
+		// under the error (tdp F4).
+		Commit: func(v string) error {
+			v = strings.TrimSpace(v)
+			p := remote.Join(sd.cwd, strings.TrimSuffix(v, "/"))
+			if strings.HasSuffix(v, "/") {
+				return sd.fs.MkdirAll(p)
+			}
+			w, err := sd.fs.Create(p, 0o644)
+			if err != nil {
+				return err
+			}
+			return w.Close()
+		},
 		Done: func(v string) tea.Cmd {
 			v = strings.TrimSpace(v)
-			isDir := strings.HasSuffix(v, "/")
 			name := strings.TrimSuffix(v, "/")
-			p := remote.Join(sd.cwd, name)
-			var err error
-			if isDir {
-				err = sd.fs.MkdirAll(p)
-			} else {
-				var w io.WriteCloser
-				if w, err = sd.fs.Create(p, 0o644); err == nil {
-					err = w.Close()
-				}
-			}
-			if err != nil {
-				return a.Error("Add failed", err.Error())
-			}
 			sd.reload()
-			sd.files.Select(p)
+			sd.files.Select(remote.Join(sd.cwd, name)) // the new one, in sight (tdp K3)
 			kind := "file"
-			if isDir {
+			if strings.HasSuffix(v, "/") {
 				kind = "directory"
 			}
-			return a.Toast(terminu.Info, "Created "+kind+" "+name)
+			return a.Toast(terminu.Success, "Created "+kind+" "+name)
 		}})
 }
 
@@ -140,7 +141,7 @@ func (sd *side) deleteAsk(p string, ok bool) (terminu.Ask, func() tea.Cmd, bool)
 			}
 			sd.unmark(p)
 			sd.reload()
-			return a.Toast(terminu.Info, "Deleted "+path.Base(p))
+			return a.Toast(terminu.Success, "Deleted "+path.Base(p))
 		}, true
 }
 
@@ -166,7 +167,7 @@ func (sd *side) deleteMarksAsk() (terminu.Ask, func() tea.Cmd, bool) {
 			if failed != "" {
 				return a.Error("Delete failed", failed)
 			}
-			return a.Toast(terminu.Info, "Deleted "+plural(done, "item"))
+			return a.Toast(terminu.Success, "Deleted "+plural(done, "item"))
 		}, true
 }
 
@@ -197,16 +198,13 @@ func (sd *side) search() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	sc := &scan{cancel: cancel, sd: sd, root: sd.cwd, local: isLocal(sd.fs)}
 	sc.finder = &terminu.Finder{Title: "Search", Subject: foldHomePath(sd.cwd, sd.home), Glyph: glyphEye, Verb: "go there",
-		Loading: true, Files: isLocal(sd.fs),
+		Loading: true, Files: true,
 		Done: func(it terminu.FinderItem) tea.Cmd {
 			sc.cancel()
 			return sd.goToFound(sc.root, strings.TrimPrefix(it.ID, sc.root+"/"))
 		}}
-	if !sc.finder.Files {
-		sc.finder.Preview = func(it terminu.FinderItem) (string, []string) {
-			// TODO(lib SS18): the lib previews only files on this machine.
-			return it.Text, []string{"in " + foldHomePath(path.Dir(it.ID), sd.home)}
-		}
+	if !isLocal(sd.fs) {
+		sc.finder.FS = newPreviewFS(sd.fs) // a remote host's files get the same preview
 	}
 	var sub []string
 	for _, e := range sd.entries {
@@ -489,13 +487,13 @@ func (t *transfer) onEditFetched(m editFetched) tea.Cmd {
 		return a.Error("Edit failed", "Can't open the file: "+m.err.Error())
 	}
 	if !m.text {
-		// TODO(lib SS8): Esc on the question cannot be heard; the fetched copy
-		// is left in the temporary directory.
+		// Esc on the question drops the fetched copy (tdp F6).
 		t.editing = false
 		return a.Confirm(terminu.Ask{Title: "Edit", Subject: path.Base(m.job.path),
 			Details:  []string{path.Base(m.job.path) + " does not look like text.", "Saving it from an editor can corrupt it."},
 			Warn:     []int{1},
-			Question: "Edit it anyway?", Verb: "edit anyway"},
+			Question: "Edit it anyway?", Verb: "edit anyway",
+			OnCancel: func() tea.Cmd { t.endEdit(m.job, false); return nil }},
 			func() tea.Cmd { return t.runEditor(m.job) })
 	}
 	return t.runEditor(m.job)
@@ -589,12 +587,17 @@ func (t *transfer) onEditSaved(m editSaved) tea.Cmd {
 	where := m.job.fsys.Label()
 	switch {
 	case m.conflict:
-		// Esc keeps the copy where it is (TODO(lib SS8): it cannot be heard).
+		// Esc keeps the copy where it is, and says where (tdp F6).
 		t.editing = false
 		return a.Confirm(terminu.Ask{Title: "Overwrite", Subject: name,
 			Details: []string{name + " changed on " + where + " since you opened it.", "Saving replaces what is there now.",
 				"[Esc] keeps your edit at " + m.job.local + "."}, Warn: []int{1},
-			Question: "Overwrite it?", Verb: "overwrite"},
+			Question: "Overwrite it?", Verb: "overwrite",
+			OnCancel: func() tea.Cmd {
+				t.endEdit(m.job, true)
+				t.s.logChange("edit: not saved " + name + " (" + where + " changed); your copy is at " + m.job.local)
+				return a.Toast(terminu.Warning, "Not saved: your edit is at "+m.job.local)
+			}},
 			func() tea.Cmd { return saveEdit(m.job, true) })
 	case m.err != nil:
 		t.endEdit(m.job, true)
@@ -609,7 +612,7 @@ func (t *transfer) onEditSaved(m editSaved) tea.Cmd {
 	for _, sd := range t.sides {
 		sd.reload()
 	}
-	return a.Toast(terminu.Info, "Saved "+name)
+	return a.Toast(terminu.Success, "Saved "+name)
 }
 
 func (t *transfer) endEdit(job editJob, keep bool) {

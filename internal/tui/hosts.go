@@ -28,10 +28,10 @@ func newHostsSection(s *sshu) *hostsSection {
 	h := &hostsSection{s: s}
 	h.list = &terminu.List{
 		Columns: []terminu.Column{
-			// Tags give up room first: name and address are what the table is
-			// scanned by.
-			{Title: "Name"}, {Title: "User"}, {Title: "Host"},
-			{Title: "Port", Number: true}, {Title: "Auth"}, {Title: "Tags", Flex: true},
+			// Tags go first, the address last: name and address are what the
+			// table is scanned by (layout/panel: whole columns go first).
+			{Title: "Name"}, {Title: "User", Drop: 4}, {Title: "Host", Drop: 5},
+			{Title: "Port", Number: true, Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Tags", Drop: 1},
 		},
 		Filterable: true,
 		EmptyFact:  "No hosts yet",
@@ -47,27 +47,26 @@ func (h *hostsSection) section() *section {
 }
 
 func (h *hostsSection) actions() []terminu.Action {
-	// Connecting opens a session, a long one: on Enter the menu and the
-	// confirm all close (tdp T1), so the confirm is the action's own Ask.
+	// Connecting opens a shell on another screen: the confirm is a door, and
+	// on Enter the menu goes with it (tdp T1).
 	var target store.Host
-	ask, hidden := liveAsk(func(a *terminu.Ask) bool {
+	ask := func() *terminu.Ask {
 		x, _, ok := h.current()
 		if !ok {
-			return false
+			return nil
 		}
 		target = x
 		lines, warn := detailLines(hostDetail(x, h.s.d.Creds, h.s.d.SSHConfig, h.s.d.Config.Seconds()))
-		*a = terminu.Ask{Title: "Connect", Subject: x.Name, Details: lines, Warn: warn,
+		return &terminu.Ask{Title: "Connect", Subject: x.Name, Details: lines, Warn: warn,
 			Question: "Connect to " + x.Name + "?", Verb: "connect"}
-		return true
-	})
+	}
 	return []terminu.Action{
 		{Key: "Enter", Label: "Connect", Desc: "what it is, then in", Scope: terminu.ItemScope, Hint: "connect",
-			Ask: ask, Hidden: hidden, Do: func() tea.Cmd { return h.s.sh.connect(target) }},
-		{Key: "E", Label: "Edit", Desc: "change this host", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: h.edit},
-		{Key: "D", Label: "Duplicate", Desc: "a new host starting from this one", Scope: terminu.ItemScope, Stay: true, Do: h.duplicate},
+			AskFor: ask, Clear: true, Do: func() tea.Cmd { return h.s.sh.connect(target) }},
+		{Key: "E", Label: "Edit", Desc: "change this host", Scope: terminu.ItemScope, Hint: "edit", Do: h.edit},
+		{Key: "D", Label: "Duplicate", Desc: "a new host starting from this one", Scope: terminu.ItemScope, Do: h.duplicate},
 		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "remove from hosts.yaml", Scope: terminu.ItemScope}, h.deleteAsk),
-		{Key: "A", Label: "Add", Desc: "a new host", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: h.add},
+		{Key: "A", Label: "Add", Desc: "a new host", Scope: terminu.PanelScope, Hint: "add", Do: h.add},
 	}
 }
 
@@ -125,7 +124,7 @@ func (h *hostsSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 			h.reload("")
 			h.s.mg.refresh()
 			h.s.logChange("deleted host " + x.Name)
-			return h.s.a.Toast(terminu.Info, "Deleted "+x.Name)
+			return h.s.a.Toast(terminu.Success, "Deleted "+x.Name)
 		}, true
 }
 
@@ -282,7 +281,7 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 		h.reload(x.Name)
 		h.s.mg.refresh()
 		h.s.logChange(verb + " host " + x.Name)
-		return h.s.a.Toast(terminu.Info, "Saved "+x.Name), nil
+		return h.s.a.Toast(terminu.Success, "Saved "+x.Name), nil
 	}
 	return h.s.a.Form(f)
 }
@@ -320,21 +319,11 @@ func inputRule(rule func(string) string) func(string) error {
 	}
 }
 
-// optionalPort is a port that may be left empty. The lib's number input
-// refuses an empty value, so it is a text input with the number's rule.
-// TODO(lib SS16): a number input that may be empty.
+// optionalPort is a port that may be left empty, which leaves the line out
+// for ~/.ssh/config to decide (components/input/number: an optional number).
 func optionalPort(prompt, old string, set func(string)) terminu.Input {
-	return terminu.TextInput{Title: "Port", Glyph: glyphPencil, Prompt: prompt, Verb: "set", Old: old, MaxLen: 5,
-		Check: func(v string) error {
-			v = strings.TrimSpace(v)
-			if v == "" {
-				return nil
-			}
-			if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 65535 {
-				return errors.New("Port must be 1-65535")
-			}
-			return nil
-		},
+	return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: prompt, Verb: "set", Old: old,
+		Min: 1, Max: 65535, Optional: true,
 		Done: func(v string) tea.Cmd { set(strings.TrimSpace(v)); return nil }}
 }
 

@@ -83,6 +83,11 @@ var icon []byte
 
 const intro = "An ssh and sftp front end for the terminal"
 
+// The least size sshu draws itself at (tdp L1): a sshu nested in a zoomed
+// cell of an 80×24 terminal has 78×20, and every screen and form still works
+// at 60 columns.
+const minWidth, minHeight = 60, 20
+
 // New builds sshu over d.
 func New(d *Data) *sshu {
 	if d.Now == nil {
@@ -91,6 +96,8 @@ func New(d *Data) *sshu {
 	s := &sshu{d: d}
 	a := terminu.New("sshu")
 	a.QuitDesc = "leave sshu"
+	// sshu's least size (tdp L1): see dev-remarks, design decisions.
+	a.MinWidth, a.MinHeight = minWidth, minHeight
 	splash, err := terminu.NewSplash(icon, "sshu", version.Display(), intro)
 	if err != nil {
 		panic(err) // the embedded icon is broken: a mistake in the program
@@ -110,7 +117,7 @@ func New(d *Data) *sshu {
 	a.AddScreen(s.sh.screen)
 	// The transfers are the whole app's, whichever side started them.
 	a.Global = []terminu.Action{{Key: "J", Label: "Jobs", Desc: "the transfers of this run, and cancelling one",
-		Scope: terminu.GlobalScope, Stay: true, Hidden: func() bool { return len(s.ft.jobs) == 0 }, Do: s.ft.jobsMenu}}
+		Scope: terminu.GlobalScope, Hidden: func() bool { return len(s.ft.jobs) == 0 }, Do: s.ft.jobsMenu}}
 	a.Start = s.start
 	s.refreshQuit()
 	return s
@@ -122,20 +129,26 @@ func (s *sshu) Run() error { return s.a.Run() }
 // start records what startup found and says so once.
 func (s *sshu) start() tea.Cmd {
 	cmds := []tea.Cmd{s.ft.start(), s.sh.start()}
-	// What moved says from where to where in a toast; what could not, in an
-	// error popup with both paths, for the user to move (tdp E3).
+	// What moved says from where to where in a toast; what could not, or
+	// what the new place already had, in an error popup with both paths, for
+	// the user to move or merge (tdp E3).
 	var moved, stuck []string
 	for _, m := range s.d.Moves {
 		from, to := store.FoldHome(m.From), store.FoldHome(m.To)
-		if m.Err != nil {
+		switch {
+		case m.Err != nil:
 			stuck = append(stuck, fmt.Sprintf("sshu could not move its %s from %s to %s: %v.\nIt goes on using %s; move them to %s yourself.",
 				m.What, from, to, m.Err, from, to))
-			continue
+		case len(m.Left) > 0:
+			stuck = append(stuck, fmt.Sprintf("%s already has %s, so sshu left %s in %s.\nMerge %s into %s yourself.",
+				to, strings.Join(m.Left, ", "), pronoun(len(m.Left)), from, pronoun(len(m.Left)), to))
 		}
-		moved = append(moved, fmt.Sprintf("the %s from %s to %s", m.What, from, to))
+		if len(m.Moved) > 0 {
+			moved = append(moved, fmt.Sprintf("the %s from %s to %s", m.What, from, to))
+		}
 	}
 	if len(stuck) > 0 {
-		cmds = append(cmds, s.sized(func() tea.Cmd { return s.a.Error("Move failed", strings.Join(stuck, "\n\n")) }))
+		cmds = append(cmds, s.a.Error("Not moved", strings.Join(stuck, "\n\n")))
 	}
 	var says []string
 	kind := terminu.Info
@@ -210,26 +223,10 @@ func (s *sshu) status(w int) string {
 
 func (s *sshu) progress() (float64, bool) { return s.ft.progress() }
 
-// whenSized is a popup to open once the terminal's size is known.
-type whenSized struct{ open func() tea.Cmd }
-
-// sized opens a popup once the size is known: one opened before, at
-// startup, wraps its text to a width of nothing.
-// TODO(lib SS37): an error popup wraps when it is drawn, not when it opens.
-func (s *sshu) sized(open func() tea.Cmd) tea.Cmd {
-	return func() tea.Msg { return whenSized{open} }
-}
-
 // onMsg routes the messages the lib leaves to the screen that sent them.
 func (s *sshu) onMsg(msg tea.Msg) tea.Cmd {
 	if m, ok := msg.(copied); ok {
 		return s.onCopied(m)
-	}
-	if m, ok := msg.(whenSized); ok {
-		if w, _ := s.a.Size(); w == 0 {
-			return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return m })
-		}
-		return m.open()
 	}
 	if cmd, ok := s.ft.onMsg(msg); ok {
 		return cmd
@@ -275,37 +272,22 @@ func (s *sshu) logConn(e store.ConnectionEntry) {
 	s.mg.journalsChanged()
 }
 
-// liveAsk is an action's confirm, filled in for the item under the cursor.
-// The lib reads Action.Ask when the action runs and asks Hidden just
-// before, so Hidden fills it; with Ask set, Esc on the confirm goes back to
-// the Space menu it was run from, and Enter closes them all (tdp F4, tdp T1).
-// TODO(lib SS29): an Ask that is made when the action runs.
-func liveAsk(fill func(*terminu.Ask) bool) (*terminu.Ask, func() bool) {
-	ask := &terminu.Ask{}
-	return ask, func() bool {
-		*ask = terminu.Ask{}
-		return !fill(ask)
-	}
-}
-
 // gated is act with a confirm in front of something that leaves its source
-// with nothing to act on — a delete, a close (tdp T1: the confirm is only a
-// gate, and what comes after it clears the source). ask gives the confirm for
-// the item under the cursor and what Enter on it does; it becomes the
-// action's own Ask, so Enter closes the Space menu as well, and Esc goes back
-// to it.
+// with nothing to act on — a delete, a close. ask gives, when the action
+// runs, the confirm for the item under the cursor and what Enter on it does
+// (Action.AskFor). The confirm is only a door (tdp T1): Esc on it goes back
+// to the Space menu, and what follows opens nothing, so the menu closes.
 func gated(act terminu.Action, ask func() (terminu.Ask, func() tea.Cmd, bool)) terminu.Action {
 	var run func() tea.Cmd
-	q, none := liveAsk(func(a *terminu.Ask) bool {
+	act.AskFor = func() *terminu.Ask {
 		x, do, ok := ask()
-		if ok {
-			*a, run = x, do
+		if !ok {
+			run = nil
+			return nil
 		}
-		return ok
-	})
-	hidden := act.Hidden
-	act.Ask, act.Stay = q, false
-	act.Hidden = func() bool { return hidden != nil && hidden() || none() }
+		run = do
+		return &x
+	}
 	act.Do = func() tea.Cmd {
 		if run == nil {
 			return nil
@@ -313,6 +295,14 @@ func gated(act terminu.Action, ask func() (terminu.Ask, func() tea.Cmd, bool)) t
 		return run()
 	}
 	return act
+}
+
+// pronoun is "it" for one thing, "them" for more.
+func pronoun(n int) string {
+	if n == 1 {
+		return "it"
+	}
+	return "them"
 }
 
 // plural is "1 host", "2 hosts".

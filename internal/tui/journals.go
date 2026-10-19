@@ -49,7 +49,7 @@ func clearAction(s *sshu, label, file string, clear func() error, after func()) 
 					}
 					after()
 					s.mg.journalsChanged()
-					return s.a.Toast(terminu.Info, "Cleared "+label)
+					return s.a.Toast(terminu.Success, "Cleared "+label)
 				}, true
 		})
 }
@@ -66,7 +66,7 @@ type errorsSection struct {
 func newErrorsSection(s *sshu) *errorsSection {
 	e := &errorsSection{s: s}
 	e.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time"}, {Title: "Host"}, {Title: "Cause", Flex: true}},
+		Columns:   []terminu.Column{{Title: "Time", Drop: 2}, {Title: "Host", Drop: 1}, {Title: "Cause"}},
 		EmptyFact: "Nothing has gone wrong",
 		EmptyHint: "Failed connections and unreadable files land here; press [Space] to see what you can do",
 	}
@@ -82,7 +82,7 @@ func (e *errorsSection) section() *section {
 
 func (e *errorsSection) actions() []terminu.Action {
 	acts := []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "everything the far end said", Scope: terminu.ItemScope, Hint: "open", Stay: true, Do: e.open},
+		{Key: "Enter", Label: "Open", Desc: "everything the far end said", Scope: terminu.ItemScope, Hint: "open", Do: e.open},
 	}
 	if len(e.s.d.Errors) > 0 {
 		acts = append(acts, clearAction(e.s, "errors", "errors.yaml", e.s.d.ClearErrors, func() {
@@ -162,7 +162,7 @@ type connsSection struct {
 func newConnsSection(s *sshu) *connsSection {
 	c := &connsSection{s: s}
 	c.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time"}, {Title: "Host", Flex: true}, {Title: "Result"}},
+		Columns:   []terminu.Column{{Title: "Time", Drop: 1}, {Title: "Host"}, {Title: "Result", Drop: 2}},
 		EmptyFact: "No connections yet",
 		EmptyHint: "Every ssh and sftp connection lands here; press [M] then a host to make one",
 	}
@@ -180,7 +180,7 @@ func (c *connsSection) actions() []terminu.Action {
 		return nil
 	}
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Stay: true, Do: c.open},
+		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Do: c.open},
 		clearAction(c.s, "connections", "connections.yaml", c.s.d.ClearConns, func() { c.s.d.Conns = nil }),
 	}
 }
@@ -226,7 +226,7 @@ type changesSection struct {
 func newChangesSection(s *sshu) *changesSection {
 	c := &changesSection{s: s}
 	c.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time"}, {Title: "Change", Flex: true}},
+		Columns:   []terminu.Column{{Title: "Time", Drop: 1}, {Title: "Change"}},
 		EmptyFact: "Nothing changed yet",
 		EmptyHint: "What you change through sshu lands here; press [Space] to see what you can do",
 	}
@@ -244,7 +244,7 @@ func (c *changesSection) actions() []terminu.Action {
 		return nil
 	}
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Stay: true, Do: c.open},
+		{Key: "Enter", Label: "Open", Desc: "the whole journal, each entry in full", Scope: terminu.PanelScope, Hint: "open", Do: c.open},
 		clearAction(c.s, "changes", "changes.yaml", c.s.d.ClearChgs, func() { c.s.d.Changes = nil }),
 	}
 }

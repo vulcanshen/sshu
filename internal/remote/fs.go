@@ -43,6 +43,8 @@ type FS interface {
 	// it: a symlink to a directory stats as a directory, and a recursive delete
 	// that believed Stat would walk into the target and empty it out.
 	Lstat(p string) (Entry, error)
+	// ReadLink is where a symlink points, as the link says it.
+	ReadLink(p string) (string, error)
 
 	// The write half, used only by transfers. It lives on the same interface so a
 	// copy never has to know which end is local — upload, download and

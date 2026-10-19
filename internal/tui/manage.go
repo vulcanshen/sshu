@@ -54,7 +54,7 @@ func newManage(s *sshu) *manage {
 		m.cfg.section(), m.known.section(),
 		m.errs.section(), m.conns.section(), m.chgs.section(),
 	}
-	m.nav = &terminu.List{Columns: []terminu.Column{{Title: "Section", Flex: true}}, OnMove: m.navMoved}
+	m.nav = &terminu.List{Columns: []terminu.Column{{}}, OnMove: m.navMoved}
 	rows := make([]terminu.Row, len(m.sections))
 	for i, sec := range m.sections {
 		rows[i] = terminu.Row{ID: sec.id, Cells: []string{sec.label}, Group: sec.group}

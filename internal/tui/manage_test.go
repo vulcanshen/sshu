@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	terminu "github.com/vulcanshen/terminu-go"
 
 	"github.com/vulcanshen/sshu/internal/store"
@@ -100,7 +100,7 @@ func TestAddingAHostSavesIt(t *testing.T) {
 func TestEveryManageRowIsAsWideAsTheScreen(t *testing.T) {
 	defer terminu.SetIconWidth(1, 1)
 	for _, iw := range [][2]int{{1, 1}, {2, 1}, {2, 2}} {
-		for _, size := range [][2]int{{80, 40}, {60, 24}, {120, 40}, {40, 12}, {200, 60}} {
+		for _, size := range [][2]int{{80, 40}, {60, 24}, {120, 40}, {60, 20}, {200, 60}} {
 			w, h := size[0], size[1]
 			hs := newHarness(t, w, h, testData(sampleHosts(), sampleCreds()))
 			terminu.SetIconWidth(iw[0], iw[1])
@@ -109,7 +109,7 @@ func TestEveryManageRowIsAsWideAsTheScreen(t *testing.T) {
 				hs.keys("j")
 			}
 			// Popups take their opening animation each: once per width.
-			if w != 80 && w != 40 {
+			if size != [2]int{80, 40} && size != [2]int{60, 20} {
 				continue
 			}
 			hs.keys("gg", "Space")
@@ -149,34 +149,52 @@ func TestADeleteFromTheSpaceMenuClearsTheMenu(t *testing.T) {
 }
 
 // What startup moved is said in a toast, from where to where; what it could
-// not move opens an error popup with both paths (tdp E3).
+// not move, and what the new place already had, open an error popup with both
+// paths, to move or to merge (tdp E3).
 func TestStartupSaysWhatItMoved(t *testing.T) {
 	d := testData(sampleHosts(), sampleCreds())
-	d.Moves = []store.Move{{What: "journals", From: "/home/u/.config/sshu", To: "/home/u/.sshu"}}
+	d.Moves = []store.Move{{What: "journals", From: "/home/u/.config/sshu", To: "/home/u/.sshu", Moved: []string{"errors.yaml"}}}
 	hs := newHarness(t, 120, 40, d)
 	hs.contains("Moved the journals from /home/u/.config/sshu to /home/u/.sshu")
 
 	d = testData(sampleHosts(), sampleCreds())
 	d.Moves = []store.Move{{What: "settings", From: "/home/u/old", To: "/home/u/.config/sshu", Err: os.ErrPermission}}
 	hs = newHarness(t, 120, 40, d)
-	hs.settle(func() bool { return hs.shows("MOVE FAILED") }, 2*time.Second)
-	hs.contains("MOVE FAILED")
+	hs.contains("NOT MOVED")
 	hs.contains("/home/u/old")
 	hs.contains("/home/u/.config/sshu")
 	hs.contains("move them to")
+
+	d = testData(sampleHosts(), sampleCreds())
+	d.Moves = []store.Move{{What: "settings", From: "/home/u/old", To: "/home/u/.config/sshu",
+		Moved: []string{"state.yaml"}, Left: []string{"config.yaml"}}}
+	hs = newHarness(t, 120, 40, d)
+	hs.contains("NOT MOVED")
+	hs.contains("already has config.yaml")
+	hs.contains("Merge it into")
 }
 
-// Below the smallest size, down to 1×1, no screen brings sshu down (tdp
-// E5, tdp L1). Drawing the name and the hint there is the lib's, from terminu-go's
-// next version; then this test looks for them too, and opens the popups:
-// v0.1.13 panics drawing a popup taller than the terminal (fixed after it,
-// f245cbc).
+// Below sshu's least size, down to 1×1, nothing brings it down: every row is
+// as wide as the terminal, the name is drawn and the hint where it fits; a
+// popup that was open is there again when the terminal grows (tdp E5, tdp
+// L1).
 func TestTinyTerminalsDoNotCrash(t *testing.T) {
-	for _, size := range [][2]int{{80, 5}, {40, 3}, {2, 2}, {1, 1}} {
-		hs := newHarness(t, size[0], size[1], testData(sampleHosts(), sampleCreds()))
-		for _, k := range []string{"2", "j", "F", "Tab", "S", "Tab", "M"} {
-			hs.keys(k)
-			_ = hs.frame()
+	for _, size := range [][2]int{{80, 5}, {59, 20}, {40, 3}, {2, 2}, {1, 1}} {
+		w, h := size[0], size[1]
+		hs := newHarness(t, 100, 40, testData(sampleHosts(), sampleCreds()))
+		hs.keys("2", "Space")
+		hs.send(tea.WindowSizeMsg{Width: w, Height: h})
+		for _, k := range []string{"Esc", "j", "F", "Tab", "S"} {
+			hs.keys(k) // keys do nothing down here
+			hs.fullWidth(w, "too small")
 		}
+		if w >= 4 {
+			hs.contains("sshu")
+		}
+		if w >= 40 && h >= 2 {
+			hs.contains("needs a terminal of at least 60×20")
+		}
+		hs.send(tea.WindowSizeMsg{Width: 100, Height: 40})
+		hs.contains("ITEM OPERATION") // the Space menu, as it was
 	}
 }

@@ -1,7 +1,4 @@
-// This test runs the editor in a PTY: see ssh_pty_test.go for why it stays
-// out of -race (TODO(lib SS10)).
-
-//go:build !race
+// These tests run a stand-in for $EDITOR in a PTY.
 
 package tui
 
@@ -104,4 +101,50 @@ func TestTheEditorPopupKeepsTheScreenFullWidth(t *testing.T) {
 		hs.keys("Alt-Esc")
 	}
 	KillChildren()
+}
+
+// With changes in the form, Edit file asks to save them first, for the editor
+// opens the file as it is on disk; Esc stays on the form, Enter saves and
+// opens the editor over it (tdp S70).
+func TestEditFileAsksToSaveTheFormFirst(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	cfg := filepath.Join(dir, ".ssh", "config")
+	if err := os.MkdirAll(filepath.Dir(cfg), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, []byte("Host box\n  HostName 10.0.0.1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	editor := filepath.Join(dir, "editor")
+	if err := os.WriteFile(editor, []byte("#!/bin/sh\necho '  Compression yes' >> \"$2\"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", editor)
+	d := testData(sampleHosts(), sampleCreds())
+	d.SaveSSHConfig = store.SaveSSHConfig
+	var err error
+	if d.SSHConfig, err = store.LoadSSHConfigFrom(cfg); err != nil {
+		t.Fatal(err)
+	}
+	hs := newHarness(t, 100, 40, d)
+	hs.keys("j", "j", "2", "E", "j", "Enter") // HostName
+	hs.keys("Backspace", "10.0.0.2", "Enter") // the old value is taken whole by the first key
+	hs.keys("Tab")
+	if !hs.shows("Enter:edit file") {
+		hs.keys("h")
+	}
+	hs.keys("Enter")
+	hs.contains("Save the changes to Host box first?")
+	hs.keys("Esc")
+	hs.contains("EDIT: box")
+	hs.keys("Enter", "Enter")
+	if !hs.settle(func() bool { return hs.shows("Compression yes") }, 3*time.Second) {
+		t.Fatalf("the form did not read the file again:\n%s", hs.text())
+	}
+	got, _ := os.ReadFile(cfg)
+	if !strings.Contains(string(got), "HostName 10.0.0.2") || !strings.Contains(string(got), "Compression yes") {
+		t.Errorf("the file is\n%s\nwant the saved HostName and the editor's line", got)
+	}
 }

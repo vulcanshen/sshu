@@ -188,6 +188,8 @@ func (f *sftpFS) Lstat(p string) (Entry, error) {
 	}, nil
 }
 
+func (f *sftpFS) ReadLink(p string) (string, error) { return f.client.ReadLink(p) }
+
 func (f *sftpFS) Rename(from, to string) error { return f.client.Rename(from, to) }
 
 // posixRenameExt is OpenSSH's atomic rename-over-the-top. The base protocol's

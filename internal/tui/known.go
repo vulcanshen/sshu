@@ -26,7 +26,7 @@ type knownSection struct {
 func newKnownSection(s *sshu) *knownSection {
 	k := &knownSection{s: s}
 	k.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Names", Flex: true}, {Title: "Type"}, {Title: "Fingerprint", Flex: true}},
+		Columns:   []terminu.Column{{Title: "Names"}, {Title: "Type", Drop: 1}, {Title: "Fingerprint", Drop: 2}},
 		EmptyFact: "No host keys in ~/.ssh/known_hosts",
 		EmptyHint: "Press [A] to ask a host for its key, or [Space] to see what you can do here",
 	}
@@ -41,10 +41,10 @@ func (k *knownSection) section() *section {
 
 func (k *knownSection) actions() []terminu.Action {
 	return []terminu.Action{
-		{Key: "Enter", Label: "View", Desc: "the whole key, and where it sits", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: k.view},
-		{Key: "E", Label: "Edit", Desc: "which names this key is trusted for", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: k.edit},
+		{Key: "Enter", Label: "View", Desc: "the whole key, and where it sits", Scope: terminu.ItemScope, Hint: "view", Do: k.view},
+		{Key: "E", Label: "Edit", Desc: "which names this key is trusted for", Scope: terminu.ItemScope, Hint: "edit", Do: k.edit},
 		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "stop trusting this key", Scope: terminu.ItemScope}, k.deleteAsk),
-		{Key: "A", Label: "Add", Desc: "ask a host for its key, then decide", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: k.add},
+		{Key: "A", Label: "Add", Desc: "ask a host for its key, then decide", Scope: terminu.PanelScope, Hint: "add", Do: k.add},
 	}
 }
 
@@ -131,13 +131,25 @@ func (k *knownSection) edit() tea.Cmd {
 			}
 			return nil
 		},
-		Done: func(v string) tea.Cmd {
+		// A write that fails keeps the box open with the names in it, under
+		// the error (tdp F4).
+		Commit: func(v string) error {
 			next, err := k.s.d.Known.SetHosts(at, v)
 			if err != nil {
-				return k.s.a.Error("Save failed", err.Error())
+				return err
 			}
-			return k.persist(next, at, fmt.Sprintf("~/.ssh/known_hosts: %q is now trusted for %q", e.Hosts, strings.TrimSpace(v)), "Saved")
-		}})
+			saved, err := k.s.d.SaveKnown(next)
+			k.s.d.Known = saved
+			k.reload(at)
+			k.s.mg.refresh()
+			if err != nil {
+				k.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
+				return err
+			}
+			k.s.logChange(fmt.Sprintf("~/.ssh/known_hosts: %q is now trusted for %q", e.Hosts, strings.TrimSpace(v)))
+			return nil
+		},
+		Done: func(string) tea.Cmd { return k.s.a.Toast(terminu.Success, "Saved") }})
 }
 
 func (k *knownSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
@@ -168,7 +180,7 @@ func (k *knownSection) persist(next store.KnownHostsFile, sel int, logLine, toas
 		return k.s.a.Error("Save failed", err.Error())
 	}
 	k.s.logChange(logLine)
-	return k.s.a.Toast(terminu.Info, toast)
+	return k.s.a.Toast(terminu.Success, toast)
 }
 
 // knownName is how known_hosts writes a host on a port: bare on 22.

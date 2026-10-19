@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -134,13 +135,12 @@ func (t *transfer) receiving(p string) bool {
 
 // arrivalFrame is the loading glyph a file still arriving wears in its row
 // (tdp F7: how an item that is still coming in is shown is the app's), or
-// "" with nothing arriving. The clock picks the frame, as the lib's does.
+// "" with nothing arriving: the lib's loading icon, turning with the lib's.
 func (t *transfer) arrivalFrame() string {
 	if t.running() == 0 {
 		return ""
 	}
-	frames := []rune{0xF0A9E, 0xF0A9F, 0xF0AA0, 0xF0AA1, 0xF0AA2, 0xF0AA3, 0xF0AA4, 0xF0AA5}
-	return string(frames[time.Now().UnixMilli()/90%8])
+	return terminu.LoadingFrame() // the family's one turning icon
 }
 
 type xferTick struct{}
@@ -169,7 +169,7 @@ func (t *transfer) onXferTick() tea.Cmd {
 		switch j.status() {
 		case jobDone:
 			t.s.logChange("transfer done: " + j.label)
-			cmds = append(cmds, t.s.a.Toast(terminu.Info, "Transferred "+plural(j.files, "file")))
+			cmds = append(cmds, t.s.a.Toast(terminu.Success, "Transferred "+plural(j.files, "file")))
 		case jobCancelled:
 			t.s.logChange("transfer cancelled: " + j.label)
 			cmds = append(cmds, t.s.a.Toast(terminu.Info, "Transfer cancelled"))
@@ -263,11 +263,10 @@ func (t *transfer) startJob(src, dst *side, items []remote.Item, total int64, fi
 	return t.tick()
 }
 
-// jobsMenu lists the transfers of this run, newest first. Enter on a running
-// one offers to cancel it; on one that ended it shows the whole of it.
-// TODO(lib SS9): a menu's rows are fixed when it opens, so the progress in
-// it does not move; the statusbar and the bar under the chips do. And the
-// hint of a running one says Enter:run, where it should say Enter:cancel.
+// jobsMenu lists the transfers of this run, newest first, each row following
+// its transfer while the menu is open (Action.Live). Enter on a running one
+// asks, with its whole text, whether to cancel it (Enter:cancel); on one that
+// ended it shows the whole of it (components/dialog/menu, work lists).
 func (t *transfer) jobsMenu() tea.Cmd {
 	if len(t.jobs) == 0 {
 		return t.s.a.Toast(terminu.Info, "Nothing transferred yet")
@@ -275,20 +274,24 @@ func (t *transfer) jobsMenu() tea.Cmd {
 	var acts []terminu.Action
 	for i := len(t.jobs) - 1; i >= 0; i-- {
 		j := t.jobs[i]
-		desc := fmt.Sprintf("%s · %d%% · %d/%d files", j.stateWord(), j.percent(), j.filesDone.Load(), j.files)
-		act := terminu.Action{Label: j.label, Desc: desc}
+		// As wide whatever it says: the row keeps the width it opened with.
+		desc := func() string {
+			return fmt.Sprintf("%-9s · %3d%% · %*d/%d files", j.stateWord(), j.percent(),
+				len(strconv.Itoa(j.files)), j.filesDone.Load(), j.files)
+		}
+		act := terminu.Action{Label: j.label, Desc: desc(), Live: func() (string, string) { return j.label, desc() }}
 		if j.status() == jobRunning {
-			act.Do = func() tea.Cmd {
-				return t.s.a.Confirm(terminu.Ask{Title: "Cancel", Subject: j.label, Details: jobLines(j),
-					Question: "Cancel this transfer?", Verb: "cancel transfer"},
-					func() tea.Cmd { j.cancel(); return nil })
-			}
-			act.Stay = true
+			act.EnterHint, act.Stay = "cancel", true
 		} else {
 			act.Detail = true
-			act.Do = func() tea.Cmd {
+		}
+		act.Do = func() tea.Cmd {
+			if j.status() != jobRunning {
 				return t.s.a.Viewer(newViewer("Transfer", j.label, glyphJobs, jobLines(j)))
 			}
+			return t.s.a.Confirm(terminu.Ask{Title: "Cancel", Subject: j.label, Details: jobLines(j),
+				Question: "Cancel this transfer?", Verb: "cancel transfer"},
+				func() tea.Cmd { j.cancel(); return nil })
 		}
 		acts = append(acts, act)
 	}

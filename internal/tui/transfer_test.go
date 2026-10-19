@@ -43,7 +43,7 @@ func TestAFileIsSentToTheOtherSidesDirectory(t *testing.T) {
 	root := twoDirs(t)
 	hs := newHarness(t, 120, 36, testData(nil, nil))
 	hs.keys("F", "H", "Enter") // [1] local
-	hs.contains("[1] LOCAL")
+	hs.contains("[1] local")
 	hs.keys("Enter") // into a/
 	hs.keys("3", "H", "Enter", "j", "Enter")
 	hs.keys("1")
@@ -94,7 +94,7 @@ func TestEveryTransferRowIsAsWideAsTheScreen(t *testing.T) {
 	twoDirs(t)
 	defer terminu.SetIconWidth(1, 1)
 	for _, iw := range [][2]int{{1, 1}, {2, 1}, {2, 2}} {
-		for _, size := range [][2]int{{80, 40}, {71, 24}, {120, 40}, {40, 12}} {
+		for _, size := range [][2]int{{80, 40}, {71, 24}, {120, 40}, {60, 20}} {
 			w, h := size[0], size[1]
 			hs := newHarness(t, w, h, testData(nil, nil))
 			terminu.SetIconWidth(iw[0], iw[1])

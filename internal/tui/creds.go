@@ -24,7 +24,7 @@ type credsSection struct {
 func newCredsSection(s *sshu) *credsSection {
 	c := &credsSection{s: s}
 	c.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Name"}, {Title: "User"}, {Title: "Auth"}, {Title: "Used by", Number: true}},
+		Columns:   []terminu.Column{{Title: "Name"}, {Title: "User", Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Used by", Number: true, Drop: 1}},
 		EmptyFact: "No credentials yet",
 		EmptyHint: "Press [A] to add one, or [Space] to see what you can do here",
 	}
@@ -39,11 +39,11 @@ func (c *credsSection) section() *section {
 
 func (c *credsSection) actions() []terminu.Action {
 	return []terminu.Action{
-		{Key: "Enter", Label: "View", Desc: "how this one authenticates", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: c.view},
-		{Key: "E", Label: "Edit", Desc: "change this credential", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: c.edit},
-		{Key: "D", Label: "Duplicate", Desc: "a new credential starting from this one", Scope: terminu.ItemScope, Stay: true, Do: c.duplicate},
+		{Key: "Enter", Label: "View", Desc: "how this one authenticates", Scope: terminu.ItemScope, Hint: "view", Do: c.view},
+		{Key: "E", Label: "Edit", Desc: "change this credential", Scope: terminu.ItemScope, Hint: "edit", Do: c.edit},
+		{Key: "D", Label: "Duplicate", Desc: "a new credential starting from this one", Scope: terminu.ItemScope, Do: c.duplicate},
 		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "remove from credentials.yaml", Scope: terminu.ItemScope}, c.deleteAsk),
-		{Key: "A", Label: "Add", Desc: "a new credential", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: c.add},
+		{Key: "A", Label: "Add", Desc: "a new credential", Scope: terminu.PanelScope, Hint: "add", Do: c.add},
 	}
 }
 
@@ -116,7 +116,7 @@ func (c *credsSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 		c.s.d.Creds = creds
 		c.changed("")
 		c.s.logChange(fmt.Sprintf("credential %q deleted", x.Name))
-		return c.s.a.Toast(terminu.Info, "Deleted "+x.Name)
+		return c.s.a.Toast(terminu.Success, "Deleted "+x.Name)
 	}, true
 }
 
@@ -227,7 +227,7 @@ func (c *credsSection) form(title, subject string, start store.Credential, repla
 				return c.s.a.Toast(terminu.Warning, line), nil
 			}
 		}
-		return c.s.a.Toast(terminu.Info, "Saved "+x.Name), nil
+		return c.s.a.Toast(terminu.Success, "Saved "+x.Name), nil
 	}
 	return c.s.a.Form(f)
 }

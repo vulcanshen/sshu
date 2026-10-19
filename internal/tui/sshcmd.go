@@ -112,18 +112,10 @@ const (
 
 // AdoptForwarded is called before anything is drawn: a sshu started by
 // another one over ssh finds its colour depth there. A real COLORTERM wins.
+// The widths that crossed are the lib's to read (tdp E5, E8).
 func AdoptForwarded() {
 	if v := os.Getenv(colorEnv); v != "" && os.Getenv("COLORTERM") == "" {
 		_ = os.Setenv("COLORTERM", v)
-	}
-	// TODO(lib SS25): terminu-go v0.1.13 does not read LC_TERMINU_* yet;
-	// until it does, a width that crossed ssh stands in for the probe, after
-	// SSHU__ and TERMINU__ (tdp E5's order). Gone with the lib that reads them.
-	for _, w := range [][3]string{{iconEnv, "SSHU__ICON_WIDTH", "TERMINU__ICON_WIDTH"},
-		{powerlineEnv, "SSHU__POWERLINE_WIDTH", "TERMINU__POWERLINE_WIDTH"}} {
-		if v := os.Getenv(w[0]); (v == "1" || v == "2") && os.Getenv(w[1]) == "" && os.Getenv(w[2]) == "" {
-			_ = os.Setenv(w[1], v)
-		}
 	}
 }
 

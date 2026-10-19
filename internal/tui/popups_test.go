@@ -37,8 +37,8 @@ func TestEveryPopupKeepsTheScreenFullWidth(t *testing.T) {
 			}
 			hs.fullWidth(w, what)
 		}
-		hs.settle(func() bool { return hs.shows("MOVE FAILED") }, 2e9)
-		open("MOVE FAILED", "error popup")
+
+		open("NOT MOVED", "error popup")
 		hs.keys("Esc")
 		hs.fullWidth(w, "toast")
 		open("CONNECT", "connect confirm", "2", "Enter")
