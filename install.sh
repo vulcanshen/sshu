@@ -93,6 +93,8 @@ fi
 echo ""
 echo "NOTE: $APP draws with Nerd Font glyphs. Use a Nerd Font terminal"
 echo "      profile (https://www.nerdfonts.com) or they render as boxes."
+echo "      It also needs a truecolor (24-bit) terminal; with 256 colours"
+echo "      the dimmed and layered colours can't be told apart."
 echo ""
 echo "Run '$APP' to start."
 # --- end of the app's own ---

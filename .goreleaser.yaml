@@ -25,6 +25,11 @@ builds:
     goarch:
       - amd64
       - arm64
+    # app: the os/arch pairs this app cannot build, each as
+    #   - goos: linux
+    #     goarch: arm64
+    # or none.
+    ignore: []
 
 archives:
   - formats:
@@ -54,19 +59,19 @@ brews:
       # to the tap repository.
       token: "{{ .Env.GITHUB_TOKEN }}"
     homepage: "https://github.com/vulcanshen/sshu"
-    # app: one line, what the app is, ending in (u-family).
-    description: "sshu: an ssh and sftp front end for the terminal (u-family)"
+    # app: one line, what the app is, ending in (terminu family).
+    description: "sshu: an ssh and sftp front end for the terminal (terminu family)"
     # app: what to run first, where the settings and data live, the Nerd
-    # Font requirement, the platforms.
+    # Font and truecolor requirements, the platforms.
     caveats: |
       Run `sshu` to start.
 
-      Hosts, credentials and logs live in ~/.config/sshu ($XDG_CONFIG_HOME/sshu
-      when that is set, or $SSHU__CONFIG). The SSH screen runs the system's
-      OpenSSH client.
+      Hosts and credentials live in ~/.config/sshu ($XDG_CONFIG_HOME/sshu
+      when that is set, or $SSHU__CONFIG), the logs in ~/.sshu ($SSHU__DATA).
+      The SSH screen runs the system's OpenSSH client.
 
-      A Nerd Font terminal profile and a truecolor terminal are required.
-      macOS and Linux (WSL too).
+      A Nerd Font terminal profile and a truecolor (24-bit) terminal are
+      required. macOS and Linux (WSL too).
     # app: dependencies, when the app calls other programs.
     test: |
       system "#{bin}/sshu", "version"
@@ -78,4 +83,4 @@ brews:
 #       token: "{{ .Env.GITHUB_TOKEN }}"
 #     homepage: "https://github.com/vulcanshen/sshu"
 #     # app: the same line as the brews description above.
-#     description: "sshu: what it is (u-family)"
+#     description: "sshu: what it is (terminu family)"
