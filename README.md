@@ -163,7 +163,7 @@ What cannot run right now is dimmed in the menu and its key does nothing: `H` an
 | `Alt-Enter` | Lock: every key goes to the cell, `Alt-Esc` too, for a sshu nested in it; `Alt-Enter` is then the way out, and leaving unlocks it |
 | `PgUp` | The session's history: `j\|k`, `u\|d`, `gg\|G`, `PgUp\|PgDn` scroll, `Esc` back to live (any other key goes to the session) |
 
-A cell still connecting turns its loading icon, and what you type waits until ssh is through.
+A cell still connecting says so, and what you type waits until ssh is through.
 
 On `[1]`: `H` hides a session's cell from the grid or shows it again, `C` closes it (asks first), `D` opens another session to the same host; *Close all sessions* is in the `Space` menu. On `[2]`, choose horizontal, vertical or custom, and the number of columns for custom.
 
@@ -240,7 +240,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.1/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.2/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
 
 ## License
 

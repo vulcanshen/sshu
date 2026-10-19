@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.1/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.2/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-19 起 v0.2.0，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-20 起 v0.2.1，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、statusbar（未讀錯誤、傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、三本紀錄的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -35,7 +35,7 @@
 - **檔案清單的第一列是目錄**：components/layout/panel 的位置列（`List.Location`）。panel 的 label 是 host 的名字，照原樣（`Panel.Name`）。
 - **`h|l` 跨到另一側同一列的 panel**（tdp K12：左右結構）。`Esc` 回上一層目錄（tdp K4：「上一層」由 app 定義）。
 - **標記照路徑記**，換目錄也留著；每次重畫時把這一側的標記照 ID 交給清單（`List.SetMarked`）。
-- **`/` 是 finder**：整棵子樹邊走邊列，結果一直進來（components/input/finder：Loading 時可以一直加），`Enter` 到那一項所在的目錄、cursor 停在它上面。預覽是 lib 的檔案預覽；遠端那一側交給 lib 一個 `PreviewFS`（`previewfs.go`），經 SFTP 讀。lib 的預覽是在畫的時候讀，所以 `previewFS` 把讀過的（stat、目錄、檔案的前 64 KB）留到搜尋關掉：每一項只問遠端一次。預覽要讀到 64 KB 以後的（zip 的目錄在檔尾、tar 要整串讀、PDF 的頁數），那一次才回去遠端讀。第一次看某一項時，那一格要等遠端回答（TODO(lib SS40)）。
+- **`/` 是 finder**：整棵子樹邊走邊列，結果一直進來（components/input/finder：Loading 時可以一直加），`Enter` 到那一項所在的目錄、cursor 停在它上面。預覽是 lib 的檔案預覽；遠端那一側交給 lib 一個 `PreviewFS`（`previewfs.go`：把 `remote.FS` 轉成 lib 要的樣子，開的檔能從任何位置讀，zip 的目錄在檔尾、PDF 的頁數都讀得到），經 SFTP 讀。lib 在背景讀、讀過的在搜尋開著時記住（tdp v0.8.2），打字與移動不等遠端。
 - **傳輸先規劃再開始**：幾個檔、多少 bytes、對面哪些已經存在都先算好，要覆蓋就問一次整批。傳輸在自己的 goroutine 跑、用 atomic 回報，畫面從不等網路；正在寫進來的那個檔，在清單上用 lib 的 loading 圖示標出來（`LoadingFrame`，全家族同一個會轉的圖示）。Jobs 的列跟著傳輸變（`Action.Live`），進行中那一列的 hint 是 `Enter:cancel`（`EnterHint`）。
 - **`[e]dit`**：遠端的檔先抓到本機暫存，`$VISUAL`／`$EDITOR`（沒有就 `vi`）在 lib 的 terminal popup 裡跑；存回去之前比對內容，沒改就不寫；遠端在這段時間被改過就先問。用 `Alt-Esc` 離開編輯器等於放棄這次編輯（`Ends: true`：程式結束，不寫回）。編輯器的環境裡把外層終端機的名字（`TERM_PROGRAM` 等）清掉：它跑在 sshu 的模擬器裡，不是那台終端機。
 - **目錄每兩秒看一次時間戳**（SFTP 不會通知），變了才重讀；畫面不在 File transfer 時不看。
@@ -45,7 +45,7 @@
 `[1] SESSIONS`、`[2] LAYOUT`（一列一個值：Arrange 的 radio、Columns），之後每個 session 一個 panel（`[3]` 起），裡面是 lib 的 `Terminal`（components/dialog/terminal：PTY 放在 panel 裡）。
 
 - **連線**：從 Hosts 連線時，sshu 切到 SSH 畫面、focus 新的格子、鍵盤直接進去（`App.Focus`；tdp T1：開 shell 清掉 source，`Action.Clear`）。鍵盤在格子裡時左欄收起，網格佔滿寬度；`Alt-z` 讓這一格佔滿整個 panel 區。
-- **連線中**：ssh 第一次輸出之前（`Terminal.OnFirstOutput`），格子的框上轉 loading 圖示（`Panel.Loading`），打的字不送（`NotReady`，tdp K10）—— 免得幾分鐘後才落到遠端。格子中間沒有「connecting to …」那一句：`Terminal` 沒有空狀態（TODO(lib SS39)）。
+- **連線中**：ssh 第一次輸出之前（`Terminal.OnFirstOutput`），格子的框上轉 loading 圖示（`Panel.Loading`），打的字不送（`NotReady`，tdp K10）—— 免得幾分鐘後才落到遠端。格子中間寫「connecting to <host>」（`Panel.LoadingText`，components/layout/panel 的 loading）。
 - **離開**：`Alt-Esc` 先問（tdp K10），`Enter` 離開、`Esc` 回到 PTY；離開後 focus 留在那一格，`Enter` 再進去。
 - **換格**：`Alt-←|→|↑|↓`（一個 `TerminalKey`，`Keys` 收四個鍵）照目前的排法走到那個方向的格子。
 - **選取、歷史**：`Alt-v` 是 lib 的選取模式（`Terminal.SelectKey`；複製走系統剪貼簿的工具，`pbcopy`、`wl-copy`、`xclip`、`xsel`，跟 viewer 一樣），`PgUp` 進 lib 的歷史模式（`History`）。
@@ -87,7 +87,7 @@
 - **Space menu 留不留照 tdp T1 的表**：lib 預設打開東西就留著 menu（看東西、改一個值、用 `$EDITOR` 改），什麼都沒打開的動作做完 menu 就關。連線、Duplicate（開 shell、換畫面）與搜尋設 `Action.Clear`；搜尋清掉是因為選了結果就到別的目錄，跟進目錄一樣。Delete、Close、Clear 的 confirm 是 `Action.AskFor`（`app.go` 的 `gated`，動作執行時才問 cursor 那一項）：confirm 只是門，`Esc` 回到 menu，`Enter` 之後什麼都沒打開，menu 就關。傳輸（`t`、`T`）的覆蓋也是動作執行時才規劃、有同名檔才問（`asked`），問不問都一樣收掉 menu。`e` 的編輯器要等檔案抓下來才開，所以設 `Stay`，menu 在這段時間留著（表上「用編輯器改那一項」保留）。
 - **focus 只在使用者預期的時候換**（tdp K3）：從 Hosts 連線後鍵盤在新的格子裡、SESSIONS 的 `Enter` 進那一格，都是按下去就預期會換的；背景的事（session 結束、傳輸做完）不搶 focus。
 - **`Alt-z` 兩段**：佔滿 panel 區、還原。以前的第三段（格子佔滿整個終端機、不畫框）定案不做：那是 sshu 自己的需求，不變成通用的版面（SS7）。
-- **最低尺寸 60×20**（tdp L1：app 可以調低，不能高於 80×40）：一個 80×24 的終端機裡，放大的格子有 78×20，巢狀在裡面的 sshu 要畫得出來；60 欄時每個畫面與表單都還完整好用（Hosts 表格先整欄收掉 Tags、Auth，`Column.Drop`），畫面測試也跑 60×20。
+- **最低尺寸 60×20**（tdp L1：app 可以調低，不能高於 80×40）：一個 80×24 的終端機裡，放大的格子有 78×20，巢狀在裡面的 sshu 要畫得出來；60 欄時每個畫面與表單都還完整好用（長欄 —— 名稱、位址、路徑、一行文字 —— 標 `Column.Shrink` 先截短，短欄照最寬的值；還放不下才照 `Column.Drop` 整欄收，Hosts 先收 Tags、Auth），畫面測試也跑 60×20。
 - **放大只在鍵盤在格子裡時有效**（components/layout/screen 的 zoom：不照預設的寫在這裡）。預設是放大一直留著、`Tab` 與數字鍵換到的 panel 也放大、再按一次放大的鍵才還原；sshu 的 `Alt-z` 是格子裡的保留鍵（tdp K10），`Alt-←|→|↑|↓` 換到的格子照樣放大，但 `Alt-Esc` 把鍵盤收回來時放大就還原（`ssh.go` 的 `place`）。理由：鍵盤離開格子之後 `Alt-z` 就不在任何地方了 —— panel 上沒有這個鍵 —— 放大留著，網格與 SESSIONS 都被蓋住，卻沒有一個看得到的鍵能還原。
 
 ## 已否決，不要重提
@@ -106,9 +106,7 @@
 ## 已知的牆與未做
 
 - **平台**：macOS 與 Linux（Unix PTY），沒有 Windows build。
-- **terminu-go v0.2.0 還做不到、已回報的**（程式裡標 `TODO(lib SS<n>)`）：
-  - SS39：`Terminal` 沒有空狀態，連線中的格子中間寫不出「connecting to …」（`Panel.LoadingText` 只給有空狀態的 body）；框上的 loading 圖示與擋住打字照做。
-  - SS40：lib 的檔案預覽在畫的時候讀檔，遠端那一側第一次看某一項時，那一格要等 SFTP 回答；`previewFS` 只讓每一項讀一次。
+- **等 lib 的**：目前沒有。改用 terminu-go 以來回報的 SS3–SS40 都已定案，要 lib 的在 v0.2.0、v0.2.1 做完，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
 - **File transfer 的 host key**：password、privatekey、credential 的 host 遇到未知的 host key 一律拒絕；先從 SSH 畫面連一次，或在 KnownHosts 按 `[A]`。
 - **加密私鑰**：privatekey host 的 SFTP 用不了有 passphrase 的私鑰；改用 sshconfig host（走 ssh 與 agent）。
 - **`SSH_ASKPASS_PROMPT=none` 的通知**：FIDO 觸碰確認會讓 helper 掛著，sshconfig host 用 FIDO key 在 File transfer 會卡住。

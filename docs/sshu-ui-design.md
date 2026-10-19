@@ -7303,6 +7303,17 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   Jobs 的列跟著傳輸變與 `Enter:cancel`、膠囊裡的名稱照原樣、位置列、單欄清單沒有表頭、整欄收掉的表格、成功的訊息用 Success、
   label 照本來的大小寫（`[r]ename`）、focus 由 `App.Focus` 移（模擬按鍵拿掉）、格子增減時 focus 留在原本的 panel。
 
+### 12.6 升級到 terminu-go v0.2.1（tdp v0.8.2，2026-10-20）
+
+這一輪最後一次升級；`docs/sshu-terminu-fix.md` 修完、刪掉。
+
+- **連線中的格子寫出「connecting to <host>」**：lib 的 `Terminal` 有了空狀態，`Panel.LoadingText` 在格子中間照空狀態畫（SS39）。
+  注意：ssh 印出的任何字都算「連上了」，連一個警告也是（例：找不到 identity file），所以有些連線那一句只閃一下。
+- **遠端搜尋的預覽在背景讀**（SS40）：lib 不在畫的時候讀檔，讀過的在搜尋開著時記住；sshu 的 `previewFS` 拿掉自己的快取，
+  只剩把 `remote.FS` 轉成 lib 要的樣子。
+- **欄寬照 tdp v0.8.2**：長欄（名稱、位址、路徑、一行文字）標 `Shrink`，分剩下的寬度、照自己的截法截；短欄照最寬的值。
+  還放不下才照 `Drop` 整欄收。known_hosts 的指紋從中間截（`Middle`），兩端都認得出。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

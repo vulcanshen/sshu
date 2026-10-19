@@ -163,7 +163,7 @@ sshu
 | `Alt-Enter` | 鎖定：每一個鍵都交給格子，`Alt-Esc` 也是，給格子裡巢狀的 sshu；這時 `Alt-Enter` 是出口，離開格子就解鎖 |
 | `PgUp` | 這個 session 的歷史：`j\|k`、`u\|d`、`gg\|G`、`PgUp\|PgDn` 捲動，`Esc` 回到即時畫面（其他鍵都送給 session） |
 
-還在連線的格子框上會轉 loading 的圖示，打的字等 ssh 連上才送出去。
+還在連線的格子會寫出正在連哪一台，打的字等 ssh 連上才送出去。
 
 在 `[1]` 上：`H` 把這個 session 的格子從網格上拿掉、或放回去，`C` 關掉它（先問），`D` 對同一台再開一個；「全部關掉」（Close all sessions）在 `Space` menu 裡。在 `[2]` 上選水平、垂直或自訂，自訂的話再設欄數。
 
@@ -238,7 +238,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.1/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.2/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 

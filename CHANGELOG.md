@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.8.1. Every screen, menu,
+terminu family's shared library, and follows tdp v0.8.2. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -43,11 +43,12 @@ sshu shows both paths, for you to merge or move it yourself.
   the session's history, where `j|k`, `u|d`, `gg|G` scroll and `Esc` comes
   back; `Alt-Enter` locks the cell, every key, `Alt-Esc` too, going to the
   session for a sshu nested in it, with `Alt-Enter` then the way out.
-- A cell still connecting turns its loading icon, and what you type waits until
-  ssh is through.
+- A cell still connecting says so, "connecting to <host>", and what you type
+  waits until ssh is through.
 - File transfer's `/` searches in a finder over the screen; its results keep
   arriving while the walk goes on, the one under the cursor previewed beside
-  them on either side, and `Enter` goes to the one you pick.
+  them on either side — read in the background, so a remote host never holds
+  the typing up — and `Enter` goes to the one you pick.
 - `Esc` on a question ssh asks during a file transfer (a password, a host key)
   answers no, and the connection gives up.
 - `Enter` on a file reads it, as `v` does; on a mark it opens the directory or
@@ -74,8 +75,9 @@ sshu shows both paths, for you to merge or move it yourself.
   *Edit file* button opens the file in your `$EDITOR` over the form, on that
   block's line, asking first to save what the form changed, and the form then
   shows what the file says.
-- Host names in panel titles keep their case, and narrow tables take whole
-  columns away, the least needed first, before they squeeze the rest.
+- Host names in panel titles keep their case. A narrow table shortens its long
+  values (names, addresses, paths) first and keeps the short ones whole; only
+  then does it take whole columns away, the least needed first.
 - Any terminu family app on the far side of a session is told how many cells
   an icon and a powerline symbol take here (`LC_TERMINU_ICON_WIDTH`,
   `LC_TERMINU_POWERLINE_WIDTH`, sent the way the colour depth is).
@@ -85,7 +87,7 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.8.1):
+- The repository takes the terminu family's shape (tdp project, v0.8.2):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`.
