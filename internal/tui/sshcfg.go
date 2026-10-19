@@ -336,7 +336,7 @@ func (c *sshcfgSection) editFile(at int) tea.Cmd {
 		return nil
 	}
 	b := f.Blocks[at]
-	file := f.Path(b.File())
+	file := store.ExpandTilde(f.Path(b.File())) // Path is in ~ form, which the editor takes as it is
 	from, _ := b.LineRange()
 	argv, err := editorArgv(file, "+"+strconv.Itoa(from))
 	if err != nil {

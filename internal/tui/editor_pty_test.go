@@ -20,7 +20,12 @@ import (
 // other options are the editor's).
 func TestEditFileOpensTheEditorAndReadsTheFileAgain(t *testing.T) {
 	dir := t.TempDir()
-	cfg := filepath.Join(dir, "config")
+	// Under HOME, as ~/.ssh/config is: the file's path is then in ~ form.
+	t.Setenv("HOME", dir)
+	cfg := filepath.Join(dir, ".ssh", "config")
+	if err := os.MkdirAll(filepath.Dir(cfg), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(cfg, []byte("# mine\nHost box\n  HostName 10.0.0.1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
