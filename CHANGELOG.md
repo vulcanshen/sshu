@@ -5,20 +5,37 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.7.4. Every screen, menu,
+terminu family's shared library, and follows tdp v0.8.0. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
+
+**Where your files are** — sshu moves them itself on the first start, and a
+message says from where to where. What cannot be moved stays in use where it
+is, and sshu shows both paths so you can move it yourself.
+
+- **On macOS the settings move to `~/.config/sshu`** (tdp E3), the same place
+  as on Linux, from `~/Library/Application Support/sshu`, unless
+  `XDG_CONFIG_HOME` or `SSHU__CONFIG` names another place.
+- **The three journals (errors, connections, changes) move to `~/.sshu`**,
+  out of the settings directory; `SSHU__DATA` names another place.
+- `SSHU__STATE` moves `state.yaml`, where the SSH grid's arrangement is kept
+  between runs.
+- `uninstall.sh` also asks about the journals, about the directory
+  `SSHU__STATE` names, and finds the settings directory `SSHU__CONFIG`
+  names.
 
 **Not there for now** — each waits on the library and comes back with it:
 
 - `Alt-v`, the selection mode that copied text out of a session cell.
-- `Alt-Enter`, the lock that handed every key to a sshu nested in a cell, and
-  the nest channel behind it: a nested sshu is no longer told how wide an icon
-  is (set `TERMINU__ICON_WIDTH` on the remote), and the chain of layers is not
-  shown.
-- `Alt-z`'s last stage, a cell over the whole terminal with no frame at all:
-  `Alt-z` now gives the cell the whole panel area and back.
+- `Alt-Enter`, the lock that handed every key to a sshu nested in a cell.
 - A session still connecting no longer says so, and typing reaches it at once.
+
+**Removed**
+
+- The nest channel between a sshu and the one nested in its cell: the chain of
+  layers is not shown. How wide an icon is still reaches the nested one (below).
+- `Alt-z`'s last stage, a cell over the whole terminal with no frame at all:
+  `Alt-z` gives the cell the whole grid, and back.
 
 **Changed**
 
@@ -31,32 +48,30 @@ three screens and what you can do on them are the same.
 - What acts on every mark of a side — `T`, `X`, `C` — is on that side's marks
   panel only, the host picker `H` on its files panel only, and `J` (Jobs)
   works from any panel while there are transfers.
-- The SSH grid's arrangement is kept between runs (`state.yaml`).
-- A sshu nested in a cell is told how many cells an icon and a powerline
-  symbol take (`LC_SSHU_ICON_WIDTH`, `LC_SSHU_POWERLINE_WIDTH`, sent the way
-  the colour depth is).
 - Jobs is a menu: `Enter` on a running transfer offers to cancel it, on one
   that ended shows the whole of it.
+- Deleting, closing a session and clearing a journal from the `Space` menu:
+  `Enter` on the question closes the menu too, `Esc` goes back to it. `e`
+  (edit in `$EDITOR`) keeps the menu under the editor.
 - The host, credential and `~/.ssh/config` forms are the family's: `j`/`k`
-  move, `Enter` changes the field under the cursor, `Tab` goes to Save. A
-  block's other options are edited as one text, a `Keyword value` per line.
+  move, `Enter` changes the field under the cursor, `Tab` goes to the
+  buttons. A `Host` block's other keywords are listed under *Others*; its
+  *Edit file* button opens the file in your `$EDITOR` on that block's line
+  (what the form changed is saved first) and brings the form back on what the
+  file says.
+- Any terminu family app on the far side of a session is told how many cells
+  an icon and a powerline symbol take here (`LC_TERMINU_ICON_WIDTH`,
+  `LC_TERMINU_POWERLINE_WIDTH`, sent the way the colour depth is).
 - `config.yaml` reads the family's shared keys `hide_secrets_in_preview` and
-  `input_tab_width`.
+  `input_tab_width` (how many cells a Tab takes in a file you read or a
+  preview).
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.7.4):
+- The repository takes the terminu family's shape (tdp project, v0.8.0):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`.
-  `uninstall.sh` now also finds the settings directory named by
-  `SSHU__CONFIG`.
-- **On macOS the settings move to `~/.config/sshu`** (tdp E3), the same place
-  as on Linux, unless `XDG_CONFIG_HOME` or `SSHU__CONFIG` says otherwise. If
-  your hosts are still in `~/Library/Application Support/sshu` and there is
-  no `~/.config/sshu`, sshu keeps using the old directory, so nothing is lost.
-- `SSHU__STATE` moves the three journals (errors, connections, changes) out
-  of the settings directory.
 
 ## [2.0.0] — 2026-10-06
 

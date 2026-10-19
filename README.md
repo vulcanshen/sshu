@@ -22,7 +22,7 @@ Inspired by [Termius](https://termius.com/) — hosts, sessions and transfers un
 ## Features
 
 - **Nothing to memorize** — `Space` on any panel lists everything you can do there; every letter hotkey is a row of that menu, and `?` lists the keys.
-- **A grid of live ssh sessions** — each cell is a real `ssh` in its own terminal, as many as you like, arranged across, down or in columns. `PgUp|PgDn` scroll a session's history, `Alt-z` gives one cell the whole screen.
+- **A grid of live ssh sessions** — each cell is a real `ssh` in its own terminal, as many as you like, arranged across, down or in columns. `PgUp|PgDn` scroll a session's history, `Alt-z` gives one cell the whole grid.
 - **Transfers between any two machines** — local ↔ remote ↔ remote on one screen. Search a whole subtree, read a file without fetching it, or open it in your own `$EDITOR` and have it written back.
 - **Your `~/.ssh` files, in place** — browse and edit `~/.ssh/config` and `~/.ssh/known_hosts` without losing a comment. An `auth: sshconfig` host stores nothing and lets `~/.ssh/config` decide everything — ProxyJump, the agent, keys.
 - **Reusable credentials** — define a user and how it authenticates once, use it from any number of hosts.
@@ -57,6 +57,8 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
   | `SSHU__ICON_WIDTH`, `SSHU__POWERLINE_WIDTH` | sshu only |
   | `TERMINU__ICON_WIDTH`, `TERMINU__POWERLINE_WIDTH` | every app of the [terminu family](#terminu-family) — set once, every app reads it; inside a family app's terminal, the outer app sets them for you |
 
+  Over ssh, sshu hands its own two numbers on as `LC_TERMINU_ICON_WIDTH` and `LC_TERMINU_POWERLINE_WIDTH` (sshd accepts `LC_*` by default), so a family app on the far side draws right too.
+
 - **A truecolor terminal** (24-bit colour) — the soft colours, the layers of popups and the dimmed screen under them cannot be told apart in 256 colours.
 - **A terminal that sends Alt** — sshu's `Alt-…` keys (`Alt-Esc` to leave a session, `Alt-z`, the `Alt`-arrows) need Option to act as Meta: in macOS Terminal turn on "Use Option as Meta key", in iTerm2 set Option to *Esc+*; kitty, Alacritty and WezTerm send it already.
 - **OpenSSH's `ssh`** for the SSH screen (every macOS and Linux has it). File transfer speaks SFTP itself.
@@ -65,13 +67,15 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 sshu opens on Manage → Hosts with an empty list, and makes the settings directory and the key that will encrypt your passwords (see [Where your data lives](#where-your-data-lives)).
 
+Coming from an older sshu, what it kept elsewhere moves on the first start: on macOS the settings directory from `~/Library/Application Support/sshu` to `~/.config/sshu`, and the three journals from the settings directory to `~/.sshu`. A message says from where to where. What cannot be moved stays in use where it is, and sshu shows both paths so you can move it yourself.
+
 ### Uninstall
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh | sh
 ```
 
-It removes the binary, then asks before touching the settings directory — your hosts and credentials are there.
+It removes the binary, then asks before touching the settings directory — your hosts and credentials are there — and the journals.
 
 ## Quick start
 
@@ -117,7 +121,9 @@ Every letter hotkey below is also a row of its panel's `Space` menu. **The case 
 | `/` | Filter the hosts: name, user, host, port and tags at once |
 | `C` | Errors, Connections, Changes: clear that journal (asks first) |
 
-In a form, `j|k` move between fields, `Enter` changes the one under the cursor, and `Tab` goes to the Save button.
+In a form, `j|k` move between fields, `Enter` changes the one under the cursor, and `Tab` goes to the buttons.
+
+A `Host` block's form has fields for `HostName`, `User`, `Port` and `IdentityFile`; the block's other keywords are listed under *Others*. The *Edit file* button opens the file in your `$EDITOR` on that block's line — what you changed in the form is saved first — and brings the form back on what the file says when the editor closes.
 
 ### File transfer
 
@@ -151,7 +157,7 @@ What cannot run right now is dimmed in the menu and its key does nothing: `H` an
 |---|---|
 | `Alt-Esc` | Take the keyboard back out (asks first: two quick `Esc` in vim can read as `Alt-Esc`; `Esc` goes back in) |
 | `Alt-←\|→\|↑\|↓` | The cell that way |
-| `Alt-z` | This cell over the whole screen, and back |
+| `Alt-z` | This cell over the whole grid, and back |
 | `PgUp\|PgDn` | Scroll this session's history (typing goes back to live) |
 
 On `[1]`: `H` hides a session's cell from the grid or shows it again, `C` closes it (asks first), `D` opens another session to the same host; *Close all sessions* is in the `Space` menu. On `[2]`, choose horizontal, vertical or custom, and the number of columns for custom.
@@ -160,24 +166,24 @@ On `[1]`: `H` hides a session's cell from the grid or shows it again, `C` closes
 
 ### Where your data lives
 
-Everything is in one directory:
+Two directories: what you set up, and the journals sshu writes.
 
-| | |
+| The settings directory | |
 |---|---|
 | `$SSHU__CONFIG` | when set |
 | `$XDG_CONFIG_HOME/sshu` | when that is set |
 | `~/.config/sshu` | otherwise, on every platform |
 
-On macOS sshu used to keep it in `~/Library/Application Support/sshu`; while `~/.config/sshu` does not exist, that directory is still used.
+The journals go in `~/.sshu` (`$SSHU__DATA` when set).
 
-| File | What is in it |
-|---|---|
-| `hosts.yaml` | your hosts |
-| `credentials.yaml` | reusable identities — a name, a user and how it authenticates; a host uses one with `auth: credential` and `credential: <name>` |
-| `config.yaml` | settings (optional, below) |
-| `state.yaml` | how the SSH grid is arranged (sshu writes it; with the journals when `$SSHU__STATE` moves them) |
-| `errors.yaml` · `connections.yaml` · `changes.yaml` | the three journals (`$SSHU__STATE` moves them elsewhere) |
-| `.sshukey` | the key that encrypts stored passwords |
+| File | Where | What is in it |
+|---|---|---|
+| `hosts.yaml` | settings | your hosts |
+| `credentials.yaml` | settings | reusable identities — a name, a user and how it authenticates; a host uses one with `auth: credential` and `credential: <name>` |
+| `config.yaml` | settings | settings (optional, below) |
+| `state.yaml` | settings (`$SSHU__STATE` moves it) | how the SSH grid is arranged; sshu writes it, and deleting it only brings back the default |
+| `.sshukey` | settings | the key that encrypts stored passwords |
+| `errors.yaml` · `connections.yaml` · `changes.yaml` | `~/.sshu` | the three journals |
 
 All plain YAML you can edit by hand, kept at `0600`.
 
@@ -192,8 +198,8 @@ connect_timeout: 15
 # only the first line of a private key and nothing of a file only you may read.
 # Default false.
 hide_secrets_in_preview: false
-# Shared by the terminu family: how many spaces Tab puts in while writing in a
-# multi-line field. Default 4.
+# Shared by the terminu family: how many cells a Tab takes in a file you read
+# or a preview. Default 4.
 input_tab_width: 4
 ```
 
@@ -230,7 +236,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.7.4/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.0/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
 
 ## License
 

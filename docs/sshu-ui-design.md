@@ -7235,7 +7235,7 @@ Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshco
 - **Jobs 改成 menu**(F1 的工作清單):menu 沒有作用在游標那一列的熱鍵,以前的 `c` 改成在進行中那一列上 `Enter` 問要不要取消。
 - **檔案上的 `Enter`** 從什麼都不做改成讀它(K3:最直觀的動作)。
 - **`~/.ssh/config` 的其他選項**從一列一個可以加減的欄位,改成一個 textarea(一行一個 `Keyword value`);每個選項記住自己原本的那一行,
-  沒改的照舊一個字不動(§11.39 的保證不變)。
+  沒改的照舊一個字不動(§11.39 的保證不變)。2026-10-19 起改成 §12.4 的 `Others` 與 `Edit file`。
 
 ### 12.2 lib 還做不到、先拿掉的
 
@@ -7248,6 +7248,34 @@ Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshco
 lib 沒有增減 panel、移動 focus 的呼叫,而它記 focus 的方式是 panel 在清單裡的位置:拿掉 focus 前面的 panel,focus 就跑到別的
 panel 上。所以結束的 session 只在它的 panel 排在 focus 後面時拿掉;排在前面的先留著,等 focus 回到前面(例:按 `1`)才拿掉
 (SS3)。focus 移到別的 panel 也是 sshu 自己「按」數字或 `Tab`。
+
+### 12.4 對齊 tdp v0.8.0(2026-10-19)
+
+重構回報的問題 user 一項一項定案,tdp 發了 v0.8.0(定案在 terminu 的 `.local/family-fix/REFACTOR-decisions-2026-10-19.md`)。不用等
+lib 的部分這一輪做完;要 lib 新 API 的等 terminu-go 的下一版,`TODO(lib SS<n>)` 留著。
+
+- **檔案自己搬家**(S1、S2):tdp E3 改成「看刪掉會怎樣」分類 —— hosts、credentials 是手寫的連線清單,算設定;`state.yaml` 刪了
+  只是回到預設,是狀態;三本紀錄刪了找不回來,是資料,放 `~/.sshu`。換位置時第一次啟動搬過去:macOS 的
+  `~/Library/Application Support/sshu` 整個搬到 `~/.config/sshu`,三本紀錄從設定目錄搬到 `~/.sshu`(三本一起搬,一本搬不動就把
+  搬過去的搬回來,免得紀錄散在兩處)。搬好的用 Info toast 說從哪到哪;啟動時另有讀檔的問題時兩句合成一則 toast —— lib 的第二則
+  toast 會蓋掉第一則,分開送使用者只看得到後一則。搬不動的照舊用舊位置,開 error popup 寫兩個路徑;這個 popup 等畫面有大小才開:
+  lib 的 error popup 在打開那一刻照當時的寬度折行,啟動時寬度還是 0,會一個字一行(SS37)。以前的暫時做法(新位置不存在就一直
+  讀舊目錄)拿掉:它讓這種使用者永遠停在舊位置。
+- **`~/.ssh/config` 區塊的其他選項:`Others` 加 `Edit file`**(S70):其他關鍵字只顯示(focus 跳過它),要改就按表單動作區的
+  `Edit file`,用使用者的 `$EDITOR` 打開那個區塊所在的整個檔,停在 `Host` 那一行(`+行號`),編輯器關掉後照檔案重新讀、在同一個
+  區塊上重開表單。`$EDITOR` 認得每一個關鍵字、會補全、會檢查,textarea 不會;設定檔本來就交給 `$EDITOR`(input/textarea)。
+  定案的樣子是按鈕在表單上面開 terminal popup、有沒存的改動時先問要不要存;lib 的表單按鈕還開不了 terminal popup,所以暫時是
+  「另一個送出」:表單有改動(或是新的區塊)時先照 Save 存,關掉表單、開編輯器,回來再開表單(TODO(lib SS19))。否決的暫時做法:
+  有改動時用 error popup 叫使用者先存(用錯誤問一個問題);不存直接開(表單上改的就丟了)。
+- **刪除、關掉、清空:確定之後連 Space menu 一起清掉**(S4,tdp T1 照「確定之後的動作」判,confirm 只是門):Hosts、Credentials、
+  Config、KnownHosts 的 Delete,三本紀錄的 Clear,SESSIONS 與格子的 Close、Close all,File transfer 的 `x`、`X`。以前照 v0.7.4
+  的「短的 confirm 保留 source」,接受之後 menu 還浮著、對象卻已經不在。現在 confirm 是動作自己的 Ask(`gated`):`Enter` 連 menu
+  一起關,`Esc` 回到 menu。`e`(用 `$EDITOR` 改)改成保留 menu(表上「用編輯器改那一項」保留)。
+- **隔著 ssh 的寬度改送 `LC_TERMINU_*`**(S71):送是 sshu 的事、收是 lib 的事,遠端跑哪一個家族 app 都讀得到。lib 的下一版才讀,
+  所以遠端的 sshu 暫時自己收(TODO(lib SS25))。巢狀指令通道定案不做(SS5)。
+- **`Alt-z` 兩段**(S29):佔滿 panel 區、還原;不畫框的全螢幕定案不做,只有 sshu 有這個需求,不變成通用的版面。
+- **不再是偏離的**:File transfer 的目前目錄列是 layout/panel 的位置列(S16;lib 有了之後改用它,TODO(lib SS20));SESSIONS 的
+  `Enter` 進格子、連線後鍵盤在新格子裡是使用者預期的 focus 移動(S19,tdp K3 改寫)。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
