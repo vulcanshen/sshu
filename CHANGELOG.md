@@ -52,7 +52,12 @@ is, and sshu shows both paths so you can move it yourself.
   that ended shows the whole of it.
 - Deleting, closing a session and clearing a journal from the `Space` menu:
   `Enter` on the question closes the menu too, `Esc` goes back to it. `e`
-  (edit in `$EDITOR`) keeps the menu under the editor.
+  (edit in `$EDITOR`) and reading a file keep the menu under them; going into
+  a directory closes it.
+- The statusbar reads `errors: 3  transfer: 4/10 40%  live: 2`.
+- A key that cannot do what it was pressed for here (edit a directory, send
+  with no host on the other side, mark a file still arriving) says so in red.
+- A host's User is refused empty right in its box, where the host needs one.
 - The host, credential and `~/.ssh/config` forms are the family's: `j`/`k`
   move, `Enter` changes the field under the cursor, `Tab` goes to the
   buttons. A `Host` block's other keywords are listed under *Others*; its
@@ -767,11 +772,6 @@ Changes since 1.4.1. All three demos are re-recorded on this build.
   the credential and says it cannot connect, and there is no connect line to
   press. That replaces a toast which appeared over a float that never opened.
 
-- **`V` is the logo again, everywhere.** It used to stand aside wherever a panel
-  had a real `[V]iew`, which meant the letter meant one thing on two panels of
-  the manage tab, the logo everywhere else, and flipped between them on the same
-  panel depending on whether the table was empty. Nothing claims it now.
-
 ### Fixed
 
 - **A name repeated in a hand-edited `hosts.yaml` or `credentials.yaml` no
@@ -959,10 +959,6 @@ Changes since 1.2.0:
   row says so and says what it costs ("missing, cannot connect"). The credential
   popup is the auth half alone, which is the whole of what a credential is.
 
-  `V` was the u-family easter egg. The egg is now the lowest claim on the key in
-  the app: a panel with a real `[V]iew` takes it, and the logo gets what is left
-  — including on an empty table, where there is nothing to view.
-
 ### Changed
 
 - **A session on the list is two lines, and says its name** — `<name>` above,
@@ -1110,10 +1106,9 @@ Changes since 1.1.0:
   anything under 24 columns (the outer clip then ate the words, not the
   layout), and the 15-column timestamp gutter now yields entirely on a panel too
   narrow to spare it rather than leaving four columns for the message.
-- **Typing a filename no longer triggers hotkeys** — `V` opened the easter-egg
-  splash and `?` opened the help while a search query was being typed, because
-  each key carried its own list of exceptions and both lists missed the same
-  case (the two `/` filters are panel state, not floats). There is now one
+- **Typing a filename no longer triggers hotkeys** — `?` opened the help, among
+  others, while a search query was being typed, because each key carried its
+  own list of exceptions and the lists missed the same case (the two `/` filters are panel state, not floats). There is now one
   question, asked in one place, and every bare global letter asks it.
 
 ## [1.1.0] — 2026-09-02
@@ -1231,8 +1226,6 @@ Changes since 0.1.1:
   cursor, and the section names are capitalized. (An Operation group —
   Export / Import of a `.sshu` config bundle — is implemented and tested
   behind a mask, waiting on its final design.)
-- **Splash byline** — the easter egg signs off with `developed by` /
-  `vulcan.shen.2304@gmail.com` on their own lines, above the Esc hint.
 
 ### Fixed
 

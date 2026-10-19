@@ -69,7 +69,7 @@
 
 探測與量寬度交給 lib（tdp E5、tdp E8）：啟動時探測 icon 與 powerline 符號各佔幾格，`SSHU__ICON_WIDTH`／`TERMINU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`／`TERMINU__POWERLINE_WIDTH` 可以覆寫；lib 開的每一個 PTY 都設好兩個 `TERMINU__` 變數。
 
-隔著 ssh 時送是 sshu 的事、收是 lib 的事（tdp E5、E8）：格子裡的 ssh 帶上 `LC_TERMINU_ICON_WIDTH`、`LC_TERMINU_POWERLINE_WIDTH`（這一層自己的格數），跟顏色深度一樣加 `-o SendEnv`；遠端不管跑哪一個家族 app 都讀得到 —— 遠端的探測由這一層的模擬器回答、量不到真的寬度。terminu-go v0.1.13 還不讀這兩個變數，所以遠端的 sshu 啟動時（`AdoptForwarded`）暫時把它們收進 `SSHU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`，順序照 tdp E5（`SSHU__`、`TERMINU__` 有設就不動）；lib 讀了之後拿掉（TODO(lib SS25)）。以前的指令通道（OSC 7181）做的其他事 —— 看到整條巢狀鏈、鏈上的鎖定與放大 —— 定案不做（SS5）。
+隔著 ssh 時送是 sshu 的事、收是 lib 的事（tdp E5、tdp E8）：格子裡的 ssh 帶上 `LC_TERMINU_ICON_WIDTH`、`LC_TERMINU_POWERLINE_WIDTH`（這一層自己的格數），跟顏色深度一樣加 `-o SendEnv`；遠端不管跑哪一個家族 app 都讀得到 —— 遠端的探測由這一層的模擬器回答、量不到真的寬度。terminu-go v0.1.13 還不讀這兩個變數，所以遠端的 sshu 啟動時（`AdoptForwarded`）暫時把它們收進 `SSHU__ICON_WIDTH`、`SSHU__POWERLINE_WIDTH`，順序照 tdp E5（`SSHU__`、`TERMINU__` 有設就不動）；lib 讀了之後拿掉（TODO(lib SS25)）。以前的指令通道（OSC 7181）做的其他事 —— 看到整條巢狀鏈、鏈上的鎖定與放大 —— 定案不做（SS5）。
 
 ## 設計決定
 
@@ -83,6 +83,7 @@
 - **刪除、關掉、清空：確定之後連 Space menu 一起清掉**（tdp T1：confirm 只是門，照確定之後的動作判）。Delete、Close、Clear 的 confirm 是動作自己的 Ask（`app.go` 的 `gated`，cursor 那一項在動作執行前填進去）：`Enter` 連 menu 一起關、`Esc` 回到 menu。看東西、改一個值、用 `$EDITOR` 改（`e`）留著 menu；連線、進目錄清掉。
 - **focus 只在使用者預期的時候換**（tdp K3）：從 Hosts 連線後鍵盤在新的格子裡、SESSIONS 的 `Enter` 進那一格，都是按下去就預期會換的；背景的事（session 結束、傳輸做完）不搶 focus。
 - **`Alt-z` 兩段**：佔滿 panel 區、還原。以前的第三段（格子佔滿整個終端機、不畫框）定案不做：那是 sshu 自己的需求，不變成通用的版面（SS7）。
+- **放大只在鍵盤在格子裡時有效**（components/layout/screen 的 zoom：不照預設的寫在這裡）。預設是放大一直留著、`Tab` 與數字鍵換到的 panel 也放大、再按一次放大的鍵才還原；sshu 的 `Alt-z` 是格子裡的保留鍵（tdp K10），`Alt-←|→|↑|↓` 換到的格子照樣放大，但 `Alt-Esc` 把鍵盤收回來時放大就還原（`ssh.go` 的 `place`）。理由：鍵盤離開格子之後 `Alt-z` 就不在任何地方了 —— panel 上沒有這個鍵 —— 放大留著，網格與 SESSIONS 都被蓋住，卻沒有一個看得到的鍵能還原。
 
 ## 已否決，不要重提
 
