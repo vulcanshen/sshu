@@ -7277,6 +7277,32 @@ lib 的部分這一輪做完;要 lib 新 API 的等 terminu-go 的下一版,`TOD
 - **不再是偏離的**:File transfer 的目前目錄列是 layout/panel 的位置列(S16;lib 有了之後改用它,TODO(lib SS20));SESSIONS 的
   `Enter` 進格子、連線後鍵盤在新格子裡是使用者預期的 focus 移動(S19,tdp K3 改寫)。
 
+### 12.5 升級到 terminu-go v0.2.0（tdp v0.8.1，2026-10-19）
+
+lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一次。
+
+- **最低尺寸 60×20**（tdp L1）：一個 80×24 的終端機裡，放大的格子有 78×20，巢狀在裡面的 sshu 要畫得出來；60 欄時每個畫面
+  與表單都完整好用。比它小時 lib 只畫名稱與「needs a terminal of at least 60×20」。否決：照預設 80×40 —— 一般的 80×24
+  終端機與格子裡的巢狀 sshu 都會變成只看得到名稱。
+- **`Alt-Enter` 鎖定回來了，做法跟 §11.43–§11.47 不同**：以前 `Alt-Enter` 開 Lock/Release 的選單、鎖住時只留 `Alt-Enter`；
+  現在 `Alt-Enter` 直接鎖，鎖住時它就是出口鍵（`Terminal.ExitKey`），按了把鍵盤收回來，離開格子就解鎖。理由：tdp K10 要出口永遠
+  有一個是 app 的，lib 讓 app 在執行中換出口鍵，「鎖住」就是「出口換成 `Alt-Enter`、其他保留鍵都交出去」，不用另一層選單。整條
+  巢狀鏈的鎖定與放大（§11.47）照定案不做（SS5）。
+- **`Alt-v`、歷史**：lib 的 `Terminal` 有了選取模式與歷史模式，`Alt-v` 接回（複製照舊走系統剪貼簿的工具，跟 viewer 一樣），
+  `PgUp` 進歷史模式。
+- **連線中**：ssh 第一次輸出前格子框上轉 loading 圖示、打的字不送（§7.1.5 的保證回來了）。格子中間的「connecting to …」做不到：
+  `Terminal` 沒有空狀態（SS39）。
+- **Space menu 留不留交給 lib 的預設**（tdp T1）：打開東西就留著，什麼都沒打開就關；連線、Duplicate、搜尋設 `Clear`。§12.4 為了
+  刪除做的 `gated` 改成用 `AskFor`。
+- **`Edit file` 開在表單上面**（S70 定案的樣子）：表單有改動或是新區塊時先問要不要存；編輯器結束時重讀檔案、把值放回表單。
+  §12.4 的暫時做法（先存、關表單、回來再開）拿掉。
+- **遠端搜尋有預覽了**：lib 的預覽能讀 app 給的檔案系統；遠端那一側經 SFTP 讀，讀過的留到搜尋關掉。lib 是在畫的時候讀，
+  第一次看某一項時那一格要等遠端（SS40）。
+- **換位置改成逐項搬**（tdp v0.8.1 E3）：新位置已經有的那一項留在舊位置、請使用者合併；`.sshukey` 與它加密的檔一起搬或一起留。
+- 其他照 lib 拿到的：Port 回到 number input（可以空）、Rename／Add／Trusted for 寫不進去時輸入框留著、Esc 回答 ssh 的問題、
+  Jobs 的列跟著傳輸變與 `Enter:cancel`、膠囊裡的名稱照原樣、位置列、單欄清單沒有表頭、整欄收掉的表格、成功的訊息用 Success、
+  label 照本來的大小寫（`[r]ename`）、focus 由 `App.Focus` 移（模擬按鍵拿掉）、格子增減時 focus 留在原本的 panel。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

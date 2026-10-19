@@ -5,17 +5,19 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.8.0. Every screen, menu,
+terminu family's shared library, and follows tdp v0.8.1. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
-**Where your files are** — sshu moves them itself on the first start, and a
-message says from where to where. What cannot be moved stays in use where it
-is, and sshu shows both paths so you can move it yourself.
+**Where your files are** — sshu moves them itself on the first start, item by
+item, and a message says from where to where. What the new place already has
+stays in the old one, and what cannot be moved stays in use where it is:
+sshu shows both paths, for you to merge or move it yourself.
 
 - **On macOS the settings move to `~/.config/sshu`** (tdp E3), the same place
   as on Linux, from `~/Library/Application Support/sshu`, unless
-  `XDG_CONFIG_HOME` or `SSHU__CONFIG` names another place.
+  `XDG_CONFIG_HOME` or `SSHU__CONFIG` names another place. The key that seals
+  your passwords moves with the files it seals, or stays with them.
 - **The three journals (errors, connections, changes) move to `~/.sshu`**,
   out of the settings directory; `SSHU__DATA` names another place.
 - `SSHU__STATE` moves `state.yaml`, where the SSH grid's arrangement is kept
@@ -23,12 +25,6 @@ is, and sshu shows both paths so you can move it yourself.
 - `uninstall.sh` also asks about the journals, about the directory
   `SSHU__STATE` names, and finds the settings directory `SSHU__CONFIG`
   names.
-
-**Not there for now** — each waits on the library and comes back with it:
-
-- `Alt-v`, the selection mode that copied text out of a session cell.
-- `Alt-Enter`, the lock that handed every key to a sshu nested in a cell.
-- A session still connecting no longer says so, and typing reaches it at once.
 
 **Removed**
 
@@ -39,31 +35,47 @@ is, and sshu shows both paths so you can move it yourself.
 
 **Changed**
 
+- sshu needs a terminal of at least 60×20; on a smaller one it shows its name
+  and how big it needs to be, and comes back as it was when the window grows.
 - A session cell is a panel of its own, `[3]` on, so `Tab` and the digits
   reach it like any panel; `Enter` on it puts the keyboard in.
+- In a cell: `Alt-v` selects and copies, as in every viewer; `PgUp` goes into
+  the session's history, where `j|k`, `u|d`, `gg|G` scroll and `Esc` comes
+  back; `Alt-Enter` locks the cell, every key, `Alt-Esc` too, going to the
+  session for a sshu nested in it, with `Alt-Enter` then the way out.
+- A cell still connecting turns its loading icon, and what you type waits until
+  ssh is through.
 - File transfer's `/` searches in a finder over the screen; its results keep
-  arriving while the walk goes on, and `Enter` goes to the one you pick.
+  arriving while the walk goes on, the one under the cursor previewed beside
+  them on either side, and `Enter` goes to the one you pick.
+- `Esc` on a question ssh asks during a file transfer (a password, a host key)
+  answers no, and the connection gives up.
 - `Enter` on a file reads it, as `v` does; on a mark it opens the directory or
   reads the file.
 - What acts on every mark of a side — `T`, `X`, `C` — is on that side's marks
   panel only, the host picker `H` on its files panel only, and `J` (Jobs)
   works from any panel while there are transfers.
-- Jobs is a menu: `Enter` on a running transfer offers to cancel it, on one
-  that ended shows the whole of it.
-- Deleting, closing a session and clearing a journal from the `Space` menu:
-  `Enter` on the question closes the menu too, `Esc` goes back to it. `e`
-  (edit in `$EDITOR`) and reading a file keep the menu under them; going into
-  a directory closes it.
+- Jobs is a menu that follows the transfers while it is open: `Enter` on a
+  running one offers to cancel it, on one that ended shows the whole of it.
+- The `Space` menu stays under what an action opens, to come back to; going
+  into a directory, connecting and searching close it, and so does `Enter` on
+  the question before deleting, closing a session or clearing a journal.
+- A rename, a new file or directory, or a known host's names that cannot be
+  written keep their box open with what you typed in it.
 - The statusbar reads `errors: 3  transfer: 4/10 40%  live: 2`.
-- A key that cannot do what it was pressed for here (edit a directory, send
-  with no host on the other side, mark a file still arriving) says so in red.
-- A host's User is refused empty right in its box, where the host needs one.
+- What was done says so in green; a key that cannot do what it was pressed for
+  here (edit a directory, send with no host on the other side, mark a file
+  still arriving) says so in red.
+- A host's User is refused empty right in its box, where the host needs one;
+  a port that may be left empty is a number box that takes empty.
 - The host, credential and `~/.ssh/config` forms are the family's: `j`/`k`
   move, `Enter` changes the field under the cursor, `Tab` goes to the
   buttons. A `Host` block's other keywords are listed under *Others*; its
-  *Edit file* button opens the file in your `$EDITOR` on that block's line
-  (what the form changed is saved first) and brings the form back on what the
-  file says.
+  *Edit file* button opens the file in your `$EDITOR` over the form, on that
+  block's line, asking first to save what the form changed, and the form then
+  shows what the file says.
+- Host names in panel titles keep their case, and narrow tables take whole
+  columns away, the least needed first, before they squeeze the rest.
 - Any terminu family app on the far side of a session is told how many cells
   an icon and a powerline symbol take here (`LC_TERMINU_ICON_WIDTH`,
   `LC_TERMINU_POWERLINE_WIDTH`, sent the way the colour depth is).
@@ -73,7 +85,7 @@ is, and sshu shows both paths so you can move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.8.0):
+- The repository takes the terminu family's shape (tdp project, v0.8.1):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`.

@@ -22,7 +22,7 @@ Inspired by [Termius](https://termius.com/) — hosts, sessions and transfers un
 ## Features
 
 - **Nothing to memorize** — `Space` on any panel lists everything you can do there; every letter hotkey is a row of that menu, and `?` lists the keys.
-- **A grid of live ssh sessions** — each cell is a real `ssh` in its own terminal, as many as you like, arranged across, down or in columns. `PgUp|PgDn` scroll a session's history, `Alt-z` gives one cell the whole grid.
+- **A grid of live ssh sessions** — each cell is a real `ssh` in its own terminal, as many as you like, arranged across, down or in columns. `PgUp` goes back through a session's history, `Alt-v` selects and copies out of it, `Alt-z` gives one cell the whole grid, and `Alt-Enter` hands a sshu nested in a cell every key.
 - **Transfers between any two machines** — local ↔ remote ↔ remote on one screen. Search a whole subtree, read a file without fetching it, or open it in your own `$EDITOR` and have it written back.
 - **Your `~/.ssh` files, in place** — browse and edit `~/.ssh/config` and `~/.ssh/known_hosts` without losing a comment. An `auth: sshconfig` host stores nothing and lets `~/.ssh/config` decide everything — ProxyJump, the agent, keys.
 - **Reusable credentials** — define a user and how it authenticates once, use it from any number of hosts.
@@ -59,6 +59,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
   Over ssh, sshu hands its own two numbers on as `LC_TERMINU_ICON_WIDTH` and `LC_TERMINU_POWERLINE_WIDTH` (sshd accepts `LC_*` by default), so a family app on the far side draws right too.
 
+- **At least 60×20** — on a smaller terminal sshu shows only its name and how big it needs to be, and comes back as it was when the window grows.
 - **A truecolor terminal** (24-bit colour) — the soft colours, the layers of popups and the dimmed screen under them cannot be told apart in 256 colours.
 - **A terminal that sends Alt** — sshu's `Alt-…` keys (`Alt-Esc` to leave a session, `Alt-z`, the `Alt`-arrows) need Option to act as Meta: in macOS Terminal turn on "Use Option as Meta key", in iTerm2 set Option to *Esc+*; kitty, Alacritty and WezTerm send it already.
 - **OpenSSH's `ssh`** for the SSH screen (every macOS and Linux has it). File transfer speaks SFTP itself.
@@ -67,7 +68,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 sshu opens on Manage → Hosts with an empty list, and makes the settings directory and the key that will encrypt your passwords (see [Where your data lives](#where-your-data-lives)).
 
-Coming from an older sshu, what it kept elsewhere moves on the first start: on macOS the settings directory from `~/Library/Application Support/sshu` to `~/.config/sshu`, and the three journals from the settings directory to `~/.sshu`. A message says from where to where. What cannot be moved stays in use where it is, and sshu shows both paths so you can move it yourself.
+Coming from an older sshu, what it kept elsewhere moves on the first start: on macOS the settings directory from `~/Library/Application Support/sshu` to `~/.config/sshu`, and the three journals from the settings directory to `~/.sshu`. It moves item by item, and a message says from where to where. What the new place already has stays in the old one, and what cannot be moved stays in use where it is: sshu shows both paths, for you to merge or move it yourself.
 
 ### Uninstall
 
@@ -123,7 +124,7 @@ Every letter hotkey below is also a row of its panel's `Space` menu. **The case 
 
 In a form, `j|k` move between fields, `Enter` changes the one under the cursor, and `Tab` goes to the buttons.
 
-A `Host` block's form has fields for `HostName`, `User`, `Port` and `IdentityFile`; the block's other keywords are listed under *Others*. The *Edit file* button opens the file in your `$EDITOR` on that block's line — what you changed in the form is saved first — and brings the form back on what the file says when the editor closes.
+A `Host` block's form has fields for `HostName`, `User`, `Port` and `IdentityFile`; the block's other keywords are listed under *Others*. The *Edit file* button opens the file in your `$EDITOR` over the form, on that block's line; with changes in the form it asks to save them first, since the editor opens the file as it is on disk. When the editor closes, the form shows what the file now says.
 
 ### File transfer
 
@@ -139,7 +140,7 @@ Two sides, each this machine or a saved host: files on top, what you marked belo
 | `v` | Read it — text coloured, binary as hex, a directory as its listing |
 | `e` | Edit in `$EDITOR`; a remote file is fetched and written back. `Alt-Esc` in the editor abandons the edit (asks first) |
 | `x` | Delete it (asks first) |
-| `/` | Search the whole tree under this directory; `Enter` on a result goes there |
+| `/` | Search the whole tree under this directory, the one under the cursor previewed beside it; `Enter` on a result goes there |
 | `A` | Add: `name` makes a file, `name/` a directory |
 | `R` | Read this directory again |
 | `H` | Pick this side's host (`local` first) |
@@ -158,7 +159,11 @@ What cannot run right now is dimmed in the menu and its key does nothing: `H` an
 | `Alt-Esc` | Take the keyboard back out (asks first: two quick `Esc` in vim can read as `Alt-Esc`; `Esc` goes back in) |
 | `Alt-←\|→\|↑\|↓` | The cell that way |
 | `Alt-z` | This cell over the whole grid, and back |
-| `PgUp\|PgDn` | Scroll this session's history (typing goes back to live) |
+| `Alt-v` | Select in the cell, `v` to start, `y` to copy |
+| `Alt-Enter` | Lock: every key goes to the cell, `Alt-Esc` too, for a sshu nested in it; `Alt-Enter` is then the way out, and leaving unlocks it |
+| `PgUp` | The session's history: `j\|k`, `u\|d`, `gg\|G`, `PgUp\|PgDn` scroll, `Esc` back to live (any other key goes to the session) |
+
+A cell still connecting turns its loading icon, and what you type waits until ssh is through.
 
 On `[1]`: `H` hides a session's cell from the grid or shows it again, `C` closes it (asks first), `D` opens another session to the same host; *Close all sessions* is in the `Space` menu. On `[2]`, choose horizontal, vertical or custom, and the number of columns for custom.
 
@@ -226,7 +231,6 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 - File transfer cannot confirm an unknown host key for password, privatekey or credential hosts — accept it from the SSH screen first.
 - File transfer cannot use a private key with a passphrase on a `privatekey` host; use an `auth: sshconfig` host, which goes through `ssh` and the agent.
 - No search inside remote files' contents.
-- No copying text out of a session cell with the keyboard yet, and a sshu nested in a cell cannot be handed every key; both are waiting on the family's terminal library.
 - No mouse; `hosts.yaml` changed on disk is not reread while sshu runs; sessions are not saved; passwords are not kept in the keychain.
 
 ## Links
@@ -236,7 +240,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.0/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.1/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
 
 ## License
 

@@ -22,7 +22,7 @@
 ## 特色
 
 - **不用背任何東西** —— 在任何 panel 上按 `Space`，列出來的就是這裡能做的全部；每一個字母快捷鍵都是那個 menu 裡的一列，`?` 列出這裡的鍵。
-- **活 ssh session 的網格** —— 每一格都是自己終端機上的真 `ssh`，同時開幾個都行，可以水平、垂直或照欄數排。`PgUp|PgDn` 翻這個 session 的歷史，`Alt-z` 讓一格佔滿整個網格。
+- **活 ssh session 的網格** —— 每一格都是自己終端機上的真 `ssh`，同時開幾個都行，可以水平、垂直或照欄數排。`PgUp` 翻這個 session 的歷史，`Alt-v` 從裡面選字複製，`Alt-z` 讓一格佔滿整個網格，`Alt-Enter` 把每一個鍵交給格子裡巢狀的 sshu。
 - **任兩台機器之間傳檔** —— 本機 ↔ 遠端 ↔ 遠端，同一個畫面。可以搜尋整棵子樹、不抓下來就先讀檔，或直接用你自己的 `$EDITOR` 打開、改完寫回去。
 - **就地管理你的 `~/.ssh` 檔案** —— 瀏覽、編輯 `~/.ssh/config` 與 `~/.ssh/known_hosts`，註解一行都不會掉。`auth: sshconfig` 的 host 什麼都不存，全部交給 `~/.ssh/config` 決定 —— ProxyJump、agent、金鑰都算在內。
 - **可重用的 credential** —— 一個 user 和它的驗證方式定義一次，任意數量的 host 都能引用。
@@ -59,6 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
   隔著 ssh 時，sshu 會把自己的這兩個數字用 `LC_TERMINU_ICON_WIDTH`、`LC_TERMINU_POWERLINE_WIDTH` 帶過去（sshd 預設接受 `LC_*`），遠端的家族 app 也畫得對。
 
+- **至少 60×20** —— 終端機比這小時，sshu 只顯示名稱和要多大，視窗拉大後回到原本的畫面。
 - **truecolor 終端機**（24-bit 色）—— 配色裡的淡色、popup 的層色、popup 底下變暗的畫面，在 256 色下都分不出來。
 - **會送出 Alt 的終端機** —— sshu 的 `Alt-…` 鍵（離開 session 的 `Alt-Esc`、`Alt-z`、`Alt` 加方向鍵）需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」，iTerm2 要把 Option 設成 *Esc+*；kitty、Alacritty、WezTerm 預設就會送。
 - **OpenSSH 的 `ssh`**：SSH 畫面要用（每台 macOS、Linux 都有）。檔案傳輸自己講 SFTP，不需要。
@@ -67,7 +68,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 一打開是 Manage → Hosts，清單是空的；sshu 會建好設定目錄，以及之後拿來加密密碼的鑰匙（見[你的資料放在哪](#你的資料放在哪)）。
 
-從舊版 sshu 升上來的，放在別處的東西會在第一次啟動時搬過去：macOS 上的設定目錄從 `~/Library/Application Support/sshu` 搬到 `~/.config/sshu`，三本紀錄從設定目錄搬到 `~/.sshu`，畫面上會說從哪裡搬到哪裡。搬不動的照舊在原位置使用，sshu 會寫出兩個路徑，讓你自己搬。
+從舊版 sshu 升上來的，放在別處的東西會在第一次啟動時搬過去：macOS 上的設定目錄從 `~/Library/Application Support/sshu` 搬到 `~/.config/sshu`，三本紀錄從設定目錄搬到 `~/.sshu`，一項一項搬，畫面上會說從哪裡搬到哪裡。新位置已經有的留在舊位置，搬不動的照舊在原位置使用：sshu 會寫出兩個路徑，讓你自己合併或搬。
 
 ### 移除
 
@@ -123,7 +124,7 @@ sshu
 
 表單裡 `j|k` 換欄位，`Enter` 改游標那一欄，`Tab` 到按鈕。
 
-`Host` 區塊的表單裡，`HostName`、`User`、`Port`、`IdentityFile` 各有一欄；這個區塊其他的關鍵字列在 *Others*。按 *Edit file* 會用你的 `$EDITOR` 打開那個檔、停在這個區塊那一行 —— 表單裡改過的會先存起來 —— 編輯器關掉後，表單照檔案現在的內容重新打開。
+`Host` 區塊的表單裡，`HostName`、`User`、`Port`、`IdentityFile` 各有一欄；這個區塊其他的關鍵字列在 *Others*。按 *Edit file* 會在表單上面用你的 `$EDITOR` 打開那個檔、停在這個區塊那一行；表單有改動時會先問要不要存，因為編輯器打開的是磁碟上的檔。編輯器關掉後，表單顯示檔案現在的內容。
 
 ### File transfer
 
@@ -139,7 +140,7 @@ sshu
 | `v` | 讀它 —— 文字帶語法上色，二進位轉 hex，目錄列出內容 |
 | `e` | 用 `$EDITOR` 編輯；遠端的檔案會抓下來、改完寫回去。編輯器裡按 `Alt-Esc` 放棄這次編輯（先問） |
 | `x` | 刪掉它（先問） |
-| `/` | 搜尋這個目錄底下整棵樹；在結果上按 `Enter` 就到那裡 |
+| `/` | 搜尋這個目錄底下整棵樹，游標那一項的預覽在旁邊；在結果上按 `Enter` 就到那裡 |
 | `A` | 新增：`name` 建檔案，`name/` 建目錄 |
 | `R` | 重讀這個目錄 |
 | `H` | 選這一側的 host（`local` 排第一） |
@@ -158,7 +159,11 @@ sshu
 | `Alt-Esc` | 把鍵盤收回來（先問：在 vim 裡快速按兩下 `Esc` 可能被讀成 `Alt-Esc`；`Esc` 回到 session 裡） |
 | `Alt-←\|→\|↑\|↓` | 那個方向的格子 |
 | `Alt-z` | 這一格佔滿整個網格，再按一次還原 |
-| `PgUp\|PgDn` | 翻這個 session 的歷史（一打字就回到即時畫面） |
+| `Alt-v` | 在格子裡選字，`v` 開始選、`y` 複製 |
+| `Alt-Enter` | 鎖定：每一個鍵都交給格子，`Alt-Esc` 也是，給格子裡巢狀的 sshu；這時 `Alt-Enter` 是出口，離開格子就解鎖 |
+| `PgUp` | 這個 session 的歷史：`j\|k`、`u\|d`、`gg\|G`、`PgUp\|PgDn` 捲動，`Esc` 回到即時畫面（其他鍵都送給 session） |
+
+還在連線的格子框上會轉 loading 的圖示，打的字等 ssh 連上才送出去。
 
 在 `[1]` 上：`H` 把這個 session 的格子從網格上拿掉、或放回去，`C` 關掉它（先問），`D` 對同一台再開一個；「全部關掉」（Close all sessions）在 `Space` menu 裡。在 `[2]` 上選水平、垂直或自訂，自訂的話再設欄數。
 
@@ -224,7 +229,6 @@ input_tab_width: 4
 - 檔案傳輸無法對 password、privatekey、credential 的 host 互動確認未知的 host key —— 先從 SSH 畫面接受它。
 - 檔案傳輸上，`privatekey` host 不能用有 passphrase 的私鑰；改用 `auth: sshconfig` 的 host，它走 `ssh` 和 agent。
 - 不能搜尋遠端檔案的內容。
-- 暫時還不能用鍵盤從 session 的格子裡複製文字，格子裡巢狀的 sshu 也還沒辦法拿到每一個鍵；兩者都在等家族共用的終端機元件。
 - 沒有滑鼠支援、`hosts.yaml` 在磁碟上改了不會自動重讀、不保存 session、密碼不存進 keychain。
 
 ## 相關連結
@@ -234,7 +238,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.0/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.1/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 
