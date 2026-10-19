@@ -43,7 +43,7 @@ func (k *knownSection) actions() []terminu.Action {
 	return []terminu.Action{
 		{Key: "Enter", Label: "View", Desc: "the whole key, and where it sits", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: k.view},
 		{Key: "E", Label: "Edit", Desc: "which names this key is trusted for", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: k.edit},
-		{Key: "X", Label: "Delete", Desc: "stop trusting this key", Scope: terminu.ItemScope, Stay: true, Do: k.delete},
+		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "stop trusting this key", Scope: terminu.ItemScope}, k.deleteAsk),
 		{Key: "A", Label: "Add", Desc: "ask a host for its key, then decide", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: k.add},
 	}
 }
@@ -140,14 +140,14 @@ func (k *knownSection) edit() tea.Cmd {
 		}})
 }
 
-func (k *knownSection) delete() tea.Cmd {
+func (k *knownSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 	e, at, ok := k.current()
 	if !ok {
-		return nil
+		return terminu.Ask{}, nil, false
 	}
-	return k.s.a.Confirm(terminu.Ask{Title: "Delete", Subject: knownLabel(e),
-		Details:  []string{e.Fingerprint(), "The next connection there will ask again."},
-		Question: "Stop trusting the key for " + knownLabel(e) + "?", Verb: "delete"},
+	return terminu.Ask{Title: "Delete", Subject: knownLabel(e),
+			Details:  []string{e.Fingerprint(), "The next connection there will ask again."},
+			Question: "Stop trusting the key for " + knownLabel(e) + "?", Verb: "delete"},
 		func() tea.Cmd {
 			next, err := k.s.d.Known.Delete(at)
 			if err != nil {
@@ -155,7 +155,7 @@ func (k *knownSection) delete() tea.Cmd {
 			}
 			return k.persist(next, -1, fmt.Sprintf("~/.ssh/known_hosts: key for %q removed (%s)", e.Hosts, e.Fingerprint()),
 				"Forgot "+knownLabel(e))
-		})
+		}, true
 }
 
 func (k *knownSection) persist(next store.KnownHostsFile, sel int, logLine, toast string) tea.Cmd {

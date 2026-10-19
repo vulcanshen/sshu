@@ -66,7 +66,7 @@ func (h *hostsSection) actions() []terminu.Action {
 			Ask: ask, Hidden: hidden, Do: func() tea.Cmd { return h.s.sh.connect(target) }},
 		{Key: "E", Label: "Edit", Desc: "change this host", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: h.edit},
 		{Key: "D", Label: "Duplicate", Desc: "a new host starting from this one", Scope: terminu.ItemScope, Stay: true, Do: h.duplicate},
-		{Key: "X", Label: "Delete", Desc: "remove from hosts.yaml", Scope: terminu.ItemScope, Stay: true, Do: h.delete},
+		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "remove from hosts.yaml", Scope: terminu.ItemScope}, h.deleteAsk),
 		{Key: "A", Label: "Add", Desc: "a new host", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: h.add},
 	}
 }
@@ -108,14 +108,14 @@ func (h *hostsSection) current() (store.Host, int, bool) {
 	return h.s.d.Hosts[i], i, true
 }
 
-func (h *hostsSection) delete() tea.Cmd {
+func (h *hostsSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 	x, _, ok := h.current()
 	if !ok {
-		return nil
+		return terminu.Ask{}, nil, false
 	}
-	return h.s.a.Confirm(terminu.Ask{Title: "Delete", Subject: x.Name,
-		Details:  []string{"This rewrites hosts.yaml."},
-		Question: "Delete host " + x.Name + "?", Verb: "delete"},
+	return terminu.Ask{Title: "Delete", Subject: x.Name,
+			Details:  []string{"This rewrites hosts.yaml."},
+			Question: "Delete host " + x.Name + "?", Verb: "delete"},
 		func() tea.Cmd {
 			hosts := slices.DeleteFunc(slices.Clone(h.s.d.Hosts), func(y store.Host) bool { return y.Name == x.Name })
 			if err := h.s.d.SaveHosts(hosts); err != nil {
@@ -126,7 +126,7 @@ func (h *hostsSection) delete() tea.Cmd {
 			h.s.mg.refresh()
 			h.s.logChange("deleted host " + x.Name)
 			return h.s.a.Toast(terminu.Info, "Deleted "+x.Name)
-		})
+		}, true
 }
 
 func (h *hostsSection) add() tea.Cmd {

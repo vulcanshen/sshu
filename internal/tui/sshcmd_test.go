@@ -145,9 +145,13 @@ func TestAnSSHConfigHostLeavesTheRestToTheFile(t *testing.T) {
 	}
 }
 
-// The widths cross ssh too (tdp E5): the outer sshu sends its own, and the
-// far side takes them unless the user set sshu's own variable there.
+// The widths cross ssh too (tdp E5): the outer sshu sends its own as
+// LC_TERMINU_*, and the far side takes them unless the user set sshu's or
+// the family's own variable there.
 func TestTheIconWidthsAreHandedToTheFarSide(t *testing.T) {
+	if iconEnv != "LC_TERMINU_ICON_WIDTH" || powerlineEnv != "LC_TERMINU_POWERLINE_WIDTH" {
+		t.Fatalf("sent as %s, %s: every family app reads LC_TERMINU_*", iconEnv, powerlineEnv)
+	}
 	terminu.SetIconWidth(2, 1)
 	defer terminu.SetIconWidth(1, 1)
 	h := store.Host{Name: "h", Host: "example", Port: 22, User: "u"}
@@ -161,6 +165,7 @@ func TestTheIconWidthsAreHandedToTheFarSide(t *testing.T) {
 	}
 	t.Setenv(iconEnv, "2")
 	t.Setenv("SSHU__ICON_WIDTH", "")
+	t.Setenv("TERMINU__ICON_WIDTH", "")
 	t.Setenv(powerlineEnv, "2")
 	t.Setenv("SSHU__POWERLINE_WIDTH", "1")
 	AdoptForwarded()
@@ -169,5 +174,11 @@ func TestTheIconWidthsAreHandedToTheFarSide(t *testing.T) {
 	}
 	if os.Getenv("SSHU__POWERLINE_WIDTH") != "1" {
 		t.Error("the user's own SSHU__POWERLINE_WIDTH must win")
+	}
+	t.Setenv("SSHU__ICON_WIDTH", "")
+	t.Setenv("TERMINU__ICON_WIDTH", "1")
+	AdoptForwarded()
+	if os.Getenv("SSHU__ICON_WIDTH") != "" {
+		t.Error("TERMINU__ICON_WIDTH comes before what crossed ssh")
 	}
 }

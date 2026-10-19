@@ -1,8 +1,9 @@
 package tui
 
 import (
-	"errors"
 	"fmt"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -42,7 +43,7 @@ func (c *sshcfgSection) actions() []terminu.Action {
 		{Key: "Enter", Label: "View", Desc: "every option this block sets", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: c.view},
 		{Key: "E", Label: "Edit", Desc: "change this block", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: c.edit},
 		{Key: "D", Label: "Duplicate", Desc: "a new block starting from this one", Scope: terminu.ItemScope, Stay: true, Do: c.duplicate},
-		{Key: "X", Label: "Delete", Desc: "remove from ~/.ssh/config", Scope: terminu.ItemScope, Stay: true, Do: c.delete},
+		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "remove from ~/.ssh/config", Scope: terminu.ItemScope}, c.deleteAsk),
 		{Key: "A", Label: "Add", Desc: "a new Host block", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: c.add},
 	}
 }
@@ -132,10 +133,10 @@ func (c *sshcfgSection) hostsThroughBlock(at int) (matched, resolving int) {
 	return matched, resolving
 }
 
-func (c *sshcfgSection) delete() tea.Cmd {
+func (c *sshcfgSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 	b, at, ok := c.current()
 	if !ok {
-		return nil
+		return terminu.Ask{}, nil, false
 	}
 	file := store.FoldHome(c.s.d.SSHConfig.Path(b.File()))
 	ask := terminu.Ask{Title: "Delete", Subject: b.Patterns, Details: []string{"This rewrites " + file + "."},
@@ -161,13 +162,13 @@ func (c *sshcfgSection) delete() tea.Cmd {
 		}
 		ask.Details = append(ask.Details, fmt.Sprintf("%s %s options from it.", plural(matched, "sshu host"), verb))
 	}
-	return c.s.a.Confirm(ask, func() tea.Cmd {
+	return ask, func() tea.Cmd {
 		next, err := c.s.d.SSHConfig.Delete(at)
 		if err != nil {
 			return c.s.a.Error("Delete failed", err.Error())
 		}
 		return c.persist(next, -1, fmt.Sprintf("~/.ssh/config: Host %q deleted", b.Patterns), "Deleted "+b.Patterns)
-	})
+	}, true
 }
 
 // persist writes the file and shows what is now on disk: another editor may
@@ -208,8 +209,8 @@ func (c *sshcfgSection) duplicate() tea.Cmd {
 	return c.form("Duplicate", b.Patterns, fresh, -1)
 }
 
-// The keywords the form gives a field of their own; the rest are the block's
-// other options, one per line.
+// The keywords the form gives a field of their own; the block's other
+// options are shown, and changed in the file itself (Edit file).
 var blockFields = []string{"HostName", "User", "Port", "IdentityFile"}
 
 // form is the Host block form. at is the block edited, -1 for a new one.
@@ -235,6 +236,8 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		}
 	}
 	other := strings.Join(lines, "\n")
+	opened := append([]string{patterns}, values...)
+	changed := func() bool { return !slices.Equal(opened, append([]string{patterns}, values...)) }
 	text := func(label string, v *string, prompt string, check func(string) error) *terminu.FormField {
 		return &terminu.FormField{Label: label, Value: func() string { return *v }, Empty: "not set",
 			Edit: func() terminu.Input {
@@ -256,31 +259,25 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 			Edit: func() terminu.Input {
 				return identityPicker("IdentityFile", values[3], func(p string) { values[3] = p })
 			}},
-		{Label: "Other options", Stacked: true, Value: func() string { return firstLine(other) },
-			Empty: "none",
-			Edit: func() terminu.Input {
-				return terminu.Textarea{Title: "Other options", Glyph: glyphCog, Name: "Other options", Old: other,
-					Done: func(s string) tea.Cmd { other = s; return nil }}
-			},
-			Check: func() string { _, err := parseOptions(other); return errText(err) }},
+		// Shown only: the focus passes it by, and Edit file changes it.
+		{Label: "Others", Stacked: true, Value: func() string { return firstLine(other) }, Empty: "none",
+			Disabled: func() bool { return true }},
 	}
 	f := &terminu.Form{Title: title, Subject: subject, Glyph: glyphPlus, Name: cmpOr(subject, title), Button: "Save", Fields: fields}
 	if at >= 0 {
 		f.Glyph = glyphPencil
 	}
-	f.Submit = func() (tea.Cmd, error) {
-		parsed, err := parseOptions(other)
-		if err != nil {
-			return nil, err
-		}
+	// write saves the form and gives the block's place in the file.
+	write := func() (int, error) {
 		out := store.SSHBlock{Patterns: patterns}
 		for i := range blockFields {
 			o := fixed[i]
 			o.Value = values[i]
 			out.Options = append(out.Options, o)
 		}
-		out.Options = append(out.Options, reuseLines(others, parsed)...)
+		out.Options = append(out.Options, others...)
 		var next store.SSHConfigFile
+		var err error
 		verb, sel := "added", -1
 		if at >= 0 {
 			next, err = c.s.d.SSHConfig.Set(at, out)
@@ -290,7 +287,7 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 			sel = len(next.Blocks) - 1
 		}
 		if err != nil {
-			return nil, err
+			return -1, err
 		}
 		saved, err := c.s.d.SaveSSHConfig(next)
 		if err != nil {
@@ -298,56 +295,84 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 			c.s.d.SSHConfig = saved
 			c.reload(-1)
 			c.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
-			return nil, err
+			return -1, err
 		}
 		c.s.d.SSHConfig = saved
 		c.reload(sel)
 		c.s.mg.refresh()
 		c.s.logChange(fmt.Sprintf("~/.ssh/config: Host %q %s", patterns, verb))
+		return sel, nil
+	}
+	f.Submit = func() (tea.Cmd, error) {
+		if _, err := write(); err != nil {
+			return nil, err
+		}
 		return c.s.a.Toast(terminu.Info, "Saved "+patterns), nil
 	}
+	// Edit file opens the file in $EDITOR, which knows every keyword: the
+	// form's changes, and a new block, are written first, so the editor opens
+	// on what the form shows (tdp textarea: a config file is $EDITOR's).
+	// TODO(lib SS19): the button opens the editor over the form, asking first
+	// when it has changes, once a form's button can open a terminal popup and
+	// have the form read its values again.
+	f.Buttons = [][]*terminu.FormButton{{{Label: "Edit file", Submit: func() (tea.Cmd, error) {
+		sel := at
+		if at < 0 || changed() {
+			var err error
+			if sel, err = write(); err != nil {
+				return nil, err
+			}
+		}
+		return c.editFile(sel), nil
+	}}}}
 	return c.s.a.Form(f)
 }
 
-// parseOptions reads the other options, one "Keyword value" per line.
-func parseOptions(text string) ([]store.SSHOption, error) {
-	var out []store.SSHOption
-	for _, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		key, value, ok := strings.Cut(line, " ")
-		if !ok || strings.TrimSpace(value) == "" {
-			return nil, errors.New("Other options: " + line + " needs a value after the keyword")
-		}
-		out = append(out, store.SSHOption{Key: key, Value: strings.TrimSpace(value)})
+// editFile opens the file block at lives in with $EDITOR, on its Host line,
+// and the block's form again on what the file says once the editor ends.
+func (c *sshcfgSection) editFile(at int) tea.Cmd {
+	f := c.s.d.SSHConfig
+	if at < 0 || at >= len(f.Blocks) {
+		return nil
 	}
-	return out, nil
+	b := f.Blocks[at]
+	file := f.Path(b.File())
+	from, _ := b.LineRange()
+	argv, err := editorArgv(file, "+"+strconv.Itoa(from))
+	if err != nil {
+		return c.s.a.Error("Edit failed", err.Error())
+	}
+	term := &terminu.Terminal{Title: "Edit", Subject: filepath.Base(file), Command: argv, Ends: true, Env: editorEnv()}
+	term.OnExit = func(error) tea.Cmd {
+		deregisterStop(term)
+		return c.reread(at, b.Patterns)
+	}
+	registerStop(term)
+	return c.s.a.OpenTerminal(term)
 }
 
-// reuseLines gives each option the line of the first old option with the
-// same keyword that is not yet taken, so editing one value leaves the others'
-// lines where they were.
-func reuseLines(old, parsed []store.SSHOption) []store.SSHOption {
-	used := make([]bool, len(old))
-	for i, p := range parsed {
-		for j, o := range old {
-			if !used[j] && strings.EqualFold(o.Key, p.Key) {
-				used[j] = true
-				parsed[i].At = o.At
-				break
-			}
-		}
+// reread takes ~/.ssh/config from disk after the editor, and opens the form
+// of the block that was edited: the one at its place with its patterns, else
+// the first with them.
+func (c *sshcfgSection) reread(at int, patterns string) tea.Cmd {
+	fresh, err := c.s.d.SSHConfig.Reload()
+	if err != nil {
+		c.s.logError(store.LevelError, "", "", "~/.ssh/config: "+err.Error(), err.Error())
+		return c.s.a.Error("Read failed", err.Error())
 	}
-	return parsed
-}
-
-func errText(err error) string {
-	if err == nil {
-		return ""
+	c.s.d.SSHConfig = fresh
+	i := -1
+	if at < len(fresh.Blocks) && fresh.Blocks[at].Patterns == patterns {
+		i = at
+	} else {
+		i = slices.IndexFunc(fresh.Blocks, func(b store.SSHBlock) bool { return b.Patterns == patterns })
 	}
-	return err.Error()
+	c.reload(i)
+	c.s.mg.refresh()
+	if i < 0 {
+		return c.s.a.Toast(terminu.Info, "Host "+patterns+" is no longer in ~/.ssh/config")
+	}
+	return c.form("Edit", patterns, fresh.Blocks[i], i)
 }
 
 // firstLine is a multi-line value on a form: its first line, and "…" when

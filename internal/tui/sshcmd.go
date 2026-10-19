@@ -100,25 +100,28 @@ func sftpCmd(ctx context.Context, h store.Host, self, sock string, timeoutSecs i
 
 // colorEnv carries the colour depth across ssh: sshd takes LC_* by default,
 // and ssh forwards nothing else of the kind. iconEnv and powerlineEnv carry
-// how many cells an icon and a powerline symbol take here (tdp E5): a sshu
-// on the far side runs in this sshu's terminal emulator, whose answer to its
-// probe counts both as one, so it has to be told — and TERMINU__ variables do
-// not cross ssh.
+// how many cells an icon and a powerline symbol take here (tdp E5): a family
+// app on the far side runs in this sshu's terminal emulator, whose answer to
+// its probe counts both as one, so it has to be told — and TERMINU__
+// variables do not cross ssh. Sending is sshu's; reading is the lib's.
 const (
 	colorEnv     = "LC_SSHU_COLORTERM"
-	iconEnv      = "LC_SSHU_ICON_WIDTH"
-	powerlineEnv = "LC_SSHU_POWERLINE_WIDTH"
+	iconEnv      = "LC_TERMINU_ICON_WIDTH"
+	powerlineEnv = "LC_TERMINU_POWERLINE_WIDTH"
 )
 
 // AdoptForwarded is called before anything is drawn: a sshu started by
-// another one over ssh finds its colour depth and the widths there. A real
-// COLORTERM wins, and so does a width the user set for sshu itself.
+// another one over ssh finds its colour depth there. A real COLORTERM wins.
 func AdoptForwarded() {
 	if v := os.Getenv(colorEnv); v != "" && os.Getenv("COLORTERM") == "" {
 		_ = os.Setenv("COLORTERM", v)
 	}
-	for _, w := range [][2]string{{iconEnv, "SSHU__ICON_WIDTH"}, {powerlineEnv, "SSHU__POWERLINE_WIDTH"}} {
-		if v := os.Getenv(w[0]); (v == "1" || v == "2") && os.Getenv(w[1]) == "" {
+	// TODO(lib SS25): terminu-go v0.1.13 does not read LC_TERMINU_* yet;
+	// until it does, a width that crossed ssh stands in for the probe, after
+	// SSHU__ and TERMINU__ (tdp E5's order). Gone with the lib that reads them.
+	for _, w := range [][3]string{{iconEnv, "SSHU__ICON_WIDTH", "TERMINU__ICON_WIDTH"},
+		{powerlineEnv, "SSHU__POWERLINE_WIDTH", "TERMINU__POWERLINE_WIDTH"}} {
+		if v := os.Getenv(w[0]); (v == "1" || v == "2") && os.Getenv(w[1]) == "" && os.Getenv(w[2]) == "" {
 			_ = os.Setenv(w[1], v)
 		}
 	}

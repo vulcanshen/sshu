@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	terminu "github.com/vulcanshen/terminu-go"
 
@@ -119,6 +120,63 @@ func TestEveryManageRowIsAsWideAsTheScreen(t *testing.T) {
 			hs.fullWidth(w, "host form")
 			hs.keys("Esc", "Enter")
 			hs.fullWidth(w, "connect confirm")
+		}
+	}
+}
+
+// A delete leaves its Space menu nothing to act on, so Enter on its confirm
+// closes the menu too; Esc on the confirm goes back to the menu (tdp T1: the
+// confirm is only a gate).
+func TestADeleteFromTheSpaceMenuClearsTheMenu(t *testing.T) {
+	d := testData(sampleHosts(), sampleCreds())
+	var saved []store.Host
+	d.SaveHosts = func(h []store.Host) error { saved = h; return nil }
+	hs := newHarness(t, 100, 40, d)
+	menu := "a new host starting from this one" // a row only the Space menu has
+	hs.keys("2", "Space")
+	hs.contains(menu)
+	hs.keys("X")
+	hs.contains("Delete host prod-web-01?")
+	hs.keys("Esc")
+	hs.lacks("Delete host prod-web-01?")
+	hs.contains(menu)
+	hs.keys("X", "Enter")
+	if len(saved) != len(sampleHosts())-1 {
+		t.Fatalf("the host was not deleted: %+v", saved)
+	}
+	hs.lacks(menu)
+	hs.lacks("Delete host")
+}
+
+// What startup moved is said in a toast, from where to where; what it could
+// not move opens an error popup with both paths (tdp E3).
+func TestStartupSaysWhatItMoved(t *testing.T) {
+	d := testData(sampleHosts(), sampleCreds())
+	d.Moves = []store.Move{{What: "journals", From: "/home/u/.config/sshu", To: "/home/u/.sshu"}}
+	hs := newHarness(t, 120, 40, d)
+	hs.contains("Moved the journals from /home/u/.config/sshu to /home/u/.sshu")
+
+	d = testData(sampleHosts(), sampleCreds())
+	d.Moves = []store.Move{{What: "settings", From: "/home/u/old", To: "/home/u/.config/sshu", Err: os.ErrPermission}}
+	hs = newHarness(t, 120, 40, d)
+	hs.settle(func() bool { return hs.shows("MOVE FAILED") }, 2*time.Second)
+	hs.contains("MOVE FAILED")
+	hs.contains("/home/u/old")
+	hs.contains("/home/u/.config/sshu")
+	hs.contains("move them to")
+}
+
+// Below the smallest size, down to 1×1, no screen brings sshu down (tdp E5,
+// L1). Drawing the name and the hint there is the lib's, from terminu-go's
+// next version; then this test looks for them too, and opens the popups:
+// v0.1.13 panics drawing a popup taller than the terminal (fixed after it,
+// f245cbc).
+func TestTinyTerminalsDoNotCrash(t *testing.T) {
+	for _, size := range [][2]int{{80, 5}, {40, 3}, {2, 2}, {1, 1}} {
+		hs := newHarness(t, size[0], size[1], testData(sampleHosts(), sampleCreds()))
+		for _, k := range []string{"2", "j", "F", "Tab", "S", "Tab", "M"} {
+			hs.keys(k)
+			_ = hs.frame()
 		}
 	}
 }

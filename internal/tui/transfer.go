@@ -109,7 +109,9 @@ func (t *transfer) start() tea.Cmd { return nil }
 // --- the panel bodies -------------------------------------------------------------
 
 // sideBody is a side's list, with the directory on the first row of the
-// files panel (it is content, where you are) and h|l crossing sides.
+// files panel — the position row of components/layout/panel: Lavender, cut
+// from the front, shown only — and h|l crossing sides.
+// TODO(lib SS20): the List's own position row, from the next terminu-go.
 type sideBody struct {
 	sd   *side
 	list *terminu.List
@@ -178,7 +180,7 @@ func (sd *side) fileActions() []terminu.Action {
 			Do: func() tea.Cmd { return sd.rename(sd.cursorPath()) }},
 		{Key: "v", Label: "view", Desc: "read this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
 			Do: func() tea.Cmd { return sd.view(sd.cursorPath()) }},
-		{Key: "e", Label: "edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Hidden: sd.noHost,
+		{Key: "e", Label: "edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
 			Disabled: func() bool {
 				e, ok := sd.cursorEntry()
 				return ok && (e.IsDir || !e.Mode.IsRegular() && e.Mode&fs.ModeSymlink == 0)
@@ -186,8 +188,8 @@ func (sd *side) fileActions() []terminu.Action {
 			Do: func() tea.Cmd { return sd.edit(sd.cursorPath()) }},
 		{Key: "t", Label: "transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer", Hidden: sd.noHost,
 			Stay: true, Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.cursorPath(); return sd.send(ok, p) }},
-		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
-			Do: func() tea.Cmd { return sd.deleteOne(sd.cursorPath()) }},
+		gated(terminu.Action{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Hidden: sd.noHost},
+			func() (terminu.Ask, func() tea.Cmd, bool) { return sd.deleteAsk(sd.cursorPath()) }),
 		{Key: "/", Label: "Search", Desc: "everything under here", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.search},
 		{Key: "A", Label: "Add", Desc: "a file, or name/ for a directory", Scope: terminu.PanelScope, Hidden: sd.noHost, Stay: true, Do: sd.add},
 		{Key: "R", Label: "Refresh", Desc: "re-read this directory now", Scope: terminu.PanelScope, Hidden: sd.noHost, Do: sd.refresh},
@@ -208,17 +210,17 @@ func (sd *side) markActions() []terminu.Action {
 		{Key: "c", Label: "clear mark", Desc: "forget it, change nothing", Scope: terminu.ItemScope, Hint: "clear", Do: sd.unmarkCursor},
 		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.rename(sd.markPath()) }},
 		{Key: "v", Label: "view", Desc: "read this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.view(sd.markPath()) }},
-		{Key: "e", Label: "edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope,
+		{Key: "e", Label: "edit", Desc: "open this item in $EDITOR", Scope: terminu.ItemScope, Stay: true,
 			Disabled: func() bool { p, ok := sd.markPath(); return ok && sd.markDir[p] },
 			Do:       func() tea.Cmd { return sd.edit(sd.markPath()) }},
 		{Key: "t", Label: "transfer", Desc: "this item, to the other side", Scope: terminu.ItemScope, Hint: "transfer", Stay: true,
 			Disabled: func() bool { return t.other(sd).noHost() }, Do: func() tea.Cmd { p, ok := sd.markPath(); return sd.send(ok, p) }},
-		{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope, Stay: true,
-			Do: func() tea.Cmd { return sd.deleteOne(sd.markPath()) }},
+		gated(terminu.Action{Key: "x", Label: "Delete", Desc: "this item, on this host", Scope: terminu.ItemScope},
+			func() (terminu.Ask, func() tea.Cmd, bool) { return sd.deleteAsk(sd.markPath()) }),
 		{Key: "T", Label: "Transfer all marks", Desc: "to the other side", Scope: terminu.PanelScope, Hidden: sd.noMarks, Stay: true,
 			Disabled: func() bool { return t.other(sd).noHost() }, Do: sd.sendMarks},
-		{Key: "X", Label: "Delete all marks", Desc: "erase them, on this host", Scope: terminu.PanelScope, Hidden: sd.noMarks, Stay: true,
-			Do: sd.deleteMarks},
+		gated(terminu.Action{Key: "X", Label: "Delete all marks", Desc: "erase them, on this host", Scope: terminu.PanelScope, Hidden: sd.noMarks},
+			sd.deleteMarksAsk),
 		{Key: "C", Label: "Clear marks", Desc: "forget them, change nothing", Scope: terminu.PanelScope, Hidden: sd.noMarks, Do: sd.clearMarks},
 	}
 }
@@ -262,6 +264,8 @@ func (sd *side) markPath() (string, bool) {
 }
 
 // redraw puts the side's state into its two lists and its panel labels.
+// TODO(lib SS13): the host's name kept as it is in the label, with the
+// Panel's name field of the next terminu-go (components "upper case").
 func (sd *side) redraw() {
 	sd.filesP.Label = cmpOr(sd.host, "No host")
 	sd.filesP.OnEsc = nil

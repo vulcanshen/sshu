@@ -116,11 +116,13 @@ func (h *sshScreen) listActions() []terminu.Action {
 	return []terminu.Action{
 		{Key: "Enter", Label: "Open", Desc: "show it and take the keyboard", Scope: terminu.ItemScope, Hint: "open", Do: h.open},
 		{Key: "H", Label: "Hide", Desc: "hide or show this session's cell", Scope: terminu.ItemScope, Hint: "hide", Do: h.toggleHidden},
-		{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.ItemScope, Stay: true, Do: h.askClose},
+		gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.ItemScope},
+			func() (terminu.Ask, func() tea.Cmd, bool) { return h.closeAsk(h.current()) }),
 		{Key: "D", Label: "Duplicate", Desc: "another session to this host", Scope: terminu.ItemScope, Ask: ask, Hidden: hidden,
 			Do: func() tea.Cmd { return h.connect(dup) }},
 		// No hotkey: a sweep of every session has no fast path.
-		{Label: "Close all sessions", Desc: "end every one of them", Scope: terminu.PanelScope, Hidden: none, Stay: true, Do: h.askCloseAll},
+		gated(terminu.Action{Label: "Close all sessions", Desc: "end every one of them", Scope: terminu.PanelScope, Hidden: none},
+			h.closeAllAsk),
 	}
 }
 
@@ -349,15 +351,11 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name, History: true,
 		Command: sshArgs(addr, h.s.d.Config.Seconds(), x.log), Env: sshEnv(addr, selfPath())}
 	// What sshu's own PTY did and terminu-go's Terminal cannot yet:
-	// TODO(lib SS4): Alt-v, the selection mode that copies out of a cell,
-	// needs the screen's text.
-	// TODO(lib SS5): the nest channel — telling a sshu inside a cell how wide
-	// an icon is (tdp E5), seeing the chain, driving its lock and zoom —
-	// needs to write into the PTY and read what the program sends.
+	// TODO(lib SS4): Alt-v comes back as the Terminal's own selection mode,
+	// the viewer's (tdp dialog/terminal, from the next terminu-go).
 	// TODO(lib SS6): Alt-Enter, the lock that hands every key, Alt-Esc too, to
-	// a nested sshu.
-	// TODO(lib SS7): Alt-z's last stage, a cell over the whole terminal with
-	// no frame, so a nested sshu loses no row.
+	// a nested sshu, is sshu's to build once the exit key can be set and the
+	// reserved keys changed while the program runs.
 	// TODO(lib SS11): NotReady and the "connecting" look need to know when
 	// the program first prints.
 	// TODO(lib SS12): one key row for Alt-←|→|↑|↓; four for now.
@@ -369,11 +367,12 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 		{Key: "Alt-↓", Desc: "cell", Do: func() tea.Cmd { return h.move(x, 0, 1) }},
 	}
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }
+	// TODO(lib SS13): user@host kept as it is, with the Panel's name field.
 	x.panel = &terminu.Panel{Label: h.label(x), Body: x.term, Stream: true, Actions: []terminu.Action{
 		{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,
 			Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { x.term.Enter(); return nil }},
-		{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope, Stay: true,
-			Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { return h.askCloseOne(x) }},
+		gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope,
+			Hidden: func() bool { return x.ended }}, func() (terminu.Ask, func() tea.Cmd, bool) { return h.closeAsk(x) }),
 	}}
 	h.sessions = append(h.sessions, x)
 	h.screen.Panels = append(h.screen.Panels, x.panel)
@@ -496,27 +495,24 @@ func (h *sshScreen) move(x *session, dx, dy int) tea.Cmd {
 	return h.focus(y)
 }
 
-func (h *sshScreen) askClose() tea.Cmd {
-	if x := h.current(); x != nil {
-		return h.askCloseOne(x)
+// closeAsk is the confirm of ending x, and the ending.
+func (h *sshScreen) closeAsk(x *session) (terminu.Ask, func() tea.Cmd, bool) {
+	if x == nil {
+		return terminu.Ask{}, nil, false
 	}
-	return nil
+	return terminu.Ask{Title: "Close", Subject: h.label(x), Question: "End the session to " + x.host.Name + "?", Verb: "close"},
+		func() tea.Cmd { x.term.Stop(); return nil }, true
 }
 
-func (h *sshScreen) askCloseOne(x *session) tea.Cmd {
-	return h.s.a.Confirm(terminu.Ask{Title: "Close", Subject: h.label(x), Question: "End the session to " + x.host.Name + "?",
-		Verb: "close"}, func() tea.Cmd { x.term.Stop(); return nil })
-}
-
-func (h *sshScreen) askCloseAll() tea.Cmd {
+func (h *sshScreen) closeAllAsk() (terminu.Ask, func() tea.Cmd, bool) {
 	n := h.liveCount()
-	return h.s.a.Confirm(terminu.Ask{Title: "Close all", Question: "End " + plural(n, "session") + "?", Verb: "close all"},
+	return terminu.Ask{Title: "Close all", Question: "End " + plural(n, "session") + "?", Verb: "close all"},
 		func() tea.Cmd {
 			for _, x := range h.sessions {
 				x.term.Stop()
 			}
 			return nil
-		})
+		}, true
 }
 
 // ended settles a session that is over: why it ended goes to the journals

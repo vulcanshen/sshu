@@ -23,7 +23,8 @@ Usage:
 
 Environment:
   SSHU__CONFIG               the settings directory (default ~/.config/sshu)
-  SSHU__STATE                where the three journals go (default: the settings directory)
+  SSHU__STATE                where state.yaml goes (default: the settings directory)
+  SSHU__DATA                 where the three journals go (default ~/.sshu)
   SSHU__KEY_FILE             the key that seals stored passwords (default: .sshukey in the settings directory)
   SSHU__ICON_WIDTH           1 or 2: how many cells a Nerd Font icon takes, instead of asking the terminal
   SSHU__POWERLINE_WIDTH      1 or 2: the same for a powerline symbol
@@ -68,6 +69,9 @@ func main() {
 		os.Exit(tui.RunAskpassRelay(sock, prompt))
 	}
 
+	// What an older sshu kept elsewhere moves first, so everything below
+	// reads it in its new place.
+	moves := store.Migrate()
 	d, err := load()
 	if err != nil {
 		// A malformed hosts.yaml is worth refusing to start over: an empty list
@@ -75,6 +79,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "sshu:", err)
 		os.Exit(1)
 	}
+	d.Moves = moves
 
 	// SIGHUP is the terminal window closing: the sessions go with sshu.
 	hup := make(chan os.Signal, 1)

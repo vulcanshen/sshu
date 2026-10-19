@@ -39,8 +39,8 @@ type Config struct {
 	ConnectTimeout int `yaml:"connect_timeout"`
 	// HideSecretsInPreview and InputTabWidth are the family's shared keys
 	// (tdp E3): the identity file picker's preview leaves private keys and
-	// files only their owner may read out; Tab in a textarea puts in this
-	// many spaces.
+	// files only their owner may read out; a Tab in a file read or previewed
+	// is drawn this many cells wide.
 	HideSecretsInPreview bool `yaml:"hide_secrets_in_preview"`
 	InputTabWidth        int  `yaml:"input_tab_width"`
 }

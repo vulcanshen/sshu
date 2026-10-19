@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -49,6 +50,9 @@ type Data struct {
 	// Notes are what startup found wrong with the files. Each goes to the
 	// Errors journal, and a toast says there are some.
 	Notes []Note
+
+	// Moves are what startup moved to where tdp E3 puts it now, or could not.
+	Moves []store.Move
 
 	// Now is the clock, for the journals' times; time.Now when nil.
 	Now func() time.Time
@@ -118,22 +122,45 @@ func (s *sshu) Run() error { return s.a.Run() }
 // start records what startup found and says so once.
 func (s *sshu) start() tea.Cmd {
 	cmds := []tea.Cmd{s.ft.start(), s.sh.start()}
-	if len(s.d.Notes) == 0 {
-		return tea.Batch(cmds...)
-	}
-	errors := 0
-	for _, n := range s.d.Notes {
-		s.logError(n.Level, n.Host, "", n.Cause, n.Detail)
-		if n.Level != "warn" {
-			errors++
+	// What moved says from where to where in a toast; what could not, in an
+	// error popup with both paths, for the user to move (tdp E3).
+	var moved, stuck []string
+	for _, m := range s.d.Moves {
+		from, to := store.FoldHome(m.From), store.FoldHome(m.To)
+		if m.Err != nil {
+			stuck = append(stuck, fmt.Sprintf("sshu could not move its %s from %s to %s: %v.\nIt goes on using %s; move them to %s yourself.",
+				m.What, from, to, m.Err, from, to))
+			continue
 		}
+		moved = append(moved, fmt.Sprintf("the %s from %s to %s", m.What, from, to))
 	}
-	kind := terminu.Warning
-	if errors > 0 {
-		kind = terminu.Error
+	if len(stuck) > 0 {
+		cmds = append(cmds, s.sized(func() tea.Cmd { return s.a.Error("Move failed", strings.Join(stuck, "\n\n")) }))
 	}
-	text := plural(len(s.d.Notes), "problem") + " at startup: see Manage → Errors"
-	return tea.Batch(append(cmds, s.a.Toast(kind, text))...)
+	var says []string
+	kind := terminu.Info
+	if len(moved) > 0 {
+		says = append(says, "Moved "+strings.Join(moved, ", and "))
+	}
+	if len(s.d.Notes) > 0 {
+		errors := 0
+		for _, n := range s.d.Notes {
+			s.logError(n.Level, n.Host, "", n.Cause, n.Detail)
+			if n.Level != "warn" {
+				errors++
+			}
+		}
+		kind = terminu.Warning
+		if errors > 0 {
+			kind = terminu.Error
+		}
+		says = append(says, plural(len(s.d.Notes), "problem")+" at startup: see Manage → Errors")
+	}
+	// One toast: a second would replace the first.
+	if len(says) > 0 {
+		cmds = append(cmds, s.a.Toast(kind, strings.Join(says, ". ")))
+	}
+	return tea.Batch(cmds...)
 }
 
 // refreshQuit decides whether quitting asks first (tdp K9: the quit flow
@@ -185,10 +212,26 @@ func (s *sshu) status(w int) string {
 
 func (s *sshu) progress() (float64, bool) { return s.ft.progress() }
 
+// whenSized is a popup to open once the terminal's size is known.
+type whenSized struct{ open func() tea.Cmd }
+
+// sized opens a popup once the size is known: one opened before, at
+// startup, wraps its text to a width of nothing.
+// TODO(lib SS37): an error popup wraps when it is drawn, not when it opens.
+func (s *sshu) sized(open func() tea.Cmd) tea.Cmd {
+	return func() tea.Msg { return whenSized{open} }
+}
+
 // onMsg routes the messages the lib leaves to the screen that sent them.
 func (s *sshu) onMsg(msg tea.Msg) tea.Cmd {
 	if m, ok := msg.(copied); ok {
 		return s.onCopied(m)
+	}
+	if m, ok := msg.(whenSized); ok {
+		if w, _ := s.a.Size(); w == 0 {
+			return tea.Tick(250*time.Millisecond, func(time.Time) tea.Msg { return m })
+		}
+		return m.open()
 	}
 	if cmd, ok := s.ft.onMsg(msg); ok {
 		return cmd
@@ -245,6 +288,33 @@ func liveAsk(fill func(*terminu.Ask) bool) (*terminu.Ask, func() bool) {
 		*ask = terminu.Ask{}
 		return !fill(ask)
 	}
+}
+
+// gated is act with a confirm in front of something that leaves its source
+// with nothing to act on — a delete, a close (tdp T1: the confirm is only a
+// gate, and what comes after it clears the source). ask gives the confirm for
+// the item under the cursor and what Enter on it does; it becomes the
+// action's own Ask, so Enter closes the Space menu as well, and Esc goes back
+// to it.
+func gated(act terminu.Action, ask func() (terminu.Ask, func() tea.Cmd, bool)) terminu.Action {
+	var run func() tea.Cmd
+	q, none := liveAsk(func(a *terminu.Ask) bool {
+		x, do, ok := ask()
+		if ok {
+			*a, run = x, do
+		}
+		return ok
+	})
+	hidden := act.Hidden
+	act.Ask, act.Stay = q, false
+	act.Hidden = func() bool { return hidden != nil && hidden() || none() }
+	act.Do = func() tea.Cmd {
+		if run == nil {
+			return nil
+		}
+		return run()
+	}
+	return act
 }
 
 // plural is "1 host", "2 hosts".

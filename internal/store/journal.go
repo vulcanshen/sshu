@@ -123,7 +123,7 @@ func ConnectionsPath() (string, error) { return journalPath("connections.yaml") 
 func ChangesPath() (string, error)     { return journalPath("changes.yaml") }
 
 func journalPath(name string) (string, error) {
-	dir, err := StateDir()
+	dir, err := DataDir()
 	if err != nil {
 		return "", err
 	}

@@ -726,6 +726,9 @@ func SaveSSHConfig(f SSHConfigFile) (SSHConfigFile, error) {
 	return fresh, failed
 }
 
+// Reload reads the files again from disk: someone else's editor changed them.
+func (f SSHConfigFile) Reload() (SSHConfigFile, error) { return LoadSSHConfigFrom(f.rootPath()) }
+
 func (f SSHConfigFile) rootPath() string {
 	if len(f.files) > 0 {
 		return f.files[0].path

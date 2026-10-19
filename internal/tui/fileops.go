@@ -127,13 +127,13 @@ func (sd *side) add() tea.Cmd {
 		}})
 }
 
-func (sd *side) deleteOne(p string, ok bool) tea.Cmd {
-	if !ok {
-		return nil
+func (sd *side) deleteAsk(p string, ok bool) (terminu.Ask, func() tea.Cmd, bool) {
+	if !ok || sd.fs == nil {
+		return terminu.Ask{}, nil, false
 	}
 	a := sd.t.s.a
-	return a.Confirm(terminu.Ask{Title: "Delete", Subject: path.Base(p), Details: []string{path.Base(p) + " on " + sd.host + "."},
-		Question: "Delete permanently?", Verb: "delete"},
+	return terminu.Ask{Title: "Delete", Subject: path.Base(p), Details: []string{path.Base(p) + " on " + sd.host + "."},
+			Question: "Delete permanently?", Verb: "delete"},
 		func() tea.Cmd {
 			if err := remote.RemoveAll(sd.fs, p); err != nil {
 				return a.Error("Delete failed", err.Error())
@@ -141,15 +141,15 @@ func (sd *side) deleteOne(p string, ok bool) tea.Cmd {
 			sd.unmark(p)
 			sd.reload()
 			return a.Toast(terminu.Info, "Deleted "+path.Base(p))
-		})
+		}, true
 }
 
-// deleteMarks erases every mark on this side: it deletes what it can and
+// deleteMarksAsk erases every mark on this side: it deletes what it can and
 // says the first failure, so the lists show what is really left.
-func (sd *side) deleteMarks() tea.Cmd {
+func (sd *side) deleteMarksAsk() (terminu.Ask, func() tea.Cmd, bool) {
 	a := sd.t.s.a
-	return a.Confirm(terminu.Ask{Title: "Delete", Subject: sd.host,
-		Details: []string{plural(len(sd.marks), "marked item") + " on " + sd.host + "."}, Question: "Delete permanently?", Verb: "delete"},
+	return terminu.Ask{Title: "Delete", Subject: sd.host,
+			Details: []string{plural(len(sd.marks), "marked item") + " on " + sd.host + "."}, Question: "Delete permanently?", Verb: "delete"},
 		func() tea.Cmd {
 			failed, done := "", 0
 			for _, p := range append([]string(nil), sd.marks...) {
@@ -167,7 +167,7 @@ func (sd *side) deleteMarks() tea.Cmd {
 				return a.Error("Delete failed", failed)
 			}
 			return a.Toast(terminu.Info, "Deleted "+plural(done, "item"))
-		})
+		}, true
 }
 
 // --- search ------------------------------------------------------------------------
@@ -525,8 +525,9 @@ func (t *transfer) runEditor(job editJob) tea.Cmd {
 }
 
 // editorArgv runs $VISUAL or $EDITOR through sh, so an editor with arguments
-// ("code -w") works; vi when neither is set.
-func editorArgv(p string) ([]string, error) {
+// ("code -w") works; vi when neither is set. args go before the file ("+12":
+// the line to start on).
+func editorArgv(p string, args ...string) ([]string, error) {
 	ed := ""
 	for _, k := range []string{"VISUAL", "EDITOR"} {
 		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
@@ -540,7 +541,7 @@ func editorArgv(p string) ([]string, error) {
 		}
 		ed = "vi"
 	}
-	return []string{"sh", "-c", ed + ` "$@"`, "sh", p}, nil
+	return append(append([]string{"sh", "-c", ed + ` "$@"`, "sh"}, args...), p), nil
 }
 
 // editorEnv hides the outer terminal's name from the editor: it runs in

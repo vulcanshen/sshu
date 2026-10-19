@@ -37,10 +37,10 @@ func whoCell(user, host string) string { return terminu.Truncate(who(user, host)
 
 // clearAction is a journal's [C]lear: it asks, then empties the file.
 func clearAction(s *sshu, label, file string, clear func() error, after func()) terminu.Action {
-	return terminu.Action{Key: "C", Label: "Clear " + label, Desc: "erase " + file, Scope: terminu.PanelScope, Stay: true,
-		Do: func() tea.Cmd {
-			return s.a.Confirm(terminu.Ask{Title: "Clear", Subject: label, Details: []string{"This empties " + file + "."},
-				Question: "Clear " + label + "?", Verb: "clear"},
+	return gated(terminu.Action{Key: "C", Label: "Clear " + label, Desc: "erase " + file, Scope: terminu.PanelScope},
+		func() (terminu.Ask, func() tea.Cmd, bool) {
+			return terminu.Ask{Title: "Clear", Subject: label, Details: []string{"This empties " + file + "."},
+					Question: "Clear " + label + "?", Verb: "clear"},
 				func() tea.Cmd {
 					if clear != nil {
 						if err := clear(); err != nil {
@@ -50,8 +50,8 @@ func clearAction(s *sshu, label, file string, clear func() error, after func()) 
 					after()
 					s.mg.journalsChanged()
 					return s.a.Toast(terminu.Info, "Cleared "+label)
-				})
-		}}
+				}, true
+		})
 }
 
 // --- Errors -------------------------------------------------------------------

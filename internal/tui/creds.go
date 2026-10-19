@@ -42,7 +42,7 @@ func (c *credsSection) actions() []terminu.Action {
 		{Key: "Enter", Label: "View", Desc: "how this one authenticates", Scope: terminu.ItemScope, Hint: "view", Stay: true, Do: c.view},
 		{Key: "E", Label: "Edit", Desc: "change this credential", Scope: terminu.ItemScope, Hint: "edit", Stay: true, Do: c.edit},
 		{Key: "D", Label: "Duplicate", Desc: "a new credential starting from this one", Scope: terminu.ItemScope, Stay: true, Do: c.duplicate},
-		{Key: "X", Label: "Delete", Desc: "remove from credentials.yaml", Scope: terminu.ItemScope, Stay: true, Do: c.delete},
+		gated(terminu.Action{Key: "X", Label: "Delete", Desc: "remove from credentials.yaml", Scope: terminu.ItemScope}, c.deleteAsk),
 		{Key: "A", Label: "Add", Desc: "a new credential", Scope: terminu.PanelScope, Hint: "add", Stay: true, Do: c.add},
 	}
 }
@@ -93,10 +93,10 @@ func (c *credsSection) view() tea.Cmd {
 	return c.s.a.Viewer(newViewer("Credential", x.Name, glyphCred, lines))
 }
 
-func (c *credsSection) delete() tea.Cmd {
+func (c *credsSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 	x, _, ok := c.current()
 	if !ok {
-		return nil
+		return terminu.Ask{}, nil, false
 	}
 	ask := terminu.Ask{Title: "Delete", Subject: x.Name, Details: []string{"This rewrites credentials.yaml."},
 		Question: "Delete credential " + x.Name + "?", Verb: "delete"}
@@ -108,7 +108,7 @@ func (c *credsSection) delete() tea.Cmd {
 		ask.Details = append(ask.Details, plural(n, "host")+" "+verb+" it and will fail to connect.")
 		ask.Warn = []int{1}
 	}
-	return c.s.a.Confirm(ask, func() tea.Cmd {
+	return ask, func() tea.Cmd {
 		creds := slices.DeleteFunc(slices.Clone(c.s.d.Creds), func(y store.Credential) bool { return y.Name == x.Name })
 		if err := c.s.d.SaveCreds(creds); err != nil {
 			return c.s.a.Error("Delete failed", "Can't write credentials.yaml: "+err.Error())
@@ -117,7 +117,7 @@ func (c *credsSection) delete() tea.Cmd {
 		c.changed("")
 		c.s.logChange(fmt.Sprintf("credential %q deleted", x.Name))
 		return c.s.a.Toast(terminu.Info, "Deleted "+x.Name)
-	})
+	}, true
 }
 
 // changed redraws what shows credentials: this list and the hosts' users.
