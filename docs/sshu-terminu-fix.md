@@ -7,7 +7,7 @@ tdp E7：逐條待修，全部修完就刪掉這份。對照 tdp v0.8.0（清單
 | # | 違反哪一條 | 在哪裡 | 現況 | 該怎麼改 |
 |---|---|---|---|---|
 | 1 | file-picker-18–64（finder 預覽檔案時照 file-picker 的預覽） | `internal/tui/fileops.go` 的 `search` | 遠端那一側的搜尋，預覽只有一列 `in <目錄>`：沒有內容、樹、metadata；lib 的檔案預覽只讀本機磁碟 | lib 的預覽接 app 給的檔案系統後接上 SFTP（SS18） |
-| 2 | file-picker-25、35、51、53、91（本機的預覽） | lib `preview.go` | 樹的第二層畫在第 0 欄；多字元的 escape 序列漏字；一項的目錄寫 `1 items`；MODE 不是 `ls -l` 的寫法；列出後才不見的檔 metadata 是空白、不是 `—` | lib 修（SS17、SS22；樹縮排已修），升級後就好 |
+| 2 | file-picker-25、35、51、53、91（本機的預覽） | lib `preview.go` | 樹的第二層畫在第 0 欄；多字元的 escape 序列漏字；一項的目錄寫 `1 items`；MODE 不是 `ls -l` 的寫法；列出後才不見的檔 metadata 是空白、不是 `—` | lib 修（SS17、SS22、SS38；樹縮排已修），升級後就好 |
 | 3 | text-2、number-9（數字用 number；可以空的欄位空值不檢查範圍） | `internal/tui/hosts.go` 的 `optionalPort` | sshconfig host 與 `~/.ssh/config` 區塊的 Port 可以空，lib 的 number input 不收空值，暫時用 text input 加同樣的範圍檢查 | lib 的 number input 加「可以空」後換回 number（SS16） |
 | 4 | panel-4、panel-75（loading 的揭露）、tdp K10（連線中不轉送打字） | `internal/tui/ssh.go` | 格子在連線中沒有 loading icon、也沒有「connecting」那一句，打的字照送 | lib 告訴 app 程式什麼時候第一次輸出後做（SS11） |
 | 5 | F6-2（confirm 的 `Esc` 取消） | `internal/tui/transfer.go` 的 `askpassArrived` | ssh 問的問題按 `Esc` 只關掉框，ssh 一直等，要按 `[D]isconnect` 叫停 | lib 的 confirm／input 有取消的 hook 後回答 ssh「不」（SS8） |
