@@ -3,27 +3,40 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 // Where an older sshu kept something, when Migrate could not move it: Dir
 // and DataDir go on using it (tdp E3, "when the place changes").
 var settingsAt, journalsAt string
 
-// Move is one thing Migrate moved, or could not.
+// Move is one place Migrate moved things out of, or could not.
 type Move struct {
 	What     string // "settings" or "journals"
 	From, To string
-	Err      error // nil when it moved
+	// Moved are the names that went to To.
+	Moved []string
+	// Left are the names To already had: they stay in From, for the user to
+	// merge, and nothing is lost.
+	Left []string
+	// Err is why nothing moved: sshu goes on using From.
+	Err error
 }
 
 // journalNames are the three journals.
 var journalNames = []string{"errors.yaml", "connections.yaml", "changes.yaml"}
 
+// sealed are the key and the files whose passwords it seals: they move
+// together or not at all, or a password would end up beside a key that
+// cannot open it.
+var sealed = []string{".sshukey", "hosts.yaml", "credentials.yaml"}
+
 // Migrate moves what an older sshu kept somewhere tdp E3 no longer puts it,
 // once, before anything is read: the settings directory macOS kept in
 // ~/Library/Application Support, and the journals the settings directory
-// held, which tdp E3 counts as data. It moves only into a place that does not
-// have them yet; what cannot move stays in use where it is.
+// held, which tdp E3 counts as data. It moves item by item (tdp E3): what
+// the new place does not have goes there, what it already has stays where it
+// was for the user to merge, and an old directory left empty is taken away.
 func Migrate() []Move {
 	var moves []Move
 	if m, ok := migrateSettings(); ok {
@@ -45,15 +58,23 @@ func migrateSettings() (Move, bool) {
 	}
 	dir, err := e3Dir()
 	old := oldDir(home)
-	if err != nil || old == "" || exists(dir) || !exists(old) {
+	if err != nil || old == "" || !exists(old) {
 		return Move{}, false
 	}
-	m := Move{What: "settings", From: old, To: dir}
-	if m.Err = os.MkdirAll(filepath.Dir(dir), 0o755); m.Err == nil {
-		m.Err = os.Rename(old, dir)
+	entries, err := os.ReadDir(old)
+	if err != nil {
+		return Move{What: "settings", From: old, To: dir, Err: err}, true
 	}
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	m := moveItems("settings", old, dir, 0o700, names, true)
 	if m.Err != nil {
 		settingsAt = old
+	}
+	if m.Err == nil && len(m.Moved) == 0 && len(m.Left) == 0 {
+		return Move{}, false // an empty old directory, taken away
 	}
 	return m, true
 }
@@ -72,27 +93,58 @@ func migrateJournals() (Move, bool) {
 	}
 	var names []string
 	for _, n := range journalNames {
-		if exists(filepath.Join(from, n)) && !exists(filepath.Join(to, n)) {
+		if exists(filepath.Join(from, n)) {
 			names = append(names, n)
 		}
 	}
 	if len(names) == 0 {
 		return Move{}, false
 	}
-	m := Move{What: "journals", From: from, To: to}
-	if m.Err = os.MkdirAll(to, 0o700); m.Err != nil {
+	m := moveItems("journals", from, to, 0o700, names, false)
+	if m.Err != nil {
 		journalsAt = from
-		return m, true
-	}
-	for i, n := range names {
-		if m.Err = os.Rename(filepath.Join(from, n), filepath.Join(to, n)); m.Err != nil {
-			// The three stay together: put back the ones that went.
-			for _, back := range names[:i] {
-				_ = os.Rename(filepath.Join(to, back), filepath.Join(from, back))
-			}
-			journalsAt = from
-			break
-		}
 	}
 	return m, true
+}
+
+// moveItems moves names from from to to, one by one. What to already has is
+// left. The first that cannot move puts back the ones that went, and the
+// move reports why. With dropEmpty, from is taken away once nothing is left
+// in it.
+func moveItems(what, from, to string, mode os.FileMode, names []string, dropEmpty bool) Move {
+	m := Move{What: what, From: from, To: to}
+	// The sealed ones go together: one already at the new place keeps all
+	// of them at the old one.
+	keepSealed := slices.ContainsFunc(sealed, func(n string) bool {
+		return slices.Contains(names, n) && exists(filepath.Join(to, n))
+	})
+	var moving []string
+	for _, n := range names {
+		switch {
+		case exists(filepath.Join(to, n)), keepSealed && slices.Contains(sealed, n):
+			m.Left = append(m.Left, n)
+		default:
+			moving = append(moving, n)
+		}
+	}
+	if len(moving) > 0 {
+		if m.Err = os.MkdirAll(to, mode); m.Err != nil {
+			m.Left = nil
+			return m
+		}
+	}
+	for i, n := range moving {
+		if m.Err = os.Rename(filepath.Join(from, n), filepath.Join(to, n)); m.Err != nil {
+			for _, back := range moving[:i] {
+				_ = os.Rename(filepath.Join(to, back), filepath.Join(from, back))
+			}
+			m.Moved, m.Left = nil, nil
+			return m
+		}
+		m.Moved = append(m.Moved, n)
+	}
+	if dropEmpty && len(m.Left) == 0 {
+		_ = os.Remove(from) // only an empty directory goes
+	}
+	return m
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 )
 
@@ -136,6 +137,86 @@ func TestJournalsThatCannotMoveStayInUse(t *testing.T) {
 	}
 	if got, _ := ErrorsPath(); got != filepath.Join(cfg, "errors.yaml") {
 		t.Errorf("ErrorsPath = %q, want it where it was", got)
+	}
+}
+
+// The move goes item by item (tdp E3): what the new place already has stays
+// in the old one, for the user to merge, and the rest goes; the old
+// directory stays while something is left in it.
+func TestWhatTheNewPlaceHasStaysInTheOld(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("the old directory differed only on macOS")
+	}
+	home := cleanHome(t)
+	old := filepath.Join(home, "Library", "Application Support", "sshu")
+	dir := filepath.Join(home, ".config", "sshu")
+	write(t, filepath.Join(old, "config.yaml"))
+	write(t, filepath.Join(old, "state.yaml"))
+	write(t, filepath.Join(dir, "config.yaml"))
+	moves := Migrate()
+	if len(moves) == 0 || moves[0].Err != nil || !slices.Equal(moves[0].Moved, []string{"state.yaml"}) ||
+		!slices.Equal(moves[0].Left, []string{"config.yaml"}) {
+		t.Fatalf("moves = %+v, want state.yaml moved and config.yaml left", moves)
+	}
+	if !exists(filepath.Join(old, "config.yaml")) || !exists(filepath.Join(dir, "state.yaml")) {
+		t.Error("the files are not where the move says")
+	}
+}
+
+// The key and the files whose passwords it seals go together: with a key
+// already at the new place, hosts.yaml stays beside the key that opens it.
+func TestTheKeyAndWhatItSealsMoveTogether(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("the old directory differed only on macOS")
+	}
+	home := cleanHome(t)
+	old := filepath.Join(home, "Library", "Application Support", "sshu")
+	dir := filepath.Join(home, ".config", "sshu")
+	write(t, filepath.Join(old, ".sshukey"))
+	write(t, filepath.Join(old, "hosts.yaml"))
+	write(t, filepath.Join(old, "config.yaml"))
+	write(t, filepath.Join(dir, ".sshukey"))
+	moves := Migrate()
+	if len(moves) == 0 || !slices.Equal(moves[0].Moved, []string{"config.yaml"}) ||
+		!slices.Contains(moves[0].Left, "hosts.yaml") || !slices.Contains(moves[0].Left, ".sshukey") {
+		t.Fatalf("moves = %+v, want hosts.yaml kept with its key", moves)
+	}
+	if exists(filepath.Join(dir, "hosts.yaml")) {
+		t.Error("hosts.yaml went to a key that cannot open it")
+	}
+}
+
+// An old directory with nothing in it is taken away, and nothing is said.
+func TestAnEmptyOldDirectoryIsTakenAway(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("the old directory differed only on macOS")
+	}
+	home := cleanHome(t)
+	old := filepath.Join(home, "Library", "Application Support", "sshu")
+	if err := os.MkdirAll(old, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if moves := Migrate(); len(moves) != 0 {
+		t.Errorf("moves = %+v, want none", moves)
+	}
+	if exists(old) {
+		t.Error("the empty old directory is still there")
+	}
+}
+
+// A journal the data directory already has stays in the settings directory;
+// the others go.
+func TestAJournalTheDataDirectoryHasStays(t *testing.T) {
+	home := cleanHome(t)
+	cfg := filepath.Join(home, ".config", "sshu")
+	data := filepath.Join(home, ".sshu")
+	write(t, filepath.Join(cfg, "errors.yaml"))
+	write(t, filepath.Join(cfg, "changes.yaml"))
+	write(t, filepath.Join(data, "errors.yaml"))
+	moves := Migrate()
+	if len(moves) != 1 || !slices.Equal(moves[0].Moved, []string{"changes.yaml"}) ||
+		!slices.Equal(moves[0].Left, []string{"errors.yaml"}) {
+		t.Fatalf("moves = %+v, want changes.yaml moved and errors.yaml left", moves)
 	}
 }
 
