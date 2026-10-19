@@ -115,7 +115,8 @@ func (t *transfer) statusText() string {
 			done += int(j.filesDone.Load())
 		}
 	}
-	return fmt.Sprintf("%s %4d/%-4d %3d%%", glyphJobs, done, files, int(frac*100))
+	// The value of the statusbar's "transfer: ", as wide however far it is.
+	return terminu.Pad(fmt.Sprintf("%d/%d %d%%", done, files, int(frac*100)), len("9999/9999 100%"))
 }
 
 // receiving reports whether p, or something under it, is being written now.
@@ -201,11 +202,11 @@ func (sd *side) queue(paths []string) tea.Cmd {
 	dst := t.other(sd)
 	a := t.s.a
 	if dst.fs == nil {
-		return a.Toast(terminu.Warning, "The other side has no host yet")
+		return a.Toast(terminu.Error, "The other side has no host yet")
 	}
 	for _, p := range paths {
 		if remote.SameTree(sd.fs, p, dst.fs, dst.cwd) {
-			return a.Toast(terminu.Warning, "That would copy a directory into itself")
+			return a.Toast(terminu.Error, "That would copy a directory into itself")
 		}
 	}
 	items, total, err := remote.Plan(sd.fs, paths, dst.cwd)
@@ -265,7 +266,8 @@ func (t *transfer) startJob(src, dst *side, items []remote.Item, total int64, fi
 // jobsMenu lists the transfers of this run, newest first. Enter on a running
 // one offers to cancel it; on one that ended it shows the whole of it.
 // TODO(lib SS9): a menu's rows are fixed when it opens, so the progress in
-// it does not move; the statusbar and the bar under the chips do.
+// it does not move; the statusbar and the bar under the chips do. And the
+// hint of a running one says Enter:run, where it should say Enter:cancel.
 func (t *transfer) jobsMenu() tea.Cmd {
 	if len(t.jobs) == 0 {
 		return t.s.a.Toast(terminu.Info, "Nothing transferred yet")

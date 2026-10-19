@@ -140,7 +140,7 @@ func TestJournalsThatCannotMoveStayInUse(t *testing.T) {
 }
 
 // SSHU__STATE moves state.yaml and SSHU__DATA the journals; neither moves
-// the settings (tdp E2, E3).
+// the settings (tdp E2, tdp E3).
 func TestStateAndDataFollowTheirVariables(t *testing.T) {
 	cleanHome(t)
 	t.Setenv("SSHU__CONFIG", "/tmp/sshu-config")

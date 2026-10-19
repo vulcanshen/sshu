@@ -75,7 +75,7 @@ type sshu struct {
 	sh *sshScreen
 }
 
-// icon is the mark the splash draws (tdp S5, E6), a copy of docs/icon.svg,
+// icon is the mark the splash draws (tdp S5, tdp E6), a copy of docs/icon.svg,
 // which go:embed cannot reach; TestTheIconIsTheSplash keeps them the same.
 //
 //go:embed icon.svg
@@ -183,23 +183,21 @@ func (s *sshu) refreshQuit() {
 }
 
 // status is the statusbar at the right of the screen chips (layout/screen):
-// live sessions in Green, a transfer in flight in Green, unread errors in
-// Red. Each part keeps its width (tdp L2).
+// each part "label: value", unread errors in Red, a transfer in flight and
+// the live sessions in Green. It stands against the right edge, so a part
+// that grows pushes the ones on its left: every part but the leftmost keeps
+// its width (tdp L2).
 func (s *sshu) status(w int) string {
 	grey := terminu.Fg(terminu.Overlay0)
 	var parts []string
 	if n := s.mg.unreadErrors(); n > 0 {
-		noun := " errors"
-		if n == 1 {
-			noun = " error "
-		}
-		parts = append(parts, terminu.Fg(terminu.Red).Render(fmt.Sprintf("%3d", n))+grey.Render(noun))
+		parts = append(parts, grey.Render("errors: ")+terminu.Fg(terminu.Red).Render(strconv.Itoa(n)))
 	}
 	if t := s.ft.statusText(); t != "" {
-		parts = append(parts, terminu.Fg(terminu.Green).Render(t))
+		parts = append(parts, grey.Render("transfer: ")+terminu.Fg(terminu.Green).Render(t))
 	}
 	n := s.sh.liveCount()
-	parts = append(parts, terminu.Fg(terminu.Green).Render(fmt.Sprintf("%2d", n))+grey.Render(" live"))
+	parts = append(parts, grey.Render("live: ")+terminu.Fg(terminu.Green).Render(fmt.Sprintf("%-2d", n)))
 	text := ""
 	for i, p := range parts {
 		if i > 0 {
@@ -280,7 +278,7 @@ func (s *sshu) logConn(e store.ConnectionEntry) {
 // liveAsk is an action's confirm, filled in for the item under the cursor.
 // The lib reads Action.Ask when the action runs and asks Hidden just
 // before, so Hidden fills it; with Ask set, Esc on the confirm goes back to
-// the Space menu it was run from, and Enter closes them all (tdp F4, T1).
+// the Space menu it was run from, and Enter closes them all (tdp F4, tdp T1).
 // TODO(lib SS29): an Ask that is made when the action runs.
 func liveAsk(fill func(*terminu.Ask) bool) (*terminu.Ask, func() bool) {
 	ask := &terminu.Ask{}

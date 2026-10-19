@@ -203,14 +203,16 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 			}
 			return ""
 		}}
-	userF := text("User", &user, "Who to log in as", nil)
-	userF.Disabled = func() bool { return method() == store.AuthCredential }
-	userF.Check = func() string {
-		if strings.TrimSpace(user) == "" && method() != store.AuthCredential && method() != store.AuthSSHConfig {
+	// The input refuses an empty user where the form would (tdp K3).
+	userRule := func(v string) string {
+		if strings.TrimSpace(v) == "" && method() != store.AuthCredential && method() != store.AuthSSHConfig {
 			return "User can't be empty"
 		}
 		return ""
 	}
+	userF := text("User", &user, "Who to log in as", inputRule(userRule))
+	userF.Disabled = func() bool { return method() == store.AuthCredential }
+	userF.Check = func() string { return userRule(user) }
 	credF := &terminu.FormField{Label: "Credential", Value: func() string { return cred }, Empty: "not set",
 		Disabled: func() bool { return method() != store.AuthCredential },
 		Edit: func() terminu.Input {

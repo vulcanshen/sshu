@@ -318,8 +318,8 @@ func (h *sshScreen) current() *session {
 }
 
 // connect starts a session to host and puts the keyboard in it: from the
-// hosts table it is one move, and the menu behind it is left behind (Rules
-// T1: a long session clears its source).
+// hosts table it is one move, and the menu behind it is left behind
+// (tdp T1: opening a shell clears its source).
 func (h *sshScreen) connect(host store.Host) tea.Cmd {
 	x, err := h.start1(host)
 	if err != nil {

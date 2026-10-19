@@ -95,8 +95,8 @@ func TestAddingAHostSavesIt(t *testing.T) {
 	}
 }
 
-// Every row of every Manage view is exactly as wide as the terminal (Rules
-// L4), with icons one cell or two and powerline symbols one or two (tdp E5).
+// Every row of every Manage view is exactly as wide as the terminal
+// (tdp L4), with icons one cell or two and powerline symbols one or two (tdp E5).
 func TestEveryManageRowIsAsWideAsTheScreen(t *testing.T) {
 	defer terminu.SetIconWidth(1, 1)
 	for _, iw := range [][2]int{{1, 1}, {2, 1}, {2, 2}} {
@@ -166,8 +166,8 @@ func TestStartupSaysWhatItMoved(t *testing.T) {
 	hs.contains("move them to")
 }
 
-// Below the smallest size, down to 1×1, no screen brings sshu down (tdp E5,
-// L1). Drawing the name and the hint there is the lib's, from terminu-go's
+// Below the smallest size, down to 1×1, no screen brings sshu down (tdp
+// E5, tdp L1). Drawing the name and the hint there is the lib's, from terminu-go's
 // next version; then this test looks for them too, and opens the popups:
 // v0.1.13 panics drawing a popup taller than the terminal (fixed after it,
 // f245cbc).

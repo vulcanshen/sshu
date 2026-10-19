@@ -167,13 +167,20 @@ func (sd *side) noHost() bool  { return sd.fs == nil }
 func (sd *side) noMarks() bool { return sd.fs == nil || len(sd.marks) == 0 }
 
 // fileActions are a files panel's: with no host, only picking one. What
-// acts on the marks lives on the marks panel (Principle P3: an action about
+// acts on the marks lives on the marks panel (tdp P3: an action about
 // another panel is that panel's), the jobs are a global operation. An action
 // that opens a popup keeps the Space menu under it (Stay, tdp F4).
 func (sd *side) fileActions() []terminu.Action {
 	t := sd.t
+	// Enter goes into a directory, which clears the Space menu (a
+	// drill-down), and reads a file, which keeps it (tdp T1): two actions,
+	// one shown at a time.
+	onDir := func() bool { e, ok := sd.cursorEntry(); return ok && e.IsDir }
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "go into it, or read it", Scope: terminu.ItemScope, Hint: "open", Hidden: sd.noHost, Do: sd.open},
+		{Key: "Enter", Label: "Open", Desc: "go into this directory", Scope: terminu.ItemScope, Hint: "open",
+			Hidden: func() bool { return sd.noHost() || !onDir() }, Do: sd.open},
+		{Key: "Enter", Label: "Read", Desc: "this file, here", Scope: terminu.ItemScope, Hint: "read", Stay: true,
+			Hidden: func() bool { return sd.noHost() || onDir() }, Do: sd.open},
 		{Key: "a", Label: "append to marks", Desc: "again takes it off", Scope: terminu.ItemScope, Hint: "mark", Hidden: sd.noHost,
 			Disabled: func() bool { p, ok := sd.cursorPath(); return ok && t.receiving(p) }, Do: sd.toggleMark},
 		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Hidden: sd.noHost, Stay: true,
@@ -205,8 +212,12 @@ func (sd *side) fileActions() []terminu.Action {
 // cursor, and what acts on all of this side's marks.
 func (sd *side) markActions() []terminu.Action {
 	t := sd.t
+	onDir := func() bool { p, ok := sd.markPath(); return ok && sd.markDir[p] }
 	return []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "go to the directory, or read the file", Scope: terminu.ItemScope, Hint: "open", Do: sd.openMark},
+		{Key: "Enter", Label: "Open", Desc: "go to this directory", Scope: terminu.ItemScope, Hint: "open",
+			Hidden: func() bool { return !onDir() }, Do: sd.openMark},
+		{Key: "Enter", Label: "Read", Desc: "this file, here", Scope: terminu.ItemScope, Hint: "read", Stay: true,
+			Hidden: onDir, Do: sd.openMark},
 		{Key: "c", Label: "clear mark", Desc: "forget it, change nothing", Scope: terminu.ItemScope, Hint: "clear", Do: sd.unmarkCursor},
 		{Key: "r", Label: "rename", Desc: "this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.rename(sd.markPath()) }},
 		{Key: "v", Label: "view", Desc: "read this item, here", Scope: terminu.ItemScope, Stay: true, Do: func() tea.Cmd { return sd.view(sd.markPath()) }},
@@ -415,7 +426,7 @@ func (sd *side) toggleMark() tea.Cmd {
 		return nil
 	}
 	if sd.t.receiving(p) {
-		return sd.t.s.a.Toast(terminu.Warning, "Still arriving: not all of it is here yet")
+		return sd.t.s.a.Toast(terminu.Error, "Still arriving: not all of it is here yet")
 	}
 	if sd.isMarked(p) {
 		sd.unmark(p)

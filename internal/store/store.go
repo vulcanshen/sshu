@@ -40,7 +40,7 @@ func e3Dir() (string, error) {
 }
 
 // oldDir is where sshu kept its settings before tdp E3, when that differs
-// from E3's: os.UserConfigDir on macOS.
+// from tdp E3's: os.UserConfigDir on macOS.
 func oldDir(home string) string {
 	if runtime.GOOS != "darwin" {
 		return ""

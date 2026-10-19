@@ -431,16 +431,16 @@ func (sd *side) edit(p string, ok bool) tea.Cmd {
 	}
 	a := sd.t.s.a
 	if sd.t.editing {
-		return a.Toast(terminu.Warning, "An editor is already open")
+		return a.Toast(terminu.Error, "An editor is already open")
 	}
 	e, err := sd.fs.Stat(p)
 	switch {
 	case err != nil:
 		return a.Error("Edit failed", "Can't read "+path.Base(p)+": "+err.Error())
 	case e.IsDir:
-		return a.Toast(terminu.Warning, "Can't edit a directory")
+		return a.Toast(terminu.Error, "Can't edit a directory")
 	case !e.Mode.IsRegular():
-		return a.Toast(terminu.Warning, "Not a regular file")
+		return a.Toast(terminu.Error, "Not a regular file")
 	}
 	job := editJob{fsys: sd.fs, path: p, mode: e.Mode.Perm(), stamp: remote.Stamp{Size: e.Size, ModTime: e.ModTime}}
 	sd.t.editing = true

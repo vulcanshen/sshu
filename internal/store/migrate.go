@@ -22,7 +22,7 @@ var journalNames = []string{"errors.yaml", "connections.yaml", "changes.yaml"}
 // Migrate moves what an older sshu kept somewhere tdp E3 no longer puts it,
 // once, before anything is read: the settings directory macOS kept in
 // ~/Library/Application Support, and the journals the settings directory
-// held, which E3 counts as data. It moves only into a place that does not
+// held, which tdp E3 counts as data. It moves only into a place that does not
 // have them yet; what cannot move stays in use where it is.
 func Migrate() []Move {
 	var moves []Move
