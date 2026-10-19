@@ -26,7 +26,7 @@ type knownSection struct {
 func newKnownSection(s *sshu) *knownSection {
 	k := &knownSection{s: s}
 	k.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Names"}, {Title: "Type", Drop: 1}, {Title: "Fingerprint", Drop: 2}},
+		Columns:   []terminu.Column{{Title: "Names", Shrink: true}, {Title: "Type", Drop: 1}, {Title: "Fingerprint", Shrink: true, Middle: true, Drop: 2}},
 		EmptyFact: "No host keys in ~/.ssh/known_hosts",
 		EmptyHint: "Press [A] to ask a host for its key, or [Space] to see what you can do here",
 	}

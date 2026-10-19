@@ -66,7 +66,7 @@ type errorsSection struct {
 func newErrorsSection(s *sshu) *errorsSection {
 	e := &errorsSection{s: s}
 	e.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time", Drop: 2}, {Title: "Host", Drop: 1}, {Title: "Cause"}},
+		Columns:   []terminu.Column{{Title: "Time", Drop: 2}, {Title: "Host", Shrink: true, Drop: 1}, {Title: "Cause", Shrink: true}},
 		EmptyFact: "Nothing has gone wrong",
 		EmptyHint: "Failed connections and unreadable files land here; press [Space] to see what you can do",
 	}
@@ -162,7 +162,7 @@ type connsSection struct {
 func newConnsSection(s *sshu) *connsSection {
 	c := &connsSection{s: s}
 	c.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time", Drop: 1}, {Title: "Host"}, {Title: "Result", Drop: 2}},
+		Columns:   []terminu.Column{{Title: "Time", Drop: 1}, {Title: "Host", Shrink: true}, {Title: "Result", Drop: 2}},
 		EmptyFact: "No connections yet",
 		EmptyHint: "Every ssh and sftp connection lands here; press [M] then a host to make one",
 	}
@@ -226,7 +226,7 @@ type changesSection struct {
 func newChangesSection(s *sshu) *changesSection {
 	c := &changesSection{s: s}
 	c.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time", Drop: 1}, {Title: "Change"}},
+		Columns:   []terminu.Column{{Title: "Time", Drop: 1}, {Title: "Change", Shrink: true}},
 		EmptyFact: "Nothing changed yet",
 		EmptyHint: "What you change through sshu lands here; press [Space] to see what you can do",
 	}

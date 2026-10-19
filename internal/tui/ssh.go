@@ -64,7 +64,7 @@ func newSSHScreen(s *sshu) *sshScreen {
 	if n := s.d.State.GridColumns; n >= 1 && n <= 9 {
 		h.columns = n
 	}
-	h.list = &terminu.List{Columns: []terminu.Column{{}},
+	h.list = &terminu.List{Columns: []terminu.Column{{Shrink: true}},
 		EmptyFact: "No live sessions", EmptyHint: "Press [M] and connect to a host"}
 	h.listP = &terminu.Panel{Label: "Sessions", Body: h.list, Actions: h.listActions()}
 	arrange := &terminu.Field{Label: "Arrange", Options: arrangements, Selected: h.arrange}
@@ -355,18 +355,18 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	h.unlock(x) // the keys of a cell that is not locked
 	// Until ssh first prints, it is connecting: typing would land minutes
 	// later on the far side, so it waits (tdp K10), and the cell's frame
-	// turns the loading icon (tdp F7).
-	// TODO(lib SS39): "connecting to <host>…" in the middle of the cell, as
-	// LoadingText says it in a list; a Terminal has no empty state.
+	// turns the loading icon, "connecting to <host>" in its middle (tdp F7,
+	// layout/panel).
 	x.term.NotReady = func() bool { return !x.spoke }
 	x.term.OnFirstOutput = func() tea.Cmd { x.spoke, x.panel.Loading = true, false; return nil }
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }
-	x.panel = &terminu.Panel{Name: h.label(x), Body: x.term, Stream: true, Loading: true, Actions: []terminu.Action{
-		{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,
-			Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { x.term.Enter(); return nil }},
-		gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope,
-			Hidden: func() bool { return x.ended }}, func() (terminu.Ask, func() tea.Cmd, bool) { return h.closeAsk(x) }),
-	}}
+	x.panel = &terminu.Panel{Name: h.label(x), Body: x.term, Stream: true, Loading: true,
+		LoadingText: "connecting to " + host.Name, Actions: []terminu.Action{
+			{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,
+				Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { x.term.Enter(); return nil }},
+			gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope,
+				Hidden: func() bool { return x.ended }}, func() (terminu.Ask, func() tea.Cmd, bool) { return h.closeAsk(x) }),
+		}}
 	h.sessions = append(h.sessions, x)
 	h.screen.Panels = append(h.screen.Panels, x.panel)
 	registerStop(x.term)

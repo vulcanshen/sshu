@@ -28,10 +28,11 @@ func newHostsSection(s *sshu) *hostsSection {
 	h := &hostsSection{s: s}
 	h.list = &terminu.List{
 		Columns: []terminu.Column{
-			// Tags go first, the address last: name and address are what the
-			// table is scanned by (layout/panel: whole columns go first).
-			{Title: "Name"}, {Title: "User", Drop: 4}, {Title: "Host", Drop: 5},
-			{Title: "Port", Number: true, Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Tags", Drop: 1},
+			// Name, address and tags are long and shrink; past their least,
+			// tags go first, the address last: name and address are what the
+			// table is scanned by (layout/panel).
+			{Title: "Name", Shrink: true}, {Title: "User", Drop: 4}, {Title: "Host", Shrink: true, Drop: 5},
+			{Title: "Port", Number: true, Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Tags", Shrink: true, Drop: 1},
 		},
 		Filterable: true,
 		EmptyFact:  "No hosts yet",

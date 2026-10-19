@@ -24,7 +24,7 @@ type credsSection struct {
 func newCredsSection(s *sshu) *credsSection {
 	c := &credsSection{s: s}
 	c.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Name"}, {Title: "User", Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Used by", Number: true, Drop: 1}},
+		Columns:   []terminu.Column{{Title: "Name", Shrink: true}, {Title: "User", Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Used by", Number: true, Drop: 1}},
 		EmptyFact: "No credentials yet",
 		EmptyHint: "Press [A] to add one, or [Space] to see what you can do here",
 	}

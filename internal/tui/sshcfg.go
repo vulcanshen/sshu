@@ -52,10 +52,10 @@ func (c *sshcfgSection) actions() []terminu.Action {
 // carry the same pattern, and ssh means something by that.
 func (c *sshcfgSection) reload(sel int) {
 	f := c.s.d.SSHConfig
-	cols := []terminu.Column{{Title: "Host"}, {Title: "HostName", Drop: 4}, {Title: "User", Drop: 3}, {Title: "Port", Number: true, Drop: 2}}
+	cols := []terminu.Column{{Title: "Host", Shrink: true}, {Title: "HostName", Shrink: true, Drop: 4}, {Title: "User", Drop: 3}, {Title: "Port", Number: true, Drop: 2}}
 	files := f.Files() > 1
 	if files {
-		cols = append(cols, terminu.Column{Title: "File", Path: true, Drop: 1})
+		cols = append(cols, terminu.Column{Title: "File", Path: true, Shrink: true, Drop: 1})
 	}
 	c.list.Columns = cols
 	rows := make([]terminu.Row, len(f.Blocks))

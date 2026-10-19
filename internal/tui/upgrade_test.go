@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vulcanshen/sshu/internal/remote"
+	"github.com/vulcanshen/sshu/internal/store"
 )
 
 // Esc on what ssh asked answers ssh no, so ssh gives up instead of waiting
@@ -56,9 +57,8 @@ func TestTheJobsMenuFollowsItsTransfers(t *testing.T) {
 }
 
 // A remote host's files in a search get the lib's preview through
-// previewFS, which reads each thing once: the preview is drawn every frame
-// and the host answers over the network.
-func TestARemotePreviewReadsOnce(t *testing.T) {
+// previewFS: what a side's file system says, as the preview asks it.
+func TestPreviewFSGivesTheSidesFiles(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.ToSlash(filepath.Join(dir, "notes.txt"))
 	if err := os.WriteFile(p, []byte("hello\n"), 0o644); err != nil {
@@ -79,11 +79,8 @@ func TestARemotePreviewReadsOnce(t *testing.T) {
 	if fis, err := pfs.ReadDir(filepath.ToSlash(dir)); err != nil || len(fis) != 1 || fis[0].Name() != "notes.txt" {
 		t.Errorf("ReadDir = %v, %v", fis, err)
 	}
-	if err := os.Remove(p); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pfs.Stat(p); err != nil {
-		t.Error("Stat asked the host again: it should have kept what it read")
+	if fi, err := pfs.Stat(filepath.ToSlash(dir)); err != nil || !fi.IsDir() || !fi.Mode().IsDir() {
+		t.Errorf("a directory's Stat = %v, %v", fi, err)
 	}
 }
 
@@ -97,8 +94,9 @@ func TestTooSmallATerminalSaysHowBig(t *testing.T) {
 	hs.contains("SECTIONS")
 }
 
-// A hosts table too narrow for its columns takes whole columns away, Tags
-// first, before it narrows the rest; the name never goes (layout/panel).
+// A hosts table too narrow for its columns shortens its long columns first,
+// then takes whole columns away, Tags first; the name never goes, and a long
+// name does not squeeze the short columns (layout/panel).
 func TestANarrowHostsTableTakesWholeColumnsAway(t *testing.T) {
 	hs := newHarness(t, 140, 30, testData(sampleHosts(), sampleCreds()))
 	hs.contains("TAGS")
@@ -106,6 +104,16 @@ func TestANarrowHostsTableTakesWholeColumnsAway(t *testing.T) {
 	hs.keys("2")
 	hs.lacks("TAGS")
 	hs.contains("NAME")
+
+	long := append(sampleHosts(), store.Host{Name: "a-name-far-longer-than-any-column-could-ever-hold-whole",
+		Host: "h", Port: 22, User: "u", Auth: store.AuthPassword})
+	hs = newHarness(t, 120, 30, testData(long, sampleCreds()))
+	hs.keys("2")
+	hs.lacks("a-name-far-longer-than-any-column-could-ever-hold-whole") // cut
+	hs.contains("a-name-far")
+	for _, short := range []string{"PORT", "AUTH", "2222", "privatekey"} {
+		hs.contains(short) // the short columns whole
+	}
 }
 
 // A transfer from the Space menu ends the same way whether it asked about
@@ -134,9 +142,9 @@ func TestATransferThatAsksEndsAsOneThatDoesNot(t *testing.T) {
 	}, "the overwrite")
 }
 
-// A remote preview reads past the 64 KB it keeps when the preview asks:
-// the end of a zip lists what is in it (components/input/file-picker).
-func TestARemotePreviewReadsAZipPastItsHead(t *testing.T) {
+// A remote preview reads anywhere in the file: the end of a zip far past
+// 64 KB lists what is in it (components/input/file-picker).
+func TestARemotePreviewReadsAZipToItsEnd(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.ToSlash(filepath.Join(dir, "big.zip"))
 	f, err := os.Create(p)

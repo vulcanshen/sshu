@@ -90,9 +90,9 @@ func newTransfer(s *sshu) *transfer {
 
 func newSide(t *transfer, i int) *side {
 	sd := &side{t: t, idx: i}
-	sd.files = &terminu.List{Columns: []terminu.Column{{Title: "Name", Path: true}, {Title: "Size", Number: true, Drop: 1}},
+	sd.files = &terminu.List{Columns: []terminu.Column{{Title: "Name", Path: true, Shrink: true}, {Title: "Size", Number: true, Drop: 1}},
 		Marks: true, EmptyFact: "No host", EmptyHint: "Press [H] to pick a host, or local"}
-	sd.marked = &terminu.List{Columns: []terminu.Column{{Path: true}},
+	sd.marked = &terminu.List{Columns: []terminu.Column{{Path: true, Shrink: true}},
 		EmptyFact: "Nothing marked", EmptyHint: "Press [a] on a file to mark it"}
 	sd.filesP = &terminu.Panel{Label: "No host", Body: &sideBody{sd: sd, list: sd.files, cwd: true}}
 	sd.markedP = &terminu.Panel{Label: "Marks", Body: &sideBody{sd: sd, list: sd.marked}}

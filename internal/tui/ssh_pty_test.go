@@ -115,6 +115,7 @@ func TestACellIsConnectingUntilSSHFirstPrints(t *testing.T) {
 	if !x.panel.Loading || !x.term.NotReady() {
 		t.Fatal("a cell still connecting should load and hold the keys back")
 	}
+	hs.contains("connecting to prod-web-01") // in the middle of the cell (panel-75)
 	// The screen can show the words before the news of them reaches sshu.
 	if !hs.settle(func() bool { return hs.shows("ready") && !x.panel.Loading }, 3*time.Second) {
 		t.Fatalf("ssh printed, and the cell still loads:\n%s", hs.text())
