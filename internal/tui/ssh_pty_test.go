@@ -38,6 +38,7 @@ func TestConnectPutsTheKeyboardInTheNewCell(t *testing.T) {
 	hs.contains("Alt-Esc:leave") // Esc goes back into the PTY
 	hs.keys("Alt-Esc", "Enter")
 	hs.contains("Space:menu")
+	hs.lacks(`\x1b`) // the session's glyph is coloured by a style, not codes in its cell
 	hs.s.sh.closeAll()
 }
 
@@ -128,26 +129,33 @@ func TestACellIsConnectingUntilSSHFirstPrints(t *testing.T) {
 
 // Alt-Enter locks a cell: every key goes to the program, Alt-Esc too, for a
 // sshu nested in it; Alt-Enter is then the way out, and leaving unlocks it
-// (tdp K10). Alt-v is the cell's selection mode.
+// (tdp K10). An ssh session is an interactive terminal: Alt-v is its
+// selection, PgUp its history; locked, both are the program's
+// (components/dialog/terminal).
 func TestAltEnterLocksACell(t *testing.T) {
 	fakeSSH(t, "echo welcome; exec cat")
 	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))
 	hs.keys("2", "Enter", "Enter")
 	x := hs.s.sh.sessions[0]
 	hs.settle(func() bool { return hs.shows("welcome") && x.spoke }, 3*time.Second)
-	hs.keys("Alt-v")
-	if x.term.Mode() == "" {
-		t.Error("Alt-v did not put the cell in its selection mode")
+	for _, k := range []string{"Alt-v", "PgUp"} {
+		hs.keys(k)
+		if x.term.Mode() == "" {
+			t.Errorf("%s did not put the cell in its mode", k)
+		}
+		hs.keys("Esc")
 	}
-	hs.keys("Esc", "Alt-Enter")
+	hs.keys("Alt-Enter")
 	if !x.locked || x.term.ExitKey != "Alt-Enter" {
 		t.Fatal("Alt-Enter did not lock the cell")
 	}
 	hs.contains("Alt-Enter:leave")
-	hs.keys("Alt-Esc")
-	hs.lacks("Leave")
-	if !x.term.Inside() {
-		t.Fatal("Alt-Esc in a locked cell should go to the program")
+	for _, k := range []string{"Alt-Esc", "Alt-v", "PgUp"} {
+		hs.keys(k)
+		hs.lacks("Leave")
+		if !x.term.Inside() || x.term.Mode() != "" {
+			t.Fatalf("%s in a locked cell should go to the program", k)
+		}
 	}
 	hs.keys("Alt-Enter")
 	if x.term.Inside() {

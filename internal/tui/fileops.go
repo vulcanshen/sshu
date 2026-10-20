@@ -231,7 +231,7 @@ func (sd *side) search() tea.Cmd {
 	cmd := t.s.a.Find(sc.finder)
 	if !t.scanning {
 		t.scanning = true
-		cmd = tea.Batch(cmd, tea.Tick(scanEvery, func(time.Time) tea.Msg { return scanTick{} }))
+		cmd = tea.Batch(cmd, t.s.a.Tick(scanEvery, func(time.Time) tea.Msg { return scanTick{} }))
 	}
 	return cmd
 }
@@ -274,7 +274,7 @@ func (t *transfer) onScanTick() tea.Cmd {
 		t.scanning = false
 		return nil
 	}
-	return tea.Tick(scanEvery, func(time.Time) tea.Msg { return scanTick{} })
+	return t.s.a.Tick(scanEvery, func(time.Time) tea.Msg { return scanTick{} })
 }
 
 func (t *transfer) stopScans() {

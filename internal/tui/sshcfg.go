@@ -34,7 +34,8 @@ func newSSHCfgSection(s *sshu) *sshcfgSection {
 }
 
 func (c *sshcfgSection) section() *section {
-	c.sec = &section{id: "sshcfg", label: "Config", group: "ssh", body: c.list, actions: c.actions}
+	c.sec = &section{id: "sshcfg", label: "Config", group: "ssh", body: c.list, actions: c.actions,
+		fail: func() *terminu.Failure { return unreadFailure("~/.ssh/config", c.s.d.SSHConfigErr) }}
 	return c.sec
 }
 
@@ -322,7 +323,7 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 	// config file is $EDITOR's). The editor reads the file as it is on disk,
 	// so a form with changes, or a block not written yet, asks to save first.
 	// When the editor closes, the form reads the block again (reread).
-	var reread func()
+	var reread func() tea.Cmd
 	edit := func() tea.Cmd {
 		if at < 0 || changed() {
 			what := "the changes to Host " + patterns
@@ -341,11 +342,13 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		}
 		return c.editFile(at, reread)
 	}
-	reread = func() {
+	reread = func() tea.Cmd {
 		fresh, err := c.s.d.SSHConfig.Reload()
+		c.s.d.SSHConfigErr = err
 		if err != nil {
+			// What was read before stays on screen (layout/panel, errors).
 			c.s.logError(store.LevelError, "", "", "~/.ssh/config: "+err.Error(), err.Error())
-			return
+			return c.s.a.Toast(terminu.Error, "Can't read ~/.ssh/config: "+err.Error())
 		}
 		c.s.d.SSHConfig = fresh
 		i := -1
@@ -358,11 +361,12 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		c.s.mg.refresh()
 		if i < 0 {
 			at = -1 // gone from the file: saving writes it again
-			return
+			return nil
 		}
 		at = i
 		load(fresh.Blocks[i])
 		opened = saved() // what is on disk: nothing of the form's own to save
+		return nil
 	}
 	f.Buttons = [][]*terminu.FormButton{{{Label: "Edit file", Open: edit}}}
 	return c.s.a.Form(f)
@@ -370,7 +374,7 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 
 // editFile opens the file block at lives in with $EDITOR, on its Host line,
 // in a terminal popup over the form; after runs when the editor ends.
-func (c *sshcfgSection) editFile(at int, after func()) tea.Cmd {
+func (c *sshcfgSection) editFile(at int, after func() tea.Cmd) tea.Cmd {
 	f := c.s.d.SSHConfig
 	if at < 0 || at >= len(f.Blocks) {
 		return nil
@@ -383,7 +387,7 @@ func (c *sshcfgSection) editFile(at int, after func()) tea.Cmd {
 		return c.s.a.Error("Edit failed", err.Error())
 	}
 	term := &terminu.Terminal{Title: "Edit", Subject: filepath.Base(file), Command: argv, Ends: true, Env: editorEnv()}
-	term.OnExit = func(error) tea.Cmd { deregisterStop(term); after(); return nil }
+	term.OnExit = func(error) tea.Cmd { deregisterStop(term); return after() }
 	registerStop(term)
 	return c.s.a.OpenTerminal(term)
 }

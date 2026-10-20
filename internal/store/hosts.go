@@ -316,11 +316,7 @@ func LoadFrom(path string) (File, []string, error) {
 			f.HadPlaintextSecret = true
 		}
 	}
-	bad, decErr := decryptInto(names, secrets)
-	if decErr != nil {
-		return f, dropped, fmt.Errorf("%s: %w", path, decErr)
-	}
-	f.UnreadableSecrets = bad
+	f.UnreadableSecrets = decryptInto(names, secrets)
 	return f, dropped, nil
 }
 

@@ -22,10 +22,10 @@ Usage:
   sshu help       print this (also --help, -h)
 
 Environment:
-  SSHU__CONFIG               the settings directory (default ~/.config/sshu)
+  SSHU__CONFIG               the settings directory, config.yaml (default ~/.config/sshu)
   SSHU__STATE                where state.yaml goes (default: the settings directory)
-  SSHU__DATA                 where the three journals go (default ~/.sshu)
-  SSHU__KEY_FILE             the key that seals stored passwords (default: .sshukey in the settings directory)
+  SSHU__DATA                 the hosts, the credentials and the journals (default ~/.sshu)
+  SSHU__KEY_FILE             the key that seals stored passwords (default: .sshukey in the data directory)
   SSHU__ICON_WIDTH           1 or 2: how many cells a Nerd Font icon takes, instead of asking the terminal
   SSHU__POWERLINE_WIDTH      1 or 2: the same for a powerline symbol
   TERMINU__ICON_WIDTH        the same as SSHU__ICON_WIDTH, for every terminu app
@@ -69,17 +69,7 @@ func main() {
 		os.Exit(tui.RunAskpassRelay(sock, prompt))
 	}
 
-	// What an older sshu kept elsewhere moves first, so everything below
-	// reads it in its new place.
-	moves := store.Migrate()
-	d, err := load()
-	if err != nil {
-		// A malformed hosts.yaml is worth refusing to start over: an empty list
-		// would look like data loss, and the next save would overwrite it.
-		fmt.Fprintln(os.Stderr, "sshu:", err)
-		os.Exit(1)
-	}
-	d.Moves = moves
+	d := data()
 
 	// SIGHUP is the terminal window closing: the sessions go with sshu.
 	hup := make(chan os.Signal, 1)
@@ -98,65 +88,89 @@ func main() {
 	}
 }
 
+// data is what sshu starts on. What an older sshu kept elsewhere moves
+// first, so everything after reads it in its new place.
+func data() *tui.Data {
+	moves := store.Migrate()
+	d := load()
+	d.Moves = moves
+	return d
+}
+
 // helperRun reports a run as ssh's askpass helper, whose argv[1] is ssh's
 // prompt, not a command.
 func helperRun() bool { return tui.AskpassHost() != "" || tui.AskpassSock() != "" }
 
-// load reads everything sshu keeps. Only hosts.yaml failing stops it; the
+// load reads everything sshu keeps. A file of sshu's own that will not read
+// is asked about before sshu goes on (tdp E3, when it cannot be read); the
 // rest becomes a note, and sshu runs on what it could read.
-func load() (*tui.Data, error) {
-	hosts, dupHosts, err := store.Load()
-	if err != nil {
-		return nil, err
-	}
+func load() *tui.Data {
 	d := &tui.Data{
 		SaveHosts:     func(list []store.Host) error { return store.Save(store.File{Hosts: list}) },
 		SaveCreds:     func(list []store.Credential) error { return store.SaveCreds(store.CredsFile{Credentials: list}) },
 		SaveSSHConfig: store.SaveSSHConfig,
 		SaveKnown:     store.SaveKnownHosts,
+		SaveState:     store.SaveState,
 		AppendError:   store.AppendError, ClearErrors: store.ClearErrors,
 		AppendConn: store.AppendConnection, ClearConns: store.ClearConnections,
 		AppendChg: store.AppendChange, ClearChgs: store.ClearChanges,
 	}
-	d.Hosts = hosts.Hosts
-	d.State, d.SaveState = store.LoadState(), store.SaveState
 	note := func(level, cause string) {
 		d.Notes = append(d.Notes, tui.Note{Level: level, Cause: cause, Detail: cause})
 	}
-	var cfgErr error
-	if d.Config, cfgErr = store.LoadConfig(); cfgErr != nil {
-		note(store.LevelError, "config.yaml: "+cfgErr.Error())
+	// Each that will not read is empty meanwhile, as on a first run, and the
+	// question says why. One sshu cannot even find is a note.
+	unreadable := func(path func() (string, error), err error, fresh func() error) {
+		p, perr := path()
+		if perr != nil {
+			note(store.LevelError, err.Error())
+			return
+		}
+		d.Unreadable = append(d.Unreadable, tui.Unreadable{Path: p, Err: err, Fresh: fresh})
 	}
-	// A journal that does not load is news, never a reason to stop recording.
-	var jerr error
-	if d.Errors, jerr = store.LoadErrors(); jerr != nil {
-		note(store.LevelError, "errors.yaml: "+jerr.Error())
+	var err error
+	if d.Config, err = store.LoadConfig(); err != nil {
+		unreadable(store.ConfigPath, err, nil)
 	}
-	if d.Conns, jerr = store.LoadConnections(); jerr != nil {
-		note(store.LevelError, "connections.yaml: "+jerr.Error())
+	if d.State, err = store.LoadState(); err != nil {
+		unreadable(store.StatePath, err, nil)
 	}
-	if d.Changes, jerr = store.LoadChanges(); jerr != nil {
-		note(store.LevelError, "changes.yaml: "+jerr.Error())
+	// The key that seals passwords exists from the first run, not the first
+	// save: a key that appears with the first password is one the user has
+	// no reason to know about until it is lost. One that is there and will
+	// not read leaves the passwords sealed until it is asked about.
+	if _, err := store.CheckKey(); err != nil {
+		unreadable(store.KeyPath, err, func() error { _, err := store.EnsureKey(); return err })
+	} else if _, err := store.EnsureKey(); err != nil {
+		note(store.LevelError, "key file: "+err.Error())
+	}
+	hosts, dupHosts, hostsErr := store.Load()
+	d.Hosts = hosts.Hosts
+	if hostsErr != nil {
+		unreadable(store.HostsPath, hostsErr, nil)
 	}
 	creds, dupCreds, credsErr := store.LoadCreds()
 	d.Creds = creds.Credentials
 	if credsErr != nil {
-		note(store.LevelError, "credentials.yaml: "+credsErr.Error())
+		unreadable(store.CredsPath, credsErr, nil)
 	}
-	var e error
-	if d.SSHConfig, e = store.LoadSSHConfig(); e != nil {
-		note(store.LevelError, "~/.ssh/config: "+e.Error())
+	if d.Errors, err = store.LoadErrors(); err != nil {
+		unreadable(store.ErrorsPath, err, nil)
 	}
-	if d.Known, e = store.LoadKnownHosts(); e != nil {
-		note(store.LevelError, "~/.ssh/known_hosts: "+e.Error())
+	if d.Conns, err = store.LoadConnections(); err != nil {
+		unreadable(store.ConnectionsPath, err, nil)
 	}
-	// The key that seals passwords exists from the first run, not the first
-	// save: a key that appears with the first password is one the user has
-	// no reason to know about until it is lost.
-	if _, err := store.EnsureKey(); err != nil {
-		note(store.LevelError, "key file: "+err.Error())
+	if d.Changes, err = store.LoadChanges(); err != nil {
+		unreadable(store.ChangesPath, err, nil)
 	}
-	for _, n := range reconcileFiles(hosts, creds, credsErr) {
+	// ~/.ssh is not sshu's: its sections say what would not read.
+	if d.SSHConfig, d.SSHConfigErr = store.LoadSSHConfig(); d.SSHConfigErr != nil {
+		note(store.LevelError, "~/.ssh/config: "+d.SSHConfigErr.Error())
+	}
+	if d.Known, d.KnownErr = store.LoadKnownHosts(); d.KnownErr != nil {
+		note(store.LevelError, "~/.ssh/known_hosts: "+d.KnownErr.Error())
+	}
+	for _, n := range reconcileFiles(hosts, hostsErr, creds, credsErr) {
 		note(store.LevelWarn, n)
 	}
 	if len(dupHosts) > 0 {
@@ -176,7 +190,7 @@ func load() (*tui.Data, error) {
 					"was sealed with will open it again.\nThe key file is " + keyPathForMessage() + "."})
 		}
 	}
-	return d, nil
+	return d
 }
 
 // keyPathForMessage is the key's path for a message, vaguer when it cannot
@@ -184,7 +198,7 @@ func load() (*tui.Data, error) {
 func keyPathForMessage() string {
 	p, err := store.KeyPath()
 	if err != nil {
-		return "in sshu's settings directory"
+		return "in sshu's data directory"
 	}
 	return store.FoldHome(p)
 }
@@ -192,12 +206,14 @@ func keyPathForMessage() string {
 // reconcileFiles brings sshu's own files up to today's format, once, at
 // startup, and reports what it could not settle. Nothing is written for a
 // file that did not load: writing back an empty document would delete it.
-func reconcileFiles(hosts store.File, creds store.CredsFile, credsErr error) []string {
+func reconcileFiles(hosts store.File, hostsErr error, creds store.CredsFile, credsErr error) []string {
 	var out []string
-	if hosts.FromNewerSshu() {
+	switch {
+	case hostsErr != nil:
+	case hosts.FromNewerSshu():
 		out = append(out, "hosts.yaml was written by a newer sshu — it is shown as read, "+
 			"but saving will be refused. Upgrade sshu.")
-	} else if hosts.NeedsUpgrade() || hosts.HadPlaintextSecret {
+	case hosts.NeedsUpgrade() || hosts.HadPlaintextSecret:
 		if err := store.Save(hosts); err != nil {
 			out = append(out, "hosts.yaml could not be rewritten: "+err.Error())
 		}

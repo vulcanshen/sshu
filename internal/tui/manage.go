@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"errors"
+	"io/fs"
+
 	tea "github.com/charmbracelet/bubbletea"
 	terminu "github.com/vulcanshen/terminu-go"
 )
@@ -15,8 +18,8 @@ type section struct {
 	id, label, group string
 	body             terminu.Body
 	actions          func() []terminu.Action
-	// shown runs when the section comes into [2].
-	shown func()
+	// fail, when set, is why the file the section shows would not read.
+	fail func() *terminu.Failure
 }
 
 type manage struct {
@@ -90,9 +93,23 @@ func (m *manage) show(sec *section) {
 	m.content.Label = sec.label
 	m.content.Body = sec.body
 	m.content.Actions = sec.actions() // the lib adds the list's own (the filter)
-	if sec.shown != nil {
-		sec.shown()
+	m.content.Fail = nil
+	if sec.fail != nil {
+		m.content.Fail = sec.fail()
 	}
+}
+
+// unreadFailure is what the section of a file outside sshu says when the
+// file would not read: why, in its middle (tdp E3, layout/panel).
+func unreadFailure(file string, err error) *terminu.Failure {
+	if err == nil {
+		return nil
+	}
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		err = pe.Err // the path is the file's, already said
+	}
+	return &terminu.Failure{Fact: "Can't read " + file + ": " + err.Error(), Hint: "Fix it, then start sshu again; see App Log [!]"}
 }
 
 // refresh registers the current section's actions again, after a change that
@@ -110,12 +127,4 @@ func (m *manage) journalsChanged() {
 	if m.cur != nil {
 		m.refresh()
 	}
-}
-
-// unreadErrors is how many errors came in since Errors was last on screen.
-func (m *manage) unreadErrors() int {
-	if m.s.a.Screen() == m.screen && m.cur == m.errs.sec {
-		m.errs.seen()
-	}
-	return m.errs.unread()
 }

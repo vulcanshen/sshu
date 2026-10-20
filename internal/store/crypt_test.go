@@ -9,8 +9,8 @@ import (
 
 // TestMain points the key file at a temporary directory for the whole package.
 //
-// Without it, every test that saves a host creates a key in the USER'S config
-// directory: KeyPath falls back to store.Dir(), and writing the yaml itself to
+// Without it, every test that saves a host creates a key in the USER'S data
+// directory: KeyPath falls back to store.DataDir(), and writing the yaml itself to
 // a t.TempDir() does nothing to change that. It happened once, which is why
 // this is here rather than left to each test to remember.
 func TestMain(m *testing.M) {
@@ -402,10 +402,11 @@ func TestCiphertextWithoutAKeyLoadsAndReports(t *testing.T) {
 	}
 }
 
-// A key file that IS there and is not a key is a different thing: somebody put
-// something else at that path, and carrying on quietly would be the wrong
-// answer to a question with an obvious fix.
-func TestAKeyFileThatIsGarbageStopsTheLoad(t *testing.T) {
+// A key file that IS there and is not a key is the key's own problem: CheckKey
+// names it, for startup to ask about moving it aside (tdp E3), and hosts.yaml
+// is not blamed — it loads, its sealed password kept as it was. Nothing is
+// sealed with a key that cannot be read either: a save is refused.
+func TestAKeyFileThatIsGarbageIsTheKeysProblem(t *testing.T) {
 	keyIn(t)
 	p := filepath.Join(t.TempDir(), "hosts.yaml")
 	if err := SaveTo(p, File{Hosts: []Host{
@@ -416,8 +417,28 @@ func TestAKeyFileThatIsGarbageStopsTheLoad(t *testing.T) {
 
 	kp, _ := KeyPath()
 	os.WriteFile(kp, []byte("not a key at all !!!\n"), 0o600)
-	if _, _, err := LoadFrom(p); err == nil {
-		t.Error("a key file that is not a key should be reported, not worked around")
+	if at, err := CheckKey(); err == nil || at != kp {
+		t.Errorf("CheckKey = %q, %v; want %q and why", at, err, kp)
+	}
+	out, _, err := LoadFrom(p)
+	if err != nil {
+		t.Fatalf("hosts.yaml is fine; the key is not: %v", err)
+	}
+	if len(out.UnreadableSecrets) != 1 || !IsEncrypted(out.Hosts[0].Password) {
+		t.Errorf("want the sealed password kept and named, got %v %q", out.UnreadableSecrets, out.Hosts[0].Password)
+	}
+	if err := SaveTo(p, File{Hosts: []Host{
+		{Name: "db", Host: "h", Port: 22, User: "u", Auth: AuthPassword, Password: "new"},
+	}}); err == nil {
+		t.Error("a password was sealed with a key that cannot be read")
+	}
+}
+
+// A key that is not there yet is no problem for CheckKey: EnsureKey makes it.
+func TestNoKeyYetIsNotAProblem(t *testing.T) {
+	t.Setenv(KeyEnv, filepath.Join(t.TempDir(), "new", keyFileName))
+	if _, err := CheckKey(); err != nil {
+		t.Errorf("CheckKey = %v, want nothing to ask about", err)
 	}
 }
 

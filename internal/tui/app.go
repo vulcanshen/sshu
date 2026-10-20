@@ -7,6 +7,7 @@ package tui
 import (
 	_ "embed"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -48,8 +49,17 @@ type Data struct {
 	ClearChgs   func() error
 
 	// Notes are what startup found wrong with the files. Each goes to the
-	// Errors journal, and a toast says there are some.
+	// App Log, and a toast says there are some.
 	Notes []Note
+
+	// Unreadable are sshu's own files startup could not read: before anything
+	// else, sshu asks to move each aside (tdp E3, when it cannot be read).
+	Unreadable []Unreadable
+
+	// SSHConfigErr and KnownErr are why ~/.ssh/config and ~/.ssh/known_hosts
+	// could not be read: not sshu's own, so their sections say so instead
+	// (tdp E3, layout/panel).
+	SSHConfigErr, KnownErr error
 
 	// Moves are what startup moved to where tdp E3 puts it now, or could not.
 	Moves []store.Move
@@ -64,6 +74,15 @@ type Note struct {
 	Level       string // "warn" or "error"
 	Host, Cause string
 	Detail      string // the whole of it, Cause included
+}
+
+// Unreadable is a file of sshu's own that could not be read, and why.
+type Unreadable struct {
+	Path string
+	Err  error
+	// Fresh starts a new one where it was, once it has moved aside; nil when
+	// sshu writes one the first time it saves anyway.
+	Fresh func() error
 }
 
 // sshu is the app: the three screens over the data.
@@ -126,8 +145,34 @@ func New(d *Data) *sshu {
 // Run runs sshu until it quits.
 func (s *sshu) Run() error { return s.a.Run() }
 
-// start records what startup found and says so once.
-func (s *sshu) start() tea.Cmd {
+// App is sshu's terminu App, for a test to drive (tdptest).
+func (s *sshu) App() *terminu.App { return s.a }
+
+// start asks about the files sshu could not read, then starts.
+func (s *sshu) start() tea.Cmd { return s.moveAside(0) }
+
+// moveAside asks about the i-th file sshu could not read, each after the one
+// before, and starts sshu after the last; Esc on any leaves it (tdp E3).
+// Nothing else runs meanwhile: no grid restored, nothing saved over a file
+// that is still to be asked about.
+func (s *sshu) moveAside(i int) tea.Cmd {
+	if i == len(s.d.Unreadable) {
+		return s.started()
+	}
+	u := s.d.Unreadable[i]
+	return s.a.MoveAside(u.Path, u.Err, func() tea.Cmd {
+		var failed tea.Cmd
+		if u.Fresh != nil {
+			if err := u.Fresh(); err != nil {
+				failed = s.a.ErrorAbout("Start a new one failed", filepath.Base(u.Path), err.Error())
+			}
+		}
+		return tea.Batch(failed, s.moveAside(i+1))
+	})
+}
+
+// started records what startup found and says so once.
+func (s *sshu) started() tea.Cmd {
 	cmds := []tea.Cmd{s.ft.start(), s.sh.start()}
 	// What moved says from where to where in a toast; what could not, or
 	// what the new place already had, in an error popup with both paths, for
@@ -145,6 +190,7 @@ func (s *sshu) start() tea.Cmd {
 		}
 		if len(m.Moved) > 0 {
 			moved = append(moved, fmt.Sprintf("the %s from %s to %s", m.What, from, to))
+			s.a.Log(terminu.Info, fmt.Sprintf("moved %s from %s to %s", strings.Join(m.Moved, ", "), from, to))
 		}
 	}
 	if len(stuck) > 0 {
@@ -156,18 +202,18 @@ func (s *sshu) start() tea.Cmd {
 		says = append(says, "Moved "+strings.Join(moved, ", and "))
 	}
 	if len(s.d.Notes) > 0 {
-		errors := 0
+		kind = terminu.Warning
 		for _, n := range s.d.Notes {
-			s.logError(n.Level, n.Host, "", n.Cause, n.Detail)
-			if n.Level != "warn" {
-				errors++
+			line := oneLine(n.Detail)
+			if n.Host != "" {
+				line = n.Host + ": " + line
+			}
+			s.a.Log(logKind(n.Level), line)
+			if n.Level != store.LevelWarn {
+				kind = terminu.Error
 			}
 		}
-		kind = terminu.Warning
-		if errors > 0 {
-			kind = terminu.Error
-		}
-		says = append(says, plural(len(s.d.Notes), "problem")+" at startup: see Manage → Errors")
+		says = append(says, plural(len(s.d.Notes), "problem")+" at startup: see App Log [!]")
 	}
 	// One toast: a second would replace the first.
 	if len(says) > 0 {
@@ -196,29 +242,19 @@ func (s *sshu) refreshQuit() {
 }
 
 // status is the statusbar at the right of the screen chips (layout/screen):
-// each part "label: value", unread errors in Red, a transfer in flight and
-// the live sessions in Green. It stands against the right edge, so a part
-// that grows pushes the ones on its left: every part but the leftmost keeps
-// its width (tdp L2).
-func (s *sshu) status(w int) string {
-	grey := terminu.Fg(terminu.Overlay0)
-	var parts []string
-	if n := s.mg.unreadErrors(); n > 0 {
-		parts = append(parts, grey.Render("errors: ")+terminu.Fg(terminu.Red).Render(strconv.Itoa(n)))
-	}
+// each part "label: value", a transfer in flight and the live sessions in
+// Green. It stands against the right edge, so a part that grows pushes the
+// ones on its left: every part but the leftmost keeps its width (tdp L2).
+// Errors not seen yet are the footer's (!:N errors).
+func (s *sshu) status(int) []terminu.Span {
+	grey, green := terminu.Fg(terminu.Overlay0), terminu.Fg(terminu.Green)
+	var spans []terminu.Span
 	if t := s.ft.statusText(); t != "" {
-		parts = append(parts, grey.Render("transfer: ")+terminu.Fg(terminu.Green).Render(t))
+		spans = append(spans, terminu.Span{Text: "transfer: ", Style: grey}, terminu.Span{Text: t, Style: green},
+			terminu.Span{Text: "  "})
 	}
-	n := s.sh.liveCount()
-	parts = append(parts, grey.Render("live: ")+terminu.Fg(terminu.Green).Render(fmt.Sprintf("%-2d", n)))
-	text := ""
-	for i, p := range parts {
-		if i > 0 {
-			text += "  "
-		}
-		text += p
-	}
-	return terminu.PadLeft(terminu.Truncate(text, w), w)
+	return append(spans, terminu.Span{Text: "live: ", Style: grey},
+		terminu.Span{Text: fmt.Sprintf("%-2d", s.sh.liveCount()), Style: green})
 }
 
 func (s *sshu) progress() (float64, bool) { return s.ft.progress() }
@@ -237,9 +273,9 @@ func (s *sshu) onMsg(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-// logError records a failure in the Errors journal, on screen and on disk.
-// A journal that cannot be written is not itself journalled: it would fail
-// the same way.
+// logError records a failure in the Errors journal, on screen and on disk,
+// and in the App Log with what the far end said (tdp F5). A journal that
+// cannot be written is not itself journalled: it would fail the same way.
 func (s *sshu) logError(level, host, user, cause, detail string) {
 	e := store.ErrorEntry{At: s.d.Now(), Host: host, User: user, Level: level, Cause: cause, Error: detail}
 	if e.Error == "" {
@@ -250,9 +286,29 @@ func (s *sshu) logError(level, host, user, cause, detail string) {
 		_ = s.d.AppendError(e)
 	}
 	s.mg.journalsChanged()
+	line := cause
+	if host != "" {
+		line = who(user, host) + ": " + cause
+	}
+	if e.Error != cause {
+		line += " · " + oneLine(e.Error)
+	}
+	s.a.Log(logKind(level), line)
 }
 
-// logChange records something the user changed through sshu.
+// logKind is a journal level's kind in the App Log.
+func logKind(level string) terminu.ToastKind {
+	if level == store.LevelWarn {
+		return terminu.Warning
+	}
+	return terminu.Error
+}
+
+// oneLine is text of several lines as one App Log entry.
+func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// logChange records something the user changed through sshu, in the Changes
+// journal and the App Log.
 func (s *sshu) logChange(action string) {
 	e := store.ChangeEntry{At: s.d.Now(), Action: action}
 	s.d.Changes = append(s.d.Changes, e)
@@ -260,6 +316,7 @@ func (s *sshu) logChange(action string) {
 		_ = s.d.AppendChg(e)
 	}
 	s.mg.journalsChanged()
+	s.a.Log(terminu.Info, action)
 }
 
 // logConn records one connection attempt and how it ended.

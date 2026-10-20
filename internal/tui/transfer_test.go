@@ -102,6 +102,7 @@ func TestEveryTransferRowIsAsWideAsTheScreen(t *testing.T) {
 			hs.fullWidth(w, "no host")
 			hs.keys("H", "Enter", "Enter")
 			hs.fullWidth(w, "local")
+			hs.lacks(`\x1b`) // the glyphs' colours are styles, not codes in a cell
 			if w == 80 {
 				hs.keys("Space")
 				hs.fullWidth(w, "space menu")

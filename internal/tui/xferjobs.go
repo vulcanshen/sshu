@@ -152,7 +152,7 @@ func (t *transfer) tick() tea.Cmd {
 		return nil
 	}
 	t.ticking = true
-	return tea.Tick(xferEvery, func(time.Time) tea.Msg { return xferTick{} })
+	return t.s.a.Tick(xferEvery, func(time.Time) tea.Msg { return xferTick{} })
 }
 
 // onXferTick redraws the arrivals and settles the jobs that ended: the

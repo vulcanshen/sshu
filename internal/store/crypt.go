@@ -20,7 +20,7 @@ import (
 //	protects against  a hosts.yaml pasted into Slack, committed by accident,
 //	                  or picked up on its own by a backup — the file is now
 //	                  ciphertext and says nothing
-//	does NOT protect  the whole config directory being synced or copied: the
+//	does NOT protect  the whole data directory being synced or copied: the
 //	                  key is in it. Nor anything else running as this user,
 //	                  which can read the key exactly as sshu does.
 //
@@ -29,13 +29,13 @@ import (
 // actually escape — but §8.3's warning stays, and the directory is still not
 // something to sync.
 //
-// SSHU__KEY_FILE moves the key somewhere that is not copied with the config,
+// SSHU__KEY_FILE moves the key somewhere that is not copied with the data,
 // which is the one way to cover the second row. It is deliberately not the
-// default: a key outside the config directory is a key the user has to
+// default: a key outside the data directory is a key the user has to
 // remember to back up, and losing it loses every password.
 //
 // Machine-bound derivation (a key computed from /etc/machine-id rather than
-// stored) was considered and rejected. It would cover a config directory
+// stored) was considered and rejected. It would cover a data directory
 // copied to ANOTHER machine, but /etc/machine-id changes every time a
 // container is rebuilt — and sshu spends half its life inside containers and
 // on remote Linux boxes — while a reinstall would lose every password with no
@@ -46,7 +46,7 @@ import (
 // work with no migration step: read the plaintext, write it back encrypted.
 const encPrefix = "ENC:"
 
-// keyFileName is the key's name inside the config directory.
+// keyFileName is the key's name inside the data directory.
 //
 // A dotfile, because it is the one thing in there that is NOT for reading or
 // hand-editing. Everything else in the directory invites it — hosts.yaml says
@@ -76,11 +76,25 @@ func KeyPath() (string, error) {
 	if p := strings.TrimSpace(os.Getenv(KeyEnv)); p != "" {
 		return ExpandTilde(p), nil
 	}
-	dir, err := Dir()
+	dir, err := DataDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(dir, keyFileName), nil
+}
+
+// CheckKey reports a key file that is there but cannot be read, with its
+// path: startup asks to move it aside (tdp E3, when it cannot be read). One
+// that is not there is no problem; EnsureKey makes it.
+func CheckKey() (string, error) {
+	path, err := KeyPath()
+	if err != nil {
+		return "", nil // EnsureKey says so
+	}
+	if _, err := readKey(path); err != nil && !errors.Is(err, ErrNoKey) {
+		return path, err
+	}
+	return path, nil
 }
 
 // EnsureKey creates the key if it is not there yet, and returns it either way.
@@ -238,21 +252,23 @@ func anyEncrypted(values []string) bool {
 // cannot use — the connection will fail — but the ciphertext is still on disk,
 // and putting the right key back recovers it. Blanking them would look tidier
 // for one session and lose the password on the next save.
-func decryptInto(names []string, secrets []*string) ([]string, error) {
+func decryptInto(names []string, secrets []*string) []string {
 	vals := make([]string, len(secrets))
 	for i, s := range secrets {
 		vals[i] = *s
 	}
 	if !anyEncrypted(vals) {
-		return nil, nil
+		return nil
 	}
 	key, err := loadKey()
-	if errors.Is(err, ErrNoKey) {
-		// Ciphertext with no key at all. That is every sealed secret being
-		// unreadable — news — and NOT a broken file. Returning an error here
-		// stopped sshu from starting at all, which put the user outside the one
-		// program that could show them what was wrong, while every host that
-		// authenticates by key was perfectly fine.
+	if err != nil {
+		// Ciphertext with no key that opens it. That is every sealed secret
+		// being unreadable — news — and NOT a broken file. Returning an error
+		// here stopped sshu from starting at all, which put the user outside
+		// the one program that could show them what was wrong, while every host
+		// that authenticates by key was perfectly fine. A key file that IS there
+		// and cannot be read is the key's own problem: startup asks to move it
+		// aside (CheckKey), and this file is not the one to blame.
 		//
 		// The secrets keep their stored values, so restoring the key file
 		// recovers all of them.
@@ -262,13 +278,7 @@ func decryptInto(names []string, secrets []*string) ([]string, error) {
 				bad = append(bad, names[i])
 			}
 		}
-		return bad, nil
-	}
-	if err != nil {
-		// A key file that IS there and cannot be parsed is a different thing:
-		// somebody put something else at that path, and quietly carrying on
-		// would be the wrong answer to a question with an obvious fix.
-		return nil, err
+		return bad
 	}
 	var bad []string
 	for i, s := range secrets {
@@ -279,7 +289,7 @@ func decryptInto(names []string, secrets []*string) ([]string, error) {
 		}
 		*s = plain
 	}
-	return bad, nil
+	return bad
 }
 
 // encryptInto seals every secret in place. The key is created if it is not

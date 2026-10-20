@@ -29,7 +29,7 @@ func cleanHome(t *testing.T) string {
 	for _, v := range []string{"SSHU__CONFIG", "SSHU__STATE", "SSHU__DATA", "XDG_CONFIG_HOME"} {
 		t.Setenv(v, "")
 	}
-	t.Cleanup(func() { settingsAt, journalsAt = "", "" })
+	t.Cleanup(func() { settingsAt, dataAt = "", "" })
 	return home
 }
 
@@ -43,24 +43,31 @@ func write(t *testing.T, path string) {
 	}
 }
 
-// The settings directory macOS kept in ~/Library/Application Support moves,
-// whole, to ~/.config/sshu the first time, and never again (tdp E3).
+// The settings directory macOS kept in ~/Library/Application Support moves
+// to ~/.config/sshu the first time, and never again; the data in it goes on
+// to ~/.sshu (tdp E3).
 func TestTheOldMacOSDirectoryMovesOnce(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("the old directory differed only on macOS")
 	}
 	home := cleanHome(t)
 	old := filepath.Join(home, "Library", "Application Support", "sshu")
+	write(t, filepath.Join(old, "config.yaml"))
 	write(t, filepath.Join(old, "hosts.yaml"))
 	write(t, filepath.Join(old, ".sshukey"))
 	moves := Migrate()
 	dir := filepath.Join(home, ".config", "sshu")
-	if len(moves) == 0 || moves[0].What != "settings" || moves[0].From != old || moves[0].To != dir || moves[0].Err != nil {
-		t.Fatalf("moves = %+v, want the settings moved from %q to %q", moves, old, dir)
+	data := filepath.Join(home, ".sshu")
+	if len(moves) != 2 || moves[0].What != "settings" || moves[0].From != old || moves[0].To != dir || moves[0].Err != nil ||
+		moves[1].What != "data" || moves[1].From != dir || moves[1].To != data || moves[1].Err != nil {
+		t.Fatalf("moves = %+v, want the settings moved from %q to %q, then the data to %q", moves, old, dir, data)
+	}
+	if !exists(filepath.Join(dir, "config.yaml")) {
+		t.Errorf("config.yaml did not arrive in %s", dir)
 	}
 	for _, f := range []string{"hosts.yaml", ".sshukey"} {
-		if !exists(filepath.Join(dir, f)) {
-			t.Errorf("%s did not arrive in %s", f, dir)
+		if !exists(filepath.Join(data, f)) {
+			t.Errorf("%s did not arrive in %s", f, data)
 		}
 	}
 	if exists(old) {
@@ -82,7 +89,7 @@ func TestAnOldDirectoryThatCannotMoveStaysInUse(t *testing.T) {
 	}
 	home := cleanHome(t)
 	old := filepath.Join(home, "Library", "Application Support", "sshu")
-	write(t, filepath.Join(old, "hosts.yaml"))
+	write(t, filepath.Join(old, "config.yaml"))
 	write(t, filepath.Join(home, ".config")) // a file where the directory goes
 	moves := Migrate()
 	if len(moves) == 0 || moves[0].What != "settings" || moves[0].Err == nil {
@@ -91,52 +98,114 @@ func TestAnOldDirectoryThatCannotMoveStaysInUse(t *testing.T) {
 	if got, _ := Dir(); got != old {
 		t.Errorf("Dir = %q, want the old directory %q", got, old)
 	}
-	if !exists(filepath.Join(old, "hosts.yaml")) {
-		t.Error("the old directory lost hosts.yaml")
+	if !exists(filepath.Join(old, "config.yaml")) {
+		t.Error("the old directory lost config.yaml")
 	}
 }
 
-// The journals the settings directory held move to ~/.sshu: they are data
+// What the settings directory held that is data — the hosts and credentials
+// the user wrote, the key that seals them, the journals — moves to ~/.sshu
 // (tdp E3). The settings stay.
-func TestTheJournalsMoveToTheDataDirectory(t *testing.T) {
+func TestTheDataMovesToTheDataDirectory(t *testing.T) {
 	home := cleanHome(t)
+	t.Setenv(KeyEnv, "")
 	cfg := filepath.Join(home, ".config", "sshu")
-	write(t, filepath.Join(cfg, "hosts.yaml"))
-	write(t, filepath.Join(cfg, "errors.yaml"))
-	write(t, filepath.Join(cfg, "changes.yaml"))
+	names := []string{".sshukey", "hosts.yaml", "credentials.yaml", "errors.yaml", "changes.yaml"}
+	for _, n := range append([]string{"config.yaml"}, names...) {
+		write(t, filepath.Join(cfg, n))
+	}
 	moves := Migrate()
 	data := filepath.Join(home, ".sshu")
-	if len(moves) != 1 || moves[0].What != "journals" || moves[0].From != cfg || moves[0].To != data || moves[0].Err != nil {
-		t.Fatalf("moves = %+v, want the journals moved from %q to %q", moves, cfg, data)
+	if len(moves) != 1 || moves[0].What != "data" || moves[0].From != cfg || moves[0].To != data || moves[0].Err != nil ||
+		!slices.Equal(moves[0].Moved, names) {
+		t.Fatalf("moves = %+v, want %v moved from %q to %q", moves, names, cfg, data)
 	}
-	for _, f := range []string{"errors.yaml", "changes.yaml"} {
+	for _, f := range names {
 		if !exists(filepath.Join(data, f)) || exists(filepath.Join(cfg, f)) {
 			t.Errorf("%s did not move", f)
 		}
 	}
-	if !exists(filepath.Join(cfg, "hosts.yaml")) {
-		t.Error("hosts.yaml left the settings directory")
+	if !exists(filepath.Join(cfg, "config.yaml")) {
+		t.Error("config.yaml left the settings directory")
 	}
-	if got, _ := ErrorsPath(); got != filepath.Join(data, "errors.yaml") {
-		t.Errorf("ErrorsPath = %q, want it in %s", got, data)
+	for _, f := range []func() (string, error){HostsPath, CredsPath, KeyPath, ErrorsPath} {
+		if got, _ := f(); filepath.Dir(got) != data {
+			t.Errorf("%q is not in %s", got, data)
+		}
 	}
 	if again := Migrate(); len(again) != 0 {
 		t.Errorf("a second start moved %+v", again)
 	}
 }
 
-// Journals that cannot move stay in use where they are.
-func TestJournalsThatCannotMoveStayInUse(t *testing.T) {
+// Data that cannot move stays in use where it is.
+func TestDataThatCannotMoveStaysInUse(t *testing.T) {
 	home := cleanHome(t)
 	cfg := filepath.Join(home, ".config", "sshu")
+	write(t, filepath.Join(cfg, "hosts.yaml"))
 	write(t, filepath.Join(cfg, "errors.yaml"))
 	write(t, filepath.Join(home, ".sshu")) // a file where the directory goes
 	moves := Migrate()
-	if len(moves) != 1 || moves[0].What != "journals" || moves[0].Err == nil {
-		t.Fatalf("moves = %+v, want the journals move to fail", moves)
+	if len(moves) != 1 || moves[0].What != "data" || moves[0].Err == nil {
+		t.Fatalf("moves = %+v, want the data move to fail", moves)
 	}
-	if got, _ := ErrorsPath(); got != filepath.Join(cfg, "errors.yaml") {
-		t.Errorf("ErrorsPath = %q, want it where it was", got)
+	for _, f := range []func() (string, error){HostsPath, ErrorsPath} {
+		if got, _ := f(); filepath.Dir(got) != cfg {
+			t.Errorf("%q is not where it was, in %s", got, cfg)
+		}
+	}
+}
+
+// SSHU__DATA says where the data goes: what the settings directory held
+// moves there.
+func TestTheDataMovesToSSHU__DATA(t *testing.T) {
+	home := cleanHome(t)
+	cfg := filepath.Join(home, ".config", "sshu")
+	data := filepath.Join(home, "elsewhere")
+	t.Setenv("SSHU__DATA", data)
+	write(t, filepath.Join(cfg, "hosts.yaml"))
+	if moves := Migrate(); len(moves) != 1 || moves[0].To != data || moves[0].Err != nil {
+		t.Fatalf("moves = %+v, want hosts.yaml moved to %q", moves, data)
+	}
+	if !exists(filepath.Join(data, "hosts.yaml")) {
+		t.Error("hosts.yaml is not in SSHU__DATA")
+	}
+}
+
+// Data that cannot move to SSHU__DATA stays in use where it is, the variable
+// notwithstanding: it is not there.
+func TestDataThatCannotMoveToSSHU__DATAStaysInUse(t *testing.T) {
+	home := cleanHome(t)
+	cfg := filepath.Join(home, ".config", "sshu")
+	write(t, filepath.Join(cfg, "hosts.yaml"))
+	write(t, filepath.Join(home, "file"))
+	t.Setenv("SSHU__DATA", filepath.Join(home, "file", "data"))
+	if moves := Migrate(); len(moves) != 1 || moves[0].Err == nil {
+		t.Fatalf("moves = %+v, want the move to fail", moves)
+	}
+	if got, _ := HostsPath(); filepath.Dir(got) != cfg {
+		t.Errorf("HostsPath = %q, want it where it was, in %s", got, cfg)
+	}
+}
+
+// The key and the files it seals go to the data directory together: with
+// hosts.yaml already there, the key stays beside the credentials it opens.
+func TestTheKeyAndWhatItSealsMoveToTheDataTogether(t *testing.T) {
+	home := cleanHome(t)
+	t.Setenv(KeyEnv, "")
+	cfg := filepath.Join(home, ".config", "sshu")
+	data := filepath.Join(home, ".sshu")
+	write(t, filepath.Join(cfg, ".sshukey"))
+	write(t, filepath.Join(cfg, "credentials.yaml"))
+	write(t, filepath.Join(cfg, "errors.yaml"))
+	write(t, filepath.Join(data, "hosts.yaml"))
+	moves := Migrate()
+	if len(moves) != 1 || !slices.Equal(moves[0].Moved, []string{"errors.yaml"}) ||
+		!slices.Equal(moves[0].Left, []string{".sshukey", "credentials.yaml"}) {
+		t.Fatalf("moves = %+v, want the key kept with its credentials and errors.yaml moved", moves)
+	}
+	if exists(filepath.Join(data, ".sshukey")) {
+		t.Error("the key left credentials.yaml behind")
 	}
 }
 
@@ -220,8 +289,8 @@ func TestAJournalTheDataDirectoryHasStays(t *testing.T) {
 	}
 }
 
-// SSHU__STATE moves state.yaml and SSHU__DATA the journals; neither moves
-// the settings (tdp E2, tdp E3).
+// SSHU__STATE moves state.yaml and SSHU__DATA the data; neither moves the
+// settings (tdp E2, tdp E3).
 func TestStateAndDataFollowTheirVariables(t *testing.T) {
 	cleanHome(t)
 	t.Setenv("SSHU__CONFIG", "/tmp/sshu-config")
@@ -233,12 +302,13 @@ func TestStateAndDataFollowTheirVariables(t *testing.T) {
 	if got, _ := StatePath(); got != "/tmp/sshu-state/state.yaml" {
 		t.Errorf("StatePath = %q, want it in SSHU__STATE", got)
 	}
-	for _, f := range []func() (string, error){ErrorsPath, ConnectionsPath, ChangesPath} {
+	t.Setenv(KeyEnv, "")
+	for _, f := range []func() (string, error){HostsPath, CredsPath, KeyPath, ErrorsPath, ConnectionsPath, ChangesPath} {
 		if got, _ := f(); filepath.Dir(got) != "/tmp/sshu-data" {
-			t.Errorf("journal at %q, want it in SSHU__DATA", got)
+			t.Errorf("%q, want it in SSHU__DATA", got)
 		}
 	}
-	if got, _ := HostsPath(); filepath.Dir(got) != "/tmp/sshu-config" {
-		t.Errorf("hosts.yaml at %q: neither variable may move the settings", got)
+	if got, _ := ConfigPath(); filepath.Dir(got) != "/tmp/sshu-config" {
+		t.Errorf("config.yaml at %q: neither variable may move the settings", got)
 	}
 }

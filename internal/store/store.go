@@ -9,10 +9,9 @@ import (
 	"strings"
 )
 
-// Dir resolves the settings directory: hosts.yaml, credentials.yaml,
-// config.yaml, the key, and state.yaml unless SSHU__STATE moves it. hosts and
-// credentials are lists the user writes, like ~/.ssh/config, so tdp E3 counts
-// them as settings.
+// Dir resolves the settings directory: config.yaml, and state.yaml unless
+// SSHU__STATE moves it. Only sshu's own options are settings (tdp E3); the
+// hosts and credentials the user writes are data, in DataDir.
 //
 // tdp E3 puts it in $XDG_CONFIG_HOME/sshu, else ~/.config/sshu, on every
 // platform; SSHU__CONFIG names it outright. A directory Migrate could not
@@ -62,15 +61,16 @@ func StateDir() (string, error) {
 	return Dir()
 }
 
-// DataDir holds the three journals: SSHU__DATA when set, ~/.sshu otherwise
-// (tdp E3: a log, once deleted, is gone). Journals Migrate could not move
-// are used where they are.
+// DataDir holds hosts.yaml, credentials.yaml, the key that seals their
+// passwords and the three journals: SSHU__DATA when set, ~/.sshu otherwise
+// (tdp E3: what the user wrote, or a log, once deleted, is gone). Data
+// Migrate could not move is used where it is.
 func DataDir() (string, error) {
+	if dataAt != "" {
+		return dataAt, nil
+	}
 	if p := os.Getenv("SSHU__DATA"); p != "" {
 		return p, nil
-	}
-	if journalsAt != "" {
-		return journalsAt, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -81,7 +81,7 @@ func DataDir() (string, error) {
 
 // HostsPath is the full path to hosts.yaml.
 func HostsPath() (string, error) {
-	dir, err := Dir()
+	dir, err := DataDir()
 	if err != nil {
 		return "", err
 	}

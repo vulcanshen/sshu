@@ -309,15 +309,15 @@ func (sd *side) redraw() {
 	rows := make([]terminu.Row, len(sd.entries))
 	for i, e := range sd.entries {
 		p := remote.Join(sd.cwd, e.Name)
-		glyph := terminu.Fg(terminu.Overlay0).Render(glyphFile)
-		size := humanSize(e.Size)
+		glyph, color, size := glyphFile, terminu.Overlay0, humanSize(e.Size)
 		if e.IsDir {
-			glyph, size = terminu.Fg(terminu.Blue).Render(glyphDir), "-"
+			glyph, color, size = glyphDir, terminu.Blue, "-"
 		}
 		if arriving != "" && sd.t.receiving(p) {
-			glyph = terminu.Fg(terminu.Green).Render(arriving)
+			glyph, color = arriving, terminu.Green
 		}
-		rows[i] = terminu.Row{ID: p, Cells: []string{glyph + " " + e.Name, size}}
+		rows[i] = terminu.Row{ID: p, Cells: []string{glyph + " " + e.Name, size},
+			Styled: [][]terminu.Span{{{Text: glyph, Style: terminu.Fg(color)}, {Text: " " + e.Name}}}}
 	}
 	sd.files.SetRows(rows)
 	sd.syncMarks()
@@ -680,7 +680,7 @@ func (t *transfer) rearm() tea.Cmd {
 		return nil
 	}
 	gen := t.watchGen
-	return tea.Tick(watchEvery, func(time.Time) tea.Msg { return watchTick{gen: gen} })
+	return t.s.a.Tick(watchEvery, func(time.Time) tea.Msg { return watchTick{gen: gen} })
 }
 
 func (t *transfer) onWatchTick(m watchTick) tea.Cmd {

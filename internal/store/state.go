@@ -31,19 +31,26 @@ func StatePath() (string, error) {
 	return filepath.Join(dir, "state.yaml"), nil
 }
 
-// LoadState reads state.yaml; a missing or broken one is the zero State.
-func LoadState() State {
+// LoadState reads state.yaml; a missing one is the zero State. One that
+// cannot be read is the zero State and why, for startup to ask about (tdp
+// E3, when it cannot be read).
+func LoadState() (State, error) {
 	var st State
 	p, err := StatePath()
 	if err != nil {
-		return st
+		return st, nil // nowhere to keep it: SaveState says so
 	}
 	raw, err := os.ReadFile(p)
-	if err != nil {
-		return st
+	if os.IsNotExist(err) {
+		return st, nil
 	}
-	_ = yaml.Unmarshal(raw, &st)
-	return st
+	if err != nil {
+		return st, err
+	}
+	if err := yaml.Unmarshal(raw, &st); err != nil {
+		return State{}, err
+	}
+	return st, nil
 }
 
 // SaveState writes state.yaml.

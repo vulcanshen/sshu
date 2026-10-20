@@ -306,11 +306,12 @@ func (h *sshScreen) redrawList() {
 		if x.ended {
 			continue
 		}
-		glyph := terminu.Fg(terminu.Green).Render(authGlyph(string(x.host.Auth)))
+		glyph, color := authGlyph(string(x.host.Auth)), terminu.Green
 		if x.hidden {
-			glyph = terminu.Fg(terminu.Overlay0).Render(authGlyph(string(x.host.Auth)))
+			color = terminu.Overlay0
 		}
-		rows = append(rows, terminu.Row{ID: strconv.Itoa(x.id), Cells: []string{glyph + " " + h.label(x)}})
+		rows = append(rows, terminu.Row{ID: strconv.Itoa(x.id), Cells: []string{glyph + " " + h.label(x)},
+			Styled: [][]terminu.Span{{{Text: glyph, Style: terminu.Fg(color)}, {Text: " " + h.label(x)}}}})
 	}
 	h.list.SetRows(rows)
 }
@@ -350,7 +351,9 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 		x.log = f.Name()
 		f.Close()
 	}
-	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name,
+	// The user types commands of their own in it: it has the history and the
+	// selection (components/dialog/terminal).
+	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name, Interactive: true,
 		Command: sshArgs(addr, h.s.d.Config.Seconds(), x.log), Env: sshEnv(addr, selfPath())}
 	h.unlock(x) // the keys of a cell that is not locked
 	// Until ssh first prints, it is connecting: typing would land minutes
@@ -390,12 +393,13 @@ func (h *sshScreen) focus(x *session) tea.Cmd {
 var cellSteps = map[string][2]int{"Alt-←": {-1, 0}, "Alt-→": {1, 0}, "Alt-↑": {0, -1}, "Alt-↓": {0, 1}}
 
 // unlock gives x's cell sshu's own keys: Alt-Esc takes the keyboard back
-// (tdp K10), Alt-z zooms, Alt-arrows go to the cell that way, Alt-v selects
-// and copies, Alt-Enter locks, PgUp goes back through its history.
+// (tdp K10), Alt-z zooms, Alt-arrows go to the cell that way, Alt-Enter
+// locks; the lib's Alt-v selects and copies, PgUp goes back through its
+// history.
 func (h *sshScreen) unlock(x *session) {
 	t := x.term
 	x.locked = false
-	t.ExitKey, t.SelectKey, t.Copy, t.History = "", "Alt-v", copyText, true
+	t.ExitKey, t.Copy, t.AllKeys = "", copyText, false
 	t.Keys = []terminu.TerminalKey{
 		{Key: "Alt-z", Desc: "zoom", Do: func() tea.Cmd { h.zoomed = !h.zoomed; return nil }},
 		{Key: "Alt-←|→|↑|↓", Keys: []string{"Alt-←", "Alt-→", "Alt-↑", "Alt-↓"}, Desc: "cell",
@@ -405,13 +409,14 @@ func (h *sshScreen) unlock(x *session) {
 }
 
 // lock hands every key to the program in x's cell — Alt-Esc, Alt-z, the
-// Alt-arrows, Alt-v, PgUp — so a sshu nested in it gets them all. Alt-Enter
-// is then the exit key (tdp K10: one is always the app's); leaving the cell
-// unlocks it.
+// Alt-arrows, Alt-v, PgUp|PgDn — so a sshu nested in it gets them all, and
+// the selection and the history are the innermost one's (components/dialog/
+// terminal). Alt-Enter is then the exit key (tdp K10: one is always the
+// app's); leaving the cell unlocks it.
 func (h *sshScreen) lock(x *session) {
 	t := x.term
 	x.locked = true
-	t.ExitKey, t.SelectKey, t.History, t.Keys = "Alt-Enter", "", false, nil
+	t.ExitKey, t.AllKeys, t.Keys = "Alt-Enter", true, nil
 }
 
 func (h *sshScreen) open() tea.Cmd {

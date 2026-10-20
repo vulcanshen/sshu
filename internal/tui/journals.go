@@ -57,10 +57,9 @@ func clearAction(s *sshu, label, file string, clear func() error, after func()) 
 // --- Errors -------------------------------------------------------------------
 
 type errorsSection struct {
-	s     *sshu
-	sec   *section
-	list  *terminu.List
-	shown int // error entries there were when Errors was last on screen
+	s    *sshu
+	sec  *section
+	list *terminu.List
 }
 
 func newErrorsSection(s *sshu) *errorsSection {
@@ -68,15 +67,14 @@ func newErrorsSection(s *sshu) *errorsSection {
 	e.list = &terminu.List{
 		Columns:   []terminu.Column{{Title: "Time", Drop: 2}, {Title: "Host", Shrink: true, Drop: 1}, {Title: "Cause", Shrink: true}},
 		EmptyFact: "Nothing has gone wrong",
-		EmptyHint: "Failed connections and unreadable files land here; press [Space] to see what you can do",
+		EmptyHint: "Failed connections, transfers and saves land here; press [Space] to see what you can do",
 	}
 	e.reload()
-	e.shown = e.count()
 	return e
 }
 
 func (e *errorsSection) section() *section {
-	e.sec = &section{id: "errors", label: "Errors", group: "logs", body: e.list, actions: e.actions, shown: e.seen}
+	e.sec = &section{id: "errors", label: "Errors", group: "logs", body: e.list, actions: e.actions}
 	return e.sec
 }
 
@@ -85,27 +83,10 @@ func (e *errorsSection) actions() []terminu.Action {
 		{Key: "Enter", Label: "Open", Desc: "everything the far end said", Scope: terminu.ItemScope, Hint: "open", Do: e.open},
 	}
 	if len(e.s.d.Errors) > 0 {
-		acts = append(acts, clearAction(e.s, "errors", "errors.yaml", e.s.d.ClearErrors, func() {
-			e.s.d.Errors = nil
-			e.shown = 0
-		}))
+		acts = append(acts, clearAction(e.s, "errors", "errors.yaml", e.s.d.ClearErrors, func() { e.s.d.Errors = nil }))
 	}
 	return acts
 }
-
-// count is how many entries are errors: only those count as unread.
-func (e *errorsSection) count() int {
-	n := 0
-	for _, x := range e.s.d.Errors {
-		if x.Level != store.LevelWarn {
-			n++
-		}
-	}
-	return n
-}
-
-func (e *errorsSection) seen()       { e.shown = e.count() }
-func (e *errorsSection) unread() int { return max(e.count()-e.shown, 0) }
 
 func (e *errorsSection) reload() {
 	es := e.s.d.Errors
@@ -120,9 +101,8 @@ func (e *errorsSection) reload() {
 		if x.Level == store.LevelWarn {
 			color = terminu.Peach
 		}
-		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{
-			jTime(x.At), whoCell(x.User, x.Host), terminu.Fg(color).Render(cause(x)),
-		}})
+		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{jTime(x.At), whoCell(x.User, x.Host), cause(x)},
+			Styled: [][]terminu.Span{nil, nil, {{Text: cause(x), Style: terminu.Fg(color)}}}})
 	}
 	e.list.SetRows(rows)
 }
@@ -185,11 +165,12 @@ func (c *connsSection) actions() []terminu.Action {
 	}
 }
 
-func resultText(r string) string {
+// resultSpans is a connection's result in its colour.
+func resultSpans(r string) []terminu.Span {
 	if r == store.ResultSuccess {
-		return terminu.Fg(terminu.Green).Render(r)
+		return []terminu.Span{{Text: r, Style: terminu.Fg(terminu.Green)}}
 	}
-	return terminu.Fg(terminu.Red).Render(r)
+	return []terminu.Span{{Text: r, Style: terminu.Fg(terminu.Red)}}
 }
 
 func (c *connsSection) reload() {
@@ -201,7 +182,8 @@ func (c *connsSection) reload() {
 	rows := make([]terminu.Row, 0, len(es))
 	for i := len(es) - 1; i >= 0; i-- {
 		x := es[i]
-		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{jTime(x.At), whoCell(x.User, x.Host), resultText(x.Result)}})
+		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{jTime(x.At), whoCell(x.User, x.Host), x.Result},
+			Styled: [][]terminu.Span{nil, nil, resultSpans(x.Result)}})
 	}
 	c.list.SetRows(rows)
 }

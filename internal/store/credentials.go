@@ -94,7 +94,7 @@ func (f CredsFile) Index(name string) int {
 
 // CredsPath is the full path to credentials.yaml.
 func CredsPath() (string, error) {
-	dir, err := Dir()
+	dir, err := DataDir()
 	if err != nil {
 		return "", err
 	}
@@ -140,11 +140,7 @@ func LoadCredsFrom(path string) (CredsFile, []string, error) {
 			f.HadPlaintextSecret = true
 		}
 	}
-	bad, decErr := decryptInto(names, secrets)
-	if decErr != nil {
-		return f, dropped, fmt.Errorf("%s: %w", path, decErr)
-	}
-	f.UnreadableSecrets = bad
+	f.UnreadableSecrets = decryptInto(names, secrets)
 	return f, dropped, nil
 }
 

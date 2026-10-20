@@ -35,7 +35,8 @@ func newKnownSection(s *sshu) *knownSection {
 }
 
 func (k *knownSection) section() *section {
-	k.sec = &section{id: "known", label: "KnownHosts", group: "ssh", body: k.list, actions: k.actions}
+	k.sec = &section{id: "known", label: "KnownHosts", group: "ssh", body: k.list, actions: k.actions,
+		fail: func() *terminu.Failure { return unreadFailure("~/.ssh/known_hosts", k.s.d.KnownErr) }}
 	return k.sec
 }
 
