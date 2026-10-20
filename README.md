@@ -27,7 +27,7 @@ Inspired by [Termius](https://termius.com/) — hosts, sessions and transfers un
 - **Your `~/.ssh` files, in place** — browse and edit `~/.ssh/config` and `~/.ssh/known_hosts` without losing a comment. An `auth: sshconfig` host stores nothing and lets `~/.ssh/config` decide everything — ProxyJump, the agent, keys.
 - **Reusable credentials** — define a user and how it authenticates once, use it from any number of hosts.
 - **Tags** — your own words on a host, found by the filter: type `prod` and the whole group is there.
-- **Failures that explain themselves** — a session that ends badly says what ssh said, and keeps it in Manage → Errors, next to a record of every connection and every change you made.
+- **Failures that explain themselves** — a session that ends badly says what ssh said, and keeps it in Manage → Errors, next to a record of every connection and every change you made. `!` opens the App Log: what sshu did and what went wrong since it started.
 - **Passwords are encrypted on disk** — and never shown, and never passed through the environment.
 
 ## Install
@@ -66,9 +66,9 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
 ### First start
 
-sshu opens on Manage → Hosts with an empty list, and makes the settings directory and the key that will encrypt your passwords (see [Where your data lives](#where-your-data-lives)).
+sshu opens on Manage → Hosts with an empty list, and makes `~/.sshu` and the key that will encrypt your passwords (see [Where your data lives](#where-your-data-lives)).
 
-Coming from an older sshu, what it kept elsewhere moves on the first start: on macOS the settings directory from `~/Library/Application Support/sshu` to `~/.config/sshu`, and the three journals from the settings directory to `~/.sshu`. It moves item by item, and a message says from where to where. What the new place already has stays in the old one, and what cannot be moved stays in use where it is: sshu shows both paths, for you to merge or move it yourself.
+Coming from an older sshu, what it kept elsewhere moves on the first start: on macOS the settings directory from `~/Library/Application Support/sshu` to `~/.config/sshu`, and the hosts, the credentials, the key that encrypts them and the three journals from the settings directory to `~/.sshu`; the key goes with the files it encrypts, or all of them stay. It moves item by item, and a message says from where to where. What the new place already has stays in the old one, and what cannot be moved stays in use where it is: sshu shows both paths, for you to merge or move it yourself.
 
 ### Uninstall
 
@@ -76,7 +76,7 @@ Coming from an older sshu, what it kept elsewhere moves on the first start: on m
 curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh | sh
 ```
 
-It removes the binary, then asks before touching the settings directory — your hosts and credentials are there — and the journals.
+It removes the binary, then asks before touching the settings directory, and the data directory — your hosts and credentials are there.
 
 ## Quick start
 
@@ -100,6 +100,7 @@ The keys that work everywhere:
 |---|---|
 | `Space` | What can I do here: the focused panel's menu; its last row opens the global operations (switch screens, quit) |
 | `?` | The keys of whatever is in front |
+| `!` | The App Log: what sshu did and what went wrong since it started, newest last; the footer says when there are errors you have not seen |
 | `Tab`, `1`–`9` | The next panel, or panel `[N]` of this screen |
 | `Enter` | The obvious thing: connect, open, go in |
 | `Esc` | Back one step — close the top popup, clear a filter, up a directory |
@@ -171,7 +172,7 @@ On `[1]`: `H` hides a session's cell from the grid or shows it again, `C` closes
 
 ### Where your data lives
 
-Two directories: what you set up, and the journals sshu writes.
+Two directories: sshu's own settings, and your data — the hosts and credentials you wrote, and the journals sshu keeps.
 
 | The settings directory | |
 |---|---|
@@ -179,18 +180,20 @@ Two directories: what you set up, and the journals sshu writes.
 | `$XDG_CONFIG_HOME/sshu` | when that is set |
 | `~/.config/sshu` | otherwise, on every platform |
 
-The journals go in `~/.sshu` (`$SSHU__DATA` when set).
+The data goes in `~/.sshu` (`$SSHU__DATA` when set).
 
 | File | Where | What is in it |
 |---|---|---|
-| `hosts.yaml` | settings | your hosts |
-| `credentials.yaml` | settings | reusable identities — a name, a user and how it authenticates; a host uses one with `auth: credential` and `credential: <name>` |
+| `hosts.yaml` | `~/.sshu` | your hosts |
+| `credentials.yaml` | `~/.sshu` | reusable identities — a name, a user and how it authenticates; a host uses one with `auth: credential` and `credential: <name>` |
 | `config.yaml` | settings | settings (optional, below) |
 | `state.yaml` | settings (`$SSHU__STATE` moves it) | how the SSH grid is arranged; sshu writes it, and deleting it only brings back the default |
-| `.sshukey` | settings | the key that encrypts stored passwords |
+| `.sshukey` | `~/.sshu` | the key that encrypts stored passwords |
 | `errors.yaml` · `connections.yaml` · `changes.yaml` | `~/.sshu` | the three journals |
 
 All plain YAML you can edit by hand, kept at `0600`.
+
+A file of these sshu cannot read — a typo in `hosts.yaml`, a file it may not open — is asked about when sshu starts: `Enter` renames it to `hosts.yaml.bak` (`.bak.1` and on when that is taken, never over one) and starts a new one, `Esc` leaves sshu and prints which file and why. A key that will not read is asked about on its own: the passwords it encrypted stay as they are, for the old key to open again.
 
 ### Settings — `config.yaml`
 
@@ -215,9 +218,9 @@ Stored passwords are encrypted with AES-256-GCM, so the `password:` field reads 
 |  |  |
 |---|---|
 | **Protects against** | `hosts.yaml` or `credentials.yaml` leaking on its own — pasted into a chat, committed by mistake, swept up by a backup |
-| **Does not protect against** | the whole settings directory being copied, because **the key is in it**; or any other program running as you |
+| **Does not protect against** | the whole data directory being copied, because **the key is in it**; or any other program running as you |
 
-So keep the settings directory **out of version control, out of synced folders and out of backups.** To survive the whole directory being copied, move the key with `SSHU__KEY_FILE` — and back that key up yourself: lose it and the stored passwords go with it.
+So keep `~/.sshu` **out of version control, out of synced folders and out of backups.** To survive the whole directory being copied, move the key with `SSHU__KEY_FILE` — and back that key up yourself: lose it and the stored passwords go with it.
 
 Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, never the environment or the command line. If you'd rather sshu stored none, use `auth: privatekey` (a path only) or `auth: sshconfig` (nothing at all).
 
@@ -240,7 +243,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.3/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.0/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
 
 ## License
 

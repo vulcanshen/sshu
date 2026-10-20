@@ -27,7 +27,7 @@
 - **就地管理你的 `~/.ssh` 檔案** —— 瀏覽、編輯 `~/.ssh/config` 與 `~/.ssh/known_hosts`，註解一行都不會掉。`auth: sshconfig` 的 host 什麼都不存，全部交給 `~/.ssh/config` 決定 —— ProxyJump、agent、金鑰都算在內。
 - **可重用的 credential** —— 一個 user 和它的驗證方式定義一次，任意數量的 host 都能引用。
 - **tag** —— 你自己下在 host 上的字，篩選找得到：打 `prod`，整群就出來了。
-- **看得懂的失敗** —— 不正常結束的 session 會說出 ssh 自己講了什麼，並留在 Manage → Errors；旁邊還有每一次連線、每一筆你改過的東西的紀錄。
+- **看得懂的失敗** —— 不正常結束的 session 會說出 ssh 自己講了什麼，並留在 Manage → Errors；旁邊還有每一次連線、每一筆你改過的東西的紀錄。按 `!` 打開 App Log：sshu 開著以來做了什麼、哪裡出了錯。
 - **密碼在磁碟上是加密的** —— 而且從不顯示，也不經過環境變數。
 
 ## 安裝
@@ -66,9 +66,9 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 ### 第一次啟動
 
-一打開是 Manage → Hosts，清單是空的；sshu 會建好設定目錄，以及之後拿來加密密碼的鑰匙（見[你的資料放在哪](#你的資料放在哪)）。
+一打開是 Manage → Hosts，清單是空的；sshu 會建好 `~/.sshu`，以及之後拿來加密密碼的鑰匙（見[你的資料放在哪](#你的資料放在哪)）。
 
-從舊版 sshu 升上來的，放在別處的東西會在第一次啟動時搬過去：macOS 上的設定目錄從 `~/Library/Application Support/sshu` 搬到 `~/.config/sshu`，三本紀錄從設定目錄搬到 `~/.sshu`，一項一項搬，畫面上會說從哪裡搬到哪裡。新位置已經有的留在舊位置，搬不動的照舊在原位置使用：sshu 會寫出兩個路徑，讓你自己合併或搬。
+從舊版 sshu 升上來的，放在別處的東西會在第一次啟動時搬過去：macOS 上的設定目錄從 `~/Library/Application Support/sshu` 搬到 `~/.config/sshu`，host、credential、加密它們的鑰匙與三本紀錄從設定目錄搬到 `~/.sshu`（鑰匙跟它加密的檔一起搬，不然就全部留著），一項一項搬，畫面上會說從哪裡搬到哪裡。新位置已經有的留在舊位置，搬不動的照舊在原位置使用：sshu 會寫出兩個路徑，讓你自己合併或搬。
 
 ### 移除
 
@@ -76,7 +76,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/uninstall.sh | sh
 ```
 
-移除 binary 之後，會先問過你才碰設定目錄（你的 host 和 credential 都在那裡）與三本紀錄。
+移除 binary 之後，會先問過你才碰設定目錄，以及資料目錄（你的 host 和 credential 都在那裡）。
 
 ## 快速開始
 
@@ -100,6 +100,7 @@ sshu
 |---|---|
 | `Space` | 這裡能做什麼：focus 那個 panel 的 menu；最後一列打開全域動作（切畫面、離開） |
 | `?` | 最前面那一層能按的鍵 |
+| `!` | App Log：sshu 開著以來做了什麼、哪裡出了錯，最新的在最下面；有沒看過的錯誤時 footer 會說 |
 | `Tab`、`1`–`9` | 下一個 panel，或這個畫面的第 N 個 panel |
 | `Enter` | 理所當然的那件事：連線、打開、進去 |
 | `Esc` | 退一步 —— 關掉最上面的 popup、清掉篩選、回上層目錄 |
@@ -171,7 +172,7 @@ sshu
 
 ### 你的資料放在哪
 
-兩個目錄：你設定的東西一個，sshu 寫的紀錄一個。
+兩個目錄：sshu 自己的設定一個，你的資料一個 —— 你寫的 host 與 credential，以及 sshu 記的紀錄。
 
 | 設定目錄 | |
 |---|---|
@@ -179,18 +180,20 @@ sshu
 | `$XDG_CONFIG_HOME/sshu` | 有設就用 |
 | `~/.config/sshu` | 都沒有時，每個平台都是這裡 |
 
-三本紀錄放在 `~/.sshu`（有設 `$SSHU__DATA` 就用它）。
+資料放在 `~/.sshu`（有設 `$SSHU__DATA` 就用它）。
 
 | 檔案 | 在哪 | 內容 |
 |---|---|---|
-| `hosts.yaml` | 設定目錄 | 你的 host |
-| `credentials.yaml` | 設定目錄 | 可重用的身分 —— 一個名字、一個 user、以及它怎麼驗證；host 用 `auth: credential` 加 `credential: <名字>` 引用 |
+| `hosts.yaml` | `~/.sshu` | 你的 host |
+| `credentials.yaml` | `~/.sshu` | 可重用的身分 —— 一個名字、一個 user、以及它怎麼驗證；host 用 `auth: credential` 加 `credential: <名字>` 引用 |
 | `config.yaml` | 設定目錄 | 設定（選用，見下方） |
 | `state.yaml` | 設定目錄（`$SSHU__STATE` 可以搬走） | SSH 網格怎麼排；sshu 自己寫，刪掉只是回到預設 |
-| `.sshukey` | 設定目錄 | 加密密碼用的鑰匙 |
+| `.sshukey` | `~/.sshu` | 加密密碼用的鑰匙 |
 | `errors.yaml` · `connections.yaml` · `changes.yaml` | `~/.sshu` | 三本紀錄 |
 
 全部都是可以手改的 YAML，權限維持 `0600`。
+
+這些檔有哪個 sshu 讀不了（`hosts.yaml` 打錯字、沒有權限開），啟動時會先問：`Enter` 把它改名成 `hosts.yaml.bak`（已經有了就用 `.bak.1`，依此類推，不會蓋掉）再開一個新的，`Esc` 離開 sshu，並印出是哪個檔、為什麼。鑰匙讀不了時另外問：它加密過的密碼原封不動，舊的鑰匙放回去就打得開。
 
 ### 設定 —— `config.yaml`
 
@@ -213,9 +216,9 @@ input_tab_width: 4
 |  |  |
 |---|---|
 | **擋得住** | 只有 `hosts.yaml` 或 `credentials.yaml` 流出去 —— 貼到聊天室、不小心 commit、被備份掃走 |
-| **擋不住** | 整個設定目錄被複製走，因為**鑰匙就在裡面**；以及任何以你的身分在跑的其他程式 |
+| **擋不住** | 整個資料目錄被複製走，因為**鑰匙就在裡面**；以及任何以你的身分在跑的其他程式 |
 
-所以**設定目錄不要進版控、不要放進同步資料夾、不要讓備份掃到。** 想連「整個目錄被複製」都擋住，就用 `SSHU__KEY_FILE` 把鑰匙放到別的地方 —— 但那把鑰匙得你自己備份，鑰匙掉了，存起來的密碼就全部跟著沒了。
+所以 **`~/.sshu` 不要進版控、不要放進同步資料夾、不要讓備份掃到。** 想連「整個目錄被複製」都擋住，就用 `SSHU__KEY_FILE` 把鑰匙放到別的地方 —— 但那把鑰匙得你自己備份，鑰匙掉了，存起來的密碼就全部跟著沒了。
 
 密碼從不顯示在畫面上，交給 `ssh` 的方式是 `SSH_ASKPASS`，不會經過環境變數或命令列。如果你根本不想讓 sshu 存密碼，用 `auth: privatekey`（只存一條路徑）或 `auth: sshconfig`（什麼都不存）。
 
@@ -238,7 +241,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.8.3/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.0/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 

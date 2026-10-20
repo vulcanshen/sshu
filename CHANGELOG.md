@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.8.3. Every screen, menu,
+terminu family's shared library, and follows tdp v0.9.0. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -18,10 +18,19 @@ sshu shows both paths, for you to merge or move it yourself.
   as on Linux, from `~/Library/Application Support/sshu`, unless
   `XDG_CONFIG_HOME` or `SSHU__CONFIG` names another place. The key that seals
   your passwords moves with the files it seals, or stays with them.
-- **The three journals (errors, connections, changes) move to `~/.sshu`**,
-  out of the settings directory; `SSHU__DATA` names another place.
+- **Your hosts, your credentials, the key that seals them and the three
+  journals (errors, connections, changes) move to `~/.sshu`**, out of the
+  settings directory: they are what you wrote or what sshu recorded, and the
+  settings directory keeps sshu's own `config.yaml` and `state.yaml`.
+  `SSHU__DATA` names another place, and `SSHU__KEY_FILE` still moves the key.
 - `SSHU__STATE` moves `state.yaml`, where the SSH grid's arrangement is kept
   between runs.
+- **A file sshu cannot read is asked about when it starts**: `Enter` renames
+  it to `.bak` (`.bak.1` and on, never over one) and starts a new one, `Esc`
+  leaves sshu and prints which file and why. A `hosts.yaml` sshu could not
+  read used to stop it with an error, and the other files were left out with
+  a note. A key file that will not read is asked about on its own; the
+  passwords it sealed stay as they are, for it to open again.
 - `uninstall.sh` also asks about the journals, about the directory
   `SSHU__STATE` names, and finds the settings directory `SSHU__CONFIG`
   names.
@@ -42,7 +51,8 @@ sshu shows both paths, for you to merge or move it yourself.
 - In a cell: `Alt-v` selects and copies, as in every viewer; `PgUp` goes into
   the session's history, where `j|k`, `u|d`, `gg|G` scroll and `Esc` comes
   back; `Alt-Enter` locks the cell, every key, `Alt-Esc` too, going to the
-  session for a sshu nested in it, with `Alt-Enter` then the way out.
+  session for a sshu nested in it, with `Alt-Enter` then the way out;
+  locked, `Alt-v` and `PgUp|PgDn` go to the session too.
 - A cell still connecting says so, "connecting to <host>", and what you type
   waits until ssh is through.
 - File transfer's `/` searches in a finder over the screen; its results keep
@@ -63,7 +73,14 @@ sshu shows both paths, for you to merge or move it yourself.
   the question before deleting, closing a session or clearing a journal.
 - A rename, a new file or directory, or a known host's names that cannot be
   written keep their box open with what you typed in it.
-- The statusbar reads `errors: 3  transfer: 4/10 40%  live: 2`.
+- `!` opens the App Log, on every panel: what sshu did and what went wrong
+  since it started — every message, what moved, what failed and what ssh said
+  about it, what you changed. The footer shows `!:log`, or `!:3 errors` while
+  there are errors you have not seen there. What startup finds wrong (a
+  password that would not open, a name in a file twice) goes there instead of
+  Manage → Errors, which keeps what fails while sshu runs.
+- The statusbar reads `transfer: 4/10 40%  live: 2`; errors you have not seen
+  are the footer's.
 - What was done says so in green; a key that cannot do what it was pressed for
   here (edit a directory, send with no host on the other side, mark a file
   still arriving) says so in red.
@@ -75,6 +92,10 @@ sshu shows both paths, for you to merge or move it yourself.
   *Edit file* button opens the file in your `$EDITOR` over the form, on that
   block's line, asking first to save what the form changed, and the form then
   shows what the file says.
+- A name with a tab, a line break or an escape in it shows them as a red
+  `\t`, `\n`, `\x1b`, and nothing in it reaches the terminal as a code.
+- `~/.ssh/config` or `~/.ssh/known_hosts` that cannot be read (not
+  sshu's own) says why in its section, instead of looking empty.
 - Host names in panel titles keep their case. A narrow table shortens its long
   values (names, addresses, paths) first and keeps the short ones whole; only
   then does it take whole columns away, the least needed first.
@@ -87,10 +108,12 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.8.3):
+- The repository takes the terminu family's shape (tdp project, v0.9.0):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,
-  `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`.
+  `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the
+  family's walk of every screen at many terminal sizes (tdptest) runs with
+  the tests.
 
 ## [2.0.0] — 2026-10-06
 

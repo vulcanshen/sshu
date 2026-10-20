@@ -7314,6 +7314,40 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **欄寬照 tdp v0.8.2**：長欄（名稱、位址、路徑、一行文字）標 `Shrink`，分剩下的寬度、照自己的截法截；短欄照最寬的值。
   還放不下才照 `Drop` 整欄收。known_hosts 的指紋從中間截（`Middle`），兩端都認得出。
 
+### 12.7 升級到 terminu-go v0.4.0（tdp v0.9.0，2026-10-20）
+
+- **hosts、credentials 與鑰匙改算資料，搬到 `~/.sshu`**（tdp E3 的分類改了：設定只放 app 自己運作用的選項，使用者寫給 app
+  的清單是資料）。跟三本紀錄同一次、逐項搬，鑰匙跟它加密的兩個檔一起搬或一起留。
+  - `SSHU__DATA` 有設也搬過去。否決：照以前搬紀錄的寫法，有設就不搬 —— 變數說的是資料要放哪；不搬，hosts 在新版裡就像不見了。
+    搬不動時照舊用設定目錄，`SSHU__DATA` 也讓位。
+  - 三個一起留的條件改成「新位置已經有三個裡的任一個」。否決：只看這次要搬的那幾個 —— 新位置只有一個 `hosts.yaml` 時，
+    鑰匙會搬到一個不是它加密的 `hosts.yaml` 旁邊。
+  - `make demo` 也設 `SSHU__DATA`：只設 `SSHU__CONFIG` 的話，demo 的 `hosts.yaml` 會被搬進使用者真的 `~/.sshu`。
+- **讀不了時開 MOVE ASIDE**（tdp E3「讀不了時」，lib 的 `App.MoveAside`）：以前 `hosts.yaml` 讀不了就印錯誤不啟動，其他的檔讀不了
+  就當空的、寫一筆 note。現在 sshu 自己的每一個檔都照順序問（config、state、鑰匙、hosts、credentials、三本紀錄），全部問完才
+  做啟動的其他事 —— 還原網格、搬家的 toast —— 還沒問到的檔不會先被存檔蓋掉。
+  - 鑰匙讀不了時問的是鑰匙。否決：照舊讓解密回錯誤、`hosts.yaml` 跟著讀失敗 —— 以前這樣做是因為「鑰匙壞了不該默默繼續」，
+    現在問鑰匙本身就不是默默繼續；把錯算在 `hosts.yaml` 上，使用者會把一個好好的 `hosts.yaml` 改名。密文原樣留著，
+    舊鑰匙放回去就打得開；鑰匙讀不了時存檔一律拒絕。
+  - `Enter` 之後只有鑰匙會馬上建新的（`EnsureKey`）。否決：每個檔都先寫一個空的 —— sshu 第一次存時就會建，空檔多一次寫入、
+    沒有多一點用處。
+  - `~/.ssh/config`、`known_hosts` 不是 sshu 的，不問：那一節中間寫原因（`Panel.Fail`），細節進 App Log。
+- **App Log**（tdp F5，`!`）：toast 與 error popup 由 lib 記；sshu 記啟動時的問題、搬了哪幾項、寫進紀錄的每一筆（Errors
+  連同遠端的原話、Changes 的動作）。啟動時有問題，toast 寫 `N problems at startup: see App Log [!]`。
+  - Errors 那本留著，跟 App Log 並存（暫定，回報 SS41）：App Log 只在記憶體、只記這一次；Errors 是磁碟上的紀錄，跨次留著
+    「上週連那台為什麼失敗」。啟動時的問題只進 App Log —— 問題還在就每次啟動再說一次，存進 Errors 只會一直重複。
+  - statusbar 拿掉 `errors: N`，交給 footer 的 `!:N errors`。否決：兩個都留 —— 兩個紅色的計數，不知道該看哪一個。
+    Errors 的「未讀」跟著拿掉。
+  - 一次失敗在 App Log 是兩行：toast 的那一句，與帶著原話的那一句（footer 也算兩個錯誤）。否決：細節比 toast 多時才記 ——
+    每個地方的 toast 寫法不一樣，用規則判斷很容易漏；Config 的 *Edit file* 之後重讀失敗以前根本沒有 toast（現在補上 Error toast）。
+- **ssh 的格子是互動 terminal**（`Terminal.Interactive`，取代 `History` 與 `SelectKey`）：`Alt-v`、`PgUp` 是 lib 的。鎖住時
+  （`Terminal.AllKeys`）選取與歷史也讓給格子裡的程式，`Alt-v`、`PgUp|PgDn` 送進去，最裡面那一層自己選、自己捲。`$EDITOR`
+  的 PTY 不標，`PgUp` 給編輯器。
+- **顏色改成 `Styled`**：清單的格子（session、檔案的 glyph，Errors 的原因，Connections 的結果）與 statusbar 不再塞顏色碼。
+  lib 把格子裡的顏色碼畫成紅色的 `\x1b`，tdptest 抓不到，所以畫面測試另外看畫面上有沒有 `\x1b` 這幾個字。
+- **tdptest**：`cmd/sshu/tdp_test.go` 用 main 的 `data()` 與 tui 的 `App()`，跟 main 走同一條路；自己的計時器（傳輸進度、
+  搜尋、目錄監看）改用 `App.Tick`。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel
