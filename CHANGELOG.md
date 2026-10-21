@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.9.1. Every screen, menu,
+terminu family's shared library, and follows tdp v0.9.2. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -18,16 +18,16 @@ sshu shows both paths, for you to merge or move it yourself.
   as on Linux, from `~/Library/Application Support/sshu`, unless
   `XDG_CONFIG_HOME` or `SSHU__CONFIG` names another place. The key that seals
   your passwords moves with the files it seals, or stays with them.
-- **Your hosts, your credentials, the key that seals them and the three
-  journals (errors, connections, changes) move to `~/.sshu`**, out of the
-  settings directory: they are what you wrote or what sshu recorded, and the
+- **Your hosts, your credentials, the key that seals them and the journals
+  (connections, changes, and the errors an older sshu kept) move to
+  `~/.sshu`**, out of the settings directory: they are what you wrote or what sshu recorded, and the
   settings directory keeps sshu's own `config.yaml` and `state.yaml`.
   `SSHU__DATA` names another place, and `SSHU__KEY_FILE` still moves the key.
 - `SSHU__STATE` moves `state.yaml`, where the SSH grid's arrangement is kept
   between runs.
 - **A file sshu cannot read is asked about when it starts**: `Enter` renames
-  it to `.bak` (`.bak.1` and on, never over one) and starts a new one, `Esc`
-  leaves sshu and prints which file and why. A `hosts.yaml` sshu could not
+  it to `.bak` (`.bak.1` and on, never over one) and sshu starts as it did the
+  first time, `Esc` leaves sshu and prints which file and why. A `hosts.yaml` sshu could not
   read used to stop it with an error, and the other files were left out with
   a note. A key file that will not read is asked about on its own; the
   passwords it sealed stay as they are, for it to open again.
@@ -41,6 +41,10 @@ sshu shows both paths, for you to merge or move it yourself.
   layers is not shown. How wide an icon is still reaches the nested one (below).
 - `Alt-z`'s last stage, a cell over the whole terminal with no frame at all:
   `Alt-z` gives the cell the whole grid, and back.
+- Manage → Errors and `errors.yaml`: what fails goes to the App Log (`!`,
+  below), with everything the far end said, for as long as sshu runs. An
+  `errors.yaml` an older sshu wrote is left in `~/.sshu` as it is; sshu no
+  longer reads it, so delete it once you no longer want it.
 
 **Changed**
 
@@ -77,8 +81,7 @@ sshu shows both paths, for you to merge or move it yourself.
   since it started — every message, what moved, what failed and what ssh said
   about it, what you changed. The footer shows `!:log`, or `!:3 errors` while
   there are errors you have not seen there. What startup finds wrong (a
-  password that would not open, a name in a file twice) goes there instead of
-  Manage → Errors, which keeps what fails while sshu runs.
+  password that would not open, a name in a file twice) goes there too.
 - The statusbar reads `transfer: 4/10 40%  live: 2`; errors you have not seen
   are the footer's.
 - What was done says so in green; a key that cannot do what it was pressed for
@@ -108,7 +111,7 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.9.1):
+- The repository takes the terminu family's shape (tdp project, v0.9.2):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the

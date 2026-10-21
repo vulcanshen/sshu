@@ -111,8 +111,7 @@ func load() *tui.Data {
 		SaveSSHConfig: store.SaveSSHConfig,
 		SaveKnown:     store.SaveKnownHosts,
 		SaveState:     store.SaveState,
-		AppendError:   store.AppendError, ClearErrors: store.ClearErrors,
-		AppendConn: store.AppendConnection, ClearConns: store.ClearConnections,
+		AppendConn:    store.AppendConnection, ClearConns: store.ClearConnections,
 		AppendChg: store.AppendChange, ClearChgs: store.ClearChanges,
 	}
 	note := func(level, cause string) {
@@ -142,7 +141,7 @@ func load() *tui.Data {
 	if _, err := store.CheckKey(); err != nil {
 		unreadable(store.KeyPath, err, func() error { _, err := store.EnsureKey(); return err })
 	} else if _, err := store.EnsureKey(); err != nil {
-		note(store.LevelError, "key file: "+err.Error())
+		note(store.LevelError, "Can't make the key file: "+err.Error())
 	}
 	hosts, dupHosts, hostsErr := store.Load()
 	d.Hosts = hosts.Hosts
@@ -154,9 +153,6 @@ func load() *tui.Data {
 	if credsErr != nil {
 		unreadable(store.CredsPath, credsErr, nil)
 	}
-	if d.Errors, err = store.LoadErrors(); err != nil {
-		unreadable(store.ErrorsPath, err, nil)
-	}
 	if d.Conns, err = store.LoadConnections(); err != nil {
 		unreadable(store.ConnectionsPath, err, nil)
 	}
@@ -165,10 +161,10 @@ func load() *tui.Data {
 	}
 	// ~/.ssh is not sshu's: its sections say what would not read.
 	if d.SSHConfig, d.SSHConfigErr = store.LoadSSHConfig(); d.SSHConfigErr != nil {
-		note(store.LevelError, "~/.ssh/config: "+d.SSHConfigErr.Error())
+		note(store.LevelError, "Can't read ~/.ssh/config: "+d.SSHConfigErr.Error())
 	}
 	if d.Known, d.KnownErr = store.LoadKnownHosts(); d.KnownErr != nil {
-		note(store.LevelError, "~/.ssh/known_hosts: "+d.KnownErr.Error())
+		note(store.LevelError, "Can't read ~/.ssh/known_hosts: "+d.KnownErr.Error())
 	}
 	for _, n := range reconcileFiles(hosts, hostsErr, creds, credsErr) {
 		note(store.LevelWarn, n)
@@ -184,8 +180,8 @@ func load() *tui.Data {
 		names []string
 	}{{"hosts.yaml", hosts.UnreadableSecrets}, {"credentials.yaml", creds.UnreadableSecrets}} {
 		for _, name := range j.names {
-			cause := j.file + ": this password could not be decrypted"
-			d.Notes = append(d.Notes, tui.Note{Level: store.LevelWarn, Host: name, Cause: cause,
+			cause := fmt.Sprintf("Can't decrypt the password of %q in %s", name, j.file)
+			d.Notes = append(d.Notes, tui.Note{Level: store.LevelWarn, Cause: cause,
 				Detail: cause + "\nIt has been left exactly as it is, so nothing is lost. Restoring the key file it " +
 					"was sealed with will open it again.\nThe key file is " + keyPathForMessage() + "."})
 		}
@@ -211,22 +207,22 @@ func reconcileFiles(hosts store.File, hostsErr error, creds store.CredsFile, cre
 	switch {
 	case hostsErr != nil:
 	case hosts.FromNewerSshu():
-		out = append(out, "hosts.yaml was written by a newer sshu — it is shown as read, "+
+		out = append(out, "A newer sshu wrote hosts.yaml — it is shown as read, "+
 			"but saving will be refused. Upgrade sshu.")
 	case hosts.NeedsUpgrade() || hosts.HadPlaintextSecret:
 		if err := store.Save(hosts); err != nil {
-			out = append(out, "hosts.yaml could not be rewritten: "+err.Error())
+			out = append(out, "Can't rewrite hosts.yaml: "+err.Error())
 		}
 	}
 	if credsErr != nil {
 		return out
 	}
 	if creds.FromNewerSshu() {
-		out = append(out, "credentials.yaml was written by a newer sshu — it is shown as read, "+
+		out = append(out, "A newer sshu wrote credentials.yaml — it is shown as read, "+
 			"but saving will be refused. Upgrade sshu.")
 	} else if creds.NeedsUpgrade() || creds.HadPlaintextSecret {
 		if err := store.SaveCreds(creds); err != nil {
-			out = append(out, "credentials.yaml could not be rewritten: "+err.Error())
+			out = append(out, "Can't rewrite credentials.yaml: "+err.Error())
 		}
 	}
 	return out
@@ -243,8 +239,8 @@ func dupeWarning(file string, names []string) string {
 	if len(names) == 1 {
 		noun = "entry"
 	}
-	return fmt.Sprintf("%s: ignored %d duplicate %s (%s); the first of each name is the one in use",
-		file, len(names), noun, strings.Join(quoted, ", "))
+	return fmt.Sprintf("Ignored %d duplicate %s in %s (%s); the first of each name is the one in use",
+		len(names), noun, file, strings.Join(quoted, ", "))
 }
 
 // runAskpass prints the stored password for name. Exiting non-zero tells ssh

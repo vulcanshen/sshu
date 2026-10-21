@@ -354,8 +354,8 @@ func (sd *side) list(dir string) error {
 func (sd *side) goTo(dir, sel string) tea.Cmd {
 	if err := sd.list(dir); err != nil {
 		sd.redraw()
-		sd.t.s.logError(store.LevelError, sd.host, "", "can't read "+dir, err.Error())
-		return sd.t.s.a.Toast(terminu.Error, err.Error())
+		sd.t.s.logError(store.LevelError, "Can't read "+dir+" on "+sd.host, err.Error())
+		return sd.t.s.a.Toast(terminu.Error, capital(err.Error()))
 	}
 	sd.redraw()
 	if sel != "" {
@@ -395,8 +395,8 @@ func (sd *side) upCmd() tea.Cmd {
 func (sd *side) refresh() tea.Cmd {
 	if err := sd.list(sd.cwd); err != nil {
 		sd.redraw()
-		sd.t.s.logError(store.LevelError, sd.host, "", "can't read "+sd.cwd, err.Error())
-		return sd.t.s.a.Toast(terminu.Error, err.Error())
+		sd.t.s.logError(store.LevelError, "Can't read "+sd.cwd+" on "+sd.host, err.Error())
+		return sd.t.s.a.Toast(terminu.Error, capital(err.Error()))
 	}
 	sd.redraw()
 	return sd.t.s.a.Toast(terminu.Success, "Refreshed: "+plural(len(sd.entries), "item"))
@@ -533,7 +533,7 @@ func (sd *side) dial(h store.Host) tea.Cmd {
 	t := sd.t
 	rh, err := store.Resolve(h, t.s.d.Creds)
 	if err != nil {
-		t.s.logError(store.LevelError, h.Name, "", err.Error(), err.Error())
+		t.s.logError(store.LevelError, "Connect to "+h.Name+" failed: "+err.Error(), "")
 		return t.s.a.Error("Connect failed", err.Error())
 	}
 	sd.endDial()
@@ -612,8 +612,8 @@ func (t *transfer) dialed(m dialedMsg) tea.Cmd {
 		}
 		sd.err = m.err.Error()
 		sd.redraw()
-		t.s.logError(store.LevelError, m.name, user, "sftp: "+m.name+" · "+m.err.Error(), m.err.Error())
-		return t.s.a.Toast(terminu.Error, m.err.Error())
+		t.s.logError(store.LevelError, "Connect to "+who(user, m.name)+" failed: "+m.err.Error(), "")
+		return t.s.a.Toast(terminu.Error, capital(m.err.Error()))
 	}
 	t.s.logConn(store.ConnectionEntry{Host: m.name, User: user, Result: store.ResultSuccess})
 	return sd.connect(m.fs)

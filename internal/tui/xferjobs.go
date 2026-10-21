@@ -174,7 +174,7 @@ func (t *transfer) onXferTick() tea.Cmd {
 			t.s.logChange("transfer cancelled: " + j.label)
 			cmds = append(cmds, t.s.a.Toast(terminu.Info, "Transfer cancelled"))
 		case jobFailed:
-			t.s.logError("error", j.dst.host, "", "transfer failed: "+j.err(), j.label+"\n"+j.err())
+			t.s.logError("error", "Transfer failed: "+j.err(), j.label)
 			cmds = append(cmds, t.s.a.Toast(terminu.Error, "Transfer failed: "+j.err()))
 		}
 	}

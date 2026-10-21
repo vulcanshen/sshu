@@ -27,7 +27,7 @@
 - **就地管理你的 `~/.ssh` 檔案** —— 瀏覽、編輯 `~/.ssh/config` 與 `~/.ssh/known_hosts`，註解一行都不會掉。`auth: sshconfig` 的 host 什麼都不存，全部交給 `~/.ssh/config` 決定 —— ProxyJump、agent、金鑰都算在內。
 - **可重用的 credential** —— 一個 user 和它的驗證方式定義一次，任意數量的 host 都能引用。
 - **tag** —— 你自己下在 host 上的字，篩選找得到：打 `prod`，整群就出來了。
-- **看得懂的失敗** —— 不正常結束的 session 會說出 ssh 自己講了什麼，並留在 Manage → Errors；旁邊還有每一次連線、每一筆你改過的東西的紀錄。按 `!` 打開 App Log：sshu 開著以來做了什麼、哪裡出了錯。
+- **看得懂的失敗** —— 不正常結束的 session 會說出 ssh 自己講了什麼；按 `!` 打開 App Log：sshu 開著以來做了什麼、哪裡出了錯，遠端講的話也都在。Manage 裡還留著每一次連線、每一筆你改過的東西的紀錄。
 - **密碼在磁碟上是加密的** —— 而且從不顯示，也不經過環境變數。
 
 ## 安裝
@@ -68,7 +68,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
 一打開是 Manage → Hosts，清單是空的；sshu 會建好 `~/.sshu`，以及之後拿來加密密碼的鑰匙（見[你的資料放在哪](#你的資料放在哪)）。
 
-從舊版 sshu 升上來的，放在別處的東西會在第一次啟動時搬過去：macOS 上的設定目錄從 `~/Library/Application Support/sshu` 搬到 `~/.config/sshu`，host、credential、加密它們的鑰匙與三本紀錄從設定目錄搬到 `~/.sshu`（鑰匙跟它加密的檔一起搬，不然就全部留著），一項一項搬，畫面上會說從哪裡搬到哪裡。新位置已經有的留在舊位置，搬不動的照舊在原位置使用：sshu 會寫出兩個路徑，讓你自己合併或搬。
+從舊版 sshu 升上來的，放在別處的東西會在第一次啟動時搬過去：macOS 上的設定目錄從 `~/Library/Application Support/sshu` 搬到 `~/.config/sshu`，host、credential、加密它們的鑰匙與紀錄從設定目錄搬到 `~/.sshu`（鑰匙跟它加密的檔一起搬，不然就全部留著），一項一項搬，畫面上會說從哪裡搬到哪裡。新位置已經有的留在舊位置，搬不動的照舊在原位置使用：sshu 會寫出兩個路徑，讓你自己合併或搬。
 
 ### 移除
 
@@ -111,7 +111,7 @@ sshu
 
 ### Manage
 
-`[1]` 列出 sshu 管的東西 —— **SSHU**：Hosts、Credentials；**SSH**：Config（`~/.ssh/config`）、KnownHosts（`~/.ssh/known_hosts`）；**Logs**：Errors、Connections、Changes。`[2]` 顯示游標那一項；`Enter` 或 `2` 把鍵盤移過去。
+`[1]` 列出 sshu 管的東西 —— **SSHU**：Hosts、Credentials；**SSH**：Config（`~/.ssh/config`）、KnownHosts（`~/.ssh/known_hosts`）；**Logs**：Connections、Changes。`[2]` 顯示游標那一項；`Enter` 或 `2` 把鍵盤移過去。
 
 | 鍵 | 行為 |
 |---|---|
@@ -121,7 +121,7 @@ sshu
 | `D` | 複製：開一個從這一列預先填好的新增表單 |
 | `X` | 刪除（先問） |
 | `/` | 篩選 host：name、user、host、port、tags 一起比對 |
-| `C` | Errors、Connections、Changes：清空這一本（先問） |
+| `C` | Connections、Changes：清空這一本（先問） |
 
 表單裡 `j|k` 換欄位，`Enter` 改游標那一欄，`Tab` 到按鈕。
 
@@ -189,11 +189,11 @@ sshu
 | `config.yaml` | 設定目錄 | 設定（選用，見下方） |
 | `state.yaml` | 設定目錄（`$SSHU__STATE` 可以搬走） | SSH 網格怎麼排；sshu 自己寫，刪掉只是回到預設 |
 | `.sshukey` | `~/.sshu` | 加密密碼用的鑰匙 |
-| `errors.yaml` · `connections.yaml` · `changes.yaml` | `~/.sshu` | 三本紀錄 |
+| `connections.yaml` · `changes.yaml` | `~/.sshu` | 兩本紀錄 |
 
 全部都是可以手改的 YAML，權限維持 `0600`。
 
-這些檔有哪個 sshu 讀不了（`hosts.yaml` 打錯字、沒有權限開），啟動時會先問：`Enter` 把它改名成 `hosts.yaml.bak`（已經有了就用 `.bak.1`，依此類推，不會蓋掉）再開一個新的，`Esc` 離開 sshu，並印出是哪個檔、為什麼。鑰匙讀不了時另外問：它加密過的密碼原封不動，舊的鑰匙放回去就打得開。
+這些檔有哪個 sshu 讀不了（`hosts.yaml` 打錯字、沒有權限開），啟動時會先問：`Enter` 把它改名成 `hosts.yaml.bak`（已經有了就用 `.bak.1`，依此類推，不會蓋掉），sshu 照第一次打開那樣開始；`Esc` 離開 sshu，並印出是哪個檔、為什麼。鑰匙讀不了時另外問：它加密過的密碼原封不動，舊的鑰匙放回去就打得開。
 
 ### 設定 —— `config.yaml`
 
@@ -241,7 +241,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.1/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.2/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 

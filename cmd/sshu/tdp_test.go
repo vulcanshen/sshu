@@ -1,8 +1,10 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	terminu "github.com/vulcanshen/terminu-go"
@@ -109,6 +111,71 @@ func TestAnUnreadableKeyIsMovedAsideAndANewOneMade(t *testing.T) {
 	if b, _ := os.ReadFile(key + ".bak"); string(b) != "not a key\n" {
 		t.Errorf("the old key is not in .sshukey.bak: %q", b)
 	}
+}
+
+// Enter on the question starts sshu as on its first start (tdp E3-18): for
+// each of sshu's own files, put aside, what is on disk is what a first start
+// leaves — the key made again, the files a first start does not write still
+// not there — and Manage shows nothing of what the file held.
+func TestMovingAsideStartsAsOnTheFirstStart(t *testing.T) {
+	first := func() []string {
+		home := sandbox(t)
+		d := tdptest.Start(t, newApp(), 80, 40)
+		if d.Has("MOVE ASIDE") {
+			t.Fatalf("a first start asked:\n%s", screen(d))
+		}
+		return filesIn(t, home)
+	}()
+	for _, c := range []struct{ at, body string }{
+		{".config/sshu/config.yaml", "theme: [\n"},
+		{".config/sshu/state.yaml", "grid_columns: [\n"},
+		{".sshu/.sshukey", "not a key\n"},
+		{".sshu/hosts.yaml", "hosts: [\n"},
+		{".sshu/credentials.yaml", "credentials: [\n"},
+		{".sshu/connections.yaml", "- {\n"},
+		{".sshu/changes.yaml", "- {\n"},
+	} {
+		home := sandbox(t)
+		writeFile(t, filepath.Join(home, c.at), c.body)
+		d := tdptest.Start(t, newApp(), 80, 40)
+		if !d.Has(filepath.Base(c.at) + " can't be read") {
+			t.Fatalf("%s: no MOVE ASIDE:\n%s", c.at, screen(d))
+		}
+		d.Press("Enter")
+		if d.Has("MOVE ASIDE") || d.Quit() {
+			t.Fatalf("%s: not started after Enter:\n%s", c.at, screen(d))
+		}
+		var got []string
+		for _, f := range filesIn(t, home) {
+			if f != c.at+".bak" {
+				got = append(got, f)
+			}
+		}
+		if !slices.Equal(got, first) {
+			t.Errorf("%s put aside: the files are %v, a first start leaves %v", c.at, got, first)
+		}
+		if !d.Has("No hosts yet") {
+			t.Errorf("%s put aside: Manage is not as on a first start:\n%s", c.at, screen(d))
+		}
+	}
+}
+
+// filesIn is every file under home, as paths from it, sorted.
+func filesIn(t *testing.T, home string) []string {
+	t.Helper()
+	var out []string
+	err := filepath.WalkDir(home, func(p string, e fs.DirEntry, err error) error {
+		if err == nil && !e.IsDir() {
+			rel, _ := filepath.Rel(home, p)
+			out = append(out, rel)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(out)
+	return out
 }
 
 func screen(d *tdptest.Driver) string {

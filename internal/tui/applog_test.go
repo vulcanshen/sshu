@@ -14,58 +14,61 @@ import (
 func screenOf(d *tdptest.Driver) string { return strings.Join(d.Screen(), "\n") }
 
 // What startup found wrong goes to the App Log, each in full on one line,
-// and one toast says where (tdp F5); not to the Errors journal, which keeps
-// what failed while sshu ran.
+// and one toast says where (tdp F5).
 func TestStartupProblemsGoToTheAppLog(t *testing.T) {
 	d := testData(nil, nil)
-	d.Notes = []Note{{Level: store.LevelWarn, Host: "web", Cause: "hosts.yaml: sealed",
-		Detail: "hosts.yaml: sealed\nIt has been left as it is."}}
+	d.Notes = []Note{{Level: store.LevelWarn, Cause: `Can't decrypt the password of "web" in hosts.yaml`,
+		Detail: "Can't decrypt the password of \"web\" in hosts.yaml\nIt has been left as it is."}}
 	dr := tdptest.Start(t, New(d).a, 120, 30)
 	if !dr.Has("1 problem at startup: see App Log [!]") {
 		t.Errorf("no toast pointing at the App Log:\n%s", screenOf(dr))
 	}
 	dr.Press("!")
-	if !dr.Has("WARN web: hosts.yaml: sealed It has been left as it is.") {
+	if !dr.Has(`WARN Can't decrypt the password of "web" in hosts.yaml It has been left as it is.`) {
 		t.Errorf("the problem is not in the App Log:\n%s", screenOf(dr))
-	}
-	if len(d.Errors) != 0 {
-		t.Errorf("a startup problem went to the Errors journal: %+v", d.Errors)
 	}
 }
 
-// What startup moved is in the App Log, item by item (tdp E3, F5).
+// What startup moved is in the App Log, item by item, capitalised like a
+// toast (tdp E3, F5; dialog/note, App Log).
 func TestWhatMovedIsInTheAppLog(t *testing.T) {
 	d := testData(nil, nil)
 	d.Moves = []store.Move{{What: "data", From: "/old", To: "/new", Moved: []string{"hosts.yaml", ".sshukey"}}}
 	dr := tdptest.Start(t, New(d).a, 120, 30)
 	dr.Press("!")
-	if !dr.Has("INFO moved hosts.yaml, .sshukey from /old to /new") {
+	if !dr.Has("INFO Moved hosts.yaml, .sshukey from /old to /new") {
 		t.Errorf("the move is not in the App Log:\n%s", screenOf(dr))
 	}
 }
 
-// A failure goes to the Errors journal and to the App Log with what the far
-// end said; the footer counts it, the statusbar leaves it to the footer. A
-// change goes to the App Log too.
-func TestAFailureIsInTheJournalAndTheAppLog(t *testing.T) {
+// A failure goes to the App Log with what the far end said, and nowhere else:
+// there is no Errors journal. The footer counts it, the statusbar leaves it
+// to the footer. A change goes to the Changes journal and the App Log. Each
+// entry starts with a capital (dialog/note, App Log).
+func TestAFailureIsInTheAppLog(t *testing.T) {
 	d := testData(nil, nil)
 	s := New(d)
 	dr := tdptest.Start(t, s.a, 160, 30)
 	dr.Do(func() tea.Cmd {
-		s.logError(store.LevelError, "web", "root", "Connection refused", "ssh: connect to host web port 22:\nConnection refused")
+		s.logError(store.LevelError, "Session to root@web failed: connection refused", "ssh: connect to host web port 22:\nConnection refused")
+		s.logError(store.LevelError, "can't read /srv on local", "open /srv: permission denied")
 		s.logChange(`host "web" added`)
 		return nil
 	})
-	if len(d.Errors) != 1 || len(d.Changes) != 1 {
-		t.Fatalf("journals: %d errors, %d changes", len(d.Errors), len(d.Changes))
+	if len(d.Changes) != 1 {
+		t.Fatalf("changes: %d", len(d.Changes))
 	}
-	if dr.Has("errors:") || !dr.Has("!:1 error") {
-		t.Errorf("want the footer to count the error, not the statusbar:\n%s", screenOf(dr))
+	if dr.Has("errors:") || !dr.Has("!:2 errors") {
+		t.Errorf("want the footer to count the errors, not the statusbar:\n%s", screenOf(dr))
+	}
+	if dr.Has("Errors") {
+		t.Errorf("an Errors section is still there:\n%s", screenOf(dr))
 	}
 	dr.Press("!")
 	for _, want := range []string{
-		"ERR  root@web: Connection refused · ssh: connect to host web port 22: Connection refused",
-		`INFO host "web" added`,
+		"ERR  Session to root@web failed: connection refused · ssh: connect to host web port 22",
+		"ERR  Can't read /srv on local · open /srv: permission denied",
+		`INFO Host "web" added`,
 	} {
 		if !dr.Has(want) {
 			t.Errorf("no %q in the App Log:\n%s", want, screenOf(dr))
@@ -102,8 +105,6 @@ func TestAnUnreadableSSHConfigIsSaidInItsSection(t *testing.T) {
 func TestTrickyValuesAreDrawnByName(t *testing.T) {
 	for _, v := range append([]string{"web"}, tdptest.Tricky...) {
 		d := testData([]store.Host{{Name: v, Host: v, User: v, Port: 22, Auth: store.AuthPassword}}, nil)
-		d.Errors = []store.ErrorEntry{{Host: v, User: v, Level: store.LevelError, Cause: v, Error: v},
-			{Host: v, Level: store.LevelWarn, Cause: v}}
 		d.Conns = []store.ConnectionEntry{{Host: v, User: v, Result: store.ResultFail}, {Host: v, Result: store.ResultSuccess}}
 		d.Changes = []store.ChangeEntry{{Action: v}}
 		dr := tdptest.Start(t, New(d).a, 100, 30)

@@ -7348,6 +7348,28 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **tdptest**：`cmd/sshu/tdp_test.go` 用 main 的 `data()` 與 tui 的 `App()`，跟 main 走同一條路；自己的計時器（傳輸進度、
   搜尋、目錄監看）改用 `App.Tick`。
 
+### 12.8 Errors 併進 App Log（tdp v0.9.2，2026-10-21）
+
+- **lib 升到 terminu-go v0.4.3**（實作 tdp v0.9.2）：MoveAside 自己記進 App Log 的那一筆改成大寫開頭（`Moved … to ….bak`）。
+
+- **Manage 的 Errors 與 `errors.yaml` 拿掉**：user 改判 SS41（原話「errors 合併到 app log 裡面, 就不在獨立存 errors」）。失敗只記進
+  App Log（`!`），帶著遠端的原話；LOGS 只剩 Connections、Changes，`C` 清的也只有這兩本。
+  - 否決：照 §12.7 的暫定兩個並存 —— App Log 已經有每一次失敗與遠端的原話，第二份只是同一件事記兩次；跨次留著的「上週連那台
+    失敗過」，Connections 有。代價是關掉 sshu，失敗的原話就沒了。
+  - 舊的 `errors.yaml` 原樣留在 `~/.sshu`，不讀、不刪（tdp E3：資料刪了找不回來），從設定目錄搬家時照舊跟著搬。否決：啟動時讀進
+    App Log —— App Log 只記這次開 app 的事；否決：搬家時跳過它 —— 舊的設定目錄就空不了。
+- **App Log 與 toast 大寫開頭**（note-78；toast 一字不改記進 App Log）：名字與路徑不改大小寫（components「大寫」），所以開頭是名字的
+  句子改寫成動詞或名詞在前：ssh 失敗的 toast `db-replica: …` → `Session to db-replica failed: …`；啟動時的 note `web: hosts.yaml:
+  this password could not be decrypted` → `Can't decrypt the password of "web" in hosts.yaml`；`~/.ssh/config: Host "x" deleted` →
+  `Deleted Host "x" from ~/.ssh/config`。整句是 Go error 的第一個字母改大寫（`Open /…: permission denied`）。
+  - 否決：名字開頭的照原樣、只改其他的 —— 第一個字還是小寫，不像 toast。
+  - Changes 那一本只改了以路徑開頭的幾種，其他照原樣存，大寫只在 App Log。否決：改每一處寫進 Changes 的字 —— 舊的紀錄還是
+    小寫，同一本裡兩種寫法。
+  - sshu 自己補的那一句跟 toast 或 error popup 一字不差的（存 `~/.ssh` 失敗、credential 改名後還有 host 用舊名字），拿掉：以前
+    多寫一次是為了寫進 Errors 那本，現在只是同一件事兩行。
+- **MOVE ASIDE 的 `Enter` 照第一次打開那樣開始**（E3-18 改寫）：sshu 本來就是這樣 —— 第一次打開會建的只有鑰匙，`Enter` 也只再建
+  鑰匙；其他的檔等第一次存檔。這次補上一個測試，把七個檔逐一弄壞，比對磁碟上的檔與第一次打開時一樣。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

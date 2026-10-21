@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.1/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.2/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,9 +10,9 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-20 起 v0.4.0，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-21 起 v0.4.3，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
-- `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、三本紀錄與 App Log 的寫入。
+- `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
 - `transfer.go`、`fileops.go`、`xferjobs.go`：File transfer 畫面。
 - `ssh.go`、`sshcmd.go`、`askpass.go`：SSH 畫面、ssh 的命令列、askpass 中繼。
@@ -21,12 +21,12 @@
 
 ### Manage
 
-`[1] SECTIONS` 是分組的清單（SSHU：Hosts、Credentials；SSH：Config、KnownHosts；LOGS：Errors、Connections、Changes），`[2]` 是 cursor 那一節的明細（components/layout/panel 的「明細」）：cursor 一動，`[2]` 的 label、內容與動作就換成那一節的；`Enter` 把 focus 送到 `[2]`（tdp K3 的明細）。
+`[1] SECTIONS` 是分組的清單（SSHU：Hosts、Credentials；SSH：Config、KnownHosts；LOGS：Connections、Changes），`[2]` 是 cursor 那一節的明細（components/layout/panel 的「明細」）：cursor 一動，`[2]` 的 label、內容與動作就換成那一節的；`Enter` 把 focus 送到 `[2]`（tdp K3 的明細）。
 
 - **Hosts**：`hosts.yaml` 的表格，`/` 是 panel filter（名稱、user、host、port、tags 一起比對）。`Enter` 是連線：先開一個 confirm，上面是這台 host 的明細（連線、驗證、`~/.ssh/config` 會給它什麼，以及哪些被 sshu 的命令列蓋掉），問句在最後（tdp F1：confirm 可以帶一段回答前要看的內容）。表單是 lib 的：`Auth` 是畫在表單上的 radio，`Credential` 開 select，`Identity file` 開 file-picker（從 `~/.ssh` 開始），`Password` 開 password input。
 - **Config**：`~/.ssh/config` 一個 `Host` 區塊一列，`Include` 會跟進去。編一個區塊只動它自己的那幾行：HostName、User、Port、IdentityFile 各一欄，每個選項記得自己原本在哪一行，沒改的一行原樣留著，清空的那一行拿掉；其他關鍵字列在 `Others`，只顯示（focus 跳過它）。表單的 `Edit file` 按鈕（`FormButton.Open`）在表單上面用 `$EDITOR` 打開那個區塊所在的檔（整個檔，`+<Host 那一行>`）：編輯器讀的是磁碟上的檔，所以表單有改動、或是還沒寫進檔的新區塊，先開 confirm 問要不要存（`Enter` 存了再開編輯器，`Esc` 回到表單）。編輯器結束時（terminal 的 `OnExit`）重讀檔案（`SSHConfigFile.Reload`），把這個區塊的值放回表單；區塊不見了，表單就當成新的區塊。重讀不用 `FormButton.Back`：它跟著 Open 打開的那一個 popup，先問要不要存時那是 confirm，confirm 一關它就跑了，編輯器還沒開。存檔時檔案被別的編輯器改過，就拒絕並換成磁碟上的版本。
 - **KnownHosts**：`~/.ssh/known_hosts`。`[A]dd` 是一個表單（host、port），送出時去問那台機器要金鑰（在認證之前停下），再開 confirm 給你看指紋，`Enter` 才寫。
-- **三本紀錄**：Errors、Connections、Changes 各自一個表格，最新的在最上面。Errors 的 `Enter` 打開那一筆的全文；另外兩本的 `Enter` 打開整本。`[C]lear` 先問，再清空那一本的檔案。
+- **兩本紀錄**：Connections、Changes 各自一個表格，最新的在最上面，`Enter` 打開整本。`[C]lear` 先問，再清空那一本的檔案。失敗的事不在這裡，在 App Log。
 
 ### File transfer
 
@@ -51,7 +51,7 @@
 - **選取、歷史**：ssh 的格子是互動 terminal（`Terminal.Interactive`，components/dialog/terminal：使用者在裡面打自己的指令）：`Alt-v` 是 lib 的選取模式（複製走系統剪貼簿的工具，`pbcopy`、`wl-copy`、`xclip`、`xsel`，跟 viewer 一樣），`PgUp` 進 lib 的歷史模式。`$EDITOR` 開的 PTY（File transfer 的 `e`、Config 的 *Edit file*）不標，按鍵連 `PgUp` 全給編輯器。
 - **鎖定**：`Alt-Enter` 把每一個鍵交給格子 —— `Alt-Esc`、`Alt-z`、`Alt-` 方向鍵、`Alt-v`、`PgUp` 都是 —— 給格子裡巢狀的 sshu（`ssh.go` 的 `lock`）。鎖住時出口鍵換成 `Alt-Enter`（`Terminal.ExitKey`，tdp K10：出口永遠有一個是 app 的），其他保留鍵拿掉，`Terminal.AllKeys` 把選取與歷史也讓給格子裡的程式 —— `Alt-v`、`PgUp|PgDn` 送進去，最裡面那一層自己選、自己捲（components/dialog/terminal）；鍵盤離開格子就解鎖（`place` 看到鍵盤不在了就呼叫 `unlock`）。
 - **格子增減**：結束、藏起來的 session 的格子當下就從畫面拿掉，lib 會把 focus 留在原本的 panel；只有有 focus 的那一格留著，寫出 session 怎麼結束，等 focus 離開才拿掉 —— session 結束是背景的事，不可以移動 focus（tdp K3）。
-- **ssh 的原話**：ssh 以 `-E` 把自己的訊息寫進暫存檔。結束碼 255（ssh 自己放棄）時讀最後一行當原因：toast、Errors、Connections 都記；檔案隨即刪掉。遠端程式自己的輸出不受影響。
+- **ssh 的原話**：ssh 以 `-E` 把自己的訊息寫進暫存檔。結束碼 255（ssh 自己放棄）時讀最後一行當原因：toast、App Log、Connections 都記；檔案隨即刪掉。遠端程式自己的輸出不受影響。
 - **密碼**：password host 的 ssh 把 `SSH_ASKPASS` 指回 sshu 自己（`SSHU__ASKPASS_HOST`），helper 重讀 `hosts.yaml` 印出密碼 —— 密碼不進環境變數、不上命令列。
 - **顏色深度**：ssh 只轉送 `TERM`，所以 sshu 用 `LC_SSHU_COLORTERM`（sshd 預設接受 `LC_*`）並加 `-o SendEnv`；遠端的 sshu 啟動時把它收進 `COLORTERM`。
 
@@ -63,15 +63,16 @@
 
 ### 資料與檔案
 
-- **位置（tdp E3：看刪掉會怎樣）**：設定目錄是 `$SSHU__CONFIG`，否則 `$XDG_CONFIG_HOME/sshu`，否則 `~/.config/sshu`，每個平台同一套，裡面只有 sshu 自己的設定檔 `config.yaml`。`state.yaml`（SSH 網格怎麼排，一列一個值的 panel 改了就存）刪了只是回到預設，是狀態，也在設定目錄，`SSHU__STATE` 可以搬走。`hosts.yaml`、`credentials.yaml` 是使用者寫給 sshu 的清單，刪了就找不回來，是資料（tdp v0.9.0 起，以前跟 `~/.ssh/config` 一樣算設定）；`.sshukey` 跟著它加密的兩個檔；三本紀錄也是資料。資料放 `~/.sshu`，`SSHU__DATA` 可以搬走，`SSHU__KEY_FILE` 另外搬鑰匙。
-- **換位置時自己搬**（`internal/store/migrate.go` 的 `Migrate`，啟動時在讀任何檔之前；tdp E3 的「換了位置時」，v0.8.1 起逐項搬）：macOS 上以前照 `os.UserConfigDir` 放在 `~/Library/Application Support/sshu`，裡面的東西一項一項搬到 `~/.config/sshu`；資料（`hosts.yaml`、`credentials.yaml`、`.sshukey`、三本紀錄）以前在設定目錄，一項一項搬到 `~/.sshu`；`SSHU__DATA` 有設也搬過去 —— 變數說的是資料要放哪，不是資料已經在那裡。新位置已經有的那一項留在舊位置，開 error popup 寫出兩個路徑請使用者自己合併；`.sshukey` 與它加密的 `hosts.yaml`、`credentials.yaml` 一起搬或一起留：新位置已經有三個裡的任一個，三個都留，免得密碼跟一把解不開它的鑰匙放在一起。有一項搬不動，就把搬過去的搬回來、照舊用舊位置（`Dir`、`DataDir` 記得它，`SSHU__DATA` 也讓位），開 error popup 寫出兩個路徑請使用者自己搬。搬完空了的舊目錄拿掉。搬好了用 Info toast 說從哪搬到哪（跟啟動時的問題 toast 合成一則：第二則 toast 會蓋掉第一則），搬了哪幾項記進 App Log。`uninstall.sh` 在 macOS 上另外問舊目錄（有東西留在那裡時它還在）。
+- **位置（tdp E3：看刪掉會怎樣）**：設定目錄是 `$SSHU__CONFIG`，否則 `$XDG_CONFIG_HOME/sshu`，否則 `~/.config/sshu`，每個平台同一套，裡面只有 sshu 自己的設定檔 `config.yaml`。`state.yaml`（SSH 網格怎麼排，一列一個值的 panel 改了就存）刪了只是回到預設，是狀態，也在設定目錄，`SSHU__STATE` 可以搬走。`hosts.yaml`、`credentials.yaml` 是使用者寫給 sshu 的清單，刪了就找不回來，是資料（tdp v0.9.0 起，以前跟 `~/.ssh/config` 一樣算設定）；`.sshukey` 跟著它加密的兩個檔；兩本紀錄也是資料。資料放 `~/.sshu`，`SSHU__DATA` 可以搬走，`SSHU__KEY_FILE` 另外搬鑰匙。
+- **換位置時自己搬**（`internal/store/migrate.go` 的 `Migrate`，啟動時在讀任何檔之前；tdp E3 的「換了位置時」，v0.8.1 起逐項搬）：macOS 上以前照 `os.UserConfigDir` 放在 `~/Library/Application Support/sshu`，裡面的東西一項一項搬到 `~/.config/sshu`；資料（`hosts.yaml`、`credentials.yaml`、`.sshukey`、紀錄，連同舊版留下的 `errors.yaml`）以前在設定目錄，一項一項搬到 `~/.sshu`；`SSHU__DATA` 有設也搬過去 —— 變數說的是資料要放哪，不是資料已經在那裡。新位置已經有的那一項留在舊位置，開 error popup 寫出兩個路徑請使用者自己合併；`.sshukey` 與它加密的 `hosts.yaml`、`credentials.yaml` 一起搬或一起留：新位置已經有三個裡的任一個，三個都留，免得密碼跟一把解不開它的鑰匙放在一起。有一項搬不動，就把搬過去的搬回來、照舊用舊位置（`Dir`、`DataDir` 記得它，`SSHU__DATA` 也讓位），開 error popup 寫出兩個路徑請使用者自己搬。搬完空了的舊目錄拿掉。搬好了用 Info toast 說從哪搬到哪（跟啟動時的問題 toast 合成一則：第二則 toast 會蓋掉第一則），搬了哪幾項記進 App Log。`uninstall.sh` 在 macOS 上另外問舊目錄（有東西留在那裡時它還在）。
 - 每次寫入都是原子的（暫存檔 + rename），固定 `0600`，檔案開頭帶一段警告。
 - 舊格式的 `hosts.yaml`、`credentials.yaml` 在啟動時改寫成當前格式；更新版 sshu 寫的檔絕不覆蓋。明文密碼也在啟動時就地加密。
 - `config.yaml` sshu 永遠不寫。
-- **讀不了時**（tdp E3「讀不了時」）：sshu 自己的檔 —— `config.yaml`、`state.yaml`、`.sshukey`、`hosts.yaml`、`credentials.yaml`、三本紀錄 —— 讀不了（格式錯、壞掉、沒有權限），讀不了的先當空的，啟動時照這個順序一個一個問 MOVE ASIDE（`App.MoveAside`）：`Enter` 改名成 `.bak`（`.bak.1`……，lib 找空的名字），`Esc` 離開，`Run` 的錯誤由 main 印到 stderr。全部問完才做啟動的其他事（還原網格、搬家的 toast），還沒問到的檔不會先被存檔蓋掉；`reconcileFiles` 也不改寫讀不了的檔。
+- **讀不了時**（tdp E3「讀不了時」）：sshu 自己的檔 —— `config.yaml`、`state.yaml`、`.sshukey`、`hosts.yaml`、`credentials.yaml`、兩本紀錄 —— 讀不了（格式錯、壞掉、沒有權限），讀不了的先當空的，啟動時照這個順序一個一個問 MOVE ASIDE（`App.MoveAside`）：`Enter` 改名成 `.bak`（`.bak.1`……，lib 找空的名字），照第一次打開那樣開始（tdp v0.9.2 的 E3-18）：第一次打開就會建的鑰匙（`EnsureKey`）馬上再建一把，其他的檔第一次打開也不會建，等第一次存檔時才有 —— `TestMovingAsideStartsAsOnTheFirstStart` 把七個檔逐一弄壞，比對按 `Enter` 之後磁碟上的檔跟第一次打開時一樣；`Esc` 離開，`Run` 的錯誤由 main 印到 stderr。全部問完才做啟動的其他事（還原網格、搬家的 toast），還沒問到的檔不會先被存檔蓋掉；`reconcileFiles` 也不改寫讀不了的檔。
 - **鑰匙讀不了**：問的是鑰匙，不是 `hosts.yaml`。`decryptInto` 對讀不了的鑰匙跟沒有鑰匙一樣：密文原樣留著、名字列進「解不開的密碼」，所以 `hosts.yaml` 照樣讀得進來；以前它回錯誤，壞掉的鑰匙會讓 `hosts.yaml` 被當成讀不了的檔。`Enter` 之後 `EnsureKey` 產生新的鑰匙；舊的在 `.sshukey.bak`，放回去就打得開。鑰匙讀不了時存檔一律拒絕（`EnsureKey` 回錯誤），不會用一把讀不了的鑰匙封東西。
 - **`~/.ssh` 不是 sshu 的**：`~/.ssh/config`、`known_hosts` 讀不了時照常開著，那一節中間寫原因（`Panel.Fail`，紅字），細節進 App Log。Config 的 *Edit file* 之後重讀失敗也一樣，另外跳 Error toast，舊的內容留著。
-- **App Log**（tdp F5，lib 的 `!`）：toast 與 error popup 由 lib 自動記。sshu 另外記：啟動時的問題（解不開的密碼、重複的名字、新版 sshu 寫的檔、`~/.ssh` 讀不了；以前寫進 Errors），搬了哪幾項，以及寫進紀錄的每一筆 —— Errors 那一筆帶著遠端的原話，Changes 那一筆是做了什麼。一次失敗通常也有 toast，所以在 App Log 是兩行（toast 那一句與帶原話的那一句），footer 的未讀錯誤也算兩個。
+- **App Log**（tdp F5，lib 的 `!`）：toast 與 error popup 由 lib 自動記。sshu 另外記：啟動時的問題（解不開的密碼、重複的名字、新版 sshu 寫的檔、`~/.ssh` 讀不了），搬了哪幾項，失敗的事（在哪台、對誰，帶著遠端的原話），以及寫進 Changes 的每一筆。一次失敗也有 toast 或 error popup，所以在 App Log 是兩行（toast 那一句與 sshu 補上在哪、原話的那一句），footer 的未讀錯誤也算兩個；sshu 那一句沒有多說什麼的（存 `~/.ssh` 失敗、credential 改名後還有 host 用舊名字），只留 lib 記的那一句 —— 以前多寫一次是為了 Errors 那本。
+- **App Log 大寫開頭**（tdp v0.9.2 的 note-78：跟 toast 一樣；toast 一字不改記進去，所以 toast 也算）：名字與路徑是內容、不改大小寫（components「大寫」），所以開頭是名字的句子改寫成動詞或名詞在前、名字在後，照 tdp 的例子 `Scaled deployment.apps/nginx`：`Session to db-replica failed: …`（以前 `db-replica: …`）、`Can't read ~/.ssh/config: …`、`Ignored 2 duplicate entries in hosts.yaml …`、`Deleted Host "x" from ~/.ssh/config`。整句是 Go error 的（`err.Error()`）由 `capital` 把第一個字母改大寫。Changes 那一本：以路徑開頭的幾種跟著改寫，其他照原樣存（`credential "x" deleted`），大寫只在 App Log（`logChange` 的 `capital`）。
 
 ### icon 與 powerline 符號的寬度
 
@@ -82,10 +83,11 @@
 ## 設計決定
 
 - **零學習成本是結構保證的。** 每個動作登記一次，Space menu、熱鍵、`?`、hint 都從同一份登記來，「menu 裡沒有的熱鍵」不可能存在。
-- **三本紀錄，不是一本 log。** 出了什麼事、連過哪些機器、動過什麼，三件事該長的樣子不一樣：連線紀錄一列一筆好往下數，失敗訊息卻是遠端吐出來的十五行。Errors 的表格只有原因那一行，全文在 `Enter` 後面。
+- **分開的紀錄，不是一本 log。** 連過哪些機器、動過什麼，該長的樣子不一樣：連線紀錄一列一筆好往下數，改動是一句話。出了什麼事（遠端吐出來的十五行）以前是第三本 Errors，現在是 App Log 的。
 - **tag 只顯示、只被搜，sshu 從不解讀它。** 空白分開，其餘都是字面。理由：一個會被程式解讀的欄位，使用者就得學它的規則；tag 是使用者拿來分群的字，能被篩選找到就是它全部的用途。
 - **密碼加密是把祕密拆成兩份。** `hosts.yaml` 或 `credentials.yaml` 單獨流出去不會漏密碼；整個資料目錄被複製就擋不住，因為鑰匙在裡面。`SSHU__KEY_FILE` 不做成預設：鑰匙離開資料目錄，備份就得自己記得。
-- **Errors 那本留著，跟 App Log 並存**（暫定，SS41）：App Log 只在記憶體、只記這次開 app 的事（note 的 App Log）；Errors 是存在磁碟上的紀錄（tdp E3 的資料），跨次留著「上週連那台為什麼失敗」，跟 Connections、Changes 一起。分工：啟動時的問題進 App Log 不進 Errors —— 問題還在就每次啟動都再說一次，存進 Errors 只會一直重複；開著時失敗的事兩邊都記。statusbar 的未讀錯誤數拿掉、交給 footer 的 `!:N errors`：兩個紅色的計數，使用者不知道該看哪一個。
+- **Errors 併進 App Log，不再存在磁碟上**（user 2026-10-21 改判 SS41，原話「errors 合併到 app log 裡面, 就不在獨立存 errors」）：Manage 的 Errors 與 `errors.yaml` 拿掉，失敗只記進 App Log。之前暫定兩個並存，理由是 App Log 只在記憶體、只記這一次，Errors 跨次留著「上週連那台為什麼失敗」；terminu 說那是它判錯了，升級交代的「錯誤歷史改用 App Log」原本就是這個意思。代價是關掉 sshu，失敗的原話就沒了；連過哪台、成功還是失敗，Connections 照樣留著。statusbar 的未讀錯誤數也拿掉，交給 footer 的 `!:N errors`：兩個紅色的計數，使用者不知道該看哪一個。
+- **舊的 `errors.yaml` 原樣留著**（暫定，SS42）：tdp E3 說資料刪了就找不回來，sshu 不替使用者刪；照 E3「換了位置時」它也跟其他資料一起從設定目錄搬到 `~/.sshu`，舊目錄才會空、才拿得掉。sshu 不再讀它，CHANGELOG 寫著不要了就自己刪。否決：讀進來放進 App Log —— App Log 只記這次開 app 的事。tdp 沒寫的是 app 不再用的資料檔要不要提醒使用者，暫時只寫在 CHANGELOG。
 - **`D` 一律是複製、`x`/`X` 一律是刪除。** 刪除原本在 `D`；同一個字母在不同 panel 一個複製、一個刪除，按錯的代價是資料，所以統一成整個 sshu 一個字母一個意思。File transfer 的刪除不放在 `d`：`d` 是半頁（tdp K12）。
 - **檔案上的 `Enter`**：目錄是進去，檔案是用 viewer 讀（以前檔案上的 `Enter` 什麼都不做）。理由：tdp K3 要 `Enter` 做最直觀的那件事；在一個檔案上按 `Enter` 什麼都不發生，看起來像鍵壞了，而「讀它」不會改到任何東西。
 - **Jobs 是 menu**：進行中的那一列 `Enter` 打開帶全文的 confirm、hint 寫 `Enter:cancel`，結束的那一列 `Enter` 看全文（tdp F1：工作清單）。以前的 `c` 取消游標那一筆，menu 沒有「作用在游標那一列」的熱鍵，所以改成這樣。

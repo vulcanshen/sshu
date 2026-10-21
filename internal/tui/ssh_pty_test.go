@@ -67,21 +67,20 @@ func TestAShownCellKeepsItsPlace(t *testing.T) {
 	hs.s.sh.closeAll()
 }
 
-// A session ssh gave up on says what ssh said, in a toast and in Errors.
+// A session ssh gave up on says what ssh said, in a toast and in the App Log.
 func TestAFailedSessionSaysWhatSSHSaid(t *testing.T) {
 	fakeSSH(t, `echo "ssh: connect to host db.internal port 2222: Connection refused" > "$LOG"; exit 255`)
 	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))
 	hs.keys("2", "j", "Enter", "Enter")
-	if !hs.settle(func() bool { return len(hs.s.d.Errors) == 1 }, 3*time.Second) {
-		t.Fatalf("no error was recorded:\n%s", hs.text())
+	if !hs.settle(func() bool { return len(hs.s.d.Conns) == 1 }, 3*time.Second) {
+		t.Fatalf("no connection was recorded:\n%s", hs.text())
 	}
-	if e := hs.s.d.Errors[0]; !strings.Contains(e.Cause, "Connection refused") || e.Host != "db-replica" {
-		t.Fatalf("recorded %+v", e)
-	}
-	if c := hs.s.d.Conns; len(c) != 1 || c[0].Result != store.ResultFail {
+	if c := hs.s.d.Conns; c[0].Result != store.ResultFail {
 		t.Fatalf("connections %+v", c)
 	}
-	hs.contains("Connection refused")
+	hs.contains("Session to db-replica failed: ssh: connect to host db.internal port 2222: Connection refused")
+	hs.keys("!")
+	hs.contains("ERR  Session to postgres@db-replica failed: ssh: connect to host db.internal port 2222: Connection")
 }
 
 // Every SSH screen row is as wide as the terminal, cells and all (tdp L4).

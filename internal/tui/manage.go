@@ -36,7 +36,6 @@ type manage struct {
 	creds *credsSection
 	cfg   *sshcfgSection
 	known *knownSection
-	errs  *errorsSection
 	conns *connsSection
 	chgs  *changesSection
 }
@@ -49,13 +48,12 @@ func newManage(s *sshu) *manage {
 	m.creds = newCredsSection(s)
 	m.cfg = newSSHCfgSection(s)
 	m.known = newKnownSection(s)
-	m.errs = newErrorsSection(s)
 	m.conns = newConnsSection(s)
 	m.chgs = newChangesSection(s)
 	m.sections = []*section{
 		m.hosts.section(), m.creds.section(),
 		m.cfg.section(), m.known.section(),
-		m.errs.section(), m.conns.section(), m.chgs.section(),
+		m.conns.section(), m.chgs.section(),
 	}
 	m.nav = &terminu.List{Columns: []terminu.Column{{Shrink: true}}, OnMove: m.navMoved}
 	rows := make([]terminu.Row, len(m.sections))
@@ -116,12 +114,11 @@ func unreadFailure(file string, err error) *terminu.Failure {
 // adds or takes away rows.
 func (m *manage) refresh() { m.show(m.cur) }
 
-// journalsChanged redraws the three journal sections from the data.
+// journalsChanged redraws the two journal sections from the data.
 func (m *manage) journalsChanged() {
-	if m.errs == nil {
+	if m.chgs == nil {
 		return // still building
 	}
-	m.errs.reload()
 	m.conns.reload()
 	m.chgs.reload()
 	if m.cur != nil {

@@ -15,18 +15,13 @@ func at(sec int) time.Time {
 // ---------------------------------------------------------------- round trip
 
 // Each journal survives the file, keeps its header, and lands at 0600 — the
-// same handling every file in this directory gets, because all three name
-// hosts and users and one of them keeps whatever the far end printed.
+// same handling every file in this directory gets, because both name hosts
+// and users.
 func TestEachJournalRoundTripsAtTheRightMode(t *testing.T) {
 	dir := t.TempDir()
-	ep := filepath.Join(dir, "errors.yaml")
 	hp := filepath.Join(dir, "connections.yaml")
 	ap := filepath.Join(dir, "changes.yaml")
 
-	if err := AppendErrorTo(ep, ErrorEntry{At: at(1), Host: "prod-web-01",
-		User: "deploy", Level: LevelError, Error: "Connection refused"}); err != nil {
-		t.Fatal(err)
-	}
 	if err := AppendConnectionTo(hp, ConnectionEntry{At: at(2), Host: "prod-web-01",
 		User: "deploy", Result: ResultSuccess}); err != nil {
 		t.Fatal(err)
@@ -36,7 +31,7 @@ func TestEachJournalRoundTripsAtTheRightMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, p := range []string{ep, hp, ap} {
+	for _, p := range []string{hp, ap} {
 		st, err := os.Stat(p)
 		if err != nil {
 			t.Fatal(err)
@@ -48,15 +43,6 @@ func TestEachJournalRoundTripsAtTheRightMode(t *testing.T) {
 		if !strings.HasPrefix(string(raw), "# sshu ") {
 			t.Errorf("%s lost its warning header:\n%s", filepath.Base(p), raw)
 		}
-	}
-
-	errs, err := loadErrorsFrom(ep)
-	if err != nil || len(errs) != 1 {
-		t.Fatalf("errors: %v, %d entries", err, len(errs))
-	}
-	if errs[0].Host != "prod-web-01" || errs[0].User != "deploy" ||
-		errs[0].Level != LevelError || errs[0].Error != "Connection refused" {
-		t.Errorf("errors round trip: %+v", errs[0])
 	}
 
 	conns, err := loadConnectionsFrom(hp)
@@ -93,21 +79,6 @@ func TestAppendingKeepsTheFileOneFlatList(t *testing.T) {
 	}
 	if len(got) != 5 {
 		t.Fatalf("want 5 entries in one list, got %d:\n%s", len(got), mustRead(t, p))
-	}
-}
-
-// An entry with empty host and user — a config file that would not parse —
-// keeps those keys OUT of the file rather than writing empty strings, so a
-// hand-read journal does not suggest a machine that was never involved.
-func TestAnEntryWithNoHostOmitsTheKeys(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "errors.yaml")
-	if err := AppendErrorTo(p, ErrorEntry{At: at(1), Level: LevelWarn,
-		Error: "config.yaml: line 3 is not a setting"}); err != nil {
-		t.Fatal(err)
-	}
-	raw := mustRead(t, p)
-	if strings.Contains(raw, "host:") || strings.Contains(raw, "user:") {
-		t.Errorf("empty host/user should be omitted:\n%s", raw)
 	}
 }
 
@@ -149,12 +120,11 @@ func TestAJournalTrimsItsOwnTail(t *testing.T) {
 // --------------------------------------------------------------------- clear
 
 func TestClearEmptiesTheFileButKeepsItsHeader(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "errors.yaml")
-	if err := AppendErrorTo(p, ErrorEntry{At: at(1), Level: LevelError,
-		Error: "boom"}); err != nil {
+	p := filepath.Join(t.TempDir(), "changes.yaml")
+	if err := AppendChangeTo(p, ChangeEntry{At: at(1), Action: "boom"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := ClearJournalTo(p, ErrorsHeader()); err != nil {
+	if err := ClearJournalTo(p, ChangesHeader()); err != nil {
 		t.Fatal(err)
 	}
 	raw := mustRead(t, p)
@@ -164,7 +134,7 @@ func TestClearEmptiesTheFileButKeepsItsHeader(t *testing.T) {
 	if strings.Contains(raw, "boom") {
 		t.Errorf("the entry survived the clear:\n%s", raw)
 	}
-	got, err := loadErrorsFrom(p)
+	got, err := loadChangesFrom(p)
 	if err != nil || len(got) != 0 {
 		t.Errorf("a cleared journal should load empty, got %d entries (%v)", len(got), err)
 	}
@@ -172,7 +142,7 @@ func TestClearEmptiesTheFileButKeepsItsHeader(t *testing.T) {
 
 func TestClearingAMissingJournalIsNotAnError(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "nope.yaml")
-	if err := ClearJournalTo(p, ErrorsHeader()); err != nil {
+	if err := ClearJournalTo(p, ChangesHeader()); err != nil {
 		t.Errorf("clearing what is not there should be fine, got %v", err)
 	}
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
@@ -182,9 +152,6 @@ func TestClearingAMissingJournalIsNotAnError(t *testing.T) {
 
 func TestLoadingAMissingJournalIsEmpty(t *testing.T) {
 	dir := t.TempDir()
-	if got, err := loadErrorsFrom(filepath.Join(dir, "a.yaml")); err != nil || got != nil {
-		t.Errorf("errors: want nil,nil got %v,%v", got, err)
-	}
 	if got, err := loadConnectionsFrom(filepath.Join(dir, "b.yaml")); err != nil || got != nil {
 		t.Errorf("connections: want nil,nil got %v,%v", got, err)
 	}

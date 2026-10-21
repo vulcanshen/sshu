@@ -223,7 +223,6 @@ func (c *credsSection) form(title, subject string, start store.Credential, repla
 		if old != "" && old != x.Name {
 			if n := c.hostsUsing(old); n > 0 {
 				line := fmt.Sprintf("%s still reference credential %q", plural(n, "host"), old)
-				c.s.logError(store.LevelWarn, "", "", line, line)
 				return c.s.a.Toast(terminu.Warning, line), nil
 			}
 		}

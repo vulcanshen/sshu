@@ -29,7 +29,9 @@ type Move struct {
 var sealed = []string{".sshukey", "hosts.yaml", "credentials.yaml"}
 
 // dataNames are what the settings directory held that tdp E3 counts as data:
-// the lists the user wrote, with their key, and the three journals.
+// the lists the user wrote, with their key, and the journals. errors.yaml is
+// no longer read — what fails is the App Log's now — but it is the user's
+// record, so it moves with the rest and is never deleted.
 var dataNames = append(slices.Clone(sealed), "errors.yaml", "connections.yaml", "changes.yaml")
 
 // Migrate moves what an older sshu kept somewhere tdp E3 no longer puts it,

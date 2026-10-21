@@ -105,7 +105,8 @@ func TestAnOldDirectoryThatCannotMoveStaysInUse(t *testing.T) {
 
 // What the settings directory held that is data — the hosts and credentials
 // the user wrote, the key that seals them, the journals — moves to ~/.sshu
-// (tdp E3). The settings stay.
+// (tdp E3). The settings stay. errors.yaml, no longer read, is the user's
+// record all the same: it moves with the rest, never deleted.
 func TestTheDataMovesToTheDataDirectory(t *testing.T) {
 	home := cleanHome(t)
 	t.Setenv(KeyEnv, "")
@@ -128,7 +129,7 @@ func TestTheDataMovesToTheDataDirectory(t *testing.T) {
 	if !exists(filepath.Join(cfg, "config.yaml")) {
 		t.Error("config.yaml left the settings directory")
 	}
-	for _, f := range []func() (string, error){HostsPath, CredsPath, KeyPath, ErrorsPath} {
+	for _, f := range []func() (string, error){HostsPath, CredsPath, KeyPath, ChangesPath} {
 		if got, _ := f(); filepath.Dir(got) != data {
 			t.Errorf("%q is not in %s", got, data)
 		}
@@ -149,7 +150,7 @@ func TestDataThatCannotMoveStaysInUse(t *testing.T) {
 	if len(moves) != 1 || moves[0].What != "data" || moves[0].Err == nil {
 		t.Fatalf("moves = %+v, want the data move to fail", moves)
 	}
-	for _, f := range []func() (string, error){HostsPath, ErrorsPath} {
+	for _, f := range []func() (string, error){HostsPath, ChangesPath} {
 		if got, _ := f(); filepath.Dir(got) != cfg {
 			t.Errorf("%q is not where it was, in %s", got, cfg)
 		}
@@ -303,7 +304,7 @@ func TestStateAndDataFollowTheirVariables(t *testing.T) {
 		t.Errorf("StatePath = %q, want it in SSHU__STATE", got)
 	}
 	t.Setenv(KeyEnv, "")
-	for _, f := range []func() (string, error){HostsPath, CredsPath, KeyPath, ErrorsPath, ConnectionsPath, ChangesPath} {
+	for _, f := range []func() (string, error){HostsPath, CredsPath, KeyPath, ConnectionsPath, ChangesPath} {
 		if got, _ := f(); filepath.Dir(got) != "/tmp/sshu-data" {
 			t.Errorf("%q, want it in SSHU__DATA", got)
 		}

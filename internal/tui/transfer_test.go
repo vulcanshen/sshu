@@ -53,6 +53,24 @@ func TestAFileIsSentToTheOtherSidesDirectory(t *testing.T) {
 	hs.waitFor(func() bool { return hs.s.ft.running() == 0 && len(hs.s.d.Changes) == 1 }, "the transfer's ending")
 }
 
+// A directory that will not open says why in a toast that starts with a
+// capital, as the App Log keeps it (dialog/note, App Log).
+func TestADirectoryThatWillNotOpenSaysWhy(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root opens every directory")
+	}
+	root := twoDirs(t)
+	b := filepath.Join(root, "b")
+	if err := os.Chmod(b, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(b, 0o755) })
+	hs := newHarness(t, 120, 36, testData(nil, nil))
+	hs.keys("F", "H", "Enter", "j", "Enter")
+	hs.contains("Open /")
+	hs.contains("permission denied")
+}
+
 // h|l cross to the same panel on the other side (tdp K12).
 func TestHAndLCrossSides(t *testing.T) {
 	twoDirs(t)

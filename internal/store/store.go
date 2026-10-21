@@ -62,7 +62,7 @@ func StateDir() (string, error) {
 }
 
 // DataDir holds hosts.yaml, credentials.yaml, the key that seals their
-// passwords and the three journals: SSHU__DATA when set, ~/.sshu otherwise
+// passwords and the two journals: SSHU__DATA when set, ~/.sshu otherwise
 // (tdp E3: what the user wrote, or a log, once deleted, is gone). Data
 // Migrate could not move is used where it is.
 func DataDir() (string, error) {

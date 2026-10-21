@@ -24,7 +24,7 @@ import (
 // cmd is started here and owned by the returned FS: Close ends the
 // subprocess. Whatever ssh printed to stderr is kept, and becomes the error
 // text when the handshake fails — that is where ssh explains itself, in the
-// words the Errors journal wants: "Permission denied", "Host key verification
+// words the App Log wants: "Permission denied", "Host key verification
 // failed", "Connection timed out".
 //
 // The caller decides what the subprocess IS, and that includes putting it in

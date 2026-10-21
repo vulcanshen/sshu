@@ -8,58 +8,29 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Three journals, one mechanism.
+// Two journals, one mechanism.
 //
 // applogs.yaml was one file holding everything that happened, at three levels,
 // in one free-text field. That worked while there was one question to answer.
-// There are three, and they want different shapes:
+// There were three, and they want different shapes:
 //
-//	errors.yaml       — what went wrong, and everything the far end said
 //	connections.yaml  — every connection attempt and how it ended, nothing else
 //	changes.yaml      — what the user changed through sshu
 //
-// A single file could not be all three: connections wants one fixed-width row
-// per entry so a machine's record reads down a column, while an error entry is
-// fifteen lines of somebody else's banner. Putting them together meant the
-// useful shape of each was the other's noise.
+// and what went wrong, with everything the far end said, which was errors.yaml
+// and is now the App Log's (tdp F5): the lib's, in memory, for this run.
 //
-// All three are APPEND-oriented, like the log they replace: the document is a
+// A single file could not be both: connections wants one fixed-width row per
+// entry so a machine's record reads down a column, while a change is a
+// sentence.
+//
+// Both are APPEND-oriented, like the log they replace: the document is a
 // bare top-level YAML list, so recording an event appends the bytes of a
 // one-element list — no read-modify-write on the hot path, and a crash
 // mid-write costs one entry rather than the file.
 
-// ErrorEntry is one failure. Host and User are empty for the failures that
-// have no connection behind them — a config file that would not parse, a
-// version that cannot be written — and the panel shows a placeholder there
-// rather than inventing one.
-//
-// Level is warn or error, and both live here because a warning is the same
-// KIND of news: something is not right. Only error counts as unread, so the
-// badge still means "something failed", not "something was mentioned".
-type ErrorEntry struct {
-	At    time.Time `yaml:"at"`
-	Host  string    `yaml:"host,omitempty"`
-	User  string    `yaml:"user,omitempty"`
-	Level string    `yaml:"level"` // warn | error
-	// Cause is the headline — one line, what the table shows and what a toast
-	// could hold. Error is the whole of it, Cause included: everything the far
-	// end printed before it gave up, which is fifteen lines for a host key
-	// mismatch and one for a refused connection.
-	//
-	// The repeat is deliberate. Cause could be derived from Error's first line
-	// and is stored anyway, so the file is readable by hand without the reader
-	// having to know that rule — and so a headline that is NOT the first line
-	// stays possible later without a format change.
-	//
-	// An entry written before this column existed has no Cause, and the UI
-	// falls back to Error's first line rather than showing a blank.
-	Cause string `yaml:"cause,omitempty"`
-	Error string `yaml:"error"` // may span lines
-}
-
-// ConnectionEntry is one connection attempt. Result only — the reason lives in
-// errors.yaml, and duplicating it here would mean two records of one failure
-// that can disagree.
+// ConnectionEntry is one connection attempt. Result only — the reason is in
+// the App Log, with everything the far end said.
 type ConnectionEntry struct {
 	At     time.Time `yaml:"at"`
 	Host   string    `yaml:"host"`
@@ -82,7 +53,7 @@ const (
 	ResultFail    = "fail"
 )
 
-// Level values for ErrorEntry.
+// Level values for what goes wrong: a note at startup, a failure.
 const (
 	LevelWarn  = "warn"
 	LevelError = "error"
@@ -96,17 +67,10 @@ const journalKeep = 500
 // can reach the trim without writing a megabyte first.
 var journalTrimBytes = int64(1 << 20)
 
-const errorsHeader = `# sshu errors — one YAML list, newest at the bottom. sshu trims it itself.
-#
-# WARNING: entries keep everything the far end printed — banners, key
-# fingerprints, paths. Same rule as the rest of this directory: keep it out of
-# version control, out of syncing folders, out of backups.
-`
-
 const connectionsHeader = `# sshu connections — one YAML list, newest at the bottom.
 #
-# Result only. Why a connection failed is in errors.yaml; this file is the
-# timeline. It names the hosts and users you connect as, so it belongs in the
+# Result only. Why a connection failed is in sshu's App Log (!); this file is
+# the timeline. It names the hosts and users you connect as, so it belongs in the
 # same directory as the rest and out of version control.
 `
 
@@ -117,8 +81,7 @@ const changesHeader = `# sshu changes — what was changed through sshu, one YAM
 # keep it out of version control, out of syncing folders, out of backups.
 `
 
-// ErrorsPath, ConnectionsPath and ChangesPath are the three files.
-func ErrorsPath() (string, error)      { return journalPath("errors.yaml") }
+// ConnectionsPath and ChangesPath are the two files.
 func ConnectionsPath() (string, error) { return journalPath("connections.yaml") }
 func ChangesPath() (string, error)     { return journalPath("changes.yaml") }
 
@@ -130,15 +93,7 @@ func journalPath(name string) (string, error) {
 	return filepath.Join(dir, name), nil
 }
 
-// AppendError, AppendConnection and AppendChange record one event.
-func AppendError(e ErrorEntry) error {
-	path, err := ErrorsPath()
-	if err != nil {
-		return err
-	}
-	return AppendErrorTo(path, e)
-}
-
+// AppendConnection and AppendChange record one event.
 func AppendConnection(e ConnectionEntry) error {
 	path, err := ConnectionsPath()
 	if err != nil {
@@ -156,10 +111,6 @@ func AppendChange(e ChangeEntry) error {
 }
 
 // The *To variants take an explicit path (tests).
-func AppendErrorTo(path string, e ErrorEntry) error {
-	return appendJournal(path, e, errorsHeader, loadErrorsFrom)
-}
-
 func AppendConnectionTo(path string, e ConnectionEntry) error {
 	return appendJournal(path, e, connectionsHeader, loadConnectionsFrom)
 }
@@ -168,16 +119,8 @@ func AppendChangeTo(path string, e ChangeEntry) error {
 	return appendJournal(path, e, changesHeader, loadChangesFrom)
 }
 
-// LoadErrors, LoadConnections and LoadChanges read a journal back. A missing file
-// is the ordinary empty state, exactly as it is for hosts.yaml.
-func LoadErrors() ([]ErrorEntry, error) {
-	path, err := ErrorsPath()
-	if err != nil {
-		return nil, err
-	}
-	return loadErrorsFrom(path)
-}
-
+// LoadConnections and LoadChanges read a journal back. A missing file is the
+// ordinary empty state, exactly as it is for hosts.yaml.
 func LoadConnections() ([]ConnectionEntry, error) {
 	path, err := ConnectionsPath()
 	if err != nil {
@@ -194,10 +137,6 @@ func LoadChanges() ([]ChangeEntry, error) {
 	return loadChangesFrom(path)
 }
 
-func loadErrorsFrom(path string) ([]ErrorEntry, error) {
-	return loadJournal[ErrorEntry](path)
-}
-
 func loadConnectionsFrom(path string) ([]ConnectionEntry, error) {
 	return loadJournal[ConnectionEntry](path)
 }
@@ -206,10 +145,9 @@ func loadChangesFrom(path string) ([]ChangeEntry, error) {
 	return loadJournal[ChangeEntry](path)
 }
 
-// ClearErrors, ClearConnections and ClearChanges empty one journal, keeping its
-// header — the same shape ClearLog had, and for the same reason: a file whose
-// warning has been deleted is a file whose warning is gone for good.
-func ClearErrors() error      { return clearJournalAt(ErrorsPath, errorsHeader) }
+// ClearConnections and ClearChanges empty one journal, keeping its header —
+// the same shape ClearLog had, and for the same reason: a file whose warning
+// has been deleted is a file whose warning is gone for good.
 func ClearConnections() error { return clearJournalAt(ConnectionsPath, connectionsHeader) }
 func ClearChanges() error     { return clearJournalAt(ChangesPath, changesHeader) }
 
@@ -230,9 +168,8 @@ func ClearJournalTo(path, header string) error {
 	return writeFile0600(path, []byte(header))
 }
 
-// ErrorsHeader, ConnectionsHeader and ChangesHeader expose the headers so the UI
-// can clear a journal through ClearJournalTo without restating them.
-func ErrorsHeader() string      { return errorsHeader }
+// ConnectionsHeader and ChangesHeader expose the headers so the UI can clear a
+// journal through ClearJournalTo without restating them.
 func ConnectionsHeader() string { return connectionsHeader }
 func ChangesHeader() string     { return changesHeader }
 

@@ -168,7 +168,7 @@ func (c *sshcfgSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 		if err != nil {
 			return c.s.a.Error("Delete failed", err.Error())
 		}
-		return c.persist(next, -1, fmt.Sprintf("~/.ssh/config: Host %q deleted", b.Patterns), "Deleted "+b.Patterns)
+		return c.persist(next, -1, fmt.Sprintf("Deleted Host %q from ~/.ssh/config", b.Patterns), "Deleted "+b.Patterns)
 	}, true
 }
 
@@ -180,7 +180,6 @@ func (c *sshcfgSection) persist(next store.SSHConfigFile, sel int, logLine, toas
 	c.reload(sel)
 	c.s.mg.refresh()
 	if err != nil {
-		c.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
 		return c.s.a.Error("Save failed", err.Error())
 	}
 	c.s.logChange(logLine)
@@ -302,13 +301,12 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 			// What is on disk now is shown; the form stays, the values in it.
 			c.s.d.SSHConfig = disk
 			c.reload(-1)
-			c.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
-			return err
+			return err // the form, or the question before Edit file, says so and logs it
 		}
 		c.s.d.SSHConfig = disk
 		c.reload(sel)
 		c.s.mg.refresh()
-		c.s.logChange(fmt.Sprintf("~/.ssh/config: Host %q %s", patterns, verb))
+		c.s.logChange(fmt.Sprintf("Host %q %s in ~/.ssh/config", patterns, verb))
 		at, opened = sel, saved()
 		return nil
 	}
@@ -347,7 +345,6 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		c.s.d.SSHConfigErr = err
 		if err != nil {
 			// What was read before stays on screen (layout/panel, errors).
-			c.s.logError(store.LevelError, "", "", "~/.ssh/config: "+err.Error(), err.Error())
 			return c.s.a.Toast(terminu.Error, "Can't read ~/.ssh/config: "+err.Error())
 		}
 		c.s.d.SSHConfig = fresh

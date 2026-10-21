@@ -2,7 +2,6 @@ package tui
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,9 +10,9 @@ import (
 	"github.com/vulcanshen/sshu/internal/store"
 )
 
-// Manage → Logs: three journals, each a table newest first. Errors keeps
-// everything the far end printed behind Enter; Connections and Changes open
-// whole, every entry in full.
+// Manage → Logs: two journals, each a table newest first, opening whole with
+// every entry in full. What went wrong is the App Log's (!), with everything
+// the far end printed.
 
 // journalCap is how many entries a table shows, as many as the file keeps.
 const journalCap = 500
@@ -52,83 +51,6 @@ func clearAction(s *sshu, label, file string, clear func() error, after func()) 
 					return s.a.Toast(terminu.Success, "Cleared "+label)
 				}, true
 		})
-}
-
-// --- Errors -------------------------------------------------------------------
-
-type errorsSection struct {
-	s    *sshu
-	sec  *section
-	list *terminu.List
-}
-
-func newErrorsSection(s *sshu) *errorsSection {
-	e := &errorsSection{s: s}
-	e.list = &terminu.List{
-		Columns:   []terminu.Column{{Title: "Time", Drop: 2}, {Title: "Host", Shrink: true, Drop: 1}, {Title: "Cause", Shrink: true}},
-		EmptyFact: "Nothing has gone wrong",
-		EmptyHint: "Failed connections, transfers and saves land here; press [Space] to see what you can do",
-	}
-	e.reload()
-	return e
-}
-
-func (e *errorsSection) section() *section {
-	e.sec = &section{id: "errors", label: "Errors", group: "logs", body: e.list, actions: e.actions}
-	return e.sec
-}
-
-func (e *errorsSection) actions() []terminu.Action {
-	acts := []terminu.Action{
-		{Key: "Enter", Label: "Open", Desc: "everything the far end said", Scope: terminu.ItemScope, Hint: "open", Do: e.open},
-	}
-	if len(e.s.d.Errors) > 0 {
-		acts = append(acts, clearAction(e.s, "errors", "errors.yaml", e.s.d.ClearErrors, func() { e.s.d.Errors = nil }))
-	}
-	return acts
-}
-
-func (e *errorsSection) reload() {
-	es := e.s.d.Errors
-	if len(es) > journalCap {
-		es = es[len(es)-journalCap:]
-		e.s.d.Errors = es
-	}
-	rows := make([]terminu.Row, 0, len(es))
-	for i := len(es) - 1; i >= 0; i-- {
-		x := es[i]
-		color := terminu.Red
-		if x.Level == store.LevelWarn {
-			color = terminu.Peach
-		}
-		rows = append(rows, terminu.Row{ID: strconv.Itoa(i), Cells: []string{jTime(x.At), whoCell(x.User, x.Host), cause(x)},
-			Styled: [][]terminu.Span{nil, nil, {{Text: cause(x), Style: terminu.Fg(color)}}}})
-	}
-	e.list.SetRows(rows)
-}
-
-// cause is an entry's headline: written down, or the first line of the rest.
-func cause(x store.ErrorEntry) string {
-	if x.Cause != "" {
-		return x.Cause
-	}
-	first, _, _ := strings.Cut(x.Error, "\n")
-	return first
-}
-
-func (e *errorsSection) open() tea.Cmd {
-	r, ok := e.list.Current()
-	if !ok {
-		return nil
-	}
-	i, _ := strconv.Atoi(r.ID)
-	if i >= len(e.s.d.Errors) {
-		return nil
-	}
-	x := e.s.d.Errors[i]
-	lines := []string{jDate(x.At) + "  " + who(x.User, x.Host) + "  " + x.Level, ""}
-	lines = append(lines, strings.Split(x.Error, "\n")...)
-	return e.s.a.Viewer(newViewer("Error", who(x.User, x.Host), glyphLog, lines))
 }
 
 // --- Connections --------------------------------------------------------------

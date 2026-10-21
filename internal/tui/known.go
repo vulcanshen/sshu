@@ -144,10 +144,9 @@ func (k *knownSection) edit() tea.Cmd {
 			k.reload(at)
 			k.s.mg.refresh()
 			if err != nil {
-				k.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
-				return err
+				return err // the lib says so, and logs it
 			}
-			k.s.logChange(fmt.Sprintf("~/.ssh/known_hosts: %q is now trusted for %q", e.Hosts, strings.TrimSpace(v)))
+			k.s.logChange(fmt.Sprintf("Trusted the key of %q for %q in ~/.ssh/known_hosts", e.Hosts, strings.TrimSpace(v)))
 			return nil
 		},
 		Done: func(string) tea.Cmd { return k.s.a.Toast(terminu.Success, "Saved") }})
@@ -166,7 +165,7 @@ func (k *knownSection) deleteAsk() (terminu.Ask, func() tea.Cmd, bool) {
 			if err != nil {
 				return k.s.a.Error("Delete failed", err.Error())
 			}
-			return k.persist(next, -1, fmt.Sprintf("~/.ssh/known_hosts: key for %q removed (%s)", e.Hosts, e.Fingerprint()),
+			return k.persist(next, -1, fmt.Sprintf("Removed the key for %q from ~/.ssh/known_hosts (%s)", e.Hosts, e.Fingerprint()),
 				"Forgot "+knownLabel(e))
 		}, true
 }
@@ -177,7 +176,6 @@ func (k *knownSection) persist(next store.KnownHostsFile, sel int, logLine, toas
 	k.reload(sel)
 	k.s.mg.refresh()
 	if err != nil {
-		k.s.logError(store.LevelWarn, "", "", err.Error(), err.Error())
 		return k.s.a.Error("Save failed", err.Error())
 	}
 	k.s.logChange(logLine)
@@ -253,7 +251,7 @@ func (k *knownSection) trust(names string, key remote.HostKey) tea.Cmd {
 				return k.s.a.Error("Trust failed", err.Error())
 			}
 			fp := store.KnownHostEntry{Type: key.Type, Key: key.Key}.Fingerprint()
-			return k.persist(next, len(next.Entries)-1, fmt.Sprintf("~/.ssh/known_hosts: trusted %s for %q", fp, names),
+			return k.persist(next, len(next.Entries)-1, fmt.Sprintf("Trusted %s for %q in ~/.ssh/known_hosts", fp, names),
 				"Trusting "+names)
 		})
 }

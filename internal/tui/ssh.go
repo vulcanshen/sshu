@@ -330,7 +330,7 @@ func (h *sshScreen) current() *session {
 func (h *sshScreen) connect(host store.Host) tea.Cmd {
 	x, err := h.start1(host)
 	if err != nil {
-		h.s.logError(store.LevelError, host.Name, host.User, err.Error(), err.Error())
+		h.s.logError(store.LevelError, "Connect to "+who(host.User, host.Name)+" failed: "+err.Error(), "")
 		return h.s.a.Error("Connect failed", err.Error())
 	}
 	return tea.Batch(x.term.Start(), h.focus(x))
@@ -513,8 +513,8 @@ func (h *sshScreen) closeAllAsk() (terminu.Ask, func() tea.Cmd, bool) {
 		}, true
 }
 
-// ended settles a session that is over: why it ended goes to the journals
-// and a toast; its cell leaves the grid.
+// ended settles a session that is over: how it ended goes to the Connections
+// journal, why to the App Log and a toast; its cell leaves the grid.
 func (h *sshScreen) ended(x *session, err error) tea.Cmd {
 	x.ended = true
 	deregisterStop(x.term)
@@ -545,8 +545,12 @@ func (h *sshScreen) ended(x *session, err error) tea.Cmd {
 	h.redrawList()
 	h.s.refreshQuit()
 	if !ok {
-		h.s.logError(store.LevelError, x.host.Name, x.addr.User, reason, words)
-		return h.s.a.Toast(terminu.Error, x.host.Name+": "+reason)
+		detail := words
+		if detail == reason {
+			detail = ""
+		}
+		h.s.logError(store.LevelError, "Session to "+who(x.addr.User, x.host.Name)+" failed: "+reason, detail)
+		return h.s.a.Toast(terminu.Error, "Session to "+x.host.Name+" failed: "+reason)
 	}
 	return h.s.a.Toast(terminu.Info, "Session to "+x.host.Name+" ended: "+reason)
 }

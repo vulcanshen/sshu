@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	terminu "github.com/vulcanshen/terminu-go"
@@ -38,15 +40,12 @@ type Data struct {
 	State     store.State
 	SaveState func(store.State) error
 
-	Errors      []store.ErrorEntry
-	AppendError func(store.ErrorEntry) error
-	ClearErrors func() error
-	Conns       []store.ConnectionEntry
-	AppendConn  func(store.ConnectionEntry) error
-	ClearConns  func() error
-	Changes     []store.ChangeEntry
-	AppendChg   func(store.ChangeEntry) error
-	ClearChgs   func() error
+	Conns      []store.ConnectionEntry
+	AppendConn func(store.ConnectionEntry) error
+	ClearConns func() error
+	Changes    []store.ChangeEntry
+	AppendChg  func(store.ChangeEntry) error
+	ClearChgs  func() error
 
 	// Notes are what startup found wrong with the files. Each goes to the
 	// App Log, and a toast says there are some.
@@ -69,19 +68,21 @@ type Data struct {
 }
 
 // Note is one thing startup has to say: a file that would not load, a
-// duplicate it dropped, a password it could not open.
+// duplicate it dropped, a password it could not open. Each starts with a
+// verb, never a name, as an App Log entry does.
 type Note struct {
-	Level       string // "warn" or "error"
-	Host, Cause string
-	Detail      string // the whole of it, Cause included
+	Level  string // "warn" or "error"
+	Cause  string
+	Detail string // the whole of it, Cause included
 }
 
 // Unreadable is a file of sshu's own that could not be read, and why.
 type Unreadable struct {
 	Path string
 	Err  error
-	// Fresh starts a new one where it was, once it has moved aside; nil when
-	// sshu writes one the first time it saves anyway.
+	// Fresh makes a new one where it was, once it has moved aside, as a first
+	// start would (tdp E3-18); nil when a first start does not make one
+	// either, and it appears at the first save.
 	Fresh func() error
 }
 
@@ -190,7 +191,7 @@ func (s *sshu) started() tea.Cmd {
 		}
 		if len(m.Moved) > 0 {
 			moved = append(moved, fmt.Sprintf("the %s from %s to %s", m.What, from, to))
-			s.a.Log(terminu.Info, fmt.Sprintf("moved %s from %s to %s", strings.Join(m.Moved, ", "), from, to))
+			s.a.Log(terminu.Info, fmt.Sprintf("Moved %s from %s to %s", strings.Join(m.Moved, ", "), from, to))
 		}
 	}
 	if len(stuck) > 0 {
@@ -204,11 +205,7 @@ func (s *sshu) started() tea.Cmd {
 	if len(s.d.Notes) > 0 {
 		kind = terminu.Warning
 		for _, n := range s.d.Notes {
-			line := oneLine(n.Detail)
-			if n.Host != "" {
-				line = n.Host + ": " + line
-			}
-			s.a.Log(logKind(n.Level), line)
+			s.a.Log(logKind(n.Level), oneLine(n.Detail))
 			if n.Level != store.LevelWarn {
 				kind = terminu.Error
 			}
@@ -273,27 +270,28 @@ func (s *sshu) onMsg(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-// logError records a failure in the Errors journal, on screen and on disk,
-// and in the App Log with what the far end said (tdp F5). A journal that
-// cannot be written is not itself journalled: it would fail the same way.
-func (s *sshu) logError(level, host, user, cause, detail string) {
-	e := store.ErrorEntry{At: s.d.Now(), Host: host, User: user, Level: level, Cause: cause, Error: detail}
-	if e.Error == "" {
-		e.Error = cause
-	}
-	s.d.Errors = append(s.d.Errors, e)
-	if s.d.AppendError != nil {
-		_ = s.d.AppendError(e)
-	}
-	s.mg.journalsChanged()
-	line := cause
-	if host != "" {
-		line = who(user, host) + ": " + cause
-	}
-	if e.Error != cause {
-		line += " · " + oneLine(e.Error)
+// logError records a failure in the App Log (tdp F5): line says what failed
+// and where, a verb or a noun first and never a name, so it starts with a
+// capital as a toast does (dialog/note, App Log); detail, when there is
+// more, is what the far end said. The toast or the error popup next to it
+// is in the App Log already, in its own words.
+func (s *sshu) logError(level, line, detail string) {
+	line = capital(line)
+	if detail != "" {
+		line += " · " + oneLine(detail)
 	}
 	s.a.Log(logKind(level), line)
+}
+
+// capital is s with its first letter a capital, as a toast and an App Log
+// entry start (dialog/note, App Log): for text that starts with words, such
+// as a Go error's.
+func capital(s string) string {
+	r, n := utf8.DecodeRuneInString(s)
+	if !unicode.IsLower(r) {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[n:]
 }
 
 // logKind is a journal level's kind in the App Log.
@@ -308,7 +306,8 @@ func logKind(level string) terminu.ToastKind {
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 // logChange records something the user changed through sshu, in the Changes
-// journal and the App Log.
+// journal and the App Log. Each begins with words or a path (~/.ssh/config),
+// never a name, so the App Log's capital is safe.
 func (s *sshu) logChange(action string) {
 	e := store.ChangeEntry{At: s.d.Now(), Action: action}
 	s.d.Changes = append(s.d.Changes, e)
@@ -316,7 +315,7 @@ func (s *sshu) logChange(action string) {
 		_ = s.d.AppendChg(e)
 	}
 	s.mg.journalsChanged()
-	s.a.Log(terminu.Info, action)
+	s.a.Log(terminu.Info, capital(action))
 }
 
 // logConn records one connection attempt and how it ended.
