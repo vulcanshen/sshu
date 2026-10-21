@@ -313,3 +313,22 @@ func TestStateAndDataFollowTheirVariables(t *testing.T) {
 		t.Errorf("config.yaml at %q: neither variable may move the settings", got)
 	}
 }
+
+// The files an older sshu wrote and this one does not read are looked for
+// where they would be: applogs.yaml in the settings, errors.yaml in the data
+// and, left behind, the settings; a directory that is both is named once
+// (tdp E3, files no longer used).
+func TestTheFilesNoLongerUsedAreLookedForWhereTheyWouldBe(t *testing.T) {
+	home := cleanHome(t)
+	cfg, data := filepath.Join(home, ".config", "sshu"), filepath.Join(home, ".sshu")
+	want := []string{filepath.Join(cfg, "applogs.yaml"), filepath.Join(cfg, "errors.yaml"), filepath.Join(data, "errors.yaml")}
+	if got := NoLongerUsed(); !slices.Equal(got, want) {
+		t.Errorf("NoLongerUsed = %v, want %v", got, want)
+	}
+	t.Setenv("SSHU__CONFIG", "/tmp/sshu-both")
+	t.Setenv("SSHU__DATA", "/tmp/sshu-both")
+	want = []string{"/tmp/sshu-both/applogs.yaml", "/tmp/sshu-both/errors.yaml"}
+	if got := NoLongerUsed(); !slices.Equal(got, want) {
+		t.Errorf("one directory for both: NoLongerUsed = %v, want %v", got, want)
+	}
+}

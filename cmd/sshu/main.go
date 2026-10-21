@@ -94,6 +94,7 @@ func data() *tui.Data {
 	moves := store.Migrate()
 	d := load()
 	d.Moves = moves
+	d.NoLongerUsed = store.NoLongerUsed()
 	return d
 }
 

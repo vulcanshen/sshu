@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.9.2. Every screen, menu,
+terminu family's shared library, and follows tdp v0.9.3. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -43,8 +43,10 @@ sshu shows both paths, for you to merge or move it yourself.
   `Alt-z` gives the cell the whole grid, and back.
 - Manage → Errors and `errors.yaml`: what fails goes to the App Log (`!`,
   below), with everything the far end said, for as long as sshu runs. An
-  `errors.yaml` an older sshu wrote is left in `~/.sshu` as it is; sshu no
-  longer reads it, so delete it once you no longer want it.
+  `errors.yaml` an older sshu wrote, and an `applogs.yaml` from sshu v1.5.1 or
+  before, are left as they are: sshu no longer reads them, and the App Log
+  says where each is at every start. Delete them once you no longer want
+  them.
 
 **Changed**
 
@@ -111,7 +113,7 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.9.2):
+- The repository takes the terminu family's shape (tdp project, v0.9.3):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the

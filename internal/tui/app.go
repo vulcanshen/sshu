@@ -63,6 +63,11 @@ type Data struct {
 	// Moves are what startup moved to where tdp E3 puts it now, or could not.
 	Moves []store.Move
 
+	// NoLongerUsed are where files of an older sshu would be that this one
+	// does not read: each that is there is named in the App Log at every
+	// start, never deleted (tdp E3, files no longer used).
+	NoLongerUsed []string
+
 	// Now is the clock, for the journals' times; time.Now when nil.
 	Now func() time.Time
 }
@@ -194,6 +199,7 @@ func (s *sshu) started() tea.Cmd {
 			s.a.Log(terminu.Info, fmt.Sprintf("Moved %s from %s to %s", strings.Join(m.Moved, ", "), from, to))
 		}
 	}
+	s.a.NoLongerUsed(s.d.NoLongerUsed...)
 	if len(stuck) > 0 {
 		cmds = append(cmds, s.a.Error("Not moved", strings.Join(stuck, "\n\n")))
 	}

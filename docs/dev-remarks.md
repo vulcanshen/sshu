@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.2/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.3/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-21 起 v0.4.3，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-21 起 v0.4.4，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -87,7 +87,7 @@
 - **tag 只顯示、只被搜，sshu 從不解讀它。** 空白分開，其餘都是字面。理由：一個會被程式解讀的欄位，使用者就得學它的規則；tag 是使用者拿來分群的字，能被篩選找到就是它全部的用途。
 - **密碼加密是把祕密拆成兩份。** `hosts.yaml` 或 `credentials.yaml` 單獨流出去不會漏密碼；整個資料目錄被複製就擋不住，因為鑰匙在裡面。`SSHU__KEY_FILE` 不做成預設：鑰匙離開資料目錄，備份就得自己記得。
 - **Errors 併進 App Log，不再存在磁碟上**（user 2026-10-21 改判 SS41，原話「errors 合併到 app log 裡面, 就不在獨立存 errors」）：Manage 的 Errors 與 `errors.yaml` 拿掉，失敗只記進 App Log。之前暫定兩個並存，理由是 App Log 只在記憶體、只記這一次，Errors 跨次留著「上週連那台為什麼失敗」；terminu 說那是它判錯了，升級交代的「錯誤歷史改用 App Log」原本就是這個意思。代價是關掉 sshu，失敗的原話就沒了；連過哪台、成功還是失敗，Connections 照樣留著。statusbar 的未讀錯誤數也拿掉，交給 footer 的 `!:N errors`：兩個紅色的計數，使用者不知道該看哪一個。
-- **舊的 `errors.yaml` 原樣留著**（暫定，SS42）：tdp E3 說資料刪了就找不回來，sshu 不替使用者刪；照 E3「換了位置時」它也跟其他資料一起從設定目錄搬到 `~/.sshu`，舊目錄才會空、才拿得掉。sshu 不再讀它，CHANGELOG 寫著不要了就自己刪。否決：讀進來放進 App Log —— App Log 只記這次開 app 的事。tdp 沒寫的是 app 不再用的資料檔要不要提醒使用者，暫時只寫在 CHANGELOG。
+- **不再用的檔原樣留著，每次啟動在 App Log 說一聲**（SS42，user 2026-10-21 選 B，原話「我記得 app log 是不寫檔案的，每一次開啟只紀錄在記憶體中，所以應該是 B, 告知使用者狀況，要怎麼處理是使用者的事情」；tdp v0.9.3 的 E3-23）：舊的 `errors.yaml`（v1.6.0 起到上一版寫的）與 `applogs.yaml`（v1.5.1 以前唯一的 log）不讀、不刪、不跳 toast。還在的，每次啟動由 lib 的 `App.NoLongerUsed` 在 App Log 記一筆 INFO，寫出路徑；`store.NoLongerUsed` 給出它們會在的地方 —— `applogs.yaml` 在設定目錄，`errors.yaml` 在資料目錄，搬家時留在設定目錄的也算。`errors.yaml` 照 E3「換了位置時」照舊跟其他資料一起搬到 `~/.sshu`，舊目錄才會空、才拿得掉。CHANGELOG 也寫了。否決：讀進來放進 App Log —— App Log 只記這次開 app 的事。`history.yaml`、`activity.yaml` 是 `connections.yaml`、`changes.yaml` 的舊名字，在同一版（v1.6.0）發版前就改了，沒有使用者有這兩個檔。
 - **`D` 一律是複製、`x`/`X` 一律是刪除。** 刪除原本在 `D`；同一個字母在不同 panel 一個複製、一個刪除，按錯的代價是資料，所以統一成整個 sshu 一個字母一個意思。File transfer 的刪除不放在 `d`：`d` 是半頁（tdp K12）。
 - **檔案上的 `Enter`**：目錄是進去，檔案是用 viewer 讀（以前檔案上的 `Enter` 什麼都不做）。理由：tdp K3 要 `Enter` 做最直觀的那件事；在一個檔案上按 `Enter` 什麼都不發生，看起來像鍵壞了，而「讀它」不會改到任何東西。
 - **Jobs 是 menu**：進行中的那一列 `Enter` 打開帶全文的 confirm、hint 寫 `Enter:cancel`，結束的那一列 `Enter` 看全文（tdp F1：工作清單）。以前的 `c` 取消游標那一筆，menu 沒有「作用在游標那一列」的熱鍵，所以改成這樣。

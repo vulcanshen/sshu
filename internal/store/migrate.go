@@ -31,8 +31,26 @@ var sealed = []string{".sshukey", "hosts.yaml", "credentials.yaml"}
 // dataNames are what the settings directory held that tdp E3 counts as data:
 // the lists the user wrote, with their key, and the journals. errors.yaml is
 // no longer read — what fails is the App Log's now — but it is the user's
-// record, so it moves with the rest and is never deleted.
+// record, so it moves with the rest and is never deleted (NoLongerUsed).
 var dataNames = append(slices.Clone(sealed), "errors.yaml", "connections.yaml", "changes.yaml")
+
+// NoLongerUsed are where the files an older sshu wrote and this one does not
+// read would be: applogs.yaml, the one log of v1.5.1 and before, in the
+// settings directory; errors.yaml, in the data directory or, left behind by
+// a move, the settings directory. They are the user's: never deleted, only
+// named in the App Log at every start (tdp E3, files no longer used).
+func NoLongerUsed() []string {
+	var out []string
+	for _, f := range []struct {
+		dir  func() (string, error)
+		name string
+	}{{Dir, "applogs.yaml"}, {Dir, "errors.yaml"}, {DataDir, "errors.yaml"}} {
+		if d, err := f.dir(); err == nil && !slices.Contains(out, filepath.Join(d, f.name)) {
+			out = append(out, filepath.Join(d, f.name))
+		}
+	}
+	return out
+}
 
 // Migrate moves what an older sshu kept somewhere tdp E3 no longer puts it,
 // once, before anything is read: the settings directory macOS kept in

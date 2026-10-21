@@ -160,6 +160,40 @@ func TestMovingAsideStartsAsOnTheFirstStart(t *testing.T) {
 	}
 }
 
+// A file an older sshu wrote and this one does not read — errors.yaml,
+// applogs.yaml — stays, with no toast; the App Log names it at every start
+// (tdp E3-23). One that is not there is not named.
+func TestFilesNoLongerUsedAreNamedInTheAppLog(t *testing.T) {
+	home := sandbox(t)
+	errs := filepath.Join(home, ".sshu", "errors.yaml")
+	applogs := filepath.Join(home, ".config", "sshu", "applogs.yaml")
+	writeFile(t, errs, "- {at: 2026-10-01T10:00:00Z, level: error, error: old}\n")
+	writeFile(t, applogs, "[]\n")
+	for range 2 { // and again at the next start: the App Log starts empty
+		d := tdptest.Start(t, newApp(), 120, 40)
+		if d.Has("No longer used") {
+			t.Fatalf("a toast for a file no longer used:\n%s", screen(d))
+		}
+		d.Press("!")
+		for _, want := range []string{
+			"INFO No longer used: ~/.config/sshu/applogs.yaml; delete it if you don't need it",
+			"INFO No longer used: ~/.sshu/errors.yaml; delete it if you don't need it",
+		} {
+			if !d.Has(want) {
+				t.Errorf("no %q in the App Log:\n%s", want, screen(d))
+			}
+		}
+		if d.Has("~/.config/sshu/errors.yaml") {
+			t.Errorf("a file that is not there is named:\n%s", screen(d))
+		}
+		for _, p := range []string{errs, applogs} {
+			if _, err := os.Stat(p); err != nil {
+				t.Errorf("%s is gone: %v", p, err)
+			}
+		}
+	}
+}
+
 // filesIn is every file under home, as paths from it, sorted.
 func filesIn(t *testing.T, home string) []string {
 	t.Helper()

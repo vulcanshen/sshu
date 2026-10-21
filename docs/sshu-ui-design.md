@@ -7370,6 +7370,17 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **MOVE ASIDE 的 `Enter` 照第一次打開那樣開始**（E3-18 改寫）：sshu 本來就是這樣 —— 第一次打開會建的只有鑰匙，`Enter` 也只再建
   鑰匙；其他的檔等第一次存檔。這次補上一個測試，把七個檔逐一弄壞，比對磁碟上的檔與第一次打開時一樣。
 
+### 12.9 不再用的檔（tdp v0.9.3，terminu-go v0.4.4，2026-10-21）
+
+- **不再用的檔每次啟動在 App Log 說一聲**（E3-23，user 選 SS42 的 B）：舊的 `errors.yaml` 與 `applogs.yaml`（v1.5.1 以前的 log）
+  還在的，每次啟動記一筆 `INFO No longer used: ~/.sshu/errors.yaml; delete it if you don't need it`（lib 的 `App.NoLongerUsed`）。
+  不刪、不跳 toast，怎麼處理是使用者的事。
+  - 否決：跳 toast —— 每次啟動都跳，使用者沒做什麼卻一直被打斷。否決：只寫在 CHANGELOG（§12.8 的暫定）—— 沒讀 CHANGELOG 的
+    使用者不知道那個檔還在。App Log 只在記憶體、每次開都是空的，所以每次啟動都記。
+  - `history.yaml`、`activity.yaml` 不算：`connections.yaml`、`changes.yaml` 的舊名字，在同一版發版前就改了，沒有使用者有。
+- **MOVE ASIDE 的問句**改成 `Move it to <name>.bak and start fresh?`（lib 畫的；「a new one」暗示會建一個新檔，第一次存檔前
+  其實沒有）。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel
