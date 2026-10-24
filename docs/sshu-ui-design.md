@@ -7409,7 +7409,9 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **同一個 popup 的另一個錯**：跟著鑰匙留下的檔被說成新位置已經有（`~/.sshu already has .sshukey, hosts.yaml`）。`Move` 分成 `Left`
   與 `Kept`，訊息分開說：`~/.sshu already has .sshukey, so sshu left it in ~/.config/sshu. hosts.yaml stays there too: the key and
   the files it seals move together. Merge them into ~/.sshu yourself.`
-- 已回報 tdp（SS43），看要不要在 error popup、toast 的段落明寫「訊息是一段話」，或讓 lib 收幾段。
+- 回報 tdp（SS43）後定成 tdp v0.9.15：app 自己的字不帶換行，要好幾列由 app 一列一列給（error popup 的訊息、toast、confirm 的
+  內容），不空列；外面來的好幾行只放說原因的那一行，全文進 App Log —— 就是上面的修法。terminu-go v0.4.18 讓 error popup 與 toast
+  收好幾列之後，「Not moved」、「Edit failed」這種本來就是兩句的，改成一句一列。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

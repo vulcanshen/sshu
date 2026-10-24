@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.14/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.15/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -72,7 +72,7 @@
 - **鑰匙讀不了**：問的是鑰匙，不是 `hosts.yaml`。`decryptInto` 對讀不了的鑰匙跟沒有鑰匙一樣：密文原樣留著、名字列進「解不開的密碼」，所以 `hosts.yaml` 照樣讀得進來；以前它回錯誤，壞掉的鑰匙會讓 `hosts.yaml` 被當成讀不了的檔。`Enter` 之後 `EnsureKey` 產生新的鑰匙；舊的在 `.sshukey.bak`，放回去就打得開。鑰匙讀不了時存檔一律拒絕（`EnsureKey` 回錯誤），不會用一把讀不了的鑰匙封東西。
 - **`~/.ssh` 不是 sshu 的**：`~/.ssh/config`、`known_hosts` 讀不了時照常開著，那一節中間寫原因（`Panel.Fail`，紅字），細節進 App Log。Config 的 *Edit file* 之後重讀失敗也一樣，另外跳 Error toast，舊的內容留著。
 - **App Log**（tdp F5，lib 的 `!`）：toast 與 error popup 由 lib 自動記。sshu 另外記：啟動時的問題（解不開的密碼、重複的名字、新版 sshu 寫的檔、`~/.ssh` 讀不了），搬了哪幾項，失敗的事（在哪台、對誰，帶著遠端的原話），以及寫進 Changes 的每一筆。一次失敗也有 toast 或 error popup，所以在 App Log 是兩行（toast 那一句與 sshu 補上在哪、原話的那一句），footer 的未讀錯誤也算兩個；sshu 那一句沒有多說什麼的（存 `~/.ssh` 失敗、credential 改名後還有 host 用舊名字），只留 lib 記的那一句 —— 以前多寫一次是為了 Errors 那本。
-- **短字裡不放 `\n`**（SS43，tdp components「控制字元」）：toast、error popup、confirm 的 Question、panel 中間的 `Failure` 都是「名字與短字」，`\n` 照字面畫成紅色的 `\n`，不換行。sshu 自己的字寫成一段話，句子之間用句號（「Not moved」、「Edit failed」）；外面來的多行字只放最後一行 —— ssh 在 stderr 印的 banner 加原因，最後一行是原因（`dialReason`），全文進 App Log（拿來讀的內容，可以多行）。confirm 要幾行的放 `Details`（ssh 問的 host key 問句就是拆成幾行放那裡）。這些 `\n` 是 tdp v0.9.0 以前寫的，那時 lib 會換行；升級時規則變了，編譯與 tdptest 都抓不到，error popup 的字又是紅的，紅色的 `\n` 不顯眼，直到 user 手測才看到。測試在這些畫面另外看有沒有 `\n` 這兩個字。已回報 tdp，看要不要定義得更清楚。
+- **短字裡不放 `\n`**（SS43，tdp components「控制字元」）：toast、error popup、confirm 的 Question、panel 中間的 `Failure` 都是「名字與短字」，`\n` 照字面畫成紅色的 `\n`，不換行。sshu 自己的字寫成一段話，句子之間用句號（「Not moved」、「Edit failed」）；外面來的多行字只放最後一行 —— ssh 在 stderr 印的 banner 加原因，最後一行是原因（`dialReason`），全文進 App Log（拿來讀的內容，可以多行）。confirm 要幾行的放 `Details`（ssh 問的 host key 問句就是拆成幾行放那裡）。這些 `\n` 是 tdp v0.9.0 以前寫的，那時 lib 會換行；升級時規則變了，編譯與 tdptest 都抓不到，error popup 的字又是紅的，紅色的 `\n` 不顯眼，直到 user 手測才看到。測試在這些畫面另外看有沒有 `\n` 這兩個字。回報 tdp 後定成 tdp v0.9.15（components-30～32）：app 自己的字一律不帶換行，要好幾列的地方（error popup 的訊息、toast、confirm 的內容）由 app 一列一列給，不空列；外面來的好幾行只放說原因的那一行，全文進 App Log。lib 的 error popup 與 toast 要到 terminu-go v0.4.18 才收好幾列，在那之前 sshu 的訊息是一列裡的一段話。
 - **App Log 大寫開頭**（tdp v0.9.2 的 note-78：跟 toast 一樣；toast 一字不改記進去，所以 toast 也算）：名字與路徑是內容、不改大小寫（components「大寫」），所以開頭是名字的句子改寫成動詞或名詞在前、名字在後，照 tdp 的例子 `Scaled deployment.apps/nginx`：`Session to db-replica failed: …`（以前 `db-replica: …`）、`Can't read ~/.ssh/config: …`、`Ignored 2 duplicate entries in hosts.yaml …`、`Deleted Host "x" from ~/.ssh/config`。整句是 Go error 的（`err.Error()`）由 `capital` 把第一個字母改大寫。Changes 那一本：以路徑開頭的幾種跟著改寫，其他照原樣存（`credential "x" deleted`），大寫只在 App Log（`logChange` 的 `capital`）。
 
 ### icon 與 powerline 符號的寬度
