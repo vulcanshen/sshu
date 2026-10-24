@@ -78,6 +78,10 @@ snapshot: ## goreleaser 本機打包（不發布、不推 tap）→ dist/；關�
 run: ## 本地跑（讀真正的設定與資料）
 	go run $(PKG)
 
+.PHONY: dev
+dev: build ## 編譯再跑 ./$(BINARY)（跟 build 同一個執行檔；讀真正的設定與資料）
+	./$(BINARY)
+
 ##@ 測試 / 檢查（test）
 
 .PHONY: test

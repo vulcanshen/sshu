@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.9.3. Every screen, menu,
+terminu family's shared library, and follows tdp v0.9.14. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -56,7 +56,8 @@ sshu shows both paths, for you to merge or move it yourself.
   reach it like any panel; `Enter` on it puts the keyboard in.
 - In a cell: `Alt-v` selects and copies, as in every viewer; `PgUp` goes into
   the session's history, where `j|k`, `u|d`, `gg|G` scroll and `Esc` comes
-  back; `Alt-Enter` locks the cell, every key, `Alt-Esc` too, going to the
+  back; in either, `Space` lists the keys, and while selecting `Esc` drops
+  the selection first; `Alt-Enter` locks the cell, every key, `Alt-Esc` too, going to the
   session for a sshu nested in it, with `Alt-Enter` then the way out;
   locked, `Alt-v` and `PgUp|PgDn` go to the session too.
 - A cell still connecting says so, "connecting to <host>", and what you type
@@ -77,6 +78,8 @@ sshu shows both paths, for you to merge or move it yourself.
 - The `Space` menu stays under what an action opens, to come back to; going
   into a directory, connecting and searching close it, and so does `Enter` on
   the question before deleting, closing a session or clearing a journal.
+- With a menu or a box open, the first `q` or `Ctrl-C` asks `Quit sshu?`
+  instead of leaving, and `Esc` goes back to it.
 - A rename, a new file or directory, or a known host's names that cannot be
   written keep their box open with what you typed in it.
 - `!` opens the App Log, on every panel: what sshu did and what went wrong
@@ -113,9 +116,9 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.9.3):
+- The repository takes the terminu family's shape (tdp project, v0.9.14):
   `family.mk` with the family's make targets (`make check` now runs the
-  tests with the race detector), and the family's `release.yml`,
+  tests with the race detector, `make dev` builds and runs it), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the
   family's walk of every screen at many terminal sizes (tdptest) runs with
   the tests.

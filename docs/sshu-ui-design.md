@@ -7381,6 +7381,20 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **MOVE ASIDE 的問句**改成 `Move it to <name>.bak and start fresh?`（lib 畫的；「a new one」暗示會建一個新檔，第一次存檔前
   其實沒有）。
 
+### 12.10 對齊 tdp v0.9.14、terminu-go v0.4.17（2026-10-24）
+
+- **sshu 的程式沒改**：tdp v0.9.4～v0.9.14 改的都由 lib 畫 —— capsule chain 不再靠終端機的底色、mode 名字開關的動畫、
+  checkbox 的 `Select all`、`h|l:tab`、compare mode、mode 裡的 `Space` menu、`Visual>select` 與 `Esc` 退一層、開著 popup 時
+  第一個 `q` 先問。sshu 沒有自己的 mode、checkbox、tab，也不用 compare，新的 API（`ModeKey.Item`、`ModeKey.Disabled`、
+  `CompareAction`）都用不到。
+  - 否決：給 Hosts 加 compare mode（比兩個 host 的設定）—— tdp 說 compare 只比文字，host 是一列欄位，不是一段文字；
+    沒人要過。
+- **在 sshu 上的樣子**：開著 Space menu 按 `q` 問 `Quit sshu?`，`Esc` 回到 menu（沒有 session 時 `App.Quit` 是空的，lib
+  補問這一句）；viewer 的選取模式按 `Space` 開 `VISUAL MODE` 的 menu，選取中是 `Visual>select`，`Esc` 回到 `Visual`。cell 的
+  歷史與選取模式也一樣，所以歷史模式裡的 `Space` 不再送給 session；鎖住時（`Terminal.AllKeys`）照舊每個鍵都給 session。
+  README 的 cell 按鍵表跟著改。
+- **family.mk** 換成範本：多了 `make dev`（編譯再跑 `./sshu`，讀真的設定與資料）。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

@@ -160,9 +160,9 @@ sshu
 | `Alt-Esc` | 把鍵盤收回來（先問：在 vim 裡快速按兩下 `Esc` 可能被讀成 `Alt-Esc`；`Esc` 回到 session 裡） |
 | `Alt-←\|→\|↑\|↓` | 那個方向的格子 |
 | `Alt-z` | 這一格佔滿整個網格，再按一次還原 |
-| `Alt-v` | 在格子裡選字，`v` 開始選、`y` 複製 |
+| `Alt-v` | 在格子裡選字，`v` 開始選、`y` 複製、`Esc` 取消選取；`Space` 列出能按的鍵 |
 | `Alt-Enter` | 鎖定：每一個鍵都交給格子，`Alt-Esc` 也是，給格子裡巢狀的 sshu；這時 `Alt-Enter` 是出口，離開格子就解鎖 |
-| `PgUp` | 這個 session 的歷史：`j\|k`、`u\|d`、`gg\|G`、`PgUp\|PgDn` 捲動，`Esc` 回到即時畫面（其他鍵都送給 session） |
+| `PgUp` | 這個 session 的歷史：`j\|k`、`u\|d`、`gg\|G`、`PgUp\|PgDn` 捲動，`Esc` 回到即時畫面，`Space` 列出能按的鍵（其他鍵都送給 session） |
 
 還在連線的格子會寫出正在連哪一台，打的字等 ssh 連上才送出去。
 
@@ -241,7 +241,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.3/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.14/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 
