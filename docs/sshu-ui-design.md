@@ -7413,7 +7413,8 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   內容），不空列；外面來的好幾行只放說原因的那一行，全文進 App Log —— 就是上面的修法。
 - **terminu-go v0.4.19**（跳過 v0.4.18）：`Error`、`ErrorAbout`、`Toast` 一列收一個字串。「Not moved」、「Edit failed」與啟動時那則
   toast（搬了什麼、啟動時有幾個問題）改成一句一列，不再用句號接成一段。tdptest 的 Driver 預設抓畫面上紅色的 `\n`；sshu 只有
-  故意拿怪名字當資料的測試放行（`AllowLineBreaks`）。發現 lib 的檢查漏了清單格子裡的紅色 `\n`，回報 terminu-go。
+  故意拿怪名字當資料的測試放行（`AllowLineBreaks`）。發現 lib 的檢查漏了清單格子裡的紅色 `\n`，回報 terminu-go，
+  v0.4.20 補上（清單、panel 上的值、失焦的 panel、popup 底下）。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
