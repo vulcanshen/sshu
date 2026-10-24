@@ -182,18 +182,18 @@ func (s *sshu) started() tea.Cmd {
 	cmds := []tea.Cmd{s.ft.start(), s.sh.start()}
 	// What moved says from where to where in a toast; what could not, or
 	// what the new place already had, in an error popup with both paths, for
-	// the user to move or merge (tdp E3). Its message is one paragraph of
-	// sentences: a \n in it would be drawn as \n (components, control
+	// the user to move or merge (tdp E3). Its message comes a sentence a row:
+	// the app's own text carries no line break (components, control
 	// characters).
 	var moved, stuck []string
 	for _, m := range s.d.Moves {
 		from, to := store.FoldHome(m.From), store.FoldHome(m.To)
 		switch {
 		case m.Err != nil:
-			stuck = append(stuck, fmt.Sprintf("sshu could not move its %s from %s to %s: %v. It goes on using %s; move them to %s yourself.",
-				m.What, from, to, m.Err, from, to))
+			stuck = append(stuck, fmt.Sprintf("sshu could not move its %s from %s to %s: %v.", m.What, from, to, m.Err),
+				fmt.Sprintf("It goes on using %s; move them to %s yourself.", from, to))
 		case len(m.Left)+len(m.Kept) > 0:
-			stuck = append(stuck, notMoved(m, from, to))
+			stuck = append(stuck, notMoved(m, from, to)...)
 		}
 		if len(m.Moved) > 0 {
 			moved = append(moved, fmt.Sprintf("the %s from %s to %s", m.What, from, to))
@@ -202,7 +202,7 @@ func (s *sshu) started() tea.Cmd {
 	}
 	s.a.NoLongerUsed(s.d.NoLongerUsed...)
 	if len(stuck) > 0 {
-		cmds = append(cmds, s.a.Error("Not moved", strings.Join(stuck, " ")))
+		cmds = append(cmds, s.a.Error("Not moved", stuck...))
 	}
 	var says []string
 	kind := terminu.Info
@@ -221,30 +221,30 @@ func (s *sshu) started() tea.Cmd {
 	}
 	// One toast: a second would replace the first.
 	if len(says) > 0 {
-		cmds = append(cmds, s.a.Toast(kind, strings.Join(says, ". ")))
+		cmds = append(cmds, s.a.Toast(kind, says...))
 	}
 	return tea.Batch(cmds...)
 }
 
-// notMoved says what a move left in from, and why: what to already had, and
-// what stays there with the key, which moves only with the files it seals
-// (tdp E3).
-func notMoved(m store.Move, from, to string) string {
-	var line string
+// notMoved says what a move left in from, and why, a sentence a row: what to
+// already had, and what stays there with the key, which moves only with the
+// files it seals (tdp E3).
+func notMoved(m store.Move, from, to string) []string {
+	var rows []string
 	if len(m.Left) > 0 {
-		line = fmt.Sprintf("%s already has %s, so sshu left %s in %s.", to, strings.Join(m.Left, ", "), pronoun(len(m.Left)), from)
+		rows = append(rows, fmt.Sprintf("%s already has %s, so sshu left %s in %s.", to, strings.Join(m.Left, ", "), pronoun(len(m.Left)), from))
 		if len(m.Kept) > 0 {
 			verb := "stay"
 			if len(m.Kept) == 1 {
 				verb = "stays"
 			}
-			line += fmt.Sprintf(" %s %s there too: the key and the files it seals move together.", strings.Join(m.Kept, ", "), verb)
+			rows = append(rows, fmt.Sprintf("%s %s there too: the key and the files it seals move together.", strings.Join(m.Kept, ", "), verb))
 		}
 	} else {
-		line = fmt.Sprintf("%s already has some of the key and the files it seals, so sshu left %s in %s: they move together.",
-			to, strings.Join(m.Kept, ", "), from)
+		rows = append(rows, fmt.Sprintf("%s already has some of the key and the files it seals, so sshu left %s in %s: they move together.",
+			to, strings.Join(m.Kept, ", "), from))
 	}
-	return line + fmt.Sprintf(" Merge %s into %s yourself.", pronoun(len(m.Left)+len(m.Kept)), to)
+	return append(rows, fmt.Sprintf("Merge %s into %s yourself.", pronoun(len(m.Left)+len(m.Kept)), to))
 }
 
 // refreshQuit decides whether quitting asks first (tdp K9: the quit flow

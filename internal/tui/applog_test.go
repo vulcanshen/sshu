@@ -108,6 +108,7 @@ func TestTrickyValuesAreDrawnByName(t *testing.T) {
 		d.Conns = []store.ConnectionEntry{{Host: v, User: v, Result: store.ResultFail}, {Host: v, Result: store.ResultSuccess}}
 		d.Changes = []store.ChangeEntry{{Action: v}}
 		dr := tdptest.Start(t, New(d).a, 100, 30)
+		dr.AllowLineBreaks = v != "web" // a tricky name may hold one, drawn by its name
 		dr.Note("value " + strings.ReplaceAll(v, "\x1b", `\x1b`))
 		for range 6 {
 			dr.Press("j")

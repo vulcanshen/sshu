@@ -164,7 +164,7 @@ func TestStartupSaysWhatItMoved(t *testing.T) {
 	hs.contains("NOT MOVED")
 	hs.contains("/home/u/old")
 	hs.contains("/home/u/.config/sshu")
-	hs.contains("move them to")
+	hs.contains("┃ It goes on using /home/u/old; move them to /home/u/.config/sshu yourself.")
 	hs.lacks(`\n`)
 
 	d = testData(sampleHosts(), sampleCreds())
@@ -184,9 +184,18 @@ func TestStartupSaysWhatItMoved(t *testing.T) {
 		Left: []string{".sshukey"}, Kept: []string{"hosts.yaml"}}}
 	hs = newHarness(t, 120, 40, d)
 	hs.contains("/home/u/.sshu already has .sshukey, so sshu left it in")
-	hs.contains("hosts.yaml stays there too:")
-	hs.contains("Merge them into")
+	hs.contains("┃ hosts.yaml stays there too:")
+	hs.contains("┃ Merge them into /home/u/.sshu yourself.")
 	hs.lacks("already has .sshukey, hosts.yaml")
+
+	// What moved and what startup found wrong share one toast, a row each.
+	d = testData(sampleHosts(), sampleCreds())
+	d.Moves = []store.Move{{What: "data", From: "/home/u/.config/sshu", To: "/home/u/.sshu", Moved: []string{"hosts.yaml"}}}
+	d.Notes = []Note{{Level: store.LevelWarn, Cause: "Ignored 1 duplicate entry in hosts.yaml", Detail: "Ignored 1 duplicate entry in hosts.yaml"}}
+	hs = newHarness(t, 120, 40, d)
+	hs.contains("┃ Moved the data from /home/u/.config/sshu to /home/u/.sshu ┃")
+	hs.contains("1 problem at startup: see App Log [!]")
+	hs.lacks(". 1 problem")
 
 	d = testData(sampleHosts(), sampleCreds())
 	d.Moves = []store.Move{{What: "data", From: "/home/u/.config/sshu", To: "/home/u/.sshu",

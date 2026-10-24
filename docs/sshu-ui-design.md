@@ -7410,8 +7410,10 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   與 `Kept`，訊息分開說：`~/.sshu already has .sshukey, so sshu left it in ~/.config/sshu. hosts.yaml stays there too: the key and
   the files it seals move together. Merge them into ~/.sshu yourself.`
 - 回報 tdp（SS43）後定成 tdp v0.9.15：app 自己的字不帶換行，要好幾列由 app 一列一列給（error popup 的訊息、toast、confirm 的
-  內容），不空列；外面來的好幾行只放說原因的那一行，全文進 App Log —— 就是上面的修法。terminu-go v0.4.18 讓 error popup 與 toast
-  收好幾列之後，「Not moved」、「Edit failed」這種本來就是兩句的，改成一句一列。
+  內容），不空列；外面來的好幾行只放說原因的那一行，全文進 App Log —— 就是上面的修法。
+- **terminu-go v0.4.19**（跳過 v0.4.18）：`Error`、`ErrorAbout`、`Toast` 一列收一個字串。「Not moved」、「Edit failed」與啟動時那則
+  toast（搬了什麼、啟動時有幾個問題）改成一句一列，不再用句號接成一段。tdptest 的 Driver 預設抓畫面上紅色的 `\n`；sshu 只有
+  故意拿怪名字當資料的測試放行（`AllowLineBreaks`）。發現 lib 的檢查漏了清單格子裡的紅色 `\n`，回報 terminu-go。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
