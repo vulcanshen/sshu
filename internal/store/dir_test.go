@@ -191,6 +191,7 @@ func TestDataThatCannotMoveToSSHU__DATAStaysInUse(t *testing.T) {
 
 // The key and the files it seals go to the data directory together: with
 // hosts.yaml already there, the key stays beside the credentials it opens.
+// Neither is what the new place already has: they are kept, not left.
 func TestTheKeyAndWhatItSealsMoveToTheDataTogether(t *testing.T) {
 	home := cleanHome(t)
 	t.Setenv(KeyEnv, "")
@@ -201,8 +202,8 @@ func TestTheKeyAndWhatItSealsMoveToTheDataTogether(t *testing.T) {
 	write(t, filepath.Join(cfg, "errors.yaml"))
 	write(t, filepath.Join(data, "hosts.yaml"))
 	moves := Migrate()
-	if len(moves) != 1 || !slices.Equal(moves[0].Moved, []string{"errors.yaml"}) ||
-		!slices.Equal(moves[0].Left, []string{".sshukey", "credentials.yaml"}) {
+	if len(moves) != 1 || !slices.Equal(moves[0].Moved, []string{"errors.yaml"}) || len(moves[0].Left) != 0 ||
+		!slices.Equal(moves[0].Kept, []string{".sshukey", "credentials.yaml"}) {
 		t.Fatalf("moves = %+v, want the key kept with its credentials and errors.yaml moved", moves)
 	}
 	if exists(filepath.Join(data, ".sshukey")) {
@@ -234,7 +235,8 @@ func TestWhatTheNewPlaceHasStaysInTheOld(t *testing.T) {
 }
 
 // The key and the files whose passwords it seals go together: with a key
-// already at the new place, hosts.yaml stays beside the key that opens it.
+// already at the new place, the old key is left and hosts.yaml is kept
+// beside it, the key that opens it.
 func TestTheKeyAndWhatItSealsMoveTogether(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("the old directory differed only on macOS")
@@ -248,7 +250,7 @@ func TestTheKeyAndWhatItSealsMoveTogether(t *testing.T) {
 	write(t, filepath.Join(dir, ".sshukey"))
 	moves := Migrate()
 	if len(moves) == 0 || !slices.Equal(moves[0].Moved, []string{"config.yaml"}) ||
-		!slices.Contains(moves[0].Left, "hosts.yaml") || !slices.Contains(moves[0].Left, ".sshukey") {
+		!slices.Equal(moves[0].Left, []string{".sshukey"}) || !slices.Equal(moves[0].Kept, []string{"hosts.yaml"}) {
 		t.Fatalf("moves = %+v, want hosts.yaml kept with its key", moves)
 	}
 	if exists(filepath.Join(dir, "hosts.yaml")) {

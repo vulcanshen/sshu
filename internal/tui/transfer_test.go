@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,6 +54,25 @@ func TestAFileIsSentToTheOtherSidesDirectory(t *testing.T) {
 	hs.waitFor(func() bool { return hs.s.ft.running() == 0 && len(hs.s.d.Changes) == 1 }, "the transfer's ending")
 }
 
+// A connection ssh gave up on says the last line ssh printed, the reason, in
+// the toast and the panel: a toast and a panel's middle are short text, where
+// a \n is drawn as \n (components, control characters). Everything ssh said,
+// a banner included, is in the App Log. The host's name keeps its case.
+func TestAFailedConnectionSaysTheLastLineSSHPrinted(t *testing.T) {
+	hs := newHarness(t, 120, 36, testData(nil, nil))
+	hs.keys("F")
+	sd := hs.s.ft.sides[0]
+	sd.dialing = "box"
+	hs.send(dialedMsg{side: 0, gen: sd.dialGen, name: "box",
+		err: errors.New("box: Welcome to box\nAuthorized use only\nPermission denied (publickey).")})
+	hs.contains("Connect to box failed: Permission denied (publickey).")
+	hs.contains("box: Permission denied (publickey).")
+	hs.lacks(`\n`)
+	hs.lacks("Box")
+	hs.keys("Esc", "!")
+	hs.contains("ERR  Connect to box failed: Permission denied (publickey). · Welcome to box Authorized use only")
+}
+
 // A directory that will not open says why in a toast that starts with a
 // capital, as the App Log keeps it (dialog/note, App Log).
 func TestADirectoryThatWillNotOpenSaysWhy(t *testing.T) {
@@ -67,8 +87,9 @@ func TestADirectoryThatWillNotOpenSaysWhy(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(b, 0o755) })
 	hs := newHarness(t, 120, 36, testData(nil, nil))
 	hs.keys("F", "H", "Enter", "j", "Enter")
-	hs.contains("Open /")
+	hs.contains("Can't read /")
 	hs.contains("permission denied")
+	hs.lacks("open /")
 }
 
 // h|l cross to the same panel on the other side (tdp K12).

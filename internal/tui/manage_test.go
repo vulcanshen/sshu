@@ -150,7 +150,8 @@ func TestADeleteFromTheSpaceMenuClearsTheMenu(t *testing.T) {
 
 // What startup moved is said in a toast, from where to where; what it could
 // not move, and what the new place already had, open an error popup with both
-// paths, to move or to merge (tdp E3).
+// paths, to move or to merge (tdp E3). The popup's message is one paragraph:
+// a \n in it is drawn as \n (components, control characters).
 func TestStartupSaysWhatItMoved(t *testing.T) {
 	d := testData(sampleHosts(), sampleCreds())
 	d.Moves = []store.Move{{What: "journals", From: "/home/u/.config/sshu", To: "/home/u/.sshu", Moved: []string{"errors.yaml"}}}
@@ -164,14 +165,35 @@ func TestStartupSaysWhatItMoved(t *testing.T) {
 	hs.contains("/home/u/old")
 	hs.contains("/home/u/.config/sshu")
 	hs.contains("move them to")
+	hs.lacks(`\n`)
 
 	d = testData(sampleHosts(), sampleCreds())
 	d.Moves = []store.Move{{What: "settings", From: "/home/u/old", To: "/home/u/.config/sshu",
-		Moved: []string{"state.yaml"}, Left: []string{"config.yaml"}}}
+		Moved: []string{"state.yaml"}, Left: []string{"config.yaml"}},
+		{What: "data", From: "/home/u/.config/sshu", To: "/home/u/.sshu", Left: []string{".sshukey"}}}
 	hs = newHarness(t, 120, 40, d)
 	hs.contains("NOT MOVED")
 	hs.contains("already has config.yaml")
+	hs.contains("already has .sshukey")
 	hs.contains("Merge it into")
+	hs.lacks(`\n`)
+
+	// A file kept with the key is not one the new place has.
+	d = testData(sampleHosts(), sampleCreds())
+	d.Moves = []store.Move{{What: "data", From: "/home/u/.config/sshu", To: "/home/u/.sshu",
+		Left: []string{".sshukey"}, Kept: []string{"hosts.yaml"}}}
+	hs = newHarness(t, 120, 40, d)
+	hs.contains("/home/u/.sshu already has .sshukey, so sshu left it in")
+	hs.contains("hosts.yaml stays there too:")
+	hs.contains("Merge them into")
+	hs.lacks("already has .sshukey, hosts.yaml")
+
+	d = testData(sampleHosts(), sampleCreds())
+	d.Moves = []store.Move{{What: "data", From: "/home/u/.config/sshu", To: "/home/u/.sshu",
+		Kept: []string{".sshukey", "credentials.yaml"}}}
+	hs = newHarness(t, 120, 40, d)
+	hs.contains("already has some of the key and the files it seals")
+	hs.contains("left .sshukey, credentials.yaml in")
 }
 
 // Below sshu's least size, down to 1×1, nothing brings it down: every row is

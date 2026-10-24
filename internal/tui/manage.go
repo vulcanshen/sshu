@@ -103,11 +103,17 @@ func unreadFailure(file string, err error) *terminu.Failure {
 	if err == nil {
 		return nil
 	}
+	return &terminu.Failure{Fact: "Can't read " + file + ": " + why(err), Hint: "Fix it, then start sshu again; see App Log [!]"}
+}
+
+// why is err for a message that already names the path: a *fs.PathError
+// without the path it starts with.
+func why(err error) string {
 	var pe *fs.PathError
 	if errors.As(err, &pe) {
-		err = pe.Err // the path is the file's, already said
+		return pe.Err.Error()
 	}
-	return &terminu.Failure{Fact: "Can't read " + file + ": " + err.Error(), Hint: "Fix it, then start sshu again; see App Log [!]"}
+	return err.Error()
 }
 
 // refresh registers the current section's actions again, after a change that

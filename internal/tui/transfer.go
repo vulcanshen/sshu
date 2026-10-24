@@ -355,7 +355,7 @@ func (sd *side) goTo(dir, sel string) tea.Cmd {
 	if err := sd.list(dir); err != nil {
 		sd.redraw()
 		sd.t.s.logError(store.LevelError, "Can't read "+dir+" on "+sd.host, err.Error())
-		return sd.t.s.a.Toast(terminu.Error, capital(err.Error()))
+		return sd.t.s.a.Toast(terminu.Error, "Can't read "+dir+": "+why(err))
 	}
 	sd.redraw()
 	if sel != "" {
@@ -396,7 +396,7 @@ func (sd *side) refresh() tea.Cmd {
 	if err := sd.list(sd.cwd); err != nil {
 		sd.redraw()
 		sd.t.s.logError(store.LevelError, "Can't read "+sd.cwd+" on "+sd.host, err.Error())
-		return sd.t.s.a.Toast(terminu.Error, capital(err.Error()))
+		return sd.t.s.a.Toast(terminu.Error, "Can't read "+sd.cwd+": "+why(err))
 	}
 	sd.redraw()
 	return sd.t.s.a.Toast(terminu.Success, "Refreshed: "+plural(len(sd.entries), "item"))
@@ -592,6 +592,20 @@ func (sd *side) endDial() {
 	sd.askpass, sd.dialCancel = nil, nil
 }
 
+// dialReason is why a connection to name failed, for a toast and a panel's
+// middle: short text, where a \n is drawn as \n (components, control
+// characters). The remote package starts the error with the name, and what
+// ssh printed may run over several lines, a banner first and the reason
+// last. all is the whole of it, for the App Log.
+func dialReason(name string, err error) (reason, all string) {
+	all = strings.TrimPrefix(err.Error(), name+": ")
+	reason = all
+	if i := strings.LastIndexByte(all, '\n'); i >= 0 {
+		reason = strings.TrimSpace(all[i+1:])
+	}
+	return reason, all
+}
+
 func (t *transfer) dialed(m dialedMsg) tea.Cmd {
 	sd := t.sides[m.side]
 	if m.gen != sd.dialGen {
@@ -610,10 +624,15 @@ func (t *transfer) dialed(m dialedMsg) tea.Cmd {
 			sd.redraw()
 			return t.s.a.Toast(terminu.Info, "Connection to "+m.name+" called off")
 		}
-		sd.err = m.err.Error()
+		reason, all := dialReason(m.name, m.err)
+		sd.err = m.name + ": " + reason
 		sd.redraw()
-		t.s.logError(store.LevelError, "Connect to "+who(user, m.name)+" failed: "+m.err.Error(), "")
-		return t.s.a.Toast(terminu.Error, capital(m.err.Error()))
+		detail := ""
+		if all != reason {
+			detail = all
+		}
+		t.s.logError(store.LevelError, "Connect to "+who(user, m.name)+" failed: "+reason, detail)
+		return t.s.a.Toast(terminu.Error, "Connect to "+m.name+" failed: "+reason)
 	}
 	t.s.logConn(store.ConnectionEntry{Host: m.name, User: user, Result: store.ResultSuccess})
 	return sd.connect(m.fs)

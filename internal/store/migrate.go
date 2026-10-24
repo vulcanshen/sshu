@@ -19,6 +19,9 @@ type Move struct {
 	// Left are the names To already had: they stay in From, for the user to
 	// merge, and nothing is lost.
 	Left []string
+	// Kept are the sealed ones To did not have, kept in From with the rest
+	// of them: the key and the files it seals move together.
+	Kept []string
 	// Err is why nothing moved: sshu goes on using From.
 	Err error
 }
@@ -94,7 +97,7 @@ func migrateSettings() (Move, bool) {
 	if m.Err != nil {
 		settingsAt = old
 	}
-	if m.Err == nil && len(m.Moved) == 0 && len(m.Left) == 0 {
+	if m.Err == nil && len(m.Moved)+len(m.Left)+len(m.Kept) == 0 {
 		return Move{}, false // an empty old directory, taken away
 	}
 	return m, true
@@ -140,15 +143,17 @@ func moveItems(what, from, to string, mode os.FileMode, names []string, dropEmpt
 	var moving []string
 	for _, n := range names {
 		switch {
-		case exists(filepath.Join(to, n)), keepSealed && slices.Contains(sealed, n):
+		case exists(filepath.Join(to, n)):
 			m.Left = append(m.Left, n)
+		case keepSealed && slices.Contains(sealed, n):
+			m.Kept = append(m.Kept, n)
 		default:
 			moving = append(moving, n)
 		}
 	}
 	if len(moving) > 0 {
 		if m.Err = os.MkdirAll(to, mode); m.Err != nil {
-			m.Left = nil
+			m.Left, m.Kept = nil, nil
 			return m
 		}
 	}
@@ -157,12 +162,12 @@ func moveItems(what, from, to string, mode os.FileMode, names []string, dropEmpt
 			for _, back := range moving[:i] {
 				_ = os.Rename(filepath.Join(to, back), filepath.Join(from, back))
 			}
-			m.Moved, m.Left = nil, nil
+			m.Moved, m.Left, m.Kept = nil, nil, nil
 			return m
 		}
 		m.Moved = append(m.Moved, n)
 	}
-	if dropEmpty && len(m.Left) == 0 {
+	if dropEmpty && len(m.Left)+len(m.Kept) == 0 {
 		_ = os.Remove(from) // only an empty directory goes
 	}
 	return m

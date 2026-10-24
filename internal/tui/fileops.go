@@ -602,7 +602,7 @@ func (t *transfer) onEditSaved(m editSaved) tea.Cmd {
 	case m.err != nil:
 		t.endEdit(m.job, true)
 		t.s.logError("error", "Can't save the edit of "+name+": "+m.err.Error(), "your copy is at "+m.job.local)
-		return a.Error("Edit failed", "Not saved: "+m.err.Error()+"\nYour copy is at "+m.job.local)
+		return a.Error("Edit failed", "Not saved: "+m.err.Error()+"; your copy is at "+m.job.local)
 	case !m.changed:
 		t.endEdit(m.job, false)
 		return a.Toast(terminu.Info, "No changes to "+name)

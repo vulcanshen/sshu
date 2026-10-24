@@ -7395,6 +7395,22 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   README 的 cell 按鍵表跟著改。
 - **family.mk** 換成範本：多了 `make dev`（編譯再跑 `./sshu`，讀真的設定與資料）。
 
+### 12.11 短字裡的 `\n`（SS43，2026-10-24）
+
+- **user 手測看到 error popup 裡的 `\n`**：「NOT MOVED」寫成 `~/.sshu already has .sshukey, so sshu left it in ~/.config/sshu.\nMerge
+  it into ~/.sshu yourself.`。tdp v0.9.0 起 error popup 是「名字與短字」，`\n` 照字面畫，lib 照做；是 sshu 用錯。
+  - 改成一段話：句子之間用句號，幾個搬不動的也接成同一段，讓框自己折行。否決：拆成幾個 error popup —— 一次只看得到最上面那個，
+    關掉才看到下一個，像是一直出錯。否決：改用 confirm 的 `Details` —— 這不是在問問題。
+  - 「Edit failed」一樣：`Not saved: …; your copy is at …`。
+  - File transfer 連 sshconfig 主機失敗：ssh 的 stderr 可能好幾行（banner 加原因），以前整段放進 toast 與 panel 中間。現在只放最後
+    一行（ssh 說原因的那一行）：toast `Connect to box failed: Permission denied (publickey).`，panel `box: Permission denied
+    (publickey).`；全文進 App Log。上一輪讓這個 toast 經過 `capital`，error 開頭的主機名被改成大寫（`Box: …`），一起修掉；讀不了
+    目錄的 toast 也改成動詞開頭（`Can't read /srv: permission denied`），不再改 error 的第一個字母。
+- **同一個 popup 的另一個錯**：跟著鑰匙留下的檔被說成新位置已經有（`~/.sshu already has .sshukey, hosts.yaml`）。`Move` 分成 `Left`
+  與 `Kept`，訊息分開說：`~/.sshu already has .sshukey, so sshu left it in ~/.config/sshu. hosts.yaml stays there too: the key and
+  the files it seals move together. Merge them into ~/.sshu yourself.`
+- 已回報 tdp（SS43），看要不要在 error popup、toast 的段落明寫「訊息是一段話」，或讓 lib 收幾段。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel
