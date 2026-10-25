@@ -114,7 +114,7 @@
 ## 已知的牆與未做
 
 - **平台**：macOS 與 Linux（Unix PTY），沒有 Windows build。
-- **等 lib 的**：目前沒有。改用 terminu-go 以來回報的 SS3–SS40 都已定案，要 lib 的在 v0.2.0、v0.2.1 做完，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
+- **等 lib 的**：SSH 畫面 `[1]` 游標的格子回聲（設計文件 §11.8：j/k 掃過 sessions 清單，游標那個 session 在網格上的格子外框用游標色亮起來）。改用 terminu-go 時掉了 —— panel 的框由 lib 畫，lib 沒有讓沒 focus 的 panel 外框換色的東西，當時也沒列進拿掉的功能。2026-10-25 user 手測發現，回報 tdp（SS44），等 tdp 定規則、terminu-go 給 API 再接回去。改用 terminu-go 以來回報的 SS3–SS43 其他都已定案，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
 - **File transfer 的 host key**：password、privatekey、credential 的 host 遇到未知的 host key 一律拒絕；先從 SSH 畫面連一次，或在 KnownHosts 按 `[A]`。
 - **加密私鑰**：privatekey host 的 SFTP 用不了有 passphrase 的私鑰；改用 sshconfig host（走 ssh 與 agent）。
 - **`SSH_ASKPASS_PROMPT=none` 的通知**：FIDO 觸碰確認會讓 helper 掛著，sshconfig host 用 FIDO key 在 File transfer 會卡住。
