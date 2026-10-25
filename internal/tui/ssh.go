@@ -66,6 +66,15 @@ func newSSHScreen(s *sshu) *sshScreen {
 	}
 	h.list = &terminu.List{Columns: []terminu.Column{{Shrink: true}},
 		EmptyFact: "No live sessions", EmptyHint: "Press [M] and connect to a host"}
+	// A row and its cell are two sides of one session: the cursor's row
+	// points at its cell on the grid (layout/panel, a pointed panel). A
+	// hidden cell is not on the screen, so nothing is pointed at.
+	h.list.Points = func(r terminu.Row) *terminu.Panel {
+		if x := h.byID(r.ID); x != nil {
+			return x.panel
+		}
+		return nil
+	}
 	h.listP = &terminu.Panel{Label: "Sessions", Body: h.list, Actions: h.listActions()}
 	arrange := &terminu.Field{Label: "Arrange", Options: arrangements, Selected: h.arrange}
 	arrange.OnChange = func() tea.Cmd { h.arrange = arrange.Selected; return h.keep() }

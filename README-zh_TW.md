@@ -241,7 +241,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.15/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.16/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 

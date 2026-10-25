@@ -2582,6 +2582,9 @@ divider 語彙不動 —— 哪些三角是實心的,本身就把「兩段亮」
 panelPty);focus 在 `[2]` layout 上時也沒有回聲 —— 那裡沒有游標指著任何
 session。
 
+> 2026-10-25 起長相改了(§12.12):回聲成了 tdp 的「被指到的 panel」,框是 Lavender、失焦的細線直角,不再是游標色與圓角;
+> 行為照舊。
+
 ### 11.9 分隔線兼職進度條;傳輸 summary 不再 dim
 
 使用者自己標註「過分的 fancy 要求」,落地之後其實一點都不過分 —— 兩個
@@ -7415,6 +7418,19 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   toast（搬了什麼、啟動時有幾個問題）改成一句一列，不再用句號接成一段。tdptest 的 Driver 預設抓畫面上紅色的 `\n`；sshu 只有
   故意拿怪名字當資料的測試放行（`AllowLineBreaks`）。發現 lib 的檢查漏了清單格子裡的紅色 `\n`，回報 terminu-go，
   v0.4.20 補上（清單、panel 上的值、失焦的 panel、popup 底下）。
+
+### 12.12 游標的格子回聲接回來（SS44，tdp v0.9.16，terminu-go v0.4.21，2026-10-25）
+
+- **掉了又接回來**：§11.8 的回聲在改建時掉了 —— panel 的框由 lib 畫，lib 沒有讓沒 focus 的 panel 外框換色的東西，當時也沒列進
+  拿掉的功能。user 手測發現，回報後 tdp 寫成通則「被指到的 panel」（layout/panel），由 app 選用；sshu 只設 `List.Points`
+  （那一列對應的格子）。
+- **長相照 tdp，跟 §11.8 不一樣**：被指到的格子維持失焦的細線直角，只把框色從 Surface2 換成 Lavender（「使用者足跡」，跟位置列、
+  statusbar 同一個意思：你現在在這裡），膠囊串跟著換。沒照 §11.8 用游標色與圓角，是 tdp 定的：focus 還在清單上，被指的格子不能
+  變成 focus，所以維持失焦的線；Lavender 說的是「游標現在指著這裡」（tdp layout/panel 的 Why）。
+- **行為照舊**：游標那個 session 沒上網格時沒有格子亮；只在 `[1]` 有 focus 時指，鍵盤進到那一格就照 focus 畫，focus 在 `[2]` 時
+  沒有格子亮；PTY 是串流內容，失焦也不淡化，被 popup 蓋住時一起淡化。
+- 測試 `TestTheCursorPointsAtItsCell` 看格子標題列上的 Lavender：跟著游標換格、focus 在 `[2]` 或游標那個 session 藏起來時都沒有；
+  也在 tmux 上用假的 ssh 開兩個 session 看過。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

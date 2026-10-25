@@ -67,6 +67,52 @@ func TestAShownCellKeepsItsPlace(t *testing.T) {
 	hs.s.sh.closeAll()
 }
 
+// The [1] cursor points at its session's cell on the grid: that cell's frame
+// turns Lavender, still unfocused (layout/panel, a pointed panel; design
+// §11.8). It moves with the cursor, and nothing is pointed at while the
+// focus is elsewhere or the cursor's session has no cell.
+func TestTheCursorPointsAtItsCell(t *testing.T) {
+	fakeSSH(t, "exec cat")
+	d := testData(sampleHosts(), sampleCreds())
+	d.State.GridArrange = "vertical" // the two cells' titles on rows of their own
+	hs := newHarness(t, 140, 30, d)
+	hs.keys("2", "Enter", "Enter")
+	hs.settle(func() bool { return hs.s.sh.liveCount() == 1 }, 2*time.Second)
+	hs.keys("Alt-Esc", "Enter", "M", "Enter", "Enter")
+	hs.settle(func() bool { return hs.s.sh.liveCount() == 2 }, 2*time.Second)
+	hs.keys("Alt-Esc", "Enter", "1", "gg")
+	lavender := terminu.Fg(terminu.Lavender).Render("x")
+	lavender = lavender[:strings.Index(lavender, "x")] // its colour code
+	pointed := func(cell string) bool {
+		for _, l := range hs.s.a.Frame() {
+			if strings.Contains(terminu.StripStyles(l), cell) {
+				return strings.Contains(l, lavender)
+			}
+		}
+		t.Fatalf("no %s on the screen:\n%s", cell, hs.text())
+		return false
+	}
+	check := func(when string, want3, want4 bool) {
+		t.Helper()
+		if got3, got4 := pointed("[3]"), pointed("[4]"); got3 != want3 || got4 != want4 {
+			t.Errorf("%s: [3] pointed %v, [4] pointed %v; want %v, %v\n%s", when, got3, got4, want3, want4, hs.text())
+		}
+	}
+	check("cursor on the first", true, false)
+	hs.keys("j")
+	check("cursor on the second", false, true)
+	hs.keys("2")
+	check("focus on the layout", false, false)
+	hs.keys("1", "gg", "H")
+	if hs.s.sh.liveCount() != 2 || len(hs.s.sh.screen.Panels) != 3 {
+		t.Fatalf("the first cell is not hidden: %d panels", len(hs.s.sh.screen.Panels))
+	}
+	if pointed("[3]") {
+		t.Errorf("the cursor's session has no cell, yet a cell is pointed at:\n%s", hs.text())
+	}
+	hs.s.sh.closeAll()
+}
+
 // A session ssh gave up on says what ssh said, in a toast and in the App Log.
 func TestAFailedSessionSaysWhatSSHSaid(t *testing.T) {
 	fakeSSH(t, `echo "ssh: connect to host db.internal port 2222: Connection refused" > "$LOG"; exit 255`)

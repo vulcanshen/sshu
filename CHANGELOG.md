@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.9.15. Every screen, menu,
+terminu family's shared library, and follows tdp v0.9.16. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -60,6 +60,11 @@ sshu shows both paths, for you to merge or move it yourself.
   the selection first; `Alt-Enter` locks the cell, every key, `Alt-Esc` too, going to the
   session for a sshu nested in it, with `Alt-Enter` then the way out;
   locked, `Alt-v` and `PgUp|PgDn` go to the session too.
+- Walking `[1]` still points at the session's cell on the grid, now in
+  Lavender, the family's colour for where you are, on the cell's thin frame:
+  the cell with the keyboard keeps the only focus frame. A session with no
+  cell on the grid points at nothing, and nothing is pointed at while the
+  keyboard is elsewhere.
 - A cell still connecting says so, "connecting to <host>", and what you type
   waits until ssh is through.
 - File transfer's `/` searches in a finder over the screen; its results keep
@@ -116,7 +121,7 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.9.15):
+- The repository takes the terminu family's shape (tdp project, v0.9.16):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector, `make dev` builds and runs it), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the

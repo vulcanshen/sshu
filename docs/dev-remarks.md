@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.15/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.9.16/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-24 起 v0.4.20，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-25 起 v0.4.21，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -46,6 +46,7 @@
 
 - **連線**：從 Hosts 連線時，sshu 切到 SSH 畫面、focus 新的格子、鍵盤直接進去（`App.Focus`；tdp T1：開 shell 清掉 source，`Action.Clear`）。鍵盤在格子裡時左欄收起，網格佔滿寬度；`Alt-z` 讓這一格佔滿整個 panel 區。
 - **連線中**：ssh 第一次輸出之前（`Terminal.OnFirstOutput`），格子的框上轉 loading 圖示（`Panel.Loading`），打的字不送（`NotReady`，tdp K10）—— 免得幾分鐘後才落到遠端。格子中間寫「connecting to <host>」（`Panel.LoadingText`，components/layout/panel 的 loading）。
+- **游標指著它的格子**（layout/panel 的「被指到的 panel」，`List.Points`；SS44）：`[1]` 有 focus 時，游標那個 session 在網格上的格子，框從 Surface2 換成 Lavender，仍是失焦的細線直角，膠囊串跟著換。session 沒上網格、或 focus 在別的 panel 時，沒有格子被指；鍵盤進到那一格就照 focus 畫。清單列和格子是同一個 session 的兩面：掃清單不用讀格子標題就知道是哪一格，Duplicate 之後新格子一出現就被指著。
 - **離開**：`Alt-Esc` 先問（tdp K10），`Enter` 離開、`Esc` 回到 PTY；離開後 focus 留在那一格，`Enter` 再進去。
 - **換格**：`Alt-←|→|↑|↓`（一個 `TerminalKey`，`Keys` 收四個鍵）照目前的排法走到那個方向的格子。
 - **選取、歷史**：ssh 的格子是互動 terminal（`Terminal.Interactive`，components/dialog/terminal：使用者在裡面打自己的指令）：`Alt-v` 是 lib 的選取模式（複製走系統剪貼簿的工具，`pbcopy`、`wl-copy`、`xclip`、`xsel`，跟 viewer 一樣），`PgUp` 進 lib 的歷史模式。`$EDITOR` 開的 PTY（File transfer 的 `e`、Config 的 *Edit file*）不標，按鍵連 `PgUp` 全給編輯器。
@@ -114,7 +115,7 @@
 ## 已知的牆與未做
 
 - **平台**：macOS 與 Linux（Unix PTY），沒有 Windows build。
-- **等 lib 的**：SSH 畫面 `[1]` 游標的格子回聲（設計文件 §11.8：j/k 掃過 sessions 清單，游標那個 session 在網格上的格子外框用游標色亮起來）。改用 terminu-go 時掉了 —— panel 的框由 lib 畫，lib 沒有讓沒 focus 的 panel 外框換色的東西，當時也沒列進拿掉的功能。2026-10-25 user 手測發現，回報 tdp（SS44），等 tdp 定規則、terminu-go 給 API 再接回去。改用 terminu-go 以來回報的 SS3–SS43 其他都已定案，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
+- **等 lib 的**：目前沒有。改用 terminu-go 以來回報的 SS3–SS44 都已定案，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
 - **File transfer 的 host key**：password、privatekey、credential 的 host 遇到未知的 host key 一律拒絕；先從 SSH 畫面連一次，或在 KnownHosts 按 `[A]`。
 - **加密私鑰**：privatekey host 的 SFTP 用不了有 passphrase 的私鑰；改用 sshconfig host（走 ssh 與 agent）。
 - **`SSH_ASKPASS_PROMPT=none` 的通知**：FIDO 觸碰確認會讓 helper 掛著，sshconfig host 用 FIDO key 在 File transfer 會卡住。
