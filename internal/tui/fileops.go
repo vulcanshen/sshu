@@ -499,8 +499,10 @@ func (t *transfer) onEditFetched(m editFetched) tea.Cmd {
 	return t.runEditor(m.job)
 }
 
-// runEditor opens $EDITOR on the file in a terminal popup. Leaving it with
-// the exit key ends the editor: nothing is written back.
+// runEditor opens $EDITOR on the file in a terminal popup. However it ends —
+// by itself, or stopped by the exit key — what is saved is a question about
+// the file, not the editor's exit code: vim's :cq writes the file and exits
+// 1, and a stopped vim exits 1 having written nothing (design §7.3.4).
 func (t *transfer) runEditor(job editJob) tea.Cmd {
 	a := t.s.a
 	t.editing = true
@@ -510,12 +512,8 @@ func (t *transfer) runEditor(job editJob) tea.Cmd {
 		return a.Error("Edit failed", err.Error())
 	}
 	term := &terminu.Terminal{Title: "Edit", Subject: path.Base(job.path), Command: argv, Ends: true, Env: editorEnv()}
-	term.OnExit = func(err error) tea.Cmd {
+	term.OnExit = func(error) tea.Cmd {
 		deregisterStop(term)
-		if err != nil {
-			t.endEdit(job, false)
-			return a.Toast(terminu.Info, "Abandoned the edit of "+path.Base(job.path))
-		}
 		return saveEdit(job, false)
 	}
 	registerStop(term)

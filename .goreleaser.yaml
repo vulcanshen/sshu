@@ -66,9 +66,9 @@ brews:
     caveats: |
       Run `sshu` to start.
 
-      Hosts and credentials live in ~/.config/sshu ($XDG_CONFIG_HOME/sshu
-      when that is set, or $SSHU__CONFIG), the logs in ~/.sshu ($SSHU__DATA).
-      The SSH screen runs the system's OpenSSH client.
+      Hosts, credentials and the logs live in ~/.sshu ($SSHU__DATA when that
+      is set), the settings in ~/.config/sshu ($XDG_CONFIG_HOME/sshu, or
+      $SSHU__CONFIG). The SSH screen runs the system's OpenSSH client.
 
       A Nerd Font terminal profile and a truecolor (24-bit) terminal are
       required. macOS and Linux (WSL too).

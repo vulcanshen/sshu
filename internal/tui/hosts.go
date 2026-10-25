@@ -157,8 +157,12 @@ var authMethods = []store.AuthMethod{store.AuthPassword, store.AuthPrivateKey, s
 // replace is the index the edited host has, -1 for a new one.
 func (h *hostsSection) form(title, subject string, start store.Host, replace int) tea.Cmd {
 	name, host, user := start.Name, start.Host, start.User
+	// port is what was typed. The default 22 is not typed: shown while the
+	// auth is not sshconfig and saved as 22 then, it is gone once the auth
+	// turns to sshconfig, where an empty port lets ~/.ssh/config decide and
+	// a 22 would override it (design §6.3, §11.41).
 	port := ""
-	if start.Port > 0 {
+	if start.Port > 0 && (start.Port != store.DefaultPort || start.Auth == store.AuthSSHConfig) {
 		port = strconv.Itoa(start.Port)
 	}
 	cred, identity, password := start.Credential, start.IdentityFile, start.Password
@@ -189,19 +193,25 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 	hostRule := required("Host")
 	hostF := text("Host", &host, "The address, or a Host of ~/.ssh/config", inputRule(hostRule))
 	hostF.Check = func() string { return hostRule(host) }
-	portF := &terminu.FormField{Label: "Port", Value: func() string { return port }, Empty: "ssh decides",
+	shownPort := func() string {
+		if port == "" && method() != store.AuthSSHConfig {
+			return strconv.Itoa(store.DefaultPort)
+		}
+		return port
+	}
+	portF := &terminu.FormField{Label: "Port", Value: shownPort, Empty: "ssh decides",
 		Edit: func() terminu.Input {
 			if method() == store.AuthSSHConfig {
 				return optionalPort("1–65535, or empty to let ~/.ssh/config decide", port, func(s string) { port = s })
 			}
 			return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: "1–65535",
-				Verb: "set", Old: port, Min: 1, Max: 65535, Done: func(s string) tea.Cmd { port = s; return nil }}
-		},
-		Check: func() string {
-			if port == "" && method() != store.AuthSSHConfig {
-				return "Port can't be empty"
-			}
-			return ""
+				Verb: "set", Old: shownPort(), Min: 1, Max: 65535, Done: func(s string) tea.Cmd {
+					port = s
+					if s == strconv.Itoa(store.DefaultPort) {
+						port = "" // the default, not a port of its own
+					}
+					return nil
+				}}
 		}}
 	// The input refuses an empty user where the form would (tdp K3).
 	userRule := func(v string) string {
@@ -233,10 +243,18 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 			}
 			return ""
 		}}
+	// The auth needs what it authenticates with: a privatekey host its key
+	// file, a password host its password (CHANGELOG 1.4.0).
 	identityF := &terminu.FormField{Label: "Identity file", Value: func() string { return identity }, Empty: "not set", Path: true,
 		Disabled: func() bool { return method() != store.AuthPrivateKey },
 		Edit: func() terminu.Input {
 			return identityPicker("Identity file", identity, func(p string) { identity = p })
+		},
+		Check: func() string {
+			if method() == store.AuthPrivateKey && identity == "" {
+				return "Identity file can't be empty"
+			}
+			return ""
 		}}
 	passwordF := &terminu.FormField{Label: "Password", Empty: "not set",
 		Value:    func() string { return maskIf(password) },
@@ -244,6 +262,12 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 		Edit: func() terminu.Input {
 			return terminu.PasswordInput{Title: "Password", Glyph: glyphLock, Prompt: "The password to log in with; it is stored encrypted",
 				Verb: "set", Set: password != "", Done: func(v string, clear bool) tea.Cmd { password = v; return nil }}
+		},
+		Check: func() string {
+			if method() == store.AuthPassword && password == "" {
+				return "Password can't be empty"
+			}
+			return ""
 		}}
 	tagsF := text("Tags", &tags, "Words to find it by, separated by spaces", nil)
 	f := &terminu.Form{Title: title, Subject: subject, Glyph: glyphPlus, Name: cmpOr(subject, title), Button: "Save",
@@ -253,8 +277,8 @@ func (h *hostsSection) form(title, subject string, start store.Host, replace int
 	}
 	f.Submit = func() (tea.Cmd, error) {
 		x := store.Host{Name: name, Host: host, User: user, Auth: method(), Tags: store.ParseTags(tags)}
-		if port != "" {
-			x.Port, _ = strconv.Atoi(port)
+		if p := shownPort(); p != "" {
+			x.Port, _ = strconv.Atoi(p)
 		}
 		switch x.Auth {
 		case store.AuthPassword:

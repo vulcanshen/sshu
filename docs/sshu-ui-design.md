@@ -7432,6 +7432,20 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - 測試 `TestTheCursorPointsAtItsCell` 看格子標題列上的 Lavender：跟著游標換格、focus 在 `[2]` 或游標那個 session 藏起來時都沒有；
   也在 tmux 上用假的 ssh 開兩個 session 看過。
 
+### 12.13 對照 v2.0.0 後修回來的（2026-10-25）
+
+逐項對照 v2.0.0 與現在（清單在 `.local/audit-v2-2026-10-25.md`，git 不收），user 要先修會做錯事的。都是改建時沒記錄就掉了的，
+修回 v2.0.0 的行為：
+
+- **編輯完看內容，不看結束碼**（§7.3.4）：結束碼不是 0 就當放棄、刪掉暫存副本，vim 用 `:cq` 寫了檔再離開，修改就丟了。現在怎麼
+  結束都交給內容比對。`Alt-Esc` 停掉編輯器時 lib 送 SIGHUP，vim 以 1 結束但沒寫檔，比對起來就是沒改。跟 v2.0.0 不同的是：v2.0.0 的
+  `Alt-Esc` 問的是「放棄」，現在 lib 的問句是「程式會結束」，沒說不寫回，所以用 `:w` 存過再 `Alt-Esc` 的內容會寫回去。
+- **password 必填 Password，privatekey 必填 Identity file**（host 與 credential 兩個表單；CHANGELOG 1.4.0）。
+- **Auth 換成 sshconfig 時 Port 的 22 不見**（§6.3、§11.41）：lib 的表單沒有換選項的回呼，所以 22 不當成填的值 —— 非 sshconfig 時顯示、
+  存成 22，sshconfig 時空著。編一台 sshconfig host、原本就寫了 22 的，照留。
+- **開 app 時 focus 在 Hosts 表上**：README 的 Quick start 第一步是按 `A`，focus 在 `[1]` 時按了沒反應。
+- **Homebrew 安裝後的說明**寫錯了 hosts 與 credentials 的位置（還寫在設定目錄），改成 `~/.sshu`。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

@@ -32,7 +32,7 @@ func TestTheSectionUnderTheCursorIsShownBesideIt(t *testing.T) {
 	hs.contains("LOGS")
 	hs.contains("[2] HOSTS")
 	hs.contains("prod-web-01")
-	hs.keys("j")
+	hs.keys("1", "j")
 	hs.contains("[2] CREDENTIALS")
 	hs.lacks("prod-web-01")
 	hs.keys("k", "Enter")
@@ -84,14 +84,60 @@ func TestAddingAHostSavesIt(t *testing.T) {
 	hs.keys("j", "j", "Enter")
 	hs.keys("me")
 	hs.keys("Enter")
+	// Password: past the Auth options and the two fields the password auth
+	// leaves out
+	hs.keys("j", "j", "j", "j", "j", "Enter")
+	hs.keys("pw")
+	hs.keys("Enter")
 	hs.keys("Tab", "Enter")
-	if len(saved) != 1 || saved[0].Name != "web" || saved[0].Host != "10.0.0.9" || saved[0].User != "me" || saved[0].Port != 22 {
+	if len(saved) != 1 || saved[0].Name != "web" || saved[0].Host != "10.0.0.9" || saved[0].User != "me" ||
+		saved[0].Port != 22 || saved[0].Password != "pw" {
 		t.Fatalf("saved %+v\n%s", saved, hs.text())
 	}
 	hs.lacks("NEW HOST")
 	hs.contains("web")
 	if len(hs.s.d.Changes) != 1 {
 		t.Fatalf("changes: %+v", hs.s.d.Changes)
+	}
+}
+
+// sshu opens with the keyboard on the hosts table, so the first key the
+// README gives, A, adds a host (design: the tab opens on its content).
+func TestSshuOpensOnTheHostsTable(t *testing.T) {
+	hs := newHarness(t, 100, 40, testData(nil, nil))
+	hs.keys("A")
+	hs.contains("NEW HOST")
+}
+
+// A host needs what its auth authenticates with: a password host is not
+// saved without its password (CHANGELOG 1.4.0).
+func TestAPasswordHostNeedsItsPassword(t *testing.T) {
+	d := testData(nil, nil)
+	var saved []store.Host
+	d.SaveHosts = func(h []store.Host) error { saved = h; return nil }
+	hs := newHarness(t, 100, 40, d)
+	hs.keys("2", "A", "Enter", "web", "Enter", "j", "Enter", "10.0.0.9", "Enter", "j", "j", "Enter", "me", "Enter")
+	hs.keys("Tab", "Enter")
+	if len(saved) != 0 {
+		t.Fatalf("saved without a password: %+v", saved)
+	}
+	hs.contains("Password can't be empty")
+}
+
+// Turning a new host's auth to sshconfig leaves the port to ~/.ssh/config:
+// the default 22 goes, so ssh is not told -p 22 (design §6.3, §11.41).
+func TestAnSSHConfigHostLeavesThePortToTheFile(t *testing.T) {
+	d := testData(nil, nil)
+	var saved []store.Host
+	d.SaveHosts = func(h []store.Host) error { saved = h; return nil }
+	hs := newHarness(t, 100, 40, d)
+	hs.keys("2", "A", "Enter", "web", "Enter", "j", "Enter", "box", "Enter")
+	hs.contains("22")
+	hs.keys("j", "j", "j", "j", "j", "j", "Enter") // Port, User, then the Auth options to sshconfig
+	hs.contains("ssh decides")
+	hs.keys("Tab", "Enter")
+	if len(saved) != 1 || saved[0].Auth != store.AuthSSHConfig || saved[0].Port != 0 {
+		t.Fatalf("saved %+v\n%s", saved, hs.text())
 	}
 }
 
@@ -104,6 +150,7 @@ func TestEveryManageRowIsAsWideAsTheScreen(t *testing.T) {
 			w, h := size[0], size[1]
 			hs := newHarness(t, w, h, testData(sampleHosts(), sampleCreds()))
 			terminu.SetIconWidth(iw[0], iw[1])
+			hs.keys("1") // the sections, to walk them
 			for i := 0; i < 7; i++ {
 				hs.fullWidth(w, "section")
 				hs.keys("j")

@@ -83,7 +83,7 @@ func TestAnUnreadableSSHConfigIsSaidInItsSection(t *testing.T) {
 	d.SSHConfigErr = errors.New("permission denied")
 	d.KnownErr = errors.New("is a directory")
 	dr := tdptest.Start(t, New(d).a, 120, 30)
-	dr.Press("j", "j")
+	dr.Press("1", "j", "j")
 	if !dr.Has("Can't read ~/.ssh/config: permission denied") || dr.Has("No Host blocks") {
 		t.Errorf("the Config section does not say why:\n%s", screenOf(dr))
 	}
@@ -110,6 +110,7 @@ func TestTrickyValuesAreDrawnByName(t *testing.T) {
 		dr := tdptest.Start(t, New(d).a, 100, 30)
 		dr.AllowLineBreaks = v != "web" // a tricky name may hold one, drawn by its name
 		dr.Note("value " + strings.ReplaceAll(v, "\x1b", `\x1b`))
+		dr.Press("1") // the sections, to walk them
 		for range 6 {
 			dr.Press("j")
 			if v == "web" && dr.Has(`\x1b`) {

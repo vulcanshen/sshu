@@ -75,6 +75,10 @@ sshu shows both paths, for you to merge or move it yourself.
   answers no, and the connection gives up.
 - `Enter` on a file reads it, as `v` does; on a mark it opens the directory or
   reads the file.
+- Leaving the editor of File transfer's `e` with `Alt-Esc` stops it, and what
+  it saved to the file is written back, as when it ends by itself; whatever
+  the editor ends with (vim's `:cq` included), sshu looks at the file, not at
+  its exit code.
 - What acts on every mark of a side — `T`, `X`, `C` — is on that side's marks
   panel only, the host picker `H` on its files panel only, and `J` (Jobs)
   works from any panel while there are transfers.

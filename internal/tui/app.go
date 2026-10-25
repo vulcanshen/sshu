@@ -177,9 +177,10 @@ func (s *sshu) moveAside(i int) tea.Cmd {
 	})
 }
 
-// started records what startup found and says so once.
+// started records what startup found and says so once. sshu opens with the
+// keyboard on the hosts table, its content, so A adds the first host.
 func (s *sshu) started() tea.Cmd {
-	cmds := []tea.Cmd{s.ft.start(), s.sh.start()}
+	cmds := []tea.Cmd{s.a.Focus(s.mg.content), s.ft.start(), s.sh.start()}
 	// What moved says from where to where in a toast; what could not, or
 	// what the new place already had, in an error popup with both paths, for
 	// the user to move or merge (tdp E3). Its message comes a sentence a row:

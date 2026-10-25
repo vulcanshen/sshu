@@ -42,7 +42,7 @@ func TestEditFileOpensTheEditorAndReadsTheFileAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs := newHarness(t, 100, 40, d)
-	hs.keys("j", "j", "2", "E")
+	hs.keys("1", "j", "j", "2", "E")
 	hs.contains("EDIT: box")
 	hs.contains("Others")
 	hs.keys("Tab")
@@ -89,7 +89,7 @@ func TestTheEditorPopupKeepsTheScreenFullWidth(t *testing.T) {
 		}
 		hs := newHarness(t, 80, 40, d)
 		terminu.SetIconWidth(iw[0], iw[1])
-		hs.keys("j", "j", "2", "E", "Tab")
+		hs.keys("1", "j", "j", "2", "E", "Tab")
 		if !hs.shows("Enter:edit file") {
 			hs.keys("h")
 		}
@@ -129,8 +129,8 @@ func TestEditFileAsksToSaveTheFormFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs := newHarness(t, 100, 40, d)
-	hs.keys("j", "j", "2", "E", "j", "Enter") // HostName
-	hs.keys("Backspace", "10.0.0.2", "Enter") // the old value is taken whole by the first key
+	hs.keys("1", "j", "j", "2", "E", "j", "Enter") // HostName
+	hs.keys("Backspace", "10.0.0.2", "Enter")      // the old value is taken whole by the first key
 	hs.keys("Tab")
 	if !hs.shows("Enter:edit file") {
 		hs.keys("h")
@@ -146,6 +146,31 @@ func TestEditFileAsksToSaveTheFormFirst(t *testing.T) {
 	got, _ := os.ReadFile(cfg)
 	if !strings.Contains(string(got), "HostName 10.0.0.2") || !strings.Contains(string(got), "Compression yes") {
 		t.Errorf("the file is\n%s\nwant the saved HostName and the editor's line", got)
+	}
+}
+
+// Whether an edit is saved is a question about the file, not the editor's
+// exit code: vim's :cq writes the file and exits 1, and what it wrote is
+// kept (design §7.3.4).
+func TestAnEditorThatExitsNonZeroStillSavesWhatItWrote(t *testing.T) {
+	root := twoDirs(t)
+	editor := filepath.Join(t.TempDir(), "editor")
+	if err := os.WriteFile(editor, []byte("#!/bin/sh\nprintf 'more\\n' >> \"$1\"\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", editor)
+	hs := newHarness(t, 120, 36, testData(nil, nil))
+	hs.keys("F", "H", "Enter", "Enter", "e")
+	if !hs.settle(func() bool { return hs.shows("Saved x.txt") || hs.shows("Abandoned") }, 3*time.Second) {
+		t.Fatalf("the edit never ended:\n%s", hs.text())
+	}
+	hs.contains("Saved x.txt")
+	if b, _ := os.ReadFile(filepath.Join(root, "a", "x.txt")); string(b) != "hello\nmore\n" {
+		t.Errorf("x.txt is %q", b)
+	}
+	if c := hs.s.d.Changes; len(c) != 1 || !strings.Contains(c[0].Action, "saved x.txt") {
+		t.Errorf("changes: %+v", c)
 	}
 }
 

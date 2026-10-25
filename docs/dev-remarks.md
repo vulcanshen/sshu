@@ -21,9 +21,9 @@
 
 ### Manage
 
-`[1] SECTIONS` 是分組的清單（SSHU：Hosts、Credentials；SSH：Config、KnownHosts；LOGS：Connections、Changes），`[2]` 是 cursor 那一節的明細（components/layout/panel 的「明細」）：cursor 一動，`[2]` 的 label、內容與動作就換成那一節的；`Enter` 把 focus 送到 `[2]`（tdp K3 的明細）。
+`[1] SECTIONS` 是分組的清單（SSHU：Hosts、Credentials；SSH：Config、KnownHosts；LOGS：Connections、Changes），`[2]` 是 cursor 那一節的明細（components/layout/panel 的「明細」）：cursor 一動，`[2]` 的 label、內容與動作就換成那一節的；`Enter` 把 focus 送到 `[2]`（tdp K3 的明細）。開 app 時 focus 就在 `[2]` 的 Hosts 表上（`App.Focus`，在 `started()`）：README 的 Quick start 第一步是按 `A` 加 host，focus 在 `[1]` 時 `A` 沒有作用。
 
-- **Hosts**：`hosts.yaml` 的表格，`/` 是 panel filter（名稱、user、host、port、tags 一起比對）。`Enter` 是連線：先開一個 confirm，上面是這台 host 的明細（連線、驗證、`~/.ssh/config` 會給它什麼，以及哪些被 sshu 的命令列蓋掉），問句在最後（tdp F1：confirm 可以帶一段回答前要看的內容）。表單是 lib 的：`Auth` 是畫在表單上的 radio，`Credential` 開 select，`Identity file` 開 file-picker（從 `~/.ssh` 開始），`Password` 開 password input。
+- **Hosts**：`hosts.yaml` 的表格，`/` 是 panel filter（名稱、user、host、port、tags 一起比對）。`Enter` 是連線：先開一個 confirm，上面是這台 host 的明細（連線、驗證、`~/.ssh/config` 會給它什麼，以及哪些被 sshu 的命令列蓋掉），問句在最後（tdp F1：confirm 可以帶一段回答前要看的內容）。表單是 lib 的：`Auth` 是畫在表單上的 radio，`Credential` 開 select，`Identity file` 開 file-picker（從 `~/.ssh` 開始），`Password` 開 password input。password 必填 Password、privatekey 必填 Identity file（credential 表單也是）。Port 的 22 是預設值不是填的值：非 sshconfig 時顯示 22、存成 22；Auth 換成 sshconfig 時就不見了，空的 Port 讓 `~/.ssh/config` 決定，帶 `-p 22` 會蓋掉它（lib 的表單沒有換選項的回呼，所以用「沒填」加上顯示的預設值來做）。
 - **Config**：`~/.ssh/config` 一個 `Host` 區塊一列，`Include` 會跟進去。編一個區塊只動它自己的那幾行：HostName、User、Port、IdentityFile 各一欄，每個選項記得自己原本在哪一行，沒改的一行原樣留著，清空的那一行拿掉；其他關鍵字列在 `Others`，只顯示（focus 跳過它）。表單的 `Edit file` 按鈕（`FormButton.Open`）在表單上面用 `$EDITOR` 打開那個區塊所在的檔（整個檔，`+<Host 那一行>`）：編輯器讀的是磁碟上的檔，所以表單有改動、或是還沒寫進檔的新區塊，先開 confirm 問要不要存（`Enter` 存了再開編輯器，`Esc` 回到表單）。編輯器結束時（terminal 的 `OnExit`）重讀檔案（`SSHConfigFile.Reload`），把這個區塊的值放回表單；區塊不見了，表單就當成新的區塊。重讀不用 `FormButton.Back`：它跟著 Open 打開的那一個 popup，先問要不要存時那是 confirm，confirm 一關它就跑了，編輯器還沒開。存檔時檔案被別的編輯器改過，就拒絕並換成磁碟上的版本。
 - **KnownHosts**：`~/.ssh/known_hosts`。`[A]dd` 是一個表單（host、port），送出時去問那台機器要金鑰（在認證之前停下），再開 confirm 給你看指紋，`Enter` 才寫。
 - **兩本紀錄**：Connections、Changes 各自一個表格，最新的在最上面，`Enter` 打開整本。`[C]lear` 先問，再清空那一本的檔案。失敗的事不在這裡，在 App Log。
@@ -37,7 +37,7 @@
 - **標記照路徑記**，換目錄也留著；每次重畫時把這一側的標記照 ID 交給清單（`List.SetMarked`）。
 - **`/` 是 finder**：整棵子樹邊走邊列，結果一直進來（components/input/finder：Loading 時可以一直加），`Enter` 到那一項所在的目錄、cursor 停在它上面。預覽是 lib 的檔案預覽；遠端那一側交給 lib 一個 `PreviewFS`（`previewfs.go`：把 `remote.FS` 轉成 lib 要的樣子，開的檔能從任何位置讀，zip 的目錄在檔尾、PDF 的頁數都讀得到），經 SFTP 讀。lib 在背景讀、讀過的在搜尋開著時記住（tdp v0.8.2），打字與移動不等遠端。
 - **傳輸先規劃再開始**：幾個檔、多少 bytes、對面哪些已經存在都先算好，要覆蓋就問一次整批。傳輸在自己的 goroutine 跑、用 atomic 回報，畫面從不等網路；正在寫進來的那個檔，在清單上用 lib 的 loading 圖示標出來（`LoadingFrame`，全家族同一個會轉的圖示）。Jobs 的列跟著傳輸變（`Action.Live`），進行中那一列的 hint 是 `Enter:cancel`（`EnterHint`）。
-- **`[e]dit`**：遠端的檔先抓到本機暫存，`$VISUAL`／`$EDITOR`（沒有就 `vi`）在 lib 的 terminal popup 裡跑；存回去之前比對內容，沒改就不寫；遠端在這段時間被改過就先問。用 `Alt-Esc` 離開編輯器等於放棄這次編輯（`Ends: true`：程式結束，不寫回）。編輯器的環境裡把外層終端機的名字（`TERM_PROGRAM` 等）清掉：它跑在 sshu 的模擬器裡，不是那台終端機。
+- **`[e]dit`**：遠端的檔先抓到本機暫存，`$VISUAL`／`$EDITOR`（沒有就 `vi`）在 lib 的 terminal popup 裡跑；存回去之前比對內容，沒改就不寫；遠端在這段時間被改過就先問。編輯器怎麼結束都一樣看檔案內容，不看結束碼：vim 的 `:cq` 寫了檔再以 1 結束；`Alt-Esc` 停掉編輯器（lib 送 SIGHUP），vim 也以 1 結束、但沒寫檔，所以就是沒改。以前結束碼不是 0 就當放棄、刪掉暫存副本，`:cq` 的修改會丟。編輯器的環境裡把外層終端機的名字（`TERM_PROGRAM` 等）清掉：它跑在 sshu 的模擬器裡，不是那台終端機。
 - **目錄每兩秒看一次時間戳**（SFTP 不會通知），變了才重讀；畫面不在 File transfer 時不看。
 
 ### SSH
@@ -119,7 +119,7 @@
 - **File transfer 的 host key**：password、privatekey、credential 的 host 遇到未知的 host key 一律拒絕；先從 SSH 畫面連一次，或在 KnownHosts 按 `[A]`。
 - **加密私鑰**：privatekey host 的 SFTP 用不了有 passphrase 的私鑰；改用 sshconfig host（走 ssh 與 agent）。
 - **`SSH_ASKPASS_PROMPT=none` 的通知**：FIDO 觸碰確認會讓 helper 掛著，sshconfig host 用 FIDO key 在 File transfer 會卡住。
-- **`Alt-Esc` 誤觸**：遠端跑 vim 時快速連按兩次 `Esc` 會被讀成 `Alt-Esc`；離開格子與放棄編輯都先問，誤觸按 `Esc` 就回去。
+- **`Alt-Esc` 誤觸**：遠端跑 vim 時快速連按兩次 `Esc` 會被讀成 `Alt-Esc`；離開格子與結束編輯器都先問，誤觸按 `Esc` 就回去。
 - **未做**：Mouse；fsnotify 重讀 `hosts.yaml`；keychain 存密碼；Export / Import（以前實作了但一直遮罩著，搬到 lib 時沒有搬）。
 
 ## 偏離 tdp
