@@ -139,7 +139,7 @@ Two sides, each this machine or a saved host: files on top, what you marked belo
 | `t` | Send it to the other side's directory |
 | `r` | Rename |
 | `v` | Read it — text coloured, binary as hex, a directory as its listing |
-| `e` | Edit in `$EDITOR`; a remote file is fetched and written back. `Alt-Esc` in the editor abandons the edit (asks first) |
+| `e` | Edit in `$EDITOR`; a remote file is fetched and written back. `Alt-Esc` in the editor stops it (asks first); what it saved is written back |
 | `x` | Delete it (asks first) |
 | `/` | Search the whole tree under this directory, the one under the cursor previewed beside it; `Enter` on a result goes there |
 | `A` | Add: `name` makes a file, `name/` a directory |
@@ -157,7 +157,7 @@ What cannot run right now is dimmed in the menu and its key does nothing: `H` an
 
 | Key | What it does |
 |---|---|
-| `Alt-Esc` | Take the keyboard back out (asks first: two quick `Esc` in vim can read as `Alt-Esc`; `Esc` goes back in) |
+| `Alt-Esc` | Take the keyboard back out, to `[1]` on that session (asks first: two quick `Esc` in vim can read as `Alt-Esc`; `Esc` goes back in) |
 | `Alt-←\|→\|↑\|↓` | The cell that way |
 | `Alt-z` | This cell over the whole grid, and back |
 | `Alt-v` | Select in the cell, `v` to start, `y` to copy, `Esc` to drop the selection; `Space` lists the keys |

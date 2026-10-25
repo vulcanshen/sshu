@@ -372,6 +372,12 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	x.term.NotReady = func() bool { return !x.spoke }
 	x.term.OnFirstOutput = func() tea.Cmd { x.spoke, x.panel.Loading = true, false; return nil }
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }
+	// Out of the cell, the keyboard goes back to [1], the cursor on this
+	// session, which points at the cell just left (user, 2026-10-25).
+	x.term.OnLeave = func() tea.Cmd {
+		h.list.Select(strconv.Itoa(x.id))
+		return h.s.a.Focus(h.listP)
+	}
 	x.panel = &terminu.Panel{Name: h.label(x), Body: x.term, Stream: true, Loading: true,
 		LoadingText: "connecting to " + host.Name, Actions: []terminu.Action{
 			{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,

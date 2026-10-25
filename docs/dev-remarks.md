@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-25 起 v0.4.21，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-25 起 v0.4.22，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -47,7 +47,7 @@
 - **連線**：從 Hosts 連線時，sshu 切到 SSH 畫面、focus 新的格子、鍵盤直接進去（`App.Focus`；tdp T1：開 shell 清掉 source，`Action.Clear`）。鍵盤在格子裡時左欄收起，網格佔滿寬度；`Alt-z` 讓這一格佔滿整個 panel 區。
 - **連線中**：ssh 第一次輸出之前（`Terminal.OnFirstOutput`），格子的框上轉 loading 圖示（`Panel.Loading`），打的字不送（`NotReady`，tdp K10）—— 免得幾分鐘後才落到遠端。格子中間寫「connecting to <host>」（`Panel.LoadingText`，components/layout/panel 的 loading）。
 - **游標指著它的格子**（layout/panel 的「被指到的 panel」，`List.Points`；SS44）：`[1]` 有 focus 時，游標那個 session 在網格上的格子，框從 Surface2 換成 Lavender，仍是失焦的細線直角，膠囊串跟著換。session 沒上網格、或 focus 在別的 panel 時，沒有格子被指；鍵盤進到那一格就照 focus 畫。清單列和格子是同一個 session 的兩面：掃清單不用讀格子標題就知道是哪一格，Duplicate 之後新格子一出現就被指著。
-- **離開**：`Alt-Esc` 先問（tdp K10），`Enter` 離開、`Esc` 回到 PTY；離開後 focus 留在那一格，`Enter` 再進去。
+- **離開**：`Alt-Esc` 先問（tdp K10），`Enter` 離開、`Esc` 回到 PTY；離開後 focus 回到 `[1]`、游標停在那個 session，它就指著剛離開的格子（`Terminal.OnLeave`，terminu-go v0.4.22；SS45，user 2026-10-25：v2.0.0 就是這樣，改建時掉了）。
 - **換格**：`Alt-←|→|↑|↓`（一個 `TerminalKey`，`Keys` 收四個鍵）照目前的排法走到那個方向的格子。
 - **選取、歷史**：ssh 的格子是互動 terminal（`Terminal.Interactive`，components/dialog/terminal：使用者在裡面打自己的指令）：`Alt-v` 是 lib 的選取模式（複製走系統剪貼簿的工具，`pbcopy`、`wl-copy`、`xclip`、`xsel`，跟 viewer 一樣），`PgUp` 進 lib 的歷史模式。`$EDITOR` 開的 PTY（File transfer 的 `e`、Config 的 *Edit file*）不標，按鍵連 `PgUp` 全給編輯器。
 - **鎖定**：`Alt-Enter` 把每一個鍵交給格子 —— `Alt-Esc`、`Alt-z`、`Alt-` 方向鍵、`Alt-v`、`PgUp` 都是 —— 給格子裡巢狀的 sshu（`ssh.go` 的 `lock`）。鎖住時出口鍵換成 `Alt-Enter`（`Terminal.ExitKey`，tdp K10：出口永遠有一個是 app 的），其他保留鍵拿掉，`Terminal.AllKeys` 把選取與歷史也讓給格子裡的程式 —— `Alt-v`、`PgUp|PgDn` 送進去，最裡面那一層自己選、自己捲（components/dialog/terminal）；鍵盤離開格子就解鎖（`place` 看到鍵盤不在了就呼叫 `unlock`）。

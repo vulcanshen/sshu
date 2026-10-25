@@ -65,6 +65,8 @@ sshu shows both paths, for you to merge or move it yourself.
   the cell with the keyboard keeps the only focus frame. A session with no
   cell on the grid points at nothing, and nothing is pointed at while the
   keyboard is elsewhere.
+- `Alt-Esc` out of a cell puts the keyboard on `[1]`, the cursor on that
+  session.
 - A cell still connecting says so, "connecting to <host>", and what you type
   waits until ssh is through.
 - File transfer's `/` searches in a finder over the screen; its results keep

@@ -38,6 +38,9 @@ func TestConnectPutsTheKeyboardInTheNewCell(t *testing.T) {
 	hs.contains("Alt-Esc:leave") // Esc goes back into the PTY
 	hs.keys("Alt-Esc", "Enter")
 	hs.contains("Space:menu")
+	if hs.s.a.Screen().Focused() != hs.s.sh.listP {
+		t.Errorf("leaving the cell did not put the keyboard on [1]:\n%s", hs.text())
+	}
 	hs.lacks(`\x1b`) // the session's glyph is coloured by a style, not codes in its cell
 	hs.s.sh.closeAll()
 }
@@ -80,7 +83,13 @@ func TestTheCursorPointsAtItsCell(t *testing.T) {
 	hs.settle(func() bool { return hs.s.sh.liveCount() == 1 }, 2*time.Second)
 	hs.keys("Alt-Esc", "Enter", "M", "Enter", "Enter")
 	hs.settle(func() bool { return hs.s.sh.liveCount() == 2 }, 2*time.Second)
-	hs.keys("Alt-Esc", "Enter", "1", "gg")
+	hs.keys("Alt-Esc", "Enter")
+	// Leaving a cell puts the keyboard on [1], the cursor on that session.
+	if hs.s.a.Screen().Focused() != hs.s.sh.listP || hs.s.sh.current() != hs.s.sh.sessions[1] {
+		t.Fatalf("leaving the second cell: focus on %q, cursor on %v\n%s",
+			hs.s.a.Screen().Focused().Name, hs.s.sh.current(), hs.text())
+	}
+	hs.keys("gg")
 	lavender := terminu.Fg(terminu.Lavender).Render("x")
 	lavender = lavender[:strings.Index(lavender, "x")] // its colour code
 	pointed := func(cell string) bool {

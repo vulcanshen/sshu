@@ -7445,6 +7445,9 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   存成 22，sshconfig 時空著。編一台 sshconfig host、原本就寫了 22 的，照留。
 - **開 app 時 focus 在 Hosts 表上**：README 的 Quick start 第一步是按 `A`，focus 在 `[1]` 時按了沒反應。
 - **Homebrew 安裝後的說明**寫錯了 hosts 與 credentials 的位置（還寫在設定目錄），改成 `~/.sshu`。
+- **`Alt-Esc` 離開格子後 focus 回到 `[1]`**，游標停在那個 session（指著剛離開的格子）。改建時寫成「focus 留在那一格」，
+  記在 dev-remarks；user 要回到 `[1]`（v2.0.0 就是這樣）。lib 沒有離開的回呼，回報 terminu-go（SS45）加了 `Terminal.OnLeave`
+  （v0.4.22）。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
