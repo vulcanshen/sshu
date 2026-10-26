@@ -7470,6 +7470,16 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   不用改。
 - **範本檔用路徑引用**：`internal/version/version.go` 的註解改回 `tdp project/version.go`。
 
+### 12.16 對齊 tdp v0.10.3、terminu-go v0.5.3（2026-10-26）
+
+- **專案檔交給測試比對**：v0.5.3 的 `tdptest.Check` 多了子測試 `repo`，拿 tdp project/ 的範本（family.mk、release.yml、
+  .goreleaser.yaml、install.sh、uninstall.sh、version.go、.gitignore）逐列比對 sshu 的檔，再查 project.3 的檔案、project.5
+  的 Makefile、project.6 的 CHANGELOG。sshu 不用改就過：不一樣的只有範本放行的地方 —— goreleaser 的 `description` 與
+  `caveats`（資料與設定放哪、SSH 用系統的 OpenSSH）、install.sh 在找不到 `ssh` 時提醒一聲、uninstall.sh 問要不要
+  一併刪掉 macOS 舊設定位置留下的檔（這兩段都寫在 app 自己的區塊裡）、.gitignore 最後的 `*.sshu`（匯出的 bundle
+  帶明碼密碼）。
+- tdp v0.10.3 只把 project.2 標記管到哪裡寫清楚，範本沒動，lib 畫的東西也沒變。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel
