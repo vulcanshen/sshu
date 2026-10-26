@@ -7460,6 +7460,16 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **沒有「偏離」了**：tdp 放行的地方一律寫「app 可以自行決定」（tdp P5）。本檔開頭的分工說明跟著改；更早各節寫的
   「偏離」是當時的紀錄，照留。
 
+### 12.15 對齊 tdp v0.10.2、terminu-go v0.5.2（2026-10-26）
+
+- **loading 與錯誤有了自己的一節**（tdp panel.15）：以前寫在 panel.5 一般清單底下，sshu 的 SSH 格子（連線中，中間寫
+  `connecting to <host>`）與 Manage `[2]` 的明細（`~/.ssh/config`、known_hosts 讀不到時中間寫原因）都不是一般清單，引用起來
+  勉強；回報後 tdp 寫明每一種 panel 都一樣。這幾處的引用改成 `tdp panel.15`。lib 這一版也讓還沒 `Start` 的 PTY 算空的：
+  格子建好到 PTY 開起來之間那一下，中間以前是空的，現在也寫 `connecting to <host>`。sshu 不用改。
+- **toast 與 App Log 每一列大寫開頭**（tdp toast.2）：sshu 的字本來就是動詞或名詞開頭、大寫，從名稱開始的列也照留名稱，
+  不用改。
+- **範本檔用路徑引用**：`internal/version/version.go` 的註解改回 `tdp project/version.go`。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

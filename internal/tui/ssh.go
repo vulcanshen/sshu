@@ -368,7 +368,7 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	// Until ssh first prints, it is connecting: typing would land minutes
 	// later on the far side, so it waits (tdp K10), and the cell's frame
 	// turns the loading icon, "connecting to <host>" in its middle (tdp F7,
-	// panel.5).
+	// panel.15).
 	x.term.NotReady = func() bool { return !x.spoke }
 	x.term.OnFirstOutput = func() tea.Cmd { x.spoke, x.panel.Loading = true, false; return nil }
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }

@@ -2,7 +2,7 @@
 // goreleaser ldflags (-X github.com/vulcanshen/sshu/internal/version.Version=...).
 // A local `go build` / `make build` produces a "dev" build.
 //
-// terminu family template (tdp project.2, version.go), copied to an app's
+// terminu family template (tdp project/version.go), copied to an app's
 // internal/version/version.go; replace sshu.
 package version
 

@@ -98,7 +98,7 @@ func (m *manage) show(sec *section) {
 }
 
 // unreadFailure is what the section of a file outside sshu says when the
-// file would not read: why, in its middle (tdp E3, panel.5).
+// file would not read: why, in its middle (tdp E3, panel.15).
 func unreadFailure(file string, err error) *terminu.Failure {
 	if err == nil {
 		return nil

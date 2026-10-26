@@ -57,7 +57,7 @@ type Data struct {
 
 	// SSHConfigErr and KnownErr are why ~/.ssh/config and ~/.ssh/known_hosts
 	// could not be read: not sshu's own, so their sections say so instead
-	// (tdp E3, panel.5).
+	// (tdp E3, panel.15).
 	SSHConfigErr, KnownErr error
 
 	// Moves are what startup moved to where tdp E3 puts it now, or could not.

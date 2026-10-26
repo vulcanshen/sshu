@@ -344,7 +344,7 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		fresh, err := c.s.d.SSHConfig.Reload()
 		c.s.d.SSHConfigErr = err
 		if err != nil {
-			// What was read before stays on screen (tdp panel.5).
+			// What was read before stays on screen (tdp panel.15).
 			return c.s.a.Toast(terminu.Error, "Can't read ~/.ssh/config: "+err.Error())
 		}
 		c.s.d.SSHConfig = fresh

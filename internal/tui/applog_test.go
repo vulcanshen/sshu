@@ -77,7 +77,7 @@ func TestAFailureIsInTheAppLog(t *testing.T) {
 }
 
 // ~/.ssh is not sshu's: a file of it that would not read is said in its
-// section, why in Red, not the empty list's words (tdp E3, panel.5).
+// section, why in Red, not the empty list's words (tdp E3, panel.15).
 func TestAnUnreadableSSHConfigIsSaidInItsSection(t *testing.T) {
 	d := testData(nil, nil)
 	d.SSHConfigErr = errors.New("permission denied")
