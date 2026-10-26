@@ -7450,10 +7450,11 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   記在 dev-remarks；user 要回到 `[1]`（v2.0.0 就是這樣）。lib 沒有離開的回呼，回報 terminu-go（SS45）加了 `Terminal.OnLeave`
   （v0.4.22）。
 
-### 12.14 對齊 tdp v0.10.1、terminu-go v0.5.0（2026-10-26）
+### 12.14 對齊 tdp v0.10.1、terminu-go v0.5.1（2026-10-26）
 
 - **sshu 的程式與畫面都沒改**：v0.5.0 新的只有 `Popup.Actions`，給 app 自己畫的 popup（tdp popup.8）；sshu 的 popup
-  全是 lib 的那七類，沒有自己畫的。v0.10.1 只在 popup.8 補一句放行，一樣用不到。
+  全是 lib 的那七類，沒有自己畫的。v0.10.1 只在 popup.8 補一句放行，一樣用不到；v0.5.1 是對到它的那一版 lib，行為沒變
+  （每一版 tdp 都有一版對到它的 terminu-go，app 照的是哪一版 tdp 從 lib 的版號推得出來）。
 - **引用改成節編號**：tdp 的元件與 project 每一節有了編號，程式註解與本檔引用元件的地方從路徑（`layout/panel`、
   `components/dialog/note`）改成 `tdp panel.2`、`tdp note.7` 這樣的寫法，整個元件用到時寫檔名（`tdp form`）。
 - **沒有「偏離」了**：tdp 放行的地方一律寫「app 可以自行決定」（tdp P5）。本檔開頭的分工說明跟著改；更早各節寫的
