@@ -1,8 +1,8 @@
 package tui
 
 // Nerd Font glyphs sshu picks itself: the domain's (an auth method, a file
-// type) and the titles of its inputs, forms and notes (components/layout/popup:
-// the app's choice). Written as code points (tdp E4).
+// type) and the titles of its inputs, forms and notes (tdp popup.1:
+// the app may decide for itself). Written as code points (tdp E4).
 const (
 	glyphKey  = "\U0000F084" // nf-fa-key: privatekey
 	glyphLock = "\U0000F023" // nf-fa-lock: password

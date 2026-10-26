@@ -260,7 +260,7 @@ func (t *transfer) startJob(src, dst *side, items []remote.Item, total int64, fi
 // jobsMenu lists the transfers of this run, newest first, each row following
 // its transfer while the menu is open (Action.Live). Enter on a running one
 // asks, with its whole text, whether to cancel it (Enter:cancel); on one that
-// ended it shows the whole of it (components/dialog/menu, work lists).
+// ended it shows the whole of it (tdp menu.5).
 func (t *transfer) jobsMenu() tea.Cmd {
 	if len(t.jobs) == 0 {
 		return t.s.a.Toast(terminu.Info, "Nothing transferred yet")

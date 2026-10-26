@@ -174,7 +174,7 @@ func (sd *side) deleteMarksAsk() (terminu.Ask, func() tea.Cmd, bool) {
 // --- search ------------------------------------------------------------------------
 
 // The search walks the whole subtree under the directory and lists what it
-// finds as it goes (components/input/finder: rows may keep arriving); Enter
+// finds as it goes (tdp finder.7: rows may keep arriving); Enter
 // goes to where the one picked lives.
 
 type scanTick struct{}
@@ -238,7 +238,7 @@ func (sd *side) search() tea.Cmd {
 
 // foundItem is one result: its absolute path, shown under the root. The
 // glyphs are the ones the lib's preview tree draws, so the list and the
-// preview beside it agree (components/input/file-picker).
+// preview beside it agree (tdp file-picker.3).
 func foundItem(root string, e remote.Entry, local bool) terminu.FinderItem {
 	icon := glyphTreeFile
 	name := e.Name
@@ -366,7 +366,7 @@ func dirLines(fsys remote.FS, p string) []string {
 func isText(data []byte) bool { return bytes.IndexByte(data, 0) < 0 && utf8.Valid(data) }
 
 // textLines splits text into lines as they are: the viewer draws a control
-// character by its name and copies the text unchanged (components/dialog/note).
+// character by its name and copies the text unchanged (tdp note.2).
 func textLines(data []byte) []string {
 	return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
 }

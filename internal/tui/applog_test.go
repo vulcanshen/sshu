@@ -30,7 +30,7 @@ func TestStartupProblemsGoToTheAppLog(t *testing.T) {
 }
 
 // What startup moved is in the App Log, item by item, capitalised like a
-// toast (tdp E3, F5; dialog/note, App Log).
+// toast (tdp E3, F5, note.7).
 func TestWhatMovedIsInTheAppLog(t *testing.T) {
 	d := testData(nil, nil)
 	d.Moves = []store.Move{{What: "data", From: "/old", To: "/new", Moved: []string{"hosts.yaml", ".sshukey"}}}
@@ -44,7 +44,7 @@ func TestWhatMovedIsInTheAppLog(t *testing.T) {
 // A failure goes to the App Log with what the far end said, and nowhere else:
 // there is no Errors journal. The footer counts it, the statusbar leaves it
 // to the footer. A change goes to the Changes journal and the App Log. Each
-// entry starts with a capital (dialog/note, App Log).
+// entry starts with a capital (tdp note.7).
 func TestAFailureIsInTheAppLog(t *testing.T) {
 	d := testData(nil, nil)
 	s := New(d)
@@ -77,7 +77,7 @@ func TestAFailureIsInTheAppLog(t *testing.T) {
 }
 
 // ~/.ssh is not sshu's: a file of it that would not read is said in its
-// section, why in Red, not the empty list's words (tdp E3, layout/panel).
+// section, why in Red, not the empty list's words (tdp E3, panel.5).
 func TestAnUnreadableSSHConfigIsSaidInItsSection(t *testing.T) {
 	d := testData(nil, nil)
 	d.SSHConfigErr = errors.New("permission denied")
@@ -99,7 +99,7 @@ func TestAnUnreadableSSHConfigIsSaidInItsSection(t *testing.T) {
 
 // Every value sshu draws from outside — a host's name, a cause, a result —
 // may hold control characters: the lib draws them by name, nothing in a cell
-// reaches the terminal as a sequence (components, control characters). And
+// reaches the terminal as a sequence (tdp components.5). And
 // sshu's own colours are styles, never codes in a cell: a plain value shows
 // no escape anywhere.
 func TestTrickyValuesAreDrawnByName(t *testing.T) {

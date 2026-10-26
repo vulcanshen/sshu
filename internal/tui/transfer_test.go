@@ -56,7 +56,7 @@ func TestAFileIsSentToTheOtherSidesDirectory(t *testing.T) {
 
 // A connection ssh gave up on says the last line ssh printed, the reason, in
 // the toast and the panel: a toast and a panel's middle are short text, where
-// a \n is drawn as \n (components, control characters). Everything ssh said,
+// a \n is drawn as \n (tdp components.5). Everything ssh said,
 // a banner included, is in the App Log. The host's name keeps its case.
 func TestAFailedConnectionSaysTheLastLineSSHPrinted(t *testing.T) {
 	hs := newHarness(t, 120, 36, testData(nil, nil))
@@ -74,7 +74,7 @@ func TestAFailedConnectionSaysTheLastLineSSHPrinted(t *testing.T) {
 }
 
 // A directory that will not open says why in a toast that starts with a
-// capital, as the App Log keeps it (dialog/note, App Log).
+// capital, as the App Log keeps it (tdp note.7).
 func TestADirectoryThatWillNotOpenSaysWhy(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root opens every directory")

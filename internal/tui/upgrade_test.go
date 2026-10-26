@@ -43,7 +43,7 @@ func TestEscOnWhatSSHAskedAnswersNo(t *testing.T) {
 }
 
 // The Jobs menu follows its transfers while it is open, and a running one's
-// Enter says what it does: cancel (components/dialog/menu, work lists).
+// Enter says what it does: cancel (tdp menu.5).
 func TestTheJobsMenuFollowsItsTransfers(t *testing.T) {
 	hs := newHarness(t, 100, 30, testData(sampleHosts(), sampleCreds()))
 	j := &job{id: 1, label: "5 files → box:/tmp", files: 5, cancel: func() {}}
@@ -96,7 +96,7 @@ func TestTooSmallATerminalSaysHowBig(t *testing.T) {
 
 // A hosts table too narrow for its columns shortens its long columns first,
 // then takes whole columns away, Tags first; the name never goes, and a long
-// name does not squeeze the short columns (layout/panel).
+// name does not squeeze the short columns (tdp panel.5).
 func TestANarrowHostsTableTakesWholeColumnsAway(t *testing.T) {
 	hs := newHarness(t, 140, 30, testData(sampleHosts(), sampleCreds()))
 	hs.contains("TAGS")
@@ -143,7 +143,7 @@ func TestATransferThatAsksEndsAsOneThatDoesNot(t *testing.T) {
 }
 
 // A remote preview reads anywhere in the file: the end of a zip far past
-// 64 KB lists what is in it (components/input/file-picker).
+// 64 KB lists what is in it (tdp file-picker.3).
 func TestARemotePreviewReadsAZipToItsEnd(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.ToSlash(filepath.Join(dir, "big.zip"))

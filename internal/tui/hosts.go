@@ -30,7 +30,7 @@ func newHostsSection(s *sshu) *hostsSection {
 		Columns: []terminu.Column{
 			// Name, address and tags are long and shrink; past their least,
 			// tags go first, the address last: name and address are what the
-			// table is scanned by (layout/panel).
+			// table is scanned by (tdp panel.5).
 			{Title: "Name", Shrink: true}, {Title: "User", Drop: 4}, {Title: "Host", Shrink: true, Drop: 5},
 			{Title: "Port", Number: true, Drop: 3}, {Title: "Auth", Drop: 2}, {Title: "Tags", Shrink: true, Drop: 1},
 		},
@@ -153,7 +153,7 @@ func (h *hostsSection) duplicate() tea.Cmd {
 // The auth methods in the order the form offers them.
 var authMethods = []store.AuthMethod{store.AuthPassword, store.AuthPrivateKey, store.AuthCredential, store.AuthSSHConfig}
 
-// form is the host form (components/dialog/form): add, edit or duplicate.
+// form is the host form (tdp form): add, edit or duplicate.
 // replace is the index the edited host has, -1 for a new one.
 func (h *hostsSection) form(title, subject string, start store.Host, replace int) tea.Cmd {
 	name, host, user := start.Name, start.Host, start.User
@@ -345,7 +345,7 @@ func inputRule(rule func(string) string) func(string) error {
 }
 
 // optionalPort is a port that may be left empty, which leaves the line out
-// for ~/.ssh/config to decide (components/input/number: an optional number).
+// for ~/.ssh/config to decide (tdp number.4: a field that may be empty).
 func optionalPort(prompt, old string, set func(string)) terminu.Input {
 	return terminu.NumberInput{Title: "Port", Glyph: glyphPencil, Prompt: prompt, Verb: "set", Old: old,
 		Min: 1, Max: 65535, Optional: true,

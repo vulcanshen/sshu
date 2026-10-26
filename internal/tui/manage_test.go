@@ -25,7 +25,7 @@ func TestTheIconIsTheSplash(t *testing.T) {
 }
 
 // The sections panel lists what sshu keeps under three groups, and [2] shows
-// the section under the cursor as the cursor moves (layout/panel, details).
+// the section under the cursor as the cursor moves (tdp panel.13).
 func TestTheSectionUnderTheCursorIsShownBesideIt(t *testing.T) {
 	hs := newHarness(t, 100, 30, testData(sampleHosts(), sampleCreds()))
 	hs.contains("SSHU")
@@ -198,7 +198,7 @@ func TestADeleteFromTheSpaceMenuClearsTheMenu(t *testing.T) {
 // What startup moved is said in a toast, from where to where; what it could
 // not move, and what the new place already had, open an error popup with both
 // paths, to move or to merge (tdp E3). The popup's message is one paragraph:
-// a \n in it is drawn as \n (components, control characters).
+// a \n in it is drawn as \n (tdp components.5).
 func TestStartupSaysWhatItMoved(t *testing.T) {
 	d := testData(sampleHosts(), sampleCreds())
 	d.Moves = []store.Move{{What: "journals", From: "/home/u/.config/sshu", To: "/home/u/.sshu", Moved: []string{"errors.yaml"}}}

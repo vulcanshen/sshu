@@ -10,7 +10,7 @@ import (
 )
 
 // newViewer is every viewer sshu opens: titled by what it shows, with the
-// selection mode that copies out of it (components/dialog/note).
+// selection mode that copies out of it (tdp note.4).
 func newViewer(title, subject, glyph string, lines []string) *terminu.Viewer {
 	return &terminu.Viewer{Title: title, Subject: subject, Glyph: glyph, Lines: lines,
 		Select: &terminu.Selection{Key: "v", Name: "Visual", Copy: copyText}}

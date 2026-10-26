@@ -277,7 +277,7 @@ func (sd *side) markPath() (string, bool) {
 
 // redraw puts the side's state into its two lists and its panel labels. The
 // host's name is the files panel's whole label, kept as it is
-// (components, upper case).
+// (tdp components.4).
 func (sd *side) redraw() {
 	sd.filesP.Label, sd.filesP.Name = "", sd.host
 	if sd.host == "" {
@@ -593,8 +593,8 @@ func (sd *side) endDial() {
 }
 
 // dialReason is why a connection to name failed, for a toast and a panel's
-// middle: short text, where a \n is drawn as \n (components, control
-// characters). The remote package starts the error with the name, and what
+// middle: short text, where a \n is drawn as \n (tdp
+// components.5). The remote package starts the error with the name, and what
 // ssh printed may run over several lines, a banner first and the reason
 // last. all is the whole of it, for the App Log.
 func dialReason(name string, err error) (reason, all string) {

@@ -17,7 +17,7 @@ import (
 
 // The SSH screen: [1] SESSIONS, the live sessions; [2] LAYOUT, how the grid
 // is arranged; and the grid, one panel per session from [3] on, each a real
-// ssh in a PTY (components/dialog/terminal: a PTY in a panel). Enter on a
+// ssh in a PTY (tdp terminal.1: a PTY in a panel). Enter on a
 // session puts the keyboard in its cell; Alt-Esc takes it back, asking first
 // (tdp K10).
 
@@ -59,7 +59,7 @@ const sshLeftW = 30 // a row says <glyph> user@host:port #N whole for the common
 func newSSHScreen(s *sshu) *sshScreen {
 	h := &sshScreen{s: s, columns: 2}
 	// The arrangement is kept between runs: a value takes effect, and is
-	// kept, when it is set (components/layout/panel, one value per row).
+	// kept, when it is set (tdp panel.12).
 	h.arrange = max(slices.Index(arrangements, s.d.State.GridArrange), 0)
 	if n := s.d.State.GridColumns; n >= 1 && n <= 9 {
 		h.columns = n
@@ -67,7 +67,7 @@ func newSSHScreen(s *sshu) *sshScreen {
 	h.list = &terminu.List{Columns: []terminu.Column{{Shrink: true}},
 		EmptyFact: "No live sessions", EmptyHint: "Press [M] and connect to a host"}
 	// A row and its cell are two sides of one session: the cursor's row
-	// points at its cell on the grid (layout/panel, a pointed panel). A
+	// points at its cell on the grid (tdp panel.2). A
 	// hidden cell is not on the screen, so nothing is pointed at.
 	h.list.Points = func(r terminu.Row) *terminu.Panel {
 		if x := h.byID(r.ID); x != nil {
@@ -361,14 +361,14 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 		f.Close()
 	}
 	// The user types commands of their own in it: it has the history and the
-	// selection (components/dialog/terminal).
+	// selection (tdp terminal.4).
 	x.term = &terminu.Terminal{Title: "SSH", Subject: host.Name, Interactive: true,
 		Command: sshArgs(addr, h.s.d.Config.Seconds(), x.log), Env: sshEnv(addr, selfPath())}
 	h.unlock(x) // the keys of a cell that is not locked
 	// Until ssh first prints, it is connecting: typing would land minutes
 	// later on the far side, so it waits (tdp K10), and the cell's frame
 	// turns the loading icon, "connecting to <host>" in its middle (tdp F7,
-	// layout/panel).
+	// panel.5).
 	x.term.NotReady = func() bool { return !x.spoke }
 	x.term.OnFirstOutput = func() tea.Cmd { x.spoke, x.panel.Loading = true, false; return nil }
 	x.term.OnExit = func(err error) tea.Cmd { return h.ended(x, err) }
@@ -425,8 +425,8 @@ func (h *sshScreen) unlock(x *session) {
 
 // lock hands every key to the program in x's cell — Alt-Esc, Alt-z, the
 // Alt-arrows, Alt-v, PgUp|PgDn — so a sshu nested in it gets them all, and
-// the selection and the history are the innermost one's (components/dialog/
-// terminal). Alt-Enter is then the exit key (tdp K10: one is always the
+// the selection and the history are the innermost one's (tdp
+// terminal.4). Alt-Enter is then the exit key (tdp K10: one is always the
 // app's); leaving the cell unlocks it.
 func (h *sshScreen) lock(x *session) {
 	t := x.term

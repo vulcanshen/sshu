@@ -71,7 +71,7 @@ func TestAShownCellKeepsItsPlace(t *testing.T) {
 }
 
 // The [1] cursor points at its session's cell on the grid: that cell's frame
-// turns Lavender, still unfocused (layout/panel, a pointed panel; design
+// turns Lavender, still unfocused (tdp panel.2; design
 // §11.8). It moves with the cursor, and nothing is pointed at while the
 // focus is elsewhere or the cursor's session has no cell.
 func TestTheCursorPointsAtItsCell(t *testing.T) {
@@ -185,7 +185,7 @@ func TestACellIsConnectingUntilSSHFirstPrints(t *testing.T) {
 // sshu nested in it; Alt-Enter is then the way out, and leaving unlocks it
 // (tdp K10). An ssh session is an interactive terminal: Alt-v is its
 // selection, PgUp its history; locked, both are the program's
-// (components/dialog/terminal).
+// (tdp terminal.4).
 func TestAltEnterLocksACell(t *testing.T) {
 	fakeSSH(t, "echo welcome; exec cat")
 	hs := newHarness(t, 120, 30, testData(sampleHosts(), sampleCreds()))

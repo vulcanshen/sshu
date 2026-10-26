@@ -19,8 +19,9 @@ sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 ---
 
 > **與其他文件的分工**:以前逐條對照原則的 `sshu-implementation.md` 已退役(2026-09-26),
-> 還用得到的實作事實收進 [`dev-remarks.md`](dev-remarks.md);偏離 tdp 的地方寫在 dev-remarks
-> 「偏離 tdp」;尚未符合的寫在 `sshu-terminu-fix.md`(2026-09-27 修完後刪除,§11.57)。本檔回答
+> 還用得到的實作事實收進 [`dev-remarks.md`](dev-remarks.md);尚未符合 tdp 的寫在
+> `sshu-terminu-fix.md`(2026-09-27 修完後刪除,§11.57)。tdp v0.10.0 起沒有「偏離」:tdp 放行的地方都寫明
+> 「app 可以自行決定」(tdp P5),sshu 在那些地方的選擇照樣記在本檔。本檔回答
 > **為什麼是這樣** —— mockup、判斷過程,以及**試過而被否決的做法**。它跟著程式碼走;被否決的
 > 做法留在這裡不刪 —— 那份紀錄本身就是重點。
 
@@ -7229,11 +7230,11 @@ Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshco
 ### 12.1 搬過去的,與長相換成 lib 的
 
 - **三個畫面、每一個動作都在**,熱鍵不變。Space menu、`?`、hint、footer、confirm、表單、toast、viewer 的長相全部是 lib 的。
-- **SSH 的格子變成 panel**(components/dialog/terminal:PTY 放在 panel 裡):每個 session 一個,`[3]` 起編號,`Tab` 與數字鍵
+- **SSH 的格子變成 panel**(tdp terminal.1:PTY 放在 panel 裡):每個 session 一個,`[3]` 起編號,`Tab` 與數字鍵
   照常走到它;以前的 §4.4.1「SSH tab 的 `Tab` 不作用」這條偏離因此消失。
-- **Manage 的 `[2]` 是明細**(components/layout/panel):cursor 一動就換,`Enter` 送 focus 過去(K3)。
+- **Manage 的 `[2]` 是明細**(tdp panel.13):cursor 一動就換,`Enter` 送 focus 過去(K3)。
 - **連線前的明細與問句合成一個 confirm**(F1:帶內容的 confirm),跟 §11.29 的「併進明細的腳」同一個意思,現在是 lib 的 confirm。
-- **File transfer 的搜尋從畫在清單裡改成 finder**(input/finder):§7.3 的「`Enter` 是搜尋結果唯一到得了 panel 的鍵,所以它就是
+- **File transfer 的搜尋從畫在清單裡改成 finder**(tdp finder):§7.3 的「`Enter` 是搜尋結果唯一到得了 panel 的鍵,所以它就是
   『去那裡』」正好就是 finder 的語意(到某一項,選了就關);結果一面走一面進來。
 - **Jobs 改成 menu**(F1 的工作清單):menu 沒有作用在游標那一列的熱鍵,以前的 `c` 改成在進行中那一列上 `Enter` 問要不要取消。
 - **檔案上的 `Enter`** 從什麼都不做改成讀它(K3:最直觀的動作)。
@@ -7266,7 +7267,7 @@ lib 的部分這一輪做完;要 lib 新 API 的等 terminu-go 的下一版,`TOD
   讀舊目錄)拿掉:它讓這種使用者永遠停在舊位置。
 - **`~/.ssh/config` 區塊的其他選項:`Others` 加 `Edit file`**(S70):其他關鍵字只顯示(focus 跳過它),要改就按表單動作區的
   `Edit file`,用使用者的 `$EDITOR` 打開那個區塊所在的整個檔,停在 `Host` 那一行(`+行號`),編輯器關掉後照檔案重新讀、在同一個
-  區塊上重開表單。`$EDITOR` 認得每一個關鍵字、會補全、會檢查,textarea 不會;設定檔本來就交給 `$EDITOR`(input/textarea)。
+  區塊上重開表單。`$EDITOR` 認得每一個關鍵字、會補全、會檢查,textarea 不會;設定檔本來就交給 `$EDITOR`(tdp textarea.1)。
   定案的樣子是按鈕在表單上面開 terminal popup、有沒存的改動時先問要不要存;lib 的表單按鈕還開不了 terminal popup,所以暫時是
   「另一個送出」:表單有改動(或是新的區塊)時先照 Save 存,關掉表單、開編輯器,回來再開表單(TODO(lib SS19))。否決的暫時做法:
   有改動時用 error popup 叫使用者先存(用錯誤問一個問題);不存直接開(表單上改的就丟了)。
@@ -7277,7 +7278,7 @@ lib 的部分這一輪做完;要 lib 新 API 的等 terminu-go 的下一版,`TOD
 - **隔著 ssh 的寬度改送 `LC_TERMINU_*`**(S71):送是 sshu 的事、收是 lib 的事,遠端跑哪一個家族 app 都讀得到。lib 的下一版才讀,
   所以遠端的 sshu 暫時自己收(TODO(lib SS25))。巢狀指令通道定案不做(SS5)。
 - **`Alt-z` 兩段**(S29):佔滿 panel 區、還原;不畫框的全螢幕定案不做,只有 sshu 有這個需求,不變成通用的版面。
-- **不再是偏離的**:File transfer 的目前目錄列是 layout/panel 的位置列(S16;lib 有了之後改用它,TODO(lib SS20));SESSIONS 的
+- **不再是偏離的**:File transfer 的目前目錄列是 tdp panel.10 的位置列(S16;lib 有了之後改用它,TODO(lib SS20));SESSIONS 的
   `Enter` 進格子、連線後鍵盤在新格子裡是使用者預期的 focus 移動(S19,tdp K3 改寫)。
 
 ### 12.5 升級到 terminu-go v0.2.0（tdp v0.8.1，2026-10-19）
@@ -7422,11 +7423,11 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 ### 12.12 游標的格子回聲接回來（SS44，tdp v0.9.16，terminu-go v0.4.21，2026-10-25）
 
 - **掉了又接回來**：§11.8 的回聲在改建時掉了 —— panel 的框由 lib 畫，lib 沒有讓沒 focus 的 panel 外框換色的東西，當時也沒列進
-  拿掉的功能。user 手測發現，回報後 tdp 寫成通則「被指到的 panel」（layout/panel），由 app 選用；sshu 只設 `List.Points`
+  拿掉的功能。user 手測發現，回報後 tdp 寫成通則「被指到的 panel」（tdp panel.2），要不要用 app 可以自行決定；sshu 只設 `List.Points`
   （那一列對應的格子）。
 - **長相照 tdp，跟 §11.8 不一樣**：被指到的格子維持失焦的細線直角，只把框色從 Surface2 換成 Lavender（「使用者足跡」，跟位置列、
   statusbar 同一個意思：你現在在這裡），膠囊串跟著換。沒照 §11.8 用游標色與圓角，是 tdp 定的：focus 還在清單上，被指的格子不能
-  變成 focus，所以維持失焦的線；Lavender 說的是「游標現在指著這裡」（tdp layout/panel 的 Why）。
+  變成 focus，所以維持失焦的線；Lavender 說的是「游標現在指著這裡」（tdp panel.2 的 Why）。
 - **行為照舊**：游標那個 session 沒上網格時沒有格子亮；只在 `[1]` 有 focus 時指，鍵盤進到那一格就照 focus 畫，focus 在 `[2]` 時
   沒有格子亮；PTY 是串流內容，失焦也不淡化，被 popup 蓋住時一起淡化。
 - 測試 `TestTheCursorPointsAtItsCell` 看格子標題列上的 Lavender：跟著游標換格、focus 在 `[2]` 或游標那個 session 藏起來時都沒有；
@@ -7448,6 +7449,15 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **`Alt-Esc` 離開格子後 focus 回到 `[1]`**，游標停在那個 session（指著剛離開的格子）。改建時寫成「focus 留在那一格」，
   記在 dev-remarks；user 要回到 `[1]`（v2.0.0 就是這樣）。lib 沒有離開的回呼，回報 terminu-go（SS45）加了 `Terminal.OnLeave`
   （v0.4.22）。
+
+### 12.14 對齊 tdp v0.10.1、terminu-go v0.5.0（2026-10-26）
+
+- **sshu 的程式與畫面都沒改**：v0.5.0 新的只有 `Popup.Actions`，給 app 自己畫的 popup（tdp popup.8）；sshu 的 popup
+  全是 lib 的那七類，沒有自己畫的。v0.10.1 只在 popup.8 補一句放行，一樣用不到。
+- **引用改成節編號**：tdp 的元件與 project 每一節有了編號，程式註解與本檔引用元件的地方從路徑（`layout/panel`、
+  `components/dialog/note`）改成 `tdp panel.2`、`tdp note.7` 這樣的寫法，整個元件用到時寫檔名（`tdp form`）。
+- **沒有「偏離」了**：tdp 放行的地方一律寫「app 可以自行決定」（tdp P5）。本檔開頭的分工說明跟著改；更早各節寫的
+  「偏離」是當時的紀錄，照留。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

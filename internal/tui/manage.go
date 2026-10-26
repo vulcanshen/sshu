@@ -9,7 +9,7 @@ import (
 )
 
 // The Manage screen: [1] SECTIONS, a grouped list of what sshu keeps, and [2],
-// the section under [1]'s cursor (components/layout/panel, details). Moving
+// the section under [1]'s cursor (tdp panel.13). Moving
 // the cursor swaps [2] at once; Enter on a section sends the focus there
 // (tdp K3).
 
@@ -98,7 +98,7 @@ func (m *manage) show(sec *section) {
 }
 
 // unreadFailure is what the section of a file outside sshu says when the
-// file would not read: why, in its middle (tdp E3, layout/panel).
+// file would not read: why, in its middle (tdp E3, panel.5).
 func unreadFailure(file string, err error) *terminu.Failure {
 	if err == nil {
 		return nil

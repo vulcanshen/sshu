@@ -57,7 +57,7 @@ type Data struct {
 
 	// SSHConfigErr and KnownErr are why ~/.ssh/config and ~/.ssh/known_hosts
 	// could not be read: not sshu's own, so their sections say so instead
-	// (tdp E3, layout/panel).
+	// (tdp E3, panel.5).
 	SSHConfigErr, KnownErr error
 
 	// Moves are what startup moved to where tdp E3 puts it now, or could not.
@@ -184,8 +184,8 @@ func (s *sshu) started() tea.Cmd {
 	// What moved says from where to where in a toast; what could not, or
 	// what the new place already had, in an error popup with both paths, for
 	// the user to move or merge (tdp E3). Its message comes a sentence a row:
-	// the app's own text carries no line break (components, control
-	// characters).
+	// the app's own text carries no line break (tdp
+	// components.5).
 	var moved, stuck []string
 	for _, m := range s.d.Moves {
 		from, to := store.FoldHome(m.From), store.FoldHome(m.To)
@@ -267,7 +267,7 @@ func (s *sshu) refreshQuit() {
 		Details: details, Warn: []int{0, 1}[:len(details)]}
 }
 
-// status is the statusbar at the right of the screen chips (layout/screen):
+// status is the statusbar at the right of the screen chips (tdp screen.4):
 // each part "label: value", a transfer in flight and the live sessions in
 // Green. It stands against the right edge, so a part that grows pushes the
 // ones on its left: every part but the leftmost keeps its width (tdp L2).
@@ -301,7 +301,7 @@ func (s *sshu) onMsg(msg tea.Msg) tea.Cmd {
 
 // logError records a failure in the App Log (tdp F5): line says what failed
 // and where, a verb or a noun first and never a name, so it starts with a
-// capital as a toast does (dialog/note, App Log); detail, when there is
+// capital as a toast does (tdp note.7); detail, when there is
 // more, is what the far end said. The toast or the error popup next to it
 // is in the App Log already, in its own words.
 func (s *sshu) logError(level, line, detail string) {
@@ -313,7 +313,7 @@ func (s *sshu) logError(level, line, detail string) {
 }
 
 // capital is s with its first letter a capital, as a toast and an App Log
-// entry start (dialog/note, App Log): for text that starts with words, such
+// entry start (tdp note.7): for text that starts with words, such
 // as a Go error's.
 func capital(s string) string {
 	r, n := utf8.DecodeRuneInString(s)

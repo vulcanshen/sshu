@@ -13,7 +13,8 @@ import (
 
 // previewFS is a side's file system as the lib's file preview reads it
 // (terminu.PreviewFS), so a remote host's files in a search get the same
-// preview, tree and facts as this machine's (components/input/file-picker).
+// preview, tree and facts as this machine's (tdp file-picker.3,
+// file-picker.4).
 // The lib reads it in the background and keeps what it read while the popup
 // is open.
 type previewFS struct{ fs remote.FS }

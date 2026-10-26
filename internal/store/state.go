@@ -10,7 +10,7 @@ import (
 // state.yaml is what the UI keeps between runs that is neither settings nor
 // data (tdp E3, state): how the SSH grid is arranged. A value set in a
 // one-value-per-row panel takes effect, and is kept, the moment it is set
-// (components/layout/panel). sshu owns the file; it is rewritten whole.
+// (tdp panel.12). sshu owns the file; it is rewritten whole.
 
 // State is the whole of state.yaml.
 type State struct {

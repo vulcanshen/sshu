@@ -317,7 +317,7 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		return c.s.a.Toast(terminu.Success, "Saved "+patterns), nil
 	}
 	// Edit file opens the whole file in $EDITOR over the form, on this
-	// block's Host line: $EDITOR knows every keyword (input/textarea: a
+	// block's Host line: $EDITOR knows every keyword (tdp textarea.1: a
 	// config file is $EDITOR's). The editor reads the file as it is on disk,
 	// so a form with changes, or a block not written yet, asks to save first.
 	// When the editor closes, the form reads the block again (reread).
@@ -344,7 +344,7 @@ func (c *sshcfgSection) form(title, subject string, b store.SSHBlock, at int) te
 		fresh, err := c.s.d.SSHConfig.Reload()
 		c.s.d.SSHConfigErr = err
 		if err != nil {
-			// What was read before stays on screen (layout/panel, errors).
+			// What was read before stays on screen (tdp panel.5).
 			return c.s.a.Toast(terminu.Error, "Can't read ~/.ssh/config: "+err.Error())
 		}
 		c.s.d.SSHConfig = fresh
@@ -390,7 +390,7 @@ func (c *sshcfgSection) editFile(at int, after func() tea.Cmd) tea.Cmd {
 }
 
 // firstLine is a multi-line value on a form: its first line, and "…" when
-// more follow (components/input/README, how a value is shown).
+// more follow (tdp input.10).
 func firstLine(v string) string {
 	first, rest, more := strings.Cut(strings.TrimSpace(v), "\n")
 	if more && strings.TrimSpace(rest) != "" {

@@ -11,7 +11,7 @@ import (
 
 // A host, a credential, a ~/.ssh/config block or a known_hosts key, written
 // out for reading: the details above a confirm's question ("Connect to X?",
-// components/dialog/confirm) or the lines of a viewer.
+// tdp confirm.2) or the lines of a viewer.
 
 // detailSection is a titled group of label/value rows.
 type detailSection struct {
