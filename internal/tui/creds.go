@@ -90,6 +90,7 @@ func (c *credsSection) view() tea.Cmd {
 		return nil
 	}
 	lines, _ := detailLines(credDetail(x))
+	c.s.logOp("Viewed credential " + x.Name)
 	return c.s.a.Viewer(newViewer("Credential", x.Name, glyphCred, lines))
 }
 

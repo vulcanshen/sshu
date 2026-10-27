@@ -109,6 +109,7 @@ func (c *sshcfgSection) view() tea.Cmd {
 		return nil
 	}
 	lines, _ := detailLines(blockDetail(b, store.FoldHome(c.s.d.SSHConfig.Path(b.File()))))
+	c.s.logOp("Viewed Host " + b.Patterns + " in ~/.ssh/config")
 	return c.s.a.Viewer(newViewer("Host", b.Patterns, glyphCog, lines))
 }
 

@@ -5,7 +5,7 @@ Each release names the version of terminu design (tdp) it follows.
 ## Unreleased
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.10.3. Every screen, menu,
+terminu family's shared library, and follows tdp v0.11.0. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -50,8 +50,11 @@ sshu shows both paths, for you to merge or move it yourself.
 
 **Changed**
 
-- sshu needs a terminal of at least 60×20; on a smaller one it shows its name
-  and how big it needs to be, and comes back as it was when the window grows.
+- sshu needs a terminal of at least 60×20; on a smaller one it shows its name,
+  how big it needs to be and how to quit, and comes back as it was when the
+  window grows.
+- File transfer keeps its two sides next to each other down to 60 columns;
+  long names are cut from the front.
 - A session cell is a panel of its own, `[3]` on, so `Tab` and the digits
   reach it like any panel; `Enter` on it puts the keyboard in.
 - In a cell: `Alt-v` selects and copies, as in every viewer; `PgUp` goes into
@@ -94,8 +97,9 @@ sshu shows both paths, for you to merge or move it yourself.
 - A rename, a new file or directory, or a known host's names that cannot be
   written keep their box open with what you typed in it.
 - `!` opens the App Log, on every panel: what sshu did and what went wrong
-  since it started — every message, what moved, what failed and what ssh said
-  about it, what you changed. The footer shows `!:log`, or `!:3 errors` while
+  since it started — everything you ran, the screens you switched to and what
+  you only looked at included, every message, what moved, what failed and what
+  ssh said about it, what you changed. The footer shows `!:log`, or `!:3 errors` while
   there are errors you have not seen there. What startup finds wrong (a
   password that would not open, a name in a file twice) goes there too.
 - The statusbar reads `transfer: 4/10 40%  live: 2`; errors you have not seen
@@ -127,7 +131,7 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.10.3):
+- The repository takes the terminu family's shape (tdp project, v0.11.0):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector, `make dev` builds and runs it), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the

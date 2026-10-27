@@ -59,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/vulcanshen/sshu/main/install.sh | s
 
   隔著 ssh 時，sshu 會把自己的這兩個數字用 `LC_TERMINU_ICON_WIDTH`、`LC_TERMINU_POWERLINE_WIDTH` 帶過去（sshd 預設接受 `LC_*`），遠端的家族 app 也畫得對。
 
-- **至少 60×20** —— 終端機比這小時，sshu 只顯示名稱和要多大，視窗拉大後回到原本的畫面。
+- **至少 60×20** —— 終端機比這小時，sshu 只顯示名稱、要多大和怎麼離開，視窗拉大後回到原本的畫面。
 - **truecolor 終端機**（24-bit 色）—— 配色裡的淡色、popup 的層色、popup 底下變暗的畫面，在 256 色下都分不出來。
 - **會送出 Alt 的終端機** —— sshu 的 `Alt-…` 鍵（離開 session 的 `Alt-Esc`、`Alt-z`、`Alt` 加方向鍵）需要 Option 鍵當 Meta 用。macOS 內建的 Terminal 要開「Use Option as Meta key」，iTerm2 要把 Option 設成 *Esc+*；kitty、Alacritty、WezTerm 預設就會送。
 - **OpenSSH 的 `ssh`**：SSH 畫面要用（每台 macOS、Linux 都有）。檔案傳輸自己講 SFTP，不需要。
@@ -241,7 +241,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.10.3/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.11.0/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu —— [kbu](https://github.com/vulcanshen/kbu)（Kubernetes）、[filu](https://github.com/vulcanshen/filu)（檔案）、[webu](https://github.com/vulcanshen/webu)（網頁）、[locku](https://github.com/vulcanshen/locku)（螢幕鎖）、[kamonu](https://github.com/vulcanshen/kamonu)（家族的 mark）與 [ccdrawu](https://github.com/vulcanshen/ccdrawu)（Claude Code 的側欄）。
 
 ## License
 

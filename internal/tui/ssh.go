@@ -77,13 +77,21 @@ func newSSHScreen(s *sshu) *sshScreen {
 	}
 	h.listP = &terminu.Panel{Label: "Sessions", Body: h.list, Actions: h.listActions()}
 	arrange := &terminu.Field{Label: "Arrange", Options: arrangements, Selected: h.arrange}
-	arrange.OnChange = func() tea.Cmd { h.arrange = arrange.Selected; return h.keep() }
+	arrange.OnChange = func() tea.Cmd {
+		h.arrange = arrange.Selected
+		h.s.logOp("Set Arrange to " + arrangements[h.arrange])
+		return h.keep()
+	}
 	cols := &terminu.Field{Label: "Columns", Value: func() string { return strconv.Itoa(h.columns) },
 		Disabled: func() bool { return h.arrange != 2 },
 		Edit: func() tea.Cmd {
 			return h.s.a.Number(terminu.NumberInput{Title: "Columns", Glyph: glyphGrid, Prompt: "How many cells across, 1–9",
 				Verb: "set", Old: strconv.Itoa(h.columns), Min: 1, Max: 9,
-				Done: func(v string) tea.Cmd { h.columns, _ = strconv.Atoi(v); return h.keep() }})
+				Done: func(v string) tea.Cmd {
+					h.columns, _ = strconv.Atoi(v)
+					h.s.logOp("Set Columns to " + v)
+					return h.keep()
+				}})
 		}}
 	h.layout = &terminu.Values{Fields: []*terminu.Field{arrange, cols}}
 	h.layoutP = &terminu.Panel{Label: "Layout", Body: h.layout}
@@ -342,6 +350,7 @@ func (h *sshScreen) connect(host store.Host) tea.Cmd {
 		h.s.logError(store.LevelError, "Connect to "+who(host.User, host.Name)+" failed: "+err.Error(), "")
 		return h.s.a.Error("Connect failed", err.Error())
 	}
+	h.s.logOp("Opened session " + h.label(x))
 	return tea.Batch(x.term.Start(), h.focus(x))
 }
 
@@ -381,7 +390,11 @@ func (h *sshScreen) start1(host store.Host) (*session, error) {
 	x.panel = &terminu.Panel{Name: h.label(x), Body: x.term, Stream: true, Loading: true,
 		LoadingText: "connecting to " + host.Name, Actions: []terminu.Action{
 			{Key: "Enter", Label: "Type", Desc: "the keyboard into this session; [Alt-Esc] takes it back", Scope: terminu.PanelScope,
-				Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd { x.term.Enter(); return nil }},
+				Hint: "type", Hidden: func() bool { return x.ended }, Do: func() tea.Cmd {
+					h.s.logOp("Typing into " + h.label(x))
+					x.term.Enter()
+					return nil
+				}},
 			gated(terminu.Action{Key: "C", Label: "Close", Desc: "end this session", Scope: terminu.PanelScope,
 				Hidden: func() bool { return x.ended }}, func() (terminu.Ask, func() tea.Cmd, bool) { return h.closeAsk(x) }),
 		}}
@@ -439,6 +452,7 @@ func (h *sshScreen) open() tea.Cmd {
 	if x == nil {
 		return nil
 	}
+	h.s.logOp("Typing into " + h.label(x))
 	return h.focus(x)
 }
 
@@ -450,8 +464,10 @@ func (h *sshScreen) toggleHidden() tea.Cmd {
 	x.hidden = !x.hidden
 	if x.hidden {
 		h.prune()
+		h.s.logOp("Hid " + h.label(x))
 	} else {
 		h.place1(x)
+		h.s.logOp("Showed " + h.label(x))
 	}
 	h.redrawList()
 	return nil

@@ -59,7 +59,7 @@ Building from source is in [`docs/dev-remarks.md`](docs/dev-remarks.md).
 
   Over ssh, sshu hands its own two numbers on as `LC_TERMINU_ICON_WIDTH` and `LC_TERMINU_POWERLINE_WIDTH` (sshd accepts `LC_*` by default), so a family app on the far side draws right too.
 
-- **At least 60×20** — on a smaller terminal sshu shows only its name and how big it needs to be, and comes back as it was when the window grows.
+- **At least 60×20** — on a smaller terminal sshu shows only its name, how big it needs to be and how to quit, and comes back as it was when the window grows.
 - **A truecolor terminal** (24-bit colour) — the soft colours, the layers of popups and the dimmed screen under them cannot be told apart in 256 colours.
 - **A terminal that sends Alt** — sshu's `Alt-…` keys (`Alt-Esc` to leave a session, `Alt-z`, the `Alt`-arrows) need Option to act as Meta: in macOS Terminal turn on "Use Option as Meta key", in iTerm2 set Option to *Esc+*; kitty, Alacritty and WezTerm send it already.
 - **OpenSSH's `ssh`** for the SSH screen (every macOS and Linux has it). File transfer speaks SFTP itself.
@@ -243,7 +243,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.10.3/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.11.0/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family — [kbu](https://github.com/vulcanshen/kbu) (Kubernetes), [filu](https://github.com/vulcanshen/filu) (files), [webu](https://github.com/vulcanshen/webu) (the web), [locku](https://github.com/vulcanshen/locku) (a screen lock), [kamonu](https://github.com/vulcanshen/kamonu) (the family's marks) and [ccdrawu](https://github.com/vulcanshen/ccdrawu) (a sidebar for Claude Code).
 
 ## License
 

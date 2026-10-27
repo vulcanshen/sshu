@@ -7480,6 +7480,32 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   帶明碼密碼）。
 - tdp v0.10.3 只把 project.2 標記管到哪裡寫清楚，範本沒動，lib 畫的東西也沒變。
 
+### 12.17 對齊 tdp v0.11.0、terminu-go v0.6.0（2026-10-27）
+
+- **標準尺寸改成 60×32**（tdp L1）：60 欄時所有 panel 要並排，畫面的 `NarrowBelow` 不能高於 60（screen.5）。SSH（58）、
+  Manage（60）本來就在 60 以內；File transfer 是 72，改成 60。72 是搬到 terminu-go 時定的，沒有寫下理由；在 60×32 實際
+  畫過：兩邊各 30 欄，四個 panel 照舊左右兩欄、上檔案下標記，名稱欄從前面截短（`…applog_test.go`），大小欄留著，
+  位置列、hint 都放得下，能用。否決：60 欄時改成上下兩邊 —— 檔案清單只剩一半高，兩邊對照（左邊 `h`、右邊 `l`）也
+  不再是左右，跟 `h|l` 的方向對不上。最低尺寸 60×20 不用改（不高於 60×32）。
+- **比最低尺寸小時多一列怎麼離開**（screen.7）：lib 畫，sshu 不用改；README 的「至少 60×20」跟著寫。
+- **使用者執行的每個動作都在 App Log**（note.7）：照 P3 的三種 operation 劃，也就是 Space menu 列的每一列。結果本來就
+  有 toast、error popup 或寫進 Changes 的（存、刪、改名、傳輸、清空紀錄、斷線、session 結束），那一句就是它的紀錄；
+  沒有的補一筆 INFO（`app.go` 的 `logOp`），動詞開頭、大寫：
+  - 只看的：`Viewed credential ops`、`Viewed the host key of github.com`、`Viewed Host web* in ~/.ssh/config`、
+    `Viewed the connections journal`、`Viewed transfer …`、`Viewed ~/a/x.txt on local`、`Opened Credentials`（Sections 的
+    `Enter`）、`Opened ~/a on local`（進目錄）、`Found ~/a/x.txt on local`（搜尋選了結果）、`Opened Jobs`。
+  - 只改畫面的：`Marked …`、`Unmarked …`、`Unmarked 3 items on local`、`Hid …`、`Showed …`、`Set Arrange to vertical`、
+    `Set Columns to 3`。
+  - 連上的：`Opened session deploy@10.0.3.14 #1`（Connect、Duplicate）、`Typing into deploy@10.0.3.14 #1`（`[1]` 的
+    `Enter`、格子的 Type）、`Opened local on the left side`（Host 選了一台，連上之後）。
+  傳檔畫面的路徑照位置列寫成 `~/…`：App Log 一列放不下長路徑會折行，跟畫面上看到的也不一樣。
+- **不記的**：移動 cursor、換 focus（`Tab`、數字鍵、`h|l` 換邊）、`Esc` 回上一層目錄 —— 都不是 P3 的動作。切換畫面
+  lib 自己記；sshu 從 Hosts 連線時換到 SSH 是連線的結果，記的是 `Opened session …`。
+- **popup 按 `Esc` 取消的不記**（暫定，SS46 回報）：tdp 說 popup 裡的操作不另外記、記所屬動作的結果；取消了就沒有
+  結果。另外兩個理由：confirm 擋在動作前面，`Esc` 時 lib 根本沒執行那個動作；lib 的 menu（Host、Jobs）沒有取消的
+  callback，要記也只記得到表單、不記得到 menu，同一種事一半記一半不記。代價：打開 Edit 看了一眼就 `Esc` 的，
+  App Log 裡看不到。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

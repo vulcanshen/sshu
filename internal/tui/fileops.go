@@ -201,6 +201,7 @@ func (sd *side) search() tea.Cmd {
 		Loading: true, Files: true,
 		Done: func(it terminu.FinderItem) tea.Cmd {
 			sc.cancel()
+			sd.t.s.logOp("Found " + sd.at(it.ID))
 			return sd.goToFound(sc.root, strings.TrimPrefix(it.ID, sc.root+"/"))
 		}}
 	if !isLocal(sd.fs) {
@@ -317,6 +318,7 @@ func (sd *side) view(p string, ok bool) tea.Cmd {
 		return nil
 	}
 	fsys := sd.fs
+	sd.t.s.logOp("Viewed " + sd.at(p))
 	v := newViewer("File", path.Base(p), glyphEye, nil)
 	v.Loading = true
 	load := func() tea.Msg {

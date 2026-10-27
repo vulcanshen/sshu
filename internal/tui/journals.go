@@ -116,6 +116,7 @@ func (c *connsSection) open() tea.Cmd {
 		x := c.s.d.Conns[i]
 		lines = append(lines, jDate(x.At)+"  "+who(x.User, x.Host)+"  "+x.Result)
 	}
+	c.s.logOp("Viewed the connections journal")
 	return c.s.a.Viewer(newViewer("Connections", "", glyphLog, lines))
 }
 
@@ -171,5 +172,6 @@ func (c *changesSection) open() tea.Cmd {
 	for i := len(c.s.d.Changes) - 1; i >= 0; i-- {
 		lines = append(lines, jDate(c.s.d.Changes[i].At)+"  "+c.s.d.Changes[i].Action)
 	}
+	c.s.logOp("Viewed the changes journal")
 	return c.s.a.Viewer(newViewer("Changes", "", glyphLog, lines))
 }

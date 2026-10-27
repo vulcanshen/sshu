@@ -112,6 +112,7 @@ func (k *knownSection) view() tea.Cmd {
 		return nil
 	}
 	lines, _ := detailLines(knownDetail(e))
+	k.s.logOp("Viewed the host key of " + knownLabel(e))
 	return k.s.a.Viewer(newViewer("Host key", knownLabel(e), glyphShield, lines))
 }
 

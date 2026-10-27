@@ -347,6 +347,13 @@ func (s *sshu) logChange(action string) {
 	s.a.Log(terminu.Info, capital(action))
 }
 
+// logOp records an operation the user ran whose result says nothing of
+// its own: one that only looks (a viewer, a directory, a section) or
+// changes only what is on the screen (a mark, a hidden cell). The others
+// are in the App Log already, by their toast, their error popup or
+// logChange (tdp note.7). what starts with a verb, a capital.
+func (s *sshu) logOp(what string) { s.a.Log(terminu.Info, what) }
+
 // logConn records one connection attempt and how it ended.
 func (s *sshu) logConn(e store.ConnectionEntry) {
 	e.At = s.d.Now()

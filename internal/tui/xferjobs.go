@@ -281,6 +281,7 @@ func (t *transfer) jobsMenu() tea.Cmd {
 		}
 		act.Do = func() tea.Cmd {
 			if j.status() != jobRunning {
+				t.s.logOp("Viewed transfer " + j.label)
 				return t.s.a.Viewer(newViewer("Transfer", j.label, glyphJobs, jobLines(j)))
 			}
 			return t.s.a.Confirm(terminu.Ask{Title: "Cancel", Subject: j.label, Details: jobLines(j),
@@ -289,6 +290,7 @@ func (t *transfer) jobsMenu() tea.Cmd {
 		}
 		acts = append(acts, act)
 	}
+	t.s.logOp("Opened Jobs")
 	return t.s.a.Menu("Jobs", terminu.MenuSection{Actions: acts})
 }
 

@@ -72,7 +72,7 @@ func newTransfer(s *sshu) *transfer {
 	l, r := t.sides[0], t.sides[1]
 	t.screen = &terminu.Screen{Name: "File transfer", Key: "F", Desc: "copy between any two machines",
 		Panels:      []*terminu.Panel{l.filesP, l.markedP, r.filesP, r.markedP},
-		NarrowBelow: 72,
+		NarrowBelow: 60,
 		Layout: func(w, h int) []terminu.Rect {
 			half := w / 2
 			files := max(3, h*2/3)
@@ -245,6 +245,7 @@ func (sd *side) openMark() tea.Cmd {
 		return nil
 	}
 	if sd.markDir[p] {
+		sd.t.s.logOp("Opened " + sd.at(p))
 		return sd.goTo(p, "")
 	}
 	return sd.view(p, true)
@@ -269,6 +270,10 @@ func (sd *side) cursorPath() (string, bool) {
 	r, ok := sd.files.Current()
 	return r.ID, ok && sd.fs != nil
 }
+
+// at is p as the files panel's location row writes it, and its host: for
+// the App Log.
+func (sd *side) at(p string) string { return foldHomePath(p, sd.home) + " on " + sd.host }
 
 func (sd *side) markPath() (string, bool) {
 	r, ok := sd.marked.Current()
@@ -374,6 +379,7 @@ func (sd *side) open() tea.Cmd {
 	}
 	p := remote.Join(sd.cwd, e.Name)
 	if e.IsDir {
+		sd.t.s.logOp("Opened " + sd.at(p))
 		return sd.goTo(p, "")
 	}
 	return sd.view(p, true)
@@ -426,6 +432,7 @@ func (sd *side) toggleMark() tea.Cmd {
 	}
 	if sd.isMarked(p) {
 		sd.unmark(p)
+		sd.t.s.logOp("Unmarked " + sd.at(p))
 	} else {
 		sd.marks = append(sd.marks, p)
 		e, _ := sd.cursorEntry()
@@ -433,6 +440,7 @@ func (sd *side) toggleMark() tea.Cmd {
 			sd.markDir = map[string]bool{}
 		}
 		sd.markDir[p] = e.IsDir
+		sd.t.s.logOp("Marked " + sd.at(p))
 	}
 	sd.redraw()
 	sd.refreshActions()
@@ -446,6 +454,7 @@ func (sd *side) unmark(p string) {
 func (sd *side) unmarkCursor() tea.Cmd {
 	if p, ok := sd.markPath(); ok {
 		sd.unmark(p)
+		sd.t.s.logOp("Unmarked " + sd.at(p))
 		sd.redraw()
 		sd.refreshActions()
 	}
@@ -453,6 +462,7 @@ func (sd *side) unmarkCursor() tea.Cmd {
 }
 
 func (sd *side) clearMarks() tea.Cmd {
+	sd.t.s.logOp("Unmarked " + plural(len(sd.marks), "item") + " on " + sd.host)
 	sd.marks = nil
 	sd.redraw()
 	sd.refreshActions()
@@ -498,6 +508,7 @@ func (sd *side) connect(fsys remote.FS) tea.Cmd {
 	if rows := sd.files.Rows(); len(rows) > 0 {
 		sd.files.Select(rows[0].ID)
 	}
+	sd.t.s.logOp("Opened " + sd.host + " on the " + [2]string{"left", "right"}[sd.idx] + " side")
 	return sd.t.watch()
 }
 

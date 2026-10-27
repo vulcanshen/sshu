@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.10.3/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.11.0/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-26 起 v0.5.3，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-27 起 v0.6.0，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -73,6 +73,13 @@
 - **鑰匙讀不了**：問的是鑰匙，不是 `hosts.yaml`。`decryptInto` 對讀不了的鑰匙跟沒有鑰匙一樣：密文原樣留著、名字列進「解不開的密碼」，所以 `hosts.yaml` 照樣讀得進來；以前它回錯誤，壞掉的鑰匙會讓 `hosts.yaml` 被當成讀不了的檔。`Enter` 之後 `EnsureKey` 產生新的鑰匙；舊的在 `.sshukey.bak`，放回去就打得開。鑰匙讀不了時存檔一律拒絕（`EnsureKey` 回錯誤），不會用一把讀不了的鑰匙封東西。
 - **`~/.ssh` 不是 sshu 的**：`~/.ssh/config`、`known_hosts` 讀不了時照常開著，那一節中間寫原因（`Panel.Fail`，紅字），細節進 App Log。Config 的 *Edit file* 之後重讀失敗也一樣，另外跳 Error toast，舊的內容留著。
 - **App Log**（tdp F5，lib 的 `!`）：toast 與 error popup 由 lib 自動記。sshu 另外記：啟動時的問題（解不開的密碼、重複的名字、新版 sshu 寫的檔、`~/.ssh` 讀不了），搬了哪幾項，失敗的事（在哪台、對誰，帶著遠端的原話），以及寫進 Changes 的每一筆。一次失敗也有 toast 或 error popup，所以在 App Log 是兩行（toast 那一句與 sshu 補上在哪、原話的那一句），footer 的未讀錯誤也算兩個；sshu 那一句沒有多說什麼的（存 `~/.ssh` 失敗、credential 改名後還有 host 用舊名字），只留 lib 記的那一句 —— 以前多寫一次是為了 Errors 那本。
+- **使用者執行的每個動作都在 App Log**（tdp note.7，v0.11.0）：Space menu 列的每一個動作（item、panel、global operation，
+  從 menu、熱鍵或 `Enter` 執行）都留一筆。結果本來就有 toast、error popup 或 `logChange` 的，那一句就是；沒有的由
+  `logOp` 記：只看的（`Viewed credential ops`、`Viewed ~/a/x.txt on local`、`Opened Credentials`、`Opened Jobs`）、
+  只改畫面的（`Marked …`、`Hid deploy@10.0.3.14 #1`、`Set Arrange to vertical`）、連上的（`Opened session …`、
+  `Opened local on the left side`）。切換畫面由 lib 記（`Switched to SSH`），sshu 自己沒記過，不用拿掉。不記：移動 cursor、
+  換 focus、`h|l` 換邊、`Esc` 回上一層目錄（core key，不是 P3 的動作）。popup 按 `Esc` 取消、什麼都沒做的也不記（暫定，
+  見設計文件 §12.17）。傳檔畫面的路徑照位置列寫成 `~/…`。
 - **短字裡不放 `\n`**（SS43，tdp components「控制字元」）：toast、error popup、confirm 的 Question、panel 中間的 `Failure` 都是「名字與短字」，`\n` 照字面畫成紅色的 `\n`，不換行。sshu 自己的字不帶換行，幾句的一句一列（「Not moved」、「Edit failed」、啟動時的 toast；lib 的 `Error`、`Toast` 一列收一個字串）；外面來的多行字只放最後一行 —— ssh 在 stderr 印的 banner 加原因，最後一行是原因（`dialReason`），全文進 App Log（拿來讀的內容，可以多行）。confirm 要幾行的放 `Details`（ssh 問的 host key 問句就是拆成幾行放那裡）。這些 `\n` 是 tdp v0.9.0 以前寫的，那時 lib 會換行；升級時規則變了，編譯與 tdptest 都抓不到，error popup 的字又是紅的，紅色的 `\n` 不顯眼，直到 user 手測才看到。測試在這些畫面另外看有沒有 `\n` 這兩個字。回報 tdp 後定成 tdp v0.9.15（components-30～32）：app 自己的字一律不帶換行，要好幾列的地方（error popup 的訊息、toast、confirm 的內容）由 app 一列一列給，不空列；外面來的好幾行只放說原因的那一行，全文進 App Log。terminu-go v0.4.19 起 error popup 與 toast 一列一列收，tdptest 的 Driver 也預設抓畫面上紅色的 `\n`；sshu 只有故意拿 `tdptest.Tricky` 當名字的測試放行（`AllowLineBreaks`）。
 - **App Log 大寫開頭**（tdp v0.9.2 的 note-78：跟 toast 一樣；toast 一字不改記進去，所以 toast 也算）：名字與路徑是內容、不改大小寫（components「大寫」），所以開頭是名字的句子改寫成動詞或名詞在前、名字在後，照 tdp 的例子 `Scaled deployment.apps/nginx`：`Session to db-replica failed: …`（以前 `db-replica: …`）、`Can't read ~/.ssh/config: …`、`Ignored 2 duplicate entries in hosts.yaml …`、`Deleted Host "x" from ~/.ssh/config`。整句是 Go error 的（`err.Error()`）由 `capital` 把第一個字母改大寫。Changes 那一本：以路徑開頭的幾種跟著改寫，其他照原樣存（`credential "x" deleted`），大寫只在 App Log（`logChange` 的 `capital`）。
 
@@ -96,7 +103,8 @@
 - **Space menu 留不留照 tdp T1 的表**：lib 預設打開東西就留著 menu（看東西、改一個值、用 `$EDITOR` 改），什麼都沒打開的動作做完 menu 就關。連線、Duplicate（開 shell、換畫面）與搜尋設 `Action.Clear`；搜尋清掉是因為選了結果就到別的目錄，跟進目錄一樣。Delete、Close、Clear 的 confirm 是 `Action.AskFor`（`app.go` 的 `gated`，動作執行時才問 cursor 那一項）：confirm 只是門，`Esc` 回到 menu，`Enter` 之後什麼都沒打開，menu 就關。傳輸（`t`、`T`）的覆蓋也是動作執行時才規劃、有同名檔才問（`asked`），問不問都一樣收掉 menu。`e` 的編輯器要等檔案抓下來才開，所以設 `Stay`，menu 在這段時間留著（表上「用編輯器改那一項」保留）。
 - **focus 只在使用者預期的時候換**（tdp K3）：從 Hosts 連線後鍵盤在新的格子裡、SESSIONS 的 `Enter` 進那一格，都是按下去就預期會換的；背景的事（session 結束、傳輸做完）不搶 focus。
 - **`Alt-z` 兩段**：佔滿 panel 區、還原。以前的第三段（格子佔滿整個終端機、不畫框）定案不做：那是 sshu 自己的需求，不變成通用的版面（SS7）。
-- **最低尺寸 60×20**（tdp L1：app 可以調低，不能高於 80×40）：一個 80×24 的終端機裡，放大的格子有 78×20，巢狀在裡面的 sshu 要畫得出來；60 欄時每個畫面與表單都還完整好用（長欄 —— 名稱、位址、路徑、一行文字 —— 標 `Column.Shrink` 先截短，短欄照最寬的值；還放不下才照 `Column.Drop` 整欄收，Hosts 先收 Tags、Auth），畫面測試也跑 60×20。
+- **最低尺寸 60×20**（tdp L1：app 可以調低，不能高於 60×32；tdp v0.11.0 以前是 80×40）：一個 80×24 的終端機裡，放大的格子有 78×20，巢狀在裡面的 sshu 要畫得出來；60 欄時每個畫面與表單都還完整好用（長欄 —— 名稱、位址、路徑、一行文字 —— 標 `Column.Shrink` 先截短，短欄照最寬的值；還放不下才照 `Column.Drop` 整欄收，Hosts 先收 Tags、Auth），畫面測試也跑 60×20。60 欄時每個畫面的 panel 都並排（tdp L1、
+  screen.5，v0.11.0）：File transfer 原本 72 欄以下才一次只畫一個 panel，現在門檻是 60，兩邊各 30 欄，檔名從前面截短。
 - **放大只在鍵盤在格子裡時有效**（components/layout/screen 的 zoom：不照預設的寫在這裡）。預設是放大一直留著、`Tab` 與數字鍵換到的 panel 也放大、再按一次放大的鍵才還原；sshu 的 `Alt-z` 是格子裡的保留鍵（tdp K10），`Alt-←|→|↑|↓` 換到的格子照樣放大，但 `Alt-Esc` 把鍵盤收回來時放大就還原（`ssh.go` 的 `place`）。理由：鍵盤離開格子之後 `Alt-z` 就不在任何地方了 —— panel 上沒有這個鍵 —— 放大留著，網格與 SESSIONS 都被蓋住，卻沒有一個看得到的鍵能還原。
 
 ## 已否決，不要重提

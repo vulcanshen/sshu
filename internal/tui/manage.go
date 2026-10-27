@@ -64,7 +64,7 @@ func newManage(s *sshu) *manage {
 	m.content = &terminu.Panel{}
 	m.navP = &terminu.Panel{Label: "Sections", Body: m.nav, Details: m.content, Actions: []terminu.Action{
 		{Key: "Enter", Label: "Open", Desc: "go to this section", Scope: terminu.ItemScope, Hint: "open",
-			ToDetails: func() bool { return true }},
+			ToDetails: func() bool { return true }, Do: func() tea.Cmd { m.s.logOp("Opened " + m.cur.label); return nil }},
 	}}
 	m.show(m.sections[0])
 	m.screen = &terminu.Screen{Name: "Manage", Key: "M", Desc: "hosts, credentials, ~/.ssh, logs",
