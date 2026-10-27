@@ -7480,7 +7480,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   帶明碼密碼）。
 - tdp v0.10.3 只把 project.2 標記管到哪裡寫清楚，範本沒動，lib 畫的東西也沒變。
 
-### 12.17 對齊 tdp v0.11.2、terminu-go v0.6.2（2026-10-27）
+### 12.17 對齊 tdp v0.11.3、terminu-go v0.6.3（2026-10-27）
 
 - **標準尺寸改成 60×32**（tdp L1）：60 欄時所有 panel 要並排，畫面的 `NarrowBelow` 不能高於 60（screen.5）。SSH（58）、
   Manage（60）本來就在 60 以內；File transfer 是 72，改成 60。72 是搬到 terminu-go 時定的，沒有寫下理由；在 60×32 實際
@@ -7492,8 +7492,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   有 toast、error popup 或寫進 Changes 的（存、刪、改名、傳輸、清空紀錄、斷線、session 結束），那一句就是它的紀錄；
   沒有的補一筆 INFO（`app.go` 的 `logOp`），動詞開頭、大寫：
   - 只看的：`Viewed credential ops`、`Viewed the host key of github.com`、`Viewed Host web* in ~/.ssh/config`、
-    `Viewed the connections journal`、`Viewed transfer …`、`Viewed ~/a/x.txt on local`、`Opened Credentials`（Sections 的
-    `Enter`）、`Opened ~/a on local`（進目錄）、`Found ~/a/x.txt on local`（搜尋選了結果）、`Opened Jobs`。
+    `Viewed the connections journal`、`Viewed transfer …`、`Viewed ~/a/x.txt on local`、`Opened ~/a on local`（進目錄）、`Found ~/a/x.txt on local`（搜尋選了結果）、`Opened Jobs`。
   - 只改畫面的：`Marked …`、`Unmarked …`、`Unmarked 3 items on local`、`Hid …`、`Showed …`、`Set Arrange to vertical`、
     `Set Columns to 3`。
   - 連上的：`Opened session deploy@10.0.3.14 #1`（Connect、Duplicate）、`Typing into deploy@10.0.3.14 #1`（`[1]` 的
@@ -7514,6 +7513,11 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   v0.6.1 是對到這一版的 lib，程式不用改。
 - **比較模式不記**（tdp v0.11.2 的 note.7，KB34）：sshu 沒有比較模式（note.8）。v0.6.2 的 lib 只改註解、文件與測試，
   取消時 `Do`、`Submit`、`Done` 本來就不跑，程式不用改。
+- **進明細不記**（tdp v0.11.3 的 note.7，DM42）：在清單上按 `Enter` 進明細（panel.13）是換 focus（Rules K3），明細本來就
+  跟著 cursor 換，進去沒有多看到什麼。sshu 唯一的一處是 Manage 的 Sections：v0.11.0 時把它算成只看的動作，記
+  `Opened Credentials`，這版拿掉。lib 進明細本來就不記，程式只改這一行。SSH `[1]` 的 `Enter`（`Typing into …`）照樣記：
+  `[1]` 沒有明細（格子是 `Points` 指著的 panel，§12.12），`Enter` 是把鍵盤交給遠端那個 session —— 之後打的字都送到
+  那台機器上，出了錯要看得到這一步。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

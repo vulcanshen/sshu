@@ -16,12 +16,14 @@ func (hs *harness) logged(entry string) {
 
 // An operation that only looks, or changes only what is on the screen, says
 // so in the App Log: what the user was looking at before an error is part
-// of it (tdp note.7). Manage's are the section and the viewers.
+// of it (tdp note.7). Manage's are the viewers; going into a section only
+// moves the focus to what the cursor showed already (DM42), and is not.
 func TestManagesLooksAreInTheAppLog(t *testing.T) {
 	hs := newHarness(t, 160, 40, testData(sampleHosts(), sampleCreds()))
-	hs.keys("1", "j", "Enter")
-	hs.logged("Opened Credentials")
-	hs.keys("Enter")
+	hs.keys("1", "j", "Enter", "!")
+	hs.contains("APP LOG")
+	hs.lacks("Opened Credentials")
+	hs.keys("Esc", "Enter")
 	hs.contains("CREDENTIAL")
 	hs.keys("Esc")
 	hs.logged("Viewed credential ops")
