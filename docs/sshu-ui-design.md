@@ -2,8 +2,9 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.1.23/principle)(tdp),
-不是誰派生自誰。
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.0.0/principle)(tdp),
+不是誰派生自誰。§1–§11 寫在 tdp v0.1.23 的時候(到 sshu v2.0.0);§12 起是改用 terminu-go 之後,
+現在跟的是 tdp v1.0.0(sshu v3.0.0)。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
 否決的做法**。它跟著程式碼走 —— 改一個使用者看得見的東西,就在同一輪改這裡。
@@ -7522,6 +7523,20 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   提權，也沒有不能標記、又要在標記欄畫旗標的清單。File transfer 的清單可以標記，標記欄只放勾（panel-155），本來就是。
   terminal-21 只把例子從 sudo 換成 doas，Edit 開編輯器的 terminal popup 不受影響。程式不用改。tdp v0.11.5 把這兩條
   旗標條目從撞號的 panel-137、138 改成 panel-154、155，規則與 lib 都沒變。
+
+### 12.18 發 v3.0.0：tdp v1.0.0、terminu-go v1.0.0（2026-10-27）
+
+- **tdp 與 terminu-go 都定成 v1.0.0**（stable，user 2026-10-27）：比起 tdp v0.11.5、terminu-go v0.6.5，規則與 lib 都
+  沒變，sshu 程式不用改。每個 app 都在 v0.11.5 上由 user 手測過，測到的已經在 v0.11.4、v0.11.5 裡。
+- **版號跳 major**（v2.0.0 → v3.0.0，user 定）：整個 UI 換成 terminu-go，資料搬到 `~/.sshu`、macOS 的設定搬到
+  `~/.config/sshu`（tdp E3），Manage 的 Errors 拿掉、併進 App Log —— 都是用的人看得到、升級時要知道的事。
+  CHANGELOG 的 `## Unreleased` 照 tdp project.6 改成 `## v3.0.0 — tdp v1.0.0`。
+- **README 的 gif 重錄**（`docs/demo-grid.gif`）：照原本的錄法 —— `.local/demos/setup.sh` 起 demo 的 sshd 容器，
+  `make gif` 跑 `demo-grid.tape`（tmux 裡的 sshu，`drive-grid.sh` 送鍵），`optimize.sh` 縮檔；tape 與 driver 沒改，
+  錄之前在 tmux 照同一個 driver 空跑過，每一步都還按得對。setup.sh 改了一處：hosts 與兩本紀錄寫進假 HOME 的
+  `~/.sshu`（資料目錄），不再寫進 `SSHU__CONFIG` —— 不然 sshu 一開就把它們搬過去，gif 開頭是搬檔的 toast；
+  Errors 那本也不再寫。
+- **不在這一版的**：§12.13 對照 v2.0.0 剩下的中、低項目，等 user 決定。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

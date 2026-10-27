@@ -2,10 +2,10 @@
 
 Each release names the version of terminu design (tdp) it follows.
 
-## Unreleased
+## v3.0.0 — tdp v1.0.0
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the
-terminu family's shared library, and follows tdp v0.11.5. Every screen, menu,
+terminu family's shared library, and follows tdp v1.0.0. Every screen, menu,
 popup and key is drawn and handled the way the rest of the family does it; the
 three screens and what you can do on them are the same.
 
@@ -131,7 +131,7 @@ sshu shows both paths, for you to merge or move it yourself.
 - `sshu help` prints how to run it; `--version`, `-v`, `--help`, `-h` work too.
 - `SSHU__POWERLINE_WIDTH` and `TERMINU__POWERLINE_WIDTH` set how many cells a
   powerline symbol takes, as the icon width variables do for icons.
-- The repository takes the terminu family's shape (tdp project, v0.11.5):
+- The repository takes the terminu family's shape (tdp project, v1.0.0):
   `family.mk` with the family's make targets (`make check` now runs the
   tests with the race detector, `make dev` builds and runs it), and the family's `release.yml`,
   `.goreleaser.yaml`, `install.sh`, `uninstall.sh` and `.gitignore`; the

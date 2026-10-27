@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.11.5/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.0.0/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-27 起 v0.6.5，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-27 起 v1.0.0，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -125,7 +125,7 @@
 ## 已知的牆與未做
 
 - **平台**：macOS 與 Linux（Unix PTY），沒有 Windows build。
-- **等 lib 的**：目前沒有。改用 terminu-go 以來回報的 SS3–SS44 都已定案，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
+- **等 lib 的**：目前沒有。改用 terminu-go 以來回報的 SS3–SS46 都已定案，`docs/sshu-terminu-fix.md` 全部修完、刪掉（tdp E7）。
 - **File transfer 的 host key**：password、privatekey、credential 的 host 遇到未知的 host key 一律拒絕；先從 SSH 畫面連一次，或在 KnownHosts 按 `[A]`。
 - **加密私鑰**：privatekey host 的 SFTP 用不了有 passphrase 的私鑰；改用 sshconfig host（走 ssh 與 agent）。
 - **`SSH_ASKPASS_PROMPT=none` 的通知**：FIDO 觸碰確認會讓 helper 掛著，sshconfig host 用 FIDO key 在 File transfer 會卡住。
@@ -157,6 +157,7 @@ Go、[terminu-go](https://github.com/vulcanshen/terminu-go)（建在 Bubble Tea 
 - **看畫面**：`SSHU__DUMP="100x30:2,Enter" go test ./internal/tui -run TestDump -v` 印出按了那串鍵之後的畫面（假資料、假的 ssh）。在真的終端機裡看：`.local/shot.sh -s 100x30 -- Escape 2 Space`（git 不收；在 tmux 裡用 demo 資料跑真的 binary，HOME 是丟棄式的，`-i 2`、`-p 2` 讓 icon、powerline 符號佔兩格）。
 - **畫面測試**：每一個畫面在 icon 與 powerline 符號各種寬度、好幾種終端機尺寸下，每一列都剛好是終端機寬（tdp L4、tdp E5、tdp E6）；sshu 會開的每一種 popup 疊在它的畫面上也一樣（`popups_test.go`，terminal popup 在 `editor_pty_test.go`）；比最低尺寸小、一直到 1×1，不當掉、畫出名稱與提示，拉大後開著的 popup 還在（tdp E8 的分工：單獨量 popup 的框是 lib 的）。popup 的開關動畫每次約 0.6 秒，所以 popup 只在其中幾種尺寸打開。
 - **跑 PTY 的測試**（`internal/tui/ssh_pty_test.go`、`editor_pty_test.go`）用假的 ssh 與編輯器腳本（`fakeSSH`），也在 `-race` 底下跑。
+- **README 的 gif**（`docs/demo-grid.gif`）：`bash .local/demos/setup.sh` 起 demo 用的 sshd 容器、寫好假的 HOME 與資料，`make gif` 用 VHS 跑 `.local/demos/demo-grid.tape`（tape 在 tmux 裡開 sshu，`drive-grid.sh` 照時間送鍵），再跑 `sh .local/demos/optimize.sh` 縮小檔案。改了畫面或按鍵，先在 tmux 裡照同一個 driver 空跑、每秒存一張畫面，確認每一步都按對了再錄。`bash .local/demos/teardown.sh` 停掉容器。
 - **頂層的其他目錄**：`demo/`（`make demo` 的 hosts）、`.local/demos/`（VHS 的 tape 與 demo 用的 sshd 容器，git 不收）、`CLAUDE.md`（指向這次重構的交代）、`.claude/`（Claude Code 的專案設定：`agents/`、`commands/` 裡的 social-preview 用來從 `docs/icon.svg` 產生 `docs/social-preview.png`；`.claude/.gitignore` 擋掉個人的檔）。
 
 ## 發布
