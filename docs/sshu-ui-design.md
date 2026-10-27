@@ -7480,7 +7480,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   帶明碼密碼）。
 - tdp v0.10.3 只把 project.2 標記管到哪裡寫清楚，範本沒動，lib 畫的東西也沒變。
 
-### 12.17 對齊 tdp v0.11.0、terminu-go v0.6.0（2026-10-27）
+### 12.17 對齊 tdp v0.11.1、terminu-go v0.6.1（2026-10-27）
 
 - **標準尺寸改成 60×32**（tdp L1）：60 欄時所有 panel 要並排，畫面的 `NarrowBelow` 不能高於 60（screen.5）。SSH（58）、
   Manage（60）本來就在 60 以內；File transfer 是 72，改成 60。72 是搬到 terminu-go 時定的，沒有寫下理由；在 60×32 實際
@@ -7505,6 +7505,9 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   結果。另外兩個理由：confirm 擋在動作前面，`Esc` 時 lib 根本沒執行那個動作；lib 的 menu（Host、Jobs）沒有取消的
   callback，要記也只記得到表單、不記得到 menu，同一種事一半記一半不記。代價：打開 Edit 看了一眼就 `Esc` 的，
   App Log 裡看不到。
+- **panel filter 不記**（tdp v0.11.1 的 note.7）：篩選只是換看得到的範圍，跟移動 cursor 一樣；lib 本來就不記，sshu 也沒有
+  自己的篩選。File transfer 的 `/` Search 不是篩選：它在目錄底下找，選了結果就跳過去，記的是跳到哪（`Found …`）。
+  v0.6.1 是對到這一版的 lib，程式不用改。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

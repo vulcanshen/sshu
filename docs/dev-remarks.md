@@ -1,6 +1,6 @@
 # sshu 開發者備忘
 
-開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.11.0/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
+開發 sshu 時要提醒自己、以及與 AI 協作時記下的決策。sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v0.11.1/principle)（tdp），畫面建在家族共用的 lib [terminu-go](https://github.com/vulcanshen/terminu-go) 上；使用者要知道的在 README，這裡收的是另一半 —— 運作的細節、背後的理由、以及走過來的歷史。
 
 靈感來自 [Termius](https://termius.com/) —— hosts、sessions、檔案傳輸收在同一個屋簷下 —— 不是照單全收它的功能清單。
 
@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-27 起 v0.6.0，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-27 起 v0.6.1，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -78,7 +78,7 @@
   `logOp` 記：只看的（`Viewed credential ops`、`Viewed ~/a/x.txt on local`、`Opened Credentials`、`Opened Jobs`）、
   只改畫面的（`Marked …`、`Hid deploy@10.0.3.14 #1`、`Set Arrange to vertical`）、連上的（`Opened session …`、
   `Opened local on the left side`）。切換畫面由 lib 記（`Switched to SSH`），sshu 自己沒記過，不用拿掉。不記：移動 cursor、
-  換 focus、`h|l` 換邊、`Esc` 回上一層目錄（core key，不是 P3 的動作）。popup 按 `Esc` 取消、什麼都沒做的也不記（暫定，
+  換 focus、`h|l` 換邊、`Esc` 回上一層目錄（core key，不是 P3 的動作）、lib 的 panel filter（tdp v0.11.1 起寫明不記）。popup 按 `Esc` 取消、什麼都沒做的也不記（暫定，
   見設計文件 §12.17）。傳檔畫面的路徑照位置列寫成 `~/…`。
 - **短字裡不放 `\n`**（SS43，tdp components「控制字元」）：toast、error popup、confirm 的 Question、panel 中間的 `Failure` 都是「名字與短字」，`\n` 照字面畫成紅色的 `\n`，不換行。sshu 自己的字不帶換行，幾句的一句一列（「Not moved」、「Edit failed」、啟動時的 toast；lib 的 `Error`、`Toast` 一列收一個字串）；外面來的多行字只放最後一行 —— ssh 在 stderr 印的 banner 加原因，最後一行是原因（`dialReason`），全文進 App Log（拿來讀的內容，可以多行）。confirm 要幾行的放 `Details`（ssh 問的 host key 問句就是拆成幾行放那裡）。這些 `\n` 是 tdp v0.9.0 以前寫的，那時 lib 會換行；升級時規則變了，編譯與 tdptest 都抓不到，error popup 的字又是紅的，紅色的 `\n` 不顯眼，直到 user 手測才看到。測試在這些畫面另外看有沒有 `\n` 這兩個字。回報 tdp 後定成 tdp v0.9.15（components-30～32）：app 自己的字一律不帶換行，要好幾列的地方（error popup 的訊息、toast、confirm 的內容）由 app 一列一列給，不空列；外面來的好幾行只放說原因的那一行，全文進 App Log。terminu-go v0.4.19 起 error popup 與 toast 一列一列收，tdptest 的 Driver 也預設抓畫面上紅色的 `\n`；sshu 只有故意拿 `tdptest.Tricky` 當名字的測試放行（`AllowLineBreaks`）。
 - **App Log 大寫開頭**（tdp v0.9.2 的 note-78：跟 toast 一樣；toast 一字不改記進去，所以 toast 也算）：名字與路徑是內容、不改大小寫（components「大寫」），所以開頭是名字的句子改寫成動詞或名詞在前、名字在後，照 tdp 的例子 `Scaled deployment.apps/nginx`：`Session to db-replica failed: …`（以前 `db-replica: …`）、`Can't read ~/.ssh/config: …`、`Ignored 2 duplicate entries in hosts.yaml …`、`Deleted Host "x" from ~/.ssh/config`。整句是 Go error 的（`err.Error()`）由 `capital` 把第一個字母改大寫。Changes 那一本：以路徑開頭的幾種跟著改寫，其他照原樣存（`credential "x" deleted`），大寫只在 App Log（`logChange` 的 `capital`）。
