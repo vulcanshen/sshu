@@ -7480,7 +7480,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   帶明碼密碼）。
 - tdp v0.10.3 只把 project.2 標記管到哪裡寫清楚，範本沒動，lib 畫的東西也沒變。
 
-### 12.17 對齊 tdp v0.11.1、terminu-go v0.6.1（2026-10-27）
+### 12.17 對齊 tdp v0.11.2、terminu-go v0.6.2（2026-10-27）
 
 - **標準尺寸改成 60×32**（tdp L1）：60 欄時所有 panel 要並排，畫面的 `NarrowBelow` 不能高於 60（screen.5）。SSH（58）、
   Manage（60）本來就在 60 以內；File transfer 是 72，改成 60。72 是搬到 terminu-go 時定的，沒有寫下理由；在 60×32 實際
@@ -7501,13 +7501,19 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   傳檔畫面的路徑照位置列寫成 `~/…`：App Log 一列放不下長路徑會折行，跟畫面上看到的也不一樣。
 - **不記的**：移動 cursor、換 focus（`Tab`、數字鍵、`h|l` 換邊）、`Esc` 回上一層目錄 —— 都不是 P3 的動作。切換畫面
   lib 自己記；sshu 從 Hosts 連線時換到 SSH 是連線的結果，記的是 `Opened session …`。
-- **popup 按 `Esc` 取消的不記**（暫定，SS46 回報）：tdp 說 popup 裡的操作不另外記、記所屬動作的結果；取消了就沒有
+- **popup 按 `Esc` 取消的不記**（SS46 回報，tdp v0.11.2 寫進 note.7：動作確定了才算做了，在前面的 confirm、填值的
+  表單或 input popup 上取消的，動作沒做、不記）：tdp 說 popup 裡的操作不另外記、記所屬動作的結果；取消了就沒有
   結果。另外兩個理由：confirm 擋在動作前面，`Esc` 時 lib 根本沒執行那個動作；lib 的 menu（Host、Jobs）沒有取消的
   callback，要記也只記得到表單、不記得到 menu，同一種事一半記一半不記。代價：打開 Edit 看了一眼就 `Esc` 的，
   App Log 裡看不到。
+  Edit 存回去時的 Overwrite（檔案在你編輯時被改過）按 `Esc` 不算取消：Edit 已經做了，編輯器開過、改過了，`Esc` 的
+  結果是沒存回去、改過的那份留在本機哪裡 —— 這是 Edit 的結果，照樣跳 toast、寫進 Changes。同理，連線時 ssh 問的
+  Trust、密碼按 `Esc` 是回答 ssh「不」，連線失敗那一句照樣記。
 - **panel filter 不記**（tdp v0.11.1 的 note.7）：篩選只是換看得到的範圍，跟移動 cursor 一樣；lib 本來就不記，sshu 也沒有
   自己的篩選。File transfer 的 `/` Search 不是篩選：它在目錄底下找，選了結果就跳過去，記的是跳到哪（`Found …`）。
   v0.6.1 是對到這一版的 lib，程式不用改。
+- **比較模式不記**（tdp v0.11.2 的 note.7，KB34）：sshu 沒有比較模式（note.8）。v0.6.2 的 lib 只改註解、文件與測試，
+  取消時 `Do`、`Submit`、`Done` 本來就不跑，程式不用改。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
