@@ -7480,7 +7480,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   帶明碼密碼）。
 - tdp v0.10.3 只把 project.2 標記管到哪裡寫清楚，範本沒動，lib 畫的東西也沒變。
 
-### 12.17 對齊 tdp v0.11.4、terminu-go v0.6.4（2026-10-27）
+### 12.17 對齊 tdp v0.11.5、terminu-go v0.6.5（2026-10-27）
 
 - **標準尺寸改成 60×32**（tdp L1）：60 欄時所有 panel 要並排，畫面的 `NarrowBelow` 不能高於 60（screen.5）。SSH（58）、
   Manage（60）本來就在 60 以內；File transfer 是 72，改成 60。72 是搬到 terminu-go 時定的，沒有寫下理由；在 60×32 實際
@@ -7519,8 +7519,9 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   `[1]` 沒有明細（格子是 `Points` 指著的 panel，§12.12），`Enter` 是把鍵盤交給遠端那個 session —— 之後打的字都送到
   那台機器上，出了錯要看得到這一步。
 - **提權與清單旗標**（tdp v0.11.4 的 terminal.7、panel.7、panel.11；lib 的 `App.Elevate`、`List.Flags`）：sshu 不在本機
-  提權，也沒有不能標記、又要在標記欄畫旗標的清單。File transfer 的清單可以標記，標記欄只放勾（panel-138），本來就是。
-  terminal-21 只把例子從 sudo 換成 doas，Edit 開編輯器的 terminal popup 不受影響。程式不用改。
+  提權，也沒有不能標記、又要在標記欄畫旗標的清單。File transfer 的清單可以標記，標記欄只放勾（panel-155），本來就是。
+  terminal-21 只把例子從 sudo 換成 doas，Edit 開編輯器的 terminal popup 不受影響。程式不用改。tdp v0.11.5 把這兩條
+  旗標條目從撞號的 panel-137、138 改成 panel-154、155，規則與 lib 都沒變。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
