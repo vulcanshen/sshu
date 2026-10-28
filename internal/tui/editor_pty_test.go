@@ -15,8 +15,8 @@ import (
 )
 
 // Edit file on a Host block's form opens the file in $EDITOR on the Host's
-// line, and the form comes back with what the file says after (tdp S70: the
-// other options are the editor's).
+// line, and the form comes back with what the file says after (tdp
+// textarea.1: the other options are the editor's).
 func TestEditFileOpensTheEditorAndReadsTheFileAgain(t *testing.T) {
 	dir := t.TempDir()
 	// Under HOME, as ~/.ssh/config is: the file's path is then in ~ form.
@@ -105,7 +105,7 @@ func TestTheEditorPopupKeepsTheScreenFullWidth(t *testing.T) {
 
 // With changes in the form, Edit file asks to save them first, for the editor
 // opens the file as it is on disk; Esc stays on the form, Enter saves and
-// opens the editor over it (tdp S70).
+// opens the editor over it.
 func TestEditFileAsksToSaveTheFormFirst(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)

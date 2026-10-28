@@ -2,6 +2,14 @@
 
 Each release names the version of terminu design (tdp) it follows.
 
+## Unreleased
+
+- sshu is built on terminu-go v1.1.0-beta.1 and follows tdp v1.1.0-beta.1.
+  Nothing you see or press changes.
+- The repository no longer tracks the maintainer's own Claude Code files
+  (`CLAUDE.md`, `.claude/`), and the docs no longer point at notes kept
+  outside it (tdp project.3).
+
 ## v3.0.0 — tdp v1.0.0
 
 sshu is rebuilt on [terminu-go](https://github.com/vulcanshen/terminu-go), the

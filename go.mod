@@ -5,7 +5,7 @@ go 1.26.5
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/pkg/sftp v1.13.11
-	github.com/vulcanshen/terminu-go v1.0.0
+	github.com/vulcanshen/terminu-go v1.1.0-beta.1
 	golang.org/x/crypto v0.55.0
 	gopkg.in/yaml.v3 v3.0.1
 )

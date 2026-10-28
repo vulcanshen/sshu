@@ -7137,7 +7137,7 @@ tdp 採用了另一條給全家族的路:家族共用一個變數,所有 app 互
 
 ### 11.73 input 盤點(2026-10-06)—— 單行的值、sshconfig 的 User 與 Port、搜尋跟著 focus
 
-這一輪不是 tdp 改版。terminu 對家族五個 app 做了一次 input 盤點(terminu `.local/input-survey/sshu.md`),翻出幾個跟
+這一輪不是 tdp 改版。terminu 對家族五個 app 做了一次 input 盤點,翻出幾個跟
 之後 tdp components 的 input 檔怎麼定無關的 bug,列成 `docs/sshu-terminu-fix.md`;五個 app 修完就發版。tdp 仍對照
 v0.1.23,連結不動。清單修完已刪除。
 
@@ -7224,8 +7224,8 @@ Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshco
 ## §12. 改用 terminu-go(2026-10-18)
 
 到 §11.73 為止,這份文件記的是 sshu 自己畫每一個框、menu、popup、自己分派每一個鍵的那一套(到 v2.0.0,對照 tdp v0.1.23)。
-2026-10-18 起,家族的五個 app 一起改建在共用的 lib terminu-go 上、對齊 tdp v0.7.4(交代在 terminu 的
-`.local/family-fix/REFACTOR-2026-10-18.md`)。sshu 的 `internal/ui` 刪掉,換成 `internal/tui`:sshu 只登記畫面、panel 與動作,
+2026-10-18 起,家族的五個 app 一起改建在共用的 lib terminu-go 上、對齊 tdp v0.7.4。
+sshu 的 `internal/ui` 刪掉,換成 `internal/tui`:sshu 只登記畫面、panel 與動作,
 畫面與 core key 是 lib 的。之前的章節留著,是當時為什麼那樣做的紀錄;跟現在的畫面對不上的地方,以本章與 `dev-remarks.md` 為準。
 
 ### 12.1 搬過去的,與長相換成 lib 的
@@ -7244,43 +7244,43 @@ Auth 關掉的列不擋、`+ add option`、askpass 被拒時高度不變、sshco
 
 ### 12.2 lib 還做不到、先拿掉的
 
-每一條都回報給 terminu(SS3–SS14),程式裡標 `TODO(lib SS<n>)`:`Alt-v` 選取模式(§11.33,要 PTY 的畫面文字)、`Alt-Enter`
+每一條都回報給 terminu,程式裡標了 TODO:`Alt-v` 選取模式(§11.33,要 PTY 的畫面文字)、`Alt-Enter`
 鎖定與巢狀指令通道(§11.43–§11.47,要寫進 PTY、讀出 OSC)、`Alt-z` 的不畫框全螢幕(§11.47)、「連線中」的樣子與連線中不轉送
 打字(§7.1.5,要知道程式第一次輸出)。ssh 的原話(§7.1.5)改用 `ssh -E` 寫到暫存檔來讀,行為不變。
 
 ### 12.3 為什麼結束的格子有時不馬上消失
 
 lib 沒有增減 panel、移動 focus 的呼叫,而它記 focus 的方式是 panel 在清單裡的位置:拿掉 focus 前面的 panel,focus 就跑到別的
-panel 上。所以結束的 session 只在它的 panel 排在 focus 後面時拿掉;排在前面的先留著,等 focus 回到前面(例:按 `1`)才拿掉
-(SS3)。focus 移到別的 panel 也是 sshu 自己「按」數字或 `Tab`。
+panel 上。所以結束的 session 只在它的 panel 排在 focus 後面時拿掉;排在前面的先留著,等 focus 回到前面(例:按 `1`)才拿掉。
+focus 移到別的 panel 也是 sshu 自己「按」數字或 `Tab`。
 
 ### 12.4 對齊 tdp v0.8.0(2026-10-19)
 
-重構回報的問題 user 一項一項定案,tdp 發了 v0.8.0(定案在 terminu 的 `.local/family-fix/REFACTOR-decisions-2026-10-19.md`)。不用等
-lib 的部分這一輪做完;要 lib 新 API 的等 terminu-go 的下一版,`TODO(lib SS<n>)` 留著。
+重構回報的問題 user 一項一項定案,tdp 發了 v0.8.0。不用等
+lib 的部分這一輪做完;要 lib 新 API 的等 terminu-go 的下一版,程式裡的 TODO 留著。
 
-- **檔案自己搬家**(S1、S2):tdp E3 改成「看刪掉會怎樣」分類 —— hosts、credentials 是手寫的連線清單,算設定;`state.yaml` 刪了
+- **檔案自己搬家**:tdp E3 改成「看刪掉會怎樣」分類 —— hosts、credentials 是手寫的連線清單,算設定;`state.yaml` 刪了
   只是回到預設,是狀態;三本紀錄刪了找不回來,是資料,放 `~/.sshu`。換位置時第一次啟動搬過去:macOS 的
   `~/Library/Application Support/sshu` 整個搬到 `~/.config/sshu`,三本紀錄從設定目錄搬到 `~/.sshu`(三本一起搬,一本搬不動就把
   搬過去的搬回來,免得紀錄散在兩處)。搬好的用 Info toast 說從哪到哪;啟動時另有讀檔的問題時兩句合成一則 toast —— lib 的第二則
   toast 會蓋掉第一則,分開送使用者只看得到後一則。搬不動的照舊用舊位置,開 error popup 寫兩個路徑;這個 popup 等畫面有大小才開:
-  lib 的 error popup 在打開那一刻照當時的寬度折行,啟動時寬度還是 0,會一個字一行(SS37)。以前的暫時做法(新位置不存在就一直
+  lib 的 error popup 在打開那一刻照當時的寬度折行,啟動時寬度還是 0,會一個字一行。以前的暫時做法(新位置不存在就一直
   讀舊目錄)拿掉:它讓這種使用者永遠停在舊位置。
-- **`~/.ssh/config` 區塊的其他選項:`Others` 加 `Edit file`**(S70):其他關鍵字只顯示(focus 跳過它),要改就按表單動作區的
+- **`~/.ssh/config` 區塊的其他選項:`Others` 加 `Edit file`**:其他關鍵字只顯示(focus 跳過它),要改就按表單動作區的
   `Edit file`,用使用者的 `$EDITOR` 打開那個區塊所在的整個檔,停在 `Host` 那一行(`+行號`),編輯器關掉後照檔案重新讀、在同一個
   區塊上重開表單。`$EDITOR` 認得每一個關鍵字、會補全、會檢查,textarea 不會;設定檔本來就交給 `$EDITOR`(tdp textarea.1)。
   定案的樣子是按鈕在表單上面開 terminal popup、有沒存的改動時先問要不要存;lib 的表單按鈕還開不了 terminal popup,所以暫時是
-  「另一個送出」:表單有改動(或是新的區塊)時先照 Save 存,關掉表單、開編輯器,回來再開表單(TODO(lib SS19))。否決的暫時做法:
+  「另一個送出」:表單有改動(或是新的區塊)時先照 Save 存,關掉表單、開編輯器,回來再開表單。否決的暫時做法:
   有改動時用 error popup 叫使用者先存(用錯誤問一個問題);不存直接開(表單上改的就丟了)。
-- **刪除、關掉、清空:確定之後連 Space menu 一起清掉**(S4,tdp T1 照「確定之後的動作」判,confirm 只是門):Hosts、Credentials、
+- **刪除、關掉、清空:確定之後連 Space menu 一起清掉**(tdp T1 照「確定之後的動作」判,confirm 只是門):Hosts、Credentials、
   Config、KnownHosts 的 Delete,三本紀錄的 Clear,SESSIONS 與格子的 Close、Close all,File transfer 的 `x`、`X`。以前照 v0.7.4
   的「短的 confirm 保留 source」,接受之後 menu 還浮著、對象卻已經不在。現在 confirm 是動作自己的 Ask(`gated`):`Enter` 連 menu
   一起關,`Esc` 回到 menu。`e`(用 `$EDITOR` 改)改成保留 menu(表上「用編輯器改那一項」保留)。
-- **隔著 ssh 的寬度改送 `LC_TERMINU_*`**(S71):送是 sshu 的事、收是 lib 的事,遠端跑哪一個家族 app 都讀得到。lib 的下一版才讀,
-  所以遠端的 sshu 暫時自己收(TODO(lib SS25))。巢狀指令通道定案不做(SS5)。
-- **`Alt-z` 兩段**(S29):佔滿 panel 區、還原;不畫框的全螢幕定案不做,只有 sshu 有這個需求,不變成通用的版面。
-- **不再是偏離的**:File transfer 的目前目錄列是 tdp panel.10 的位置列(S16;lib 有了之後改用它,TODO(lib SS20));SESSIONS 的
-  `Enter` 進格子、連線後鍵盤在新格子裡是使用者預期的 focus 移動(S19,tdp K3 改寫)。
+- **隔著 ssh 的寬度改送 `LC_TERMINU_*`**:送是 sshu 的事、收是 lib 的事,遠端跑哪一個家族 app 都讀得到。lib 的下一版才讀,
+  所以遠端的 sshu 暫時自己收。巢狀指令通道定案不做。
+- **`Alt-z` 兩段**:佔滿 panel 區、還原;不畫框的全螢幕定案不做,只有 sshu 有這個需求,不變成通用的版面。
+- **不再是偏離的**:File transfer 的目前目錄列是 tdp panel.10 的位置列(lib 有了之後改用它);SESSIONS 的
+  `Enter` 進格子、連線後鍵盤在新格子裡是使用者預期的 focus 移動(tdp K3 改寫)。
 
 ### 12.5 升級到 terminu-go v0.2.0（tdp v0.8.1，2026-10-19）
 
@@ -7292,17 +7292,17 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **`Alt-Enter` 鎖定回來了，做法跟 §11.43–§11.47 不同**：以前 `Alt-Enter` 開 Lock/Release 的選單、鎖住時只留 `Alt-Enter`；
   現在 `Alt-Enter` 直接鎖，鎖住時它就是出口鍵（`Terminal.ExitKey`），按了把鍵盤收回來，離開格子就解鎖。理由：tdp K10 要出口永遠
   有一個是 app 的，lib 讓 app 在執行中換出口鍵，「鎖住」就是「出口換成 `Alt-Enter`、其他保留鍵都交出去」，不用另一層選單。整條
-  巢狀鏈的鎖定與放大（§11.47）照定案不做（SS5）。
+  巢狀鏈的鎖定與放大（§11.47）照定案不做。
 - **`Alt-v`、歷史**：lib 的 `Terminal` 有了選取模式與歷史模式，`Alt-v` 接回（複製照舊走系統剪貼簿的工具，跟 viewer 一樣），
   `PgUp` 進歷史模式。
 - **連線中**：ssh 第一次輸出前格子框上轉 loading 圖示、打的字不送（§7.1.5 的保證回來了）。格子中間的「connecting to …」做不到：
-  `Terminal` 沒有空狀態（SS39）。
+  `Terminal` 沒有空狀態。
 - **Space menu 留不留交給 lib 的預設**（tdp T1）：打開東西就留著，什麼都沒打開就關；連線、Duplicate、搜尋設 `Clear`。§12.4 為了
   刪除做的 `gated` 改成用 `AskFor`。
-- **`Edit file` 開在表單上面**（S70 定案的樣子）：表單有改動或是新區塊時先問要不要存；編輯器結束時重讀檔案、把值放回表單。
+- **`Edit file` 開在表單上面**（§12.4 定案的樣子）：表單有改動或是新區塊時先問要不要存；編輯器結束時重讀檔案、把值放回表單。
   §12.4 的暫時做法（先存、關表單、回來再開）拿掉。
 - **遠端搜尋有預覽了**：lib 的預覽能讀 app 給的檔案系統；遠端那一側經 SFTP 讀，讀過的留到搜尋關掉。lib 是在畫的時候讀，
-  第一次看某一項時那一格要等遠端（SS40）。
+  第一次看某一項時那一格要等遠端。
 - **換位置改成逐項搬**（tdp v0.8.1 E3）：新位置已經有的那一項留在舊位置、請使用者合併；`.sshukey` 與它加密的檔一起搬或一起留。
 - 其他照 lib 拿到的：Port 回到 number input（可以空）、Rename／Add／Trusted for 寫不進去時輸入框留著、Esc 回答 ssh 的問題、
   Jobs 的列跟著傳輸變與 `Enter:cancel`、膠囊裡的名稱照原樣、位置列、單欄清單沒有表頭、整欄收掉的表格、成功的訊息用 Success、
@@ -7312,9 +7312,9 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 
 這一輪最後一次升級；`docs/sshu-terminu-fix.md` 修完、刪掉。
 
-- **連線中的格子寫出「connecting to <host>」**：lib 的 `Terminal` 有了空狀態，`Panel.LoadingText` 在格子中間照空狀態畫（SS39）。
+- **連線中的格子寫出「connecting to <host>」**：lib 的 `Terminal` 有了空狀態，`Panel.LoadingText` 在格子中間照空狀態畫。
   注意：ssh 印出的任何字都算「連上了」，連一個警告也是（例：找不到 identity file），所以有些連線那一句只閃一下。
-- **遠端搜尋的預覽在背景讀**（SS40）：lib 不在畫的時候讀檔，讀過的在搜尋開著時記住；sshu 的 `previewFS` 拿掉自己的快取，
+- **遠端搜尋的預覽在背景讀**：lib 不在畫的時候讀檔，讀過的在搜尋開著時記住；sshu 的 `previewFS` 拿掉自己的快取，
   只剩把 `remote.FS` 轉成 lib 要的樣子。
 - **欄寬照 tdp v0.8.2**：長欄（名稱、位址、路徑、一行文字）標 `Shrink`，分剩下的寬度、照自己的截法截；短欄照最寬的值。
   還放不下才照 `Drop` 整欄收。known_hosts 的指紋從中間截（`Middle`），兩端都認得出。
@@ -7339,7 +7339,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   - `~/.ssh/config`、`known_hosts` 不是 sshu 的，不問：那一節中間寫原因（`Panel.Fail`），細節進 App Log。
 - **App Log**（tdp F5，`!`）：toast 與 error popup 由 lib 記；sshu 記啟動時的問題、搬了哪幾項、寫進紀錄的每一筆（Errors
   連同遠端的原話、Changes 的動作）。啟動時有問題，toast 寫 `N problems at startup: see App Log [!]`。
-  - Errors 那本留著，跟 App Log 並存（暫定，回報 SS41）：App Log 只在記憶體、只記這一次；Errors 是磁碟上的紀錄，跨次留著
+  - Errors 那本留著，跟 App Log 並存（暫定，回報 terminu）：App Log 只在記憶體、只記這一次；Errors 是磁碟上的紀錄，跨次留著
     「上週連那台為什麼失敗」。啟動時的問題只進 App Log —— 問題還在就每次啟動再說一次，存進 Errors 只會一直重複。
   - statusbar 拿掉 `errors: N`，交給 footer 的 `!:N errors`。否決：兩個都留 —— 兩個紅色的計數，不知道該看哪一個。
     Errors 的「未讀」跟著拿掉。
@@ -7357,7 +7357,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 
 - **lib 升到 terminu-go v0.4.3**（實作 tdp v0.9.2）：MoveAside 自己記進 App Log 的那一筆改成大寫開頭（`Moved … to ….bak`）。
 
-- **Manage 的 Errors 與 `errors.yaml` 拿掉**：user 改判 SS41（原話「errors 合併到 app log 裡面, 就不在獨立存 errors」）。失敗只記進
+- **Manage 的 Errors 與 `errors.yaml` 拿掉**：user 改判（原話「errors 合併到 app log 裡面, 就不在獨立存 errors」）。失敗只記進
   App Log（`!`），帶著遠端的原話；LOGS 只剩 Connections、Changes，`C` 清的也只有這兩本。
   - 否決：照 §12.7 的暫定兩個並存 —— App Log 已經有每一次失敗與遠端的原話，第二份只是同一件事記兩次；跨次留著的「上週連那台
     失敗過」，Connections 有。代價是關掉 sshu，失敗的原話就沒了。
@@ -7377,7 +7377,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 
 ### 12.9 不再用的檔（tdp v0.9.3，terminu-go v0.4.4，2026-10-21）
 
-- **不再用的檔每次啟動在 App Log 說一聲**（E3-23，user 選 SS42 的 B）：舊的 `errors.yaml` 與 `applogs.yaml`（v1.5.1 以前的 log）
+- **不再用的檔每次啟動在 App Log 說一聲**（E3-23，user 定的：說一聲就好，怎麼處理是使用者的事）：舊的 `errors.yaml` 與 `applogs.yaml`（v1.5.1 以前的 log）
   還在的，每次啟動記一筆 `INFO No longer used: ~/.sshu/errors.yaml; delete it if you don't need it`（lib 的 `App.NoLongerUsed`）。
   不刪、不跳 toast，怎麼處理是使用者的事。
   - 否決：跳 toast —— 每次啟動都跳，使用者沒做什麼卻一直被打斷。否決：只寫在 CHANGELOG（§12.8 的暫定）—— 沒讀 CHANGELOG 的
@@ -7400,7 +7400,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   README 的 cell 按鍵表跟著改。
 - **family.mk** 換成範本：多了 `make dev`（編譯再跑 `./sshu`，讀真的設定與資料）。
 
-### 12.11 短字裡的 `\n`（SS43，2026-10-24）
+### 12.11 短字裡的 `\n`（2026-10-24）
 
 - **user 手測看到 error popup 裡的 `\n`**：「NOT MOVED」寫成 `~/.sshu already has .sshukey, so sshu left it in ~/.config/sshu.\nMerge
   it into ~/.sshu yourself.`。tdp v0.9.0 起 error popup 是「名字與短字」，`\n` 照字面畫，lib 照做；是 sshu 用錯。
@@ -7414,14 +7414,14 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **同一個 popup 的另一個錯**：跟著鑰匙留下的檔被說成新位置已經有（`~/.sshu already has .sshukey, hosts.yaml`）。`Move` 分成 `Left`
   與 `Kept`，訊息分開說：`~/.sshu already has .sshukey, so sshu left it in ~/.config/sshu. hosts.yaml stays there too: the key and
   the files it seals move together. Merge them into ~/.sshu yourself.`
-- 回報 tdp（SS43）後定成 tdp v0.9.15：app 自己的字不帶換行，要好幾列由 app 一列一列給（error popup 的訊息、toast、confirm 的
+- 回報 tdp 後定成 tdp v0.9.15：app 自己的字不帶換行，要好幾列由 app 一列一列給（error popup 的訊息、toast、confirm 的
   內容），不空列；外面來的好幾行只放說原因的那一行，全文進 App Log —— 就是上面的修法。
 - **terminu-go v0.4.19**（跳過 v0.4.18）：`Error`、`ErrorAbout`、`Toast` 一列收一個字串。「Not moved」、「Edit failed」與啟動時那則
   toast（搬了什麼、啟動時有幾個問題）改成一句一列，不再用句號接成一段。tdptest 的 Driver 預設抓畫面上紅色的 `\n`；sshu 只有
   故意拿怪名字當資料的測試放行（`AllowLineBreaks`）。發現 lib 的檢查漏了清單格子裡的紅色 `\n`，回報 terminu-go，
   v0.4.20 補上（清單、panel 上的值、失焦的 panel、popup 底下）。
 
-### 12.12 游標的格子回聲接回來（SS44，tdp v0.9.16，terminu-go v0.4.21，2026-10-25）
+### 12.12 游標的格子回聲接回來（tdp v0.9.16，terminu-go v0.4.21，2026-10-25）
 
 - **掉了又接回來**：§11.8 的回聲在改建時掉了 —— panel 的框由 lib 畫，lib 沒有讓沒 focus 的 panel 外框換色的東西，當時也沒列進
   拿掉的功能。user 手測發現，回報後 tdp 寫成通則「被指到的 panel」（tdp panel.2），要不要用 app 可以自行決定；sshu 只設 `List.Points`
@@ -7448,7 +7448,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **開 app 時 focus 在 Hosts 表上**：README 的 Quick start 第一步是按 `A`，focus 在 `[1]` 時按了沒反應。
 - **Homebrew 安裝後的說明**寫錯了 hosts 與 credentials 的位置（還寫在設定目錄），改成 `~/.sshu`。
 - **`Alt-Esc` 離開格子後 focus 回到 `[1]`**，游標停在那個 session（指著剛離開的格子）。改建時寫成「focus 留在那一格」，
-  記在 dev-remarks；user 要回到 `[1]`（v2.0.0 就是這樣）。lib 沒有離開的回呼，回報 terminu-go（SS45）加了 `Terminal.OnLeave`
+  記在 dev-remarks；user 要回到 `[1]`（v2.0.0 就是這樣）。lib 沒有離開的回呼，回報 terminu-go 後加了 `Terminal.OnLeave`
   （v0.4.22）。
 
 ### 12.14 對齊 tdp v0.10.1、terminu-go v0.5.1（2026-10-26）
@@ -7501,7 +7501,7 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   傳檔畫面的路徑照位置列寫成 `~/…`：App Log 一列放不下長路徑會折行，跟畫面上看到的也不一樣。
 - **不記的**：移動 cursor、換 focus（`Tab`、數字鍵、`h|l` 換邊）、`Esc` 回上一層目錄 —— 都不是 P3 的動作。切換畫面
   lib 自己記；sshu 從 Hosts 連線時換到 SSH 是連線的結果，記的是 `Opened session …`。
-- **popup 按 `Esc` 取消的不記**（SS46 回報，tdp v0.11.2 寫進 note.7：動作確定了才算做了，在前面的 confirm、填值的
+- **popup 按 `Esc` 取消的不記**（sshu 回報，tdp v0.11.2 寫進 note.7：動作確定了才算做了，在前面的 confirm、填值的
   表單或 input popup 上取消的，動作沒做、不記）：tdp 說 popup 裡的操作不另外記、記所屬動作的結果；取消了就沒有
   結果。另外兩個理由：confirm 擋在動作前面，`Esc` 時 lib 根本沒執行那個動作；lib 的 menu（Host、Jobs）沒有取消的
   callback，要記也只記得到表單、不記得到 menu，同一種事一半記一半不記。代價：打開 Edit 看了一眼就 `Esc` 的，
@@ -7512,9 +7512,9 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
 - **panel filter 不記**（tdp v0.11.1 的 note.7）：篩選只是換看得到的範圍，跟移動 cursor 一樣；lib 本來就不記，sshu 也沒有
   自己的篩選。File transfer 的 `/` Search 不是篩選：它在目錄底下找，選了結果就跳過去，記的是跳到哪（`Found …`）。
   v0.6.1 是對到這一版的 lib，程式不用改。
-- **比較模式不記**（tdp v0.11.2 的 note.7，KB34）：sshu 沒有比較模式（note.8）。v0.6.2 的 lib 只改註解、文件與測試，
+- **比較模式不記**（tdp v0.11.2 的 note.7）：sshu 沒有比較模式（note.8）。v0.6.2 的 lib 只改註解、文件與測試，
   取消時 `Do`、`Submit`、`Done` 本來就不跑，程式不用改。
-- **進明細不記**（tdp v0.11.3 的 note.7，DM42）：在清單上按 `Enter` 進明細（panel.13）是換 focus（Rules K3），明細本來就
+- **進明細不記**（tdp v0.11.3 的 note.7）：在清單上按 `Enter` 進明細（panel.13）是換 focus（Rules K3），明細本來就
   跟著 cursor 換，進去沒有多看到什麼。sshu 唯一的一處是 Manage 的 Sections：v0.11.0 時把它算成只看的動作，記
   `Opened Credentials`，這版拿掉。lib 進明細本來就不記，程式只改這一行。SSH `[1]` 的 `Enter`（`Typing into …`）照樣記：
   `[1]` 沒有明細（格子是 `Points` 指著的 panel，§12.12），`Enter` 是把鍵盤交給遠端那個 session —— 之後打的字都送到
@@ -7537,6 +7537,16 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   `~/.sshu`（資料目錄），不再寫進 `SSHU__CONFIG` —— 不然 sshu 一開就把它們搬過去，gif 開頭是搬檔的 toast；
   Errors 那本也不再寫。
 - **不在這一版的**：§12.13 對照 v2.0.0 剩下的中、低項目，等 user 決定。
+
+### 12.19 terminu-go v1.1.0-beta.1：Claude Code 的檔不進 git（2026-10-28）
+
+- **lib 升到 v1.1.0-beta.1**（tdp v1.1.0-beta.1）：畫面與按鍵都沒變，sshu 程式不用改。這一輪先發 beta，之後才有 v1.1.0；
+  README 與本文件的 tdp 連結留在 v1.0.0，等 stable。
+- **`CLAUDE.md` 與 `.claude/` 不再進 git**（tdp project.3，檢查項 project-37）：那是維護者自己的指示與設定，本機照留；
+  `.gitignore` 照 tdp 的新範本重抄，範本已經擋掉的 `.claude/settings.local.json`、`.claude/worktrees/` 不再自己列。
+- **公開的文件不指向 terminu 的私人筆記**：改用 terminu-go 那一輪的交代、定案與 input 盤點都在 terminu 的本機筆記裡，
+  本文件與 dev-remarks 原本寫了它們的路徑，也寫了回報與定案的編號。路徑與編號都拿掉，用得到的
+  內容本來就寫在旁邊；測試註解裡誤標成 tdp 的定案編號改成 tdp textarea.1。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
