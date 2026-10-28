@@ -241,7 +241,7 @@ input_tab_width: 4
 
 ## terminu family
 
-sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.0.0/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu。
+sshu 遵循 [terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.1.0/principle)，畫面建在 [terminu-go](https://github.com/vulcanshen/terminu-go) 上：跟家族其他成員同一套按鍵、同一種 menu。
 
 - [terminu](https://github.com/vulcanshen/terminu) —— terminu design（tdp），家族有哪些 app 列在它的 README
 - [terminu-go](https://github.com/vulcanshen/terminu-go) —— 家族的畫面建在上面的 Go 函式庫

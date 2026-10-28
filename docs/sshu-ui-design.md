@@ -2,9 +2,9 @@
 
 sshu 是 terminu family 的一員(kbu = K8s domain、filu = filesystem domain、
 **sshu = ssh/sftp domain**)。家族成員**平行**、共用同一套
-[terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.0.0/principle)(tdp),
+[terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.1.0/principle)(tdp),
 不是誰派生自誰。§1–§11 寫在 tdp v0.1.23 的時候(到 sshu v2.0.0);§12 起是改用 terminu-go 之後,
-現在跟的是 tdp v1.0.0(sshu v3.0.0)。
+現在跟的是 tdp v1.1.0(sshu v3.0.1)。
 
 本檔是 sshu 的**設計紀錄**:每一個看得見的行為**為什麼**是這樣,以及**試過而被
 否決的做法**。它跟著程式碼走 —— 改一個使用者看得見的東西,就在同一輪改這裡。
@@ -7566,6 +7566,14 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   —— 那樣 `go install` 永遠裝不到新版。lib 升到 terminu-go v1.1.0-beta.3，它的 tdptest 比對 CHANGELOG 的大版號與
   module path。
 - **`internal/version/version.go` 的註解**還寫著沒有 `/v3` 的 `-X` 路徑：那是 tdp 的範本原文，tdptest 逐字比對，照抄不改。
+
+### 12.22 發 v3.0.1：tdp v1.1.0、terminu-go v1.1.0（2026-10-28）
+
+- **家族七個 app 的 beta.2 都把發版流程完整跑過**，tdp 與 terminu-go 發了 v1.1.0。比起 beta.3，tdp 只改了 `version.go` 範本的
+  註解：`-X` 的路徑寫成 `<module>`，v2 起帶 `/vN` —— 就是 §12.21 照抄、沒改的那一行，這次照新範本重抄。
+- **tdp 的連結改成 v1.1.0**：README 兩份、dev-remarks、本文件開頭（§12.19 起留在 v1.0.0，等的就是這一版）。
+- **CHANGELOG 的 `## v3.0.1 — tdp v1.1.0`** 寫 v3.0.0 以來的全部改動，兩個 beta 的也併進來（tdp project.6），沒裝過 beta 的
+  人讀這一段就夠；beta 的兩段留著。畫面與操作都沒變，所以是 patch。
 
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 

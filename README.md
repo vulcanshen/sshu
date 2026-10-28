@@ -243,7 +243,7 @@ Passwords are never drawn on screen, and reach `ssh` through `SSH_ASKPASS`, neve
 
 ## terminu family
 
-sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.0.0/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family.
+sshu follows the [terminu design principle](https://github.com/vulcanshen/terminu/tree/v1.1.0/principle) and is built on [terminu-go](https://github.com/vulcanshen/terminu-go): the same keys and the same menus as the rest of the family.
 
 - [terminu](https://github.com/vulcanshen/terminu) — terminu design (tdp); the family's apps are listed in its README
 - [terminu-go](https://github.com/vulcanshen/terminu-go) — the Go library the family's screens are built on
