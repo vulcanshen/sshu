@@ -47,6 +47,10 @@ checksum:
 changelog:
   disable: true
 
+# A tag with a pre-release part (v1.2.0-beta.1) makes a GitHub pre-release.
+release:
+  prerelease: auto
+
 # A formula, not a cask: a formula binary is never stamped
 # com.apple.quarantine, so an unsigned binary runs clean.
 brews:
@@ -58,6 +62,8 @@ brews:
       # ACTION_TOKEN when one is set, since the built-in token cannot write
       # to the tap repository.
       token: "{{ .Env.GITHUB_TOKEN }}"
+    # A pre-release never reaches the tap: brew keeps the stable release.
+    skip_upload: auto
     homepage: "https://github.com/vulcanshen/sshu"
     # app: one line, what the app is, ending in (terminu family).
     description: "sshu: an ssh and sftp front end for the terminal (terminu family)"
@@ -81,6 +87,7 @@ brews:
 #       owner: vulcanshen
 #       name: scoop-bucket
 #       token: "{{ .Env.GITHUB_TOKEN }}"
+#     skip_upload: auto
 #     homepage: "https://github.com/vulcanshen/sshu"
 #     # app: the same line as the brews description above.
 #     description: "sshu: what it is (terminu family)"

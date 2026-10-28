@@ -7548,6 +7548,15 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   本文件與 dev-remarks 原本寫了它們的路徑，也寫了回報與定案的編號。路徑與編號都拿掉，用得到的
   內容本來就寫在旁邊；測試註解裡誤標成 tdp 的定案編號改成 tdp textarea.1。
 
+### 12.20 發 v3.0.1-beta.1：terminu-go v1.1.0-beta.2（2026-10-28）
+
+- **先發 beta**（user 2026-10-28）：家族每個 app 都跟上 terminu-go v1.1.0-beta.2、各發一個 beta，整個發版流程都跑過
+  沒有問題，才發 v1.1.0 stable。版號用 patch：這一輪畫面與操作都沒變（user 定）。
+- **發版範本照 tdp v1.1.0-beta.2 重抄**：`.goreleaser.yaml` 讓帶 `-beta.N` 的 tag 發成 pre-release、不推 tap；
+  `release.yml` 的 release notes 寫到 `$RUNNER_TEMP`，checkout 裡不再多一個檔，執行檔的 build info 就不是 `+dirty`，
+  也拿掉 `--skip=validate`。sshu 自己的只有 `# app:` 那幾行（formula 的說明與 caveats），照舊。
+- **CHANGELOG** 的 `## Unreleased` 改成 `## v3.0.1-beta.1 — tdp v1.1.0-beta.2`（tdp project.6），就是 pre-release 的內文。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

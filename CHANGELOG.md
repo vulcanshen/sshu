@@ -2,13 +2,19 @@
 
 Each release names the version of terminu design (tdp) it follows.
 
-## Unreleased
+## v3.0.1-beta.1 — tdp v1.1.0-beta.2
 
-- sshu is built on terminu-go v1.1.0-beta.1 and follows tdp v1.1.0-beta.1.
+A beta: GitHub marks it as a pre-release, and Homebrew and the install script
+stay on v3.0.0.
+
+- sshu is built on terminu-go v1.1.0-beta.2 and follows tdp v1.1.0-beta.2.
   Nothing you see or press changes.
 - The repository no longer tracks the maintainer's own Claude Code files
   (`CLAUDE.md`, `.claude/`), and the docs no longer point at notes kept
   outside it (tdp project.3).
+- The release binaries' build information no longer says the source was
+  modified: the release notes are written outside the checkout (tdp
+  project.7).
 
 ## v3.0.0 — tdp v1.0.0
 

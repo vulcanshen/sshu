@@ -10,7 +10,7 @@
 
 ### 畫面由 terminu-go 畫
 
-2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-28 起 v1.1.0-beta.1，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
+2026-10-18 起 sshu 的 UI 是 `internal/tui`，建在 terminu-go 上（2026-10-28 起 v1.1.0-beta.2，tdp E8）：sshu 登記畫面、panel、每一個動作（鍵、名稱、說明、範圍、要不要先問、做什麼），lib 照這一份登記畫出畫面 chip 列、panel 框、Space menu、global operation popup、`?` 的 key reference、下框 hint、footer、confirm、表單、每一種 input、viewer、toast、開關動畫與淡化，也處理所有 core key。以前 sshu 自己畫這一切的 `internal/ui`（約三萬行，含測試）整個刪掉。
 
 - `app.go`：`Data`（main 載入的檔案與寫回的函式）、三個畫面、啟動時讀不了的檔（MOVE ASIDE）、statusbar（傳輸進度、活著的 session 數，各自固定寬度）、chip 列下的進度條、離開流程（有 session 或傳輸時才先問，並說出會失去什麼）、兩本紀錄與 App Log 的寫入。
 - `manage.go` 與各節的檔（`hosts.go`、`creds.go`、`sshcfg.go`、`known.go`、`journals.go`）：Manage 畫面。
@@ -161,7 +161,9 @@ Go、[terminu-go](https://github.com/vulcanshen/terminu-go)（建在 Bubble Tea 
 
 ## 發布
 
-照 tdp project 的「發布」：`make check` → CHANGELOG 的 `## Unreleased` 改成 `## vX.Y.Z — tdp vA.B.C` → commit、打 tag → push commit 與 tag，`release.yml` 跑測試、goreleaser 發 release 並推 Homebrew tap `vulcanshen/homebrew-tap`，再用 CHANGELOG 那一段蓋過 release 的內文。版本號與發版時機由 user 定。
+照 tdp project 的「發布」：`make check` → CHANGELOG 的 `## Unreleased` 改成 `## vX.Y.Z — tdp vA.B.C` → commit → 打 tag、push commit 與 tag，`release.yml` 跑測試、goreleaser 發 release 並推 Homebrew tap `vulcanshen/homebrew-tap`，再用 CHANGELOG 那一段蓋過 release 的內文。版本號與發版時機由 user 定；2026-10-27 起 sshu 只做到 commit，打 tag、push、發版由 terminu 在 user 下令後做。
+
+**beta**（tdp project.6、project.7）：tag 是 `vX.Y.Z-beta.N`，CHANGELOG 的標題也是（`## v3.0.1-beta.1 — tdp v1.1.0-beta.2`）。goreleaser 把它發成 GitHub 的 pre-release、不推 tap（`prerelease: auto`、`skip_upload: auto`），brew 與 `install.sh` 照舊拿最新的正式版。之後的正式版寫從上一個正式版以來的全部改動，beta 的也算進去。
 
 踩過的坑：
 
@@ -171,4 +173,5 @@ Go、[terminu-go](https://github.com/vulcanshen/terminu-go)（建在 Bubble Tea 
 - **macOS runner 在 `-race` 下慢**：等子行程的測試要給到 10 秒；release job 在測試紅了時是 skipped，`gh run rerun <id> --failed` 重跑就好，不用重打 tag。
 - **撤回一版要連 tap 一起 revert**，不然 `brew install` 404。
 - **驗證**：tap 的 formula 在 repo 根目錄（`sshu.rb`）；用 API 讀（raw 有 CDN 快取）；sha256 對三方（自己算、`checksums.txt`、formula）；煙霧測試是 `sshu version`。
+- **`go version -m` 的版本不是 tag**：module path 是 `github.com/vulcanshen/sshu`，沒有 `/v3`，Go 只認得 v0、v1 的 tag，所以執行檔的 build info 寫的是 pseudo-version（v3.0.0 的是 `v1.7.2-0.20261027094627-9a0ace964f76+dirty`）。`sshu version` 照 goreleaser 的 ldflags 印 tag，不受影響。`+dirty` 是另一件事：release notes 寫在 checkout 裡，tdp v1.1.0-beta.2 改寫到 `$RUNNER_TEMP`。
 - tdp v0.7.0 以前發的版本，CHANGELOG 的標題照當時的寫法（`## [2.0.0] — 2026-10-06`），不改。

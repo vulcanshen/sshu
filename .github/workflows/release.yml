@@ -42,7 +42,9 @@ jobs:
           go-version-file: go.mod
       - name: Extract release notes from CHANGELOG
         run: |
-          # tag v0.1.0 -> the section under "## v0.1.0 — tdp …", up to the next "## "
+          # tag v0.1.0 -> the section under "## v0.1.0 — tdp …", up to the next "## ".
+          # Written outside the checkout: a file in it leaves the tree dirty,
+          # and Go stamps the binaries' build info vX.Y.Z+dirty.
           awk -v tag="$GITHUB_REF_NAME" '
             /^## / {
               if (found) exit
@@ -50,12 +52,12 @@ jobs:
               next
             }
             found { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          cat RELEASE_NOTES.md
+          ' CHANGELOG.md > "$RUNNER_TEMP/RELEASE_NOTES.md"
+          cat "$RUNNER_TEMP/RELEASE_NOTES.md"
       - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
-          args: release --clean --skip=validate --release-notes RELEASE_NOTES.md
+          args: release --clean --release-notes ${{ runner.temp }}/RELEASE_NOTES.md
         env:
           # goreleaser reads GITHUB_TOKEN for the release and for the tap
           # (and the bucket). The built-in token cannot write to those
@@ -71,12 +73,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ ! -s RELEASE_NOTES.md ]; then
+          if [ ! -s "$RUNNER_TEMP/RELEASE_NOTES.md" ]; then
             echo "RELEASE_NOTES.md is empty — skipping body override"
             exit 0
           fi
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release edit "${GITHUB_REF_NAME}" --notes-file RELEASE_NOTES.md
+            gh release edit "${GITHUB_REF_NAME}" --notes-file "$RUNNER_TEMP/RELEASE_NOTES.md"
           else
             echo "release ${GITHUB_REF_NAME} does not exist yet — skipping body override"
           fi
