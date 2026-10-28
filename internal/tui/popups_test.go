@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // Every kind of popup sshu opens, over sshu's own screens, keeps every row

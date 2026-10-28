@@ -10,7 +10,7 @@ import (
 
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // sshu runs the real ssh, so ~/.ssh/config, ProxyJump, the agent and host

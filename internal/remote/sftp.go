@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // sftpFS is a host reached over SFTP.

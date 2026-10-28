@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // fakeSSH answers handshakes on localhost with a throwaway ed25519 host key.

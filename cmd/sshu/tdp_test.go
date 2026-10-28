@@ -10,7 +10,7 @@ import (
 	terminu "github.com/vulcanshen/terminu-go"
 	"github.com/vulcanshen/terminu-go/tdptest"
 
-	"github.com/vulcanshen/sshu/internal/tui"
+	"github.com/vulcanshen/sshu/v3/internal/tui"
 )
 
 // newApp is sshu as main makes it, all but Run: its files where HOME and the

@@ -17,8 +17,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/store"
-	"github.com/vulcanshen/sshu/internal/version"
+	"github.com/vulcanshen/sshu/v3/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/version"
 )
 
 // Data is what sshu keeps and how each part is written back. main loads it;

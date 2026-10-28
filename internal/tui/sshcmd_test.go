@@ -10,7 +10,7 @@ import (
 
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // The two ends of the relay agree: a prompt goes in one side, the answer

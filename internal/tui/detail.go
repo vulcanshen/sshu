@@ -6,7 +6,7 @@ import (
 
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // A host, a credential, a ~/.ssh/config block or a known_hosts key, written

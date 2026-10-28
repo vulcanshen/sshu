@@ -18,7 +18,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/remote"
+	"github.com/vulcanshen/sshu/v3/internal/remote"
 )
 
 // What a side can do to the files themselves: rename, add, delete, search,

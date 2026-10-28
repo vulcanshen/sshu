@@ -2,6 +2,19 @@
 
 Each release names the version of terminu design (tdp) it follows.
 
+## v3.0.1-beta.2 — tdp v1.1.0-beta.3
+
+A beta: GitHub marks it as a pre-release, and Homebrew and the install script
+stay on v3.0.0.
+
+- The Go module is `github.com/vulcanshen/sshu/v3`, as Go wants from v2 on, so
+  the path to install from source is
+  `go install github.com/vulcanshen/sshu/v3/cmd/sshu@latest`; the old path
+  only ever found the v1 releases. The binaries' build information now
+  carries the release's version too (tdp project.3).
+- sshu is built on terminu-go v1.1.0-beta.3 and follows tdp v1.1.0-beta.3.
+  Nothing you see or press changes.
+
 ## v3.0.1-beta.1 — tdp v1.1.0-beta.2
 
 A beta: GitHub marks it as a pre-release, and Homebrew and the install script

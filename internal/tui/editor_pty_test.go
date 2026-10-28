@@ -11,7 +11,7 @@ import (
 
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // Edit file on a Host block's form opens the file in $EDITOR on the Host's

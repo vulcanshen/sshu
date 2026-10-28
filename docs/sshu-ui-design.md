@@ -7557,6 +7557,16 @@ lib 的第三批發版，等 lib 的定案這一輪做完；go.mod 只升這一�
   也拿掉 `--skip=validate`。sshu 自己的只有 `# app:` 那幾行（formula 的說明與 caveats），照舊。
 - **CHANGELOG** 的 `## Unreleased` 改成 `## v3.0.1-beta.1 — tdp v1.1.0-beta.2`（tdp project.6），就是 pre-release 的內文。
 
+### 12.21 發 v3.0.1-beta.2：module path 帶 `/v3`（2026-10-28）
+
+- **beta.1 的發版流程是好的**：pre-release、tap 沒動、build info 沒有 `+dirty`；但版本還是 pseudo-version，因為 module path
+  沒有 `/v3`，Go 不把 v2 以上的 tag 當成這個 module 的版本，舊路徑的 `go install …@latest` 也只找得到 v1。
+- **改成 `github.com/vulcanshen/sshu/v3`**（user 2026-10-28 選 A，寫進 tdp v1.1.0-beta.3 的 project.3）：import 一起改；
+  goreleaser 的 ldflags 照範本改用 `{{ .ModulePath }}`，每個 app 一樣。否決：由 tdp 讓 v2 以上的 app 用 pseudo-version 也算過
+  —— 那樣 `go install` 永遠裝不到新版。lib 升到 terminu-go v1.1.0-beta.3，它的 tdptest 比對 CHANGELOG 的大版號與
+  module path。
+- **`internal/version/version.go` 的註解**還寫著沒有 `/v3` 的 `-X` 路徑：那是 tdp 的範本原文，tdptest 逐字比對，照抄不改。
+
 ## 附錄 — 按鍵全表(v1.4.2 + Config / KnownHosts 面板;改用 terminu-go 以前,現在的鍵見 README)
 
 ### Tab 與 panel

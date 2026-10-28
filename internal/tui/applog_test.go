@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vulcanshen/terminu-go/tdptest"
 
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 func screenOf(d *tdptest.Driver) string { return strings.Join(d.Screen(), "\n") }

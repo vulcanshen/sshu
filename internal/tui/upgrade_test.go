@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vulcanshen/sshu/internal/remote"
-	"github.com/vulcanshen/sshu/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/remote"
+	"github.com/vulcanshen/sshu/v3/internal/store"
 )
 
 // Esc on what ssh asked answers ssh no, so ssh gives up instead of waiting

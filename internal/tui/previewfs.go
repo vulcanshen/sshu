@@ -8,7 +8,7 @@ import (
 
 	terminu "github.com/vulcanshen/terminu-go"
 
-	"github.com/vulcanshen/sshu/internal/remote"
+	"github.com/vulcanshen/sshu/v3/internal/remote"
 )
 
 // previewFS is a side's file system as the lib's file preview reads it

@@ -15,8 +15,9 @@ builds:
       - -trimpath
     ldflags:
       # internal/version.Version takes the tag without its v; the app prints
-      # it with the v (internal/version.Display).
-      - -s -w -X github.com/vulcanshen/sshu/internal/version.Version={{.Version}}
+      # it with the v (internal/version.Display). ModulePath is go.mod's
+      # module, its /vN included from v2 on.
+      - -s -w -X {{ .ModulePath }}/internal/version.Version={{.Version}}
     goos:
       # unix-first: no Windows build unless the app needs one.
       - linux

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/vulcanshen/sshu/internal/store"
-	"github.com/vulcanshen/sshu/internal/tui"
-	"github.com/vulcanshen/sshu/internal/version"
+	"github.com/vulcanshen/sshu/v3/internal/store"
+	"github.com/vulcanshen/sshu/v3/internal/tui"
+	"github.com/vulcanshen/sshu/v3/internal/version"
 )
 
 const usage = `sshu — an ssh and sftp front end for the terminal
